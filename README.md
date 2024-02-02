@@ -13,16 +13,28 @@ A cada nova mensagem recebida em um WhatsApp associado, um novo Ticket é criado
 🚀 Se um contato enviar uma nova mensagem em menos de 10s (pode ser alterado nas configurações) de intervalo e não houver nenhum ticket desse contato com status pendente/aberto , o ticket fechado mais recente será reaberto, em vez de criar um novo.
 
 🚀 Recursos
-Tenha vários usuários conversando no mesmo número do WhatsApp ✅
-Conecte-se a várias contas do WhatsApp e receba todas as mensagens em um só lugar ✅
-Crie e converse com novos contatos sem tocar no celular ✅
-Enviar e receber mensagem ✅
-Enviar mídia (imagens/áudio/documentos) ✅
-Receber mídia (imagens/áudio/vídeo/documentos) ✅
+
+✅ Tenha vários usuários conversando no mesmo número do WhatsApp 
+
+✅ Conecte-se a várias contas do WhatsApp e receba todas as mensagens em um só lugar
+
+✅ Crie e converse com novos contatos sem tocar no celular
+
+✅ Enviar e receber mensagem
+
+✅ Enviar mídia (imagens/áudio/documentos) 
+
+✅ Receber mídia (imagens/áudio/vídeo/documentos) 
+
 🥷 Extras:
-Ignore mensagens de grupos ✅🆕
-Altere tempo para criação de um novo ticket ✅🆕
-Ignore chamadas de áudio/vídeo ✅🆕
-Associe uma conexão padrão ao usuário ✅🆕
+
+✅🆕 Ignore mensagens de grupos 
+
+✅🆕 Altere tempo para criação de um novo ticket 
+
+✅🆕 Ignore chamadas de áudio/vídeo 
+
+✅🆕 Associe uma conexão padrão ao usuário 
+
 Transferência de tickets para outra conexão ✅🆕
 Mais em Grupo AutoAtende 🥷 🥷 | autoatende.com| AutoAtende Todos os direitos reservados a seus respectivos criadores. ❤️ - GP AutoAtende 🥷
