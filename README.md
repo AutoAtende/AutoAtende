@@ -25,4 +25,4 @@ Altere tempo para criação de um novo ticket ✅🆕
 Ignore chamadas de áudio/vídeo ✅🆕
 Associe uma conexão padrão ao usuário ✅🆕
 Transferência de tickets para outra conexão ✅🆕
-Mais em Grupo AutoAtende 🥷 🥷 | autoatende.com | AutoAtende Todos os direitos reservados a seus respectivos criadores. ❤️ - GP AutoAtende 🥷
+Mais em Grupo AutoAtende 🥷 🥷 | autoatende.com| AutoAtende Todos os direitos reservados a seus respectivos criadores. ❤️ - GP AutoAtende 🥷
