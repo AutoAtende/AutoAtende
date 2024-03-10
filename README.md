@@ -37,8 +37,3 @@ A cada nova mensagem recebida em um WhatsApp associado, um novo Ticket é criado
 ✅🆕 Associe uma conexão padrão ao usuário 
 
 ✅🆕 Transferência de tickets para outra conexão
-
-🥷 🥷 Mais em Grupo AutoAtende
-
-
-autoatende.com| AutoAtende Todos os direitos reservados a seus respectivos criadores. ❤️ - GP AutoAtende 🥷
