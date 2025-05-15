@@ -1,0 +1,2489 @@
+{
+  "swagger": "2.0",
+  "info": {
+    "version": "1.0.0",
+    "title": "Documentação de API",
+    "description": "Documentação da API para o sistema, uma plataforma SaaS para automação de atendimento."
+  },
+  "host": "server.autoatende.com",
+  "basePath": "/",
+  "schemes": [
+    "https"
+  ],
+  "securityDefinitions": {
+    "Bearer": {
+      "type": "apiKey",
+      "name": "Authorization",
+      "in": "header",
+      "description": "Token JWT de autenticação. Use o formato 'Bearer {token}'"
+    }
+  },
+  "security": [
+    {
+      "Bearer": []
+    }
+  ],
+  "paths": {
+    "/api/v1/messages/send": {
+      "post": {
+        "summary": "Enviar mensagem de texto",
+        "description": "Envia uma mensagem de texto para um número de WhatsApp. Pode incluir arquivos de mídia.",
+        "consumes": [
+          "multipart/form-data"
+        ],
+        "parameters": [
+          {
+            "name": "number",
+            "in": "formData",
+            "description": "Número do destinatário (incluindo o código do país e DDD, sem caracteres especiais)",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "body",
+            "in": "formData",
+            "description": "Conteúdo da mensagem",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "queueId",
+            "in": "formData",
+            "description": "ID da fila para associar o ticket",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "name": "status",
+            "in": "formData",
+            "description": "Status desejado para o ticket após envio (open, pending ou closed)",
+            "required": false,
+            "type": "string",
+            "default": "closed"
+          },
+          {
+            "name": "medias",
+            "in": "formData",
+            "description": "Arquivos de mídia para enviar (opcional)",
+            "required": false,
+            "type": "file"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Mensagem enviada com sucesso",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "status": {
+                  "type": "string",
+                  "example": "SUCCESS"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Não autorizado - Token inválido ou ausente"
+          },
+          "500": {
+            "description": "Erro do servidor"
+          }
+        }
+      }
+    },
+    "/api/v1/messages/send/linkPdf": {
+      "post": {
+        "summary": "Enviar um link para um PDF",
+        "description": "Envia uma mensagem com um link para um arquivo PDF",
+        "consumes": [
+          "application/json"
+        ],
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "description": "Dados da mensagem",
+            "required": true,
+            "schema": {
+              "type": "object",
+              "required": [
+                "number",
+                "url"
+              ],
+              "properties": {
+                "number": {
+                  "type": "string",
+                  "description": "Número do destinatário (incluindo o código do país e DDD, sem caracteres especiais)"
+                },
+                "url": {
+                  "type": "string",
+                  "description": "URL do PDF a ser enviado"
+                },
+                "pdfLink": {
+                  "type": "string",
+                  "description": "URL alternativa do PDF a ser enviado (usar se 'url' não for fornecido)"
+                },
+                "caption": {
+                  "type": "string",
+                  "description": "Legenda para enviar junto com o link"
+                },
+                "body": {
+                  "type": "string",
+                  "description": "Conteúdo da mensagem (usar se 'caption' não for fornecido)"
+                },
+                "msdelay": {
+                  "type": "integer",
+                  "description": "Atraso em milissegundos antes de enviar a mensagem"
+                },
+                "queueId": {
+                  "type": "string",
+                  "description": "ID da fila para associar o ticket"
+                },
+                "status": {
+                  "type": "string",
+                  "description": "Status desejado para o ticket após envio (open, pending ou closed)",
+                  "default": "closed"
+                }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Link para PDF enviado com sucesso",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "status": {
+                  "type": "string",
+                  "example": "SUCCESS"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Não autorizado - Token inválido ou ausente"
+          },
+          "500": {
+            "description": "Erro do servidor"
+          }
+        }
+      }
+    },
+    "/api/v1/messages/send/linkImage": {
+      "post": {
+        "summary": "Enviar um link para uma imagem",
+        "description": "Envia uma mensagem com um link para uma imagem",
+        "consumes": [
+          "application/json"
+        ],
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "description": "Dados da mensagem",
+            "required": true,
+            "schema": {
+              "type": "object",
+              "required": [
+                "number",
+                "url"
+              ],
+              "properties": {
+                "number": {
+                  "type": "string",
+                  "description": "Número do destinatário (incluindo o código do país e DDD, sem caracteres especiais)"
+                },
+                "url": {
+                  "type": "string",
+                  "description": "URL da imagem a ser enviada"
+                },
+                "imageLink": {
+                  "type": "string",
+                  "description": "URL alternativa da imagem a ser enviada (usar se 'url' não for fornecido)"
+                },
+                "caption": {
+                  "type": "string",
+                  "description": "Legenda para enviar junto com a imagem"
+                },
+                "body": {
+                  "type": "string",
+                  "description": "Conteúdo da mensagem (usar se 'caption' não for fornecido)"
+                },
+                "msdelay": {
+                  "type": "integer",
+                  "description": "Atraso em milissegundos antes de enviar a mensagem"
+                },
+                "queueId": {
+                  "type": "string",
+                  "description": "ID da fila para associar o ticket"
+                },
+                "status": {
+                  "type": "string",
+                  "description": "Status desejado para o ticket após envio (open, pending ou closed)",
+                  "default": "closed"
+                }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Link para imagem enviado com sucesso",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "status": {
+                  "type": "string",
+                  "example": "SUCCESS"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Não autorizado - Token inválido ou ausente"
+          },
+          "500": {
+            "description": "Erro do servidor"
+          }
+        }
+      }
+    },
+    "/api/v1/messages/checkNumber": {
+      "post": {
+        "summary": "Verificar a validade de um número",
+        "description": "Verifica se um número é válido e está registrado no WhatsApp",
+        "consumes": [
+          "application/json"
+        ],
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "description": "Dados do contato",
+            "required": true,
+            "schema": {
+              "type": "object",
+              "required": [
+                "number"
+              ],
+              "properties": {
+                "number": {
+                  "type": "string",
+                  "description": "Número a ser verificado (incluindo o código do país e DDD, sem caracteres especiais)"
+                }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Número verificado com sucesso",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "existsInWhatsapp": {
+                  "type": "boolean",
+                  "example": true
+                },
+                "number": {
+                  "type": "string",
+                  "example": "5511999999999"
+                },
+                "numberFormatted": {
+                  "type": "string",
+                  "example": "5511999999999@s.whatsapp.net"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Número inválido ou não encontrado no WhatsApp",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "existsInWhatsapp": {
+                  "type": "boolean",
+                  "example": false
+                },
+                "number": {
+                  "type": "string",
+                  "example": "5511999999999@s.whatsapp.net"
+                },
+                "error": {
+                  "type": "string",
+                  "example": "Not exists on Whatsapp"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Não autorizado - Token inválido ou ausente"
+          },
+          "500": {
+            "description": "Erro do servidor"
+          }
+        }
+      }
+    },
+    "/api/v1/messages/internal": {
+      "post": {
+        "summary": "Criar mensagem interna em um ticket",
+        "description": "Cria uma mensagem interna em um ticket existente sem enviar ao WhatsApp",
+        "consumes": [
+          "multipart/form-data"
+        ],
+        "parameters": [
+          {
+            "name": "ticketId",
+            "in": "formData",
+            "description": "ID do ticket onde a mensagem será adicionada",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "body",
+            "in": "formData",
+            "description": "Conteúdo da mensagem interna",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "quotedMsg",
+            "in": "formData",
+            "description": "ID da mensagem que está sendo respondida/citada (opcional)",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "name": "medias",
+            "in": "formData",
+            "description": "Arquivos de mídia para anexar (opcional)",
+            "required": false,
+            "type": "file"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Mensagem interna criada com sucesso",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "status": {
+                  "type": "string",
+                  "example": "SUCCESS"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Não autorizado - Token inválido ou ausente"
+          },
+          "500": {
+            "description": "Erro do servidor"
+          }
+        }
+      }
+    },
+    "/api/v1/ticket/QueueUpdate/{ticketId}": {
+      "post": {
+        "summary": "Atualizar a fila de um ticket",
+        "description": "Atualiza a fila associada a um ticket específico",
+        "consumes": [
+          "application/json"
+        ],
+        "parameters": [
+          {
+            "name": "ticketId",
+            "in": "path",
+            "description": "ID do ticket a ser atualizado",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "body",
+            "in": "body",
+            "description": "Dados da atualização",
+            "required": true,
+            "schema": {
+              "type": "object",
+              "required": [
+                "queueId"
+              ],
+              "properties": {
+                "queueId": {
+                  "type": "string",
+                  "description": "ID da nova fila para o ticket"
+                }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Fila do ticket atualizada com sucesso",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "status": {
+                  "type": "string",
+                  "example": "SUCCESS"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Fila inválida ou não pertence à empresa"
+          },
+          "401": {
+            "description": "Não autorizado - Token inválido ou ausente"
+          },
+          "500": {
+            "description": "Erro do servidor"
+          }
+        }
+      }
+    },
+    "/api/v1/ticket/close": {
+      "post": {
+        "summary": "Fechar um ticket",
+        "description": "Altera o status de um ticket para 'fechado'",
+        "consumes": [
+          "application/json"
+        ],
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "description": "Dados do ticket",
+            "required": true,
+            "schema": {
+              "type": "object",
+              "properties": {
+                "ticketId": {
+                  "type": "string",
+                  "description": "ID do ticket a ser fechado"
+                },
+                "ticketData": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "description": "Status desejado para o ticket (geralmente 'closed')",
+                      "default": "closed"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Ticket fechado com sucesso",
+            "schema": {
+              "type": "string",
+              "example": "Ticket closed"
+            }
+          },
+          "401": {
+            "description": "Não autorizado - Token inválido ou ausente"
+          },
+          "500": {
+            "description": "Erro do servidor"
+          }
+        }
+      }
+    },
+    "/api/v1/ticket/TagUpdate": {
+      "post": {
+        "summary": "Adicionar TAG em um ticket",
+        "description": "Associa uma tag específica a um ticket",
+        "consumes": [
+          "application/json"
+        ],
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "description": "Dados da atualização",
+            "required": true,
+            "schema": {
+              "type": "object",
+              "required": [
+                "ticketId",
+                "tagId"
+              ],
+              "properties": {
+                "ticketId": {
+                  "type": "string",
+                  "description": "ID do ticket a ser atualizado"
+                },
+                "tagId": {
+                  "type": "string",
+                  "description": "ID da TAG a ser adicionada ao ticket"
+                }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "TAG adicionada ao ticket com sucesso",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "status": {
+                  "type": "string",
+                  "example": "SUCCESS"
+                },
+                "ticketTag": {
+                  "type": "object",
+                  "properties": {
+                    "ticketId": {
+                      "type": "number"
+                    },
+                    "tagId": {
+                      "type": "number"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Tag inválida ou já associada ao ticket"
+          },
+          "401": {
+            "description": "Não autorizado - Token inválido ou ausente"
+          },
+          "500": {
+            "description": "Erro do servidor"
+          }
+        }
+      }
+    },
+    "/api/v1/ticket/TagRemove": {
+      "delete": {
+        "summary": "Remover uma tag de um ticket",
+        "description": "Remove a associação entre uma tag e um ticket",
+        "consumes": [
+          "application/json"
+        ],
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "description": "Dados da remoção",
+            "required": true,
+            "schema": {
+              "type": "object",
+              "required": [
+                "ticketId",
+                "tagId"
+              ],
+              "properties": {
+                "ticketId": {
+                  "type": "string",
+                  "description": "ID do ticket do qual a tag será removida"
+                },
+                "tagId": {
+                  "type": "string",
+                  "description": "ID da tag a ser removida"
+                }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Tag removida do ticket com sucesso",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "status": {
+                  "type": "string",
+                  "example": "SUCCESS"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Tag não está associada ao ticket"
+          },
+          "401": {
+            "description": "Não autorizado - Token inválido ou ausente"
+          },
+          "500": {
+            "description": "Erro do servidor"
+          }
+        }
+      }
+    },
+    "/api/v1/ticket/ListTickets": {
+      "post": {
+        "summary": "Listar todos os tickets de uma empresa",
+        "description": "Retorna a lista de tickets associados à empresa do token",
+        "consumes": [
+          "application/json"
+        ],
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "description": "Parâmetros opcionais",
+            "required": false,
+            "schema": {
+              "type": "object",
+              "properties": {
+                "companyId": {
+                  "type": "string",
+                  "description": "ID da empresa (opcional, será obtido do token se não informado)"
+                }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Tickets listados com sucesso",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "tickets": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "id": {
+                        "type": "number"
+                      },
+                      "status": {
+                        "type": "string"
+                      },
+                      "lastMessage": {
+                        "type": "string"
+                      },
+                      "contactId": {
+                        "type": "number"
+                      },
+                      "userId": {
+                        "type": "number"
+                      },
+                      "queueId": {
+                        "type": "number"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Não autorizado - Token inválido ou ausente"
+          },
+          "500": {
+            "description": "Erro do servidor"
+          }
+        }
+      }
+    },
+    "/api/v1/ticket/ListByTag": {
+      "post": {
+        "summary": "Listar tickets filtrados por uma ID de tag específica",
+        "description": "Retorna os tickets que possuem uma determinada tag",
+        "consumes": [
+          "application/json"
+        ],
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "description": "Dados da consulta",
+            "required": true,
+            "schema": {
+              "type": "object",
+              "required": [
+                "tagId"
+              ],
+              "properties": {
+                "tagId": {
+                  "type": "string",
+                  "description": "ID da tag para filtrar os tickets"
+                }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Tickets listados com sucesso",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "status": {
+                  "type": "string",
+                  "example": "SUCCESS"
+                },
+                "tickets": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "id": {
+                        "type": "number"
+                      },
+                      "status": {
+                        "type": "string"
+                      },
+                      "tags": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "id": {
+                              "type": "number"
+                            },
+                            "name": {
+                              "type": "string"
+                            }
+                          }
+                        }
+                      },
+                      "contact": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "number"
+                          },
+                          "name": {
+                            "type": "string"
+                          },
+                          "number": {
+                            "type": "string"
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Tag inválida ou não pertence à empresa"
+          },
+          "401": {
+            "description": "Não autorizado - Token inválido ou ausente"
+          },
+          "500": {
+            "description": "Erro do servidor"
+          }
+        }
+      }
+    },
+    "/api/v1/ticket/create": {
+      "post": {
+        "summary": "Criar um novo ticket",
+        "description": "Cria um novo ticket associado a um contato",
+        "consumes": [
+          "application/json"
+        ],
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "description": "Dados do ticket",
+            "required": true,
+            "schema": {
+              "type": "object",
+              "required": [
+                "contactId"
+              ],
+              "properties": {
+                "contactId": {
+                  "type": "string",
+                  "description": "ID do contato para associar ao ticket"
+                },
+                "status": {
+                  "type": "string",
+                  "description": "Status inicial do ticket (open, pending, closed)",
+                  "default": "open"
+                },
+                "userId": {
+                  "type": "string",
+                  "description": "ID do usuário responsável pelo ticket (opcional)"
+                },
+                "queueId": {
+                  "type": "string",
+                  "description": "ID da fila para associar ao ticket (opcional)"
+                },
+                "whatsappId": {
+                  "type": "string",
+                  "description": "ID do WhatsApp a ser usado (opcional)"
+                }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Ticket criado com sucesso",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "number"
+                },
+                "uuid": {
+                  "type": "string"
+                },
+                "contactId": {
+                  "type": "number"
+                },
+                "status": {
+                  "type": "string"
+                },
+                "userId": {
+                  "type": "number"
+                },
+                "queueId": {
+                  "type": "number"
+                },
+                "companyId": {
+                  "type": "number"
+                },
+                "whatsappId": {
+                  "type": "number"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Não autorizado - Token inválido ou ausente"
+          },
+          "500": {
+            "description": "Erro do servidor",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "description": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/ticket/createPBX": {
+      "post": {
+        "summary": "Criar um ticket interno a partir de dados do PBX",
+        "description": "Cria um ticket interno com base em informações de uma chamada telefônica. Se o contato não existir, cria um novo contato automaticamente.",
+        "consumes": [
+          "multipart/form-data"
+        ],
+        "parameters": [
+          {
+            "name": "phoneNumber",
+            "in": "formData",
+            "description": "Número de telefone do contato",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "status",
+            "in": "formData",
+            "description": "Status inicial do ticket (open, pending, closed)",
+            "required": false,
+            "type": "string",
+            "default": "closed"
+          },
+          {
+            "name": "ramal",
+            "in": "formData",
+            "description": "Número do ramal que atendeu/originou a chamada",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "name": "idFilaPBX",
+            "in": "formData",
+            "description": "ID da fila no sistema PBX",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "name": "message",
+            "in": "formData",
+            "description": "Mensagem interna para adicionar ao ticket",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "name": "contactName",
+            "in": "formData",
+            "description": "Nome do contato (usado se o contato não existir)",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "name": "medias",
+            "in": "formData",
+            "description": "Arquivos de mídia para adicionar ao ticket",
+            "required": false,
+            "type": "file"
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Ticket PBX criado com sucesso",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "number"
+                },
+                "uuid": {
+                  "type": "string"
+                },
+                "contactId": {
+                  "type": "number"
+                },
+                "contactName": {
+                  "type": "string"
+                },
+                "contactNumber": {
+                  "type": "string"
+                },
+                "contactCreated": {
+                  "type": "boolean"
+                },
+                "isPBX": {
+                  "type": "boolean"
+                },
+                "status": {
+                  "type": "string"
+                },
+                "userId": {
+                  "type": "number"
+                },
+                "queueId": {
+                  "type": "number"
+                },
+                "companyId": {
+                  "type": "number"
+                },
+                "mediaInfo": {
+                  "type": "object",
+                  "properties": {
+                    "filename": {
+                      "type": "string"
+                    },
+                    "mimetype": {
+                      "type": "string"
+                    },
+                    "size": {
+                      "type": "number"
+                    }
+                  }
+                },
+                "hasMessage": {
+                  "type": "boolean"
+                },
+                "messageType": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Parâmetros inválidos ou faltando"
+          },
+          "401": {
+            "description": "Não autorizado - Token inválido ou ausente"
+          },
+          "500": {
+            "description": "Erro do servidor",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "error": {
+                  "type": "string"
+                },
+                "description": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/ticket/history": {
+      "post": {
+        "summary": "Obter histórico de tickets com mensagens",
+        "description": "Retorna os tickets com suas mensagens dentro de um intervalo de datas, opcionalmente filtrando por número de contato",
+        "consumes": [
+          "application/json"
+        ],
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "description": "Parâmetros de consulta",
+            "required": true,
+            "schema": {
+              "type": "object",
+              "required": [
+                "startDate",
+                "endDate"
+              ],
+              "properties": {
+                "startDate": {
+                  "type": "string",
+                  "format": "date",
+                  "description": "Data inicial (YYYY-MM-DD)"
+                },
+                "endDate": {
+                  "type": "string",
+                  "format": "date",
+                  "description": "Data final (YYYY-MM-DD)"
+                },
+                "contactNumber": {
+                  "type": "string",
+                  "description": "Número do contato para filtrar (opcional)"
+                }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Histórico de tickets obtido com sucesso",
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "ticket": {
+                    "type": "object",
+                    "properties": {
+                      "id": {
+                        "type": "number"
+                      },
+                      "status": {
+                        "type": "string"
+                      },
+                      "createdAt": {
+                        "type": "string",
+                        "format": "date-time"
+                      },
+                      "contact": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "number"
+                          },
+                          "name": {
+                            "type": "string"
+                          },
+                          "number": {
+                            "type": "string"
+                          }
+                        }
+                      }
+                    }
+                  },
+                  "messages": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string"
+                        },
+                        "body": {
+                          "type": "string"
+                        },
+                        "fromMe": {
+                          "type": "boolean"
+                        },
+                        "mediaUrl": {
+                          "type": "string"
+                        },
+                        "mediaType": {
+                          "type": "string"
+                        },
+                        "createdAt": {
+                          "type": "string",
+                          "format": "date-time"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Parâmetros inválidos"
+          },
+          "401": {
+            "description": "Não autorizado - Token inválido ou ausente"
+          },
+          "500": {
+            "description": "Erro do servidor"
+          }
+        }
+      }
+    },
+    "/api/v1/invoices": {
+      "post": {
+        "summary": "Listar todas as faturas por empresa",
+        "description": "Retorna a lista de faturas associadas à empresa do token",
+        "consumes": [
+          "application/json"
+        ],
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "description": "Parâmetros opcionais",
+            "required": false,
+            "schema": {
+              "type": "object",
+              "properties": {
+                "companyId": {
+                  "type": "string",
+                  "description": "ID da empresa (opcional, será obtido do token se não informado)"
+                }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Faturas listadas com sucesso",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "invoices": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "id": {
+                        "type": "number"
+                      },
+                      "status": {
+                        "type": "string"
+                      },
+                      "dueDate": {
+                        "type": "string",
+                        "format": "date"
+                      },
+                      "value": {
+                        "type": "number"
+                      },
+                      "companyId": {
+                        "type": "number"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Não autorizado - Token inválido ou ausente"
+          },
+          "500": {
+            "description": "Erro do servidor"
+          }
+        }
+      }
+    },
+    "/api/v1/invoices/invoiceId": {
+      "post": {
+        "summary": "Obter detalhes de uma fatura específica por ID",
+        "description": "Retorna os detalhes de uma fatura específica",
+        "consumes": [
+          "application/json"
+        ],
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "description": "Dados da consulta",
+            "required": true,
+            "schema": {
+              "type": "object",
+              "required": [
+                "Invoiceid"
+              ],
+              "properties": {
+                "Invoiceid": {
+                  "type": "string",
+                  "description": "ID da fatura a ser exibida"
+                }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Detalhes da fatura obtidos com sucesso",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "number"
+                },
+                "status": {
+                  "type": "string"
+                },
+                "dueDate": {
+                  "type": "string",
+                  "format": "date"
+                },
+                "value": {
+                  "type": "number"
+                },
+                "companyId": {
+                  "type": "number"
+                },
+                "createdAt": {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                "updatedAt": {
+                  "type": "string",
+                  "format": "date-time"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Não autorizado - Token inválido ou ausente"
+          },
+          "500": {
+            "description": "Erro do servidor"
+          }
+        }
+      }
+    },
+    "/api/v1/contacts": {
+      "post": {
+        "summary": "Listar todos os contatos da empresa",
+        "description": "Retorna a lista de contatos associados à empresa do token",
+        "consumes": [
+          "application/json"
+        ],
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "description": "Parâmetros opcionais",
+            "required": false,
+            "schema": {
+              "type": "object",
+              "properties": {
+                "companyId": {
+                  "type": "string",
+                  "description": "ID da empresa (opcional, será obtido do token se não informado)"
+                }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Contatos listados com sucesso",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "contacts": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "id": {
+                        "type": "number"
+                      },
+                      "name": {
+                        "type": "string"
+                      },
+                      "number": {
+                        "type": "string"
+                      },
+                      "email": {
+                        "type": "string"
+                      },
+                      "profilePicUrl": {
+                        "type": "string"
+                      },
+                      "companyId": {
+                        "type": "number"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Não autorizado - Token inválido ou ausente"
+          },
+          "500": {
+            "description": "Erro do servidor"
+          }
+        }
+      }
+    },
+    "/api/v1/contacts/list": {
+      "post": {
+        "summary": "Listar contatos com paginação e pesquisa",
+        "description": "Retorna uma lista paginada de contatos com opção de filtro por termo de pesquisa",
+        "consumes": [
+          "application/json"
+        ],
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "description": "Parâmetros da consulta",
+            "required": true,
+            "schema": {
+              "type": "object",
+              "required": [
+                "searchParam",
+                "pageNumber"
+              ],
+              "properties": {
+                "companyId": {
+                  "type": "string",
+                  "description": "ID da empresa (opcional, será obtido do token se não informado)"
+                },
+                "searchParam": {
+                  "type": "string",
+                  "description": "Termo para pesquisa no nome ou número do contato"
+                },
+                "pageNumber": {
+                  "type": "string",
+                  "description": "Número da página para paginação"
+                }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Contatos listados com sucesso",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "contacts": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "id": {
+                        "type": "number"
+                      },
+                      "name": {
+                        "type": "string"
+                      },
+                      "number": {
+                        "type": "string"
+                      },
+                      "email": {
+                        "type": "string"
+                      }
+                    }
+                  }
+                },
+                "count": {
+                  "type": "number",
+                  "description": "Número total de contatos encontrados"
+                },
+                "hasMore": {
+                  "type": "boolean",
+                  "description": "Indica se existem mais páginas disponíveis"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Não autorizado - Token inválido ou ausente"
+          },
+          "500": {
+            "description": "Erro do servidor",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "error": {
+                  "type": "string",
+                  "example": "Error listing contacts"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/contacts/contactId": {
+      "post": {
+        "summary": "Mostrar detalhes de um contato por ID",
+        "description": "Retorna os detalhes de um contato específico",
+        "consumes": [
+          "application/json"
+        ],
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "description": "Dados da consulta",
+            "required": true,
+            "schema": {
+              "type": "object",
+              "required": [
+                "contactId",
+                "companyId"
+              ],
+              "properties": {
+                "contactId": {
+                  "type": "string",
+                  "description": "ID do contato a ser exibido"
+                },
+                "companyId": {
+                  "type": "string",
+                  "description": "ID da empresa (opcional, será obtido do token se não informado)"
+                }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Detalhes do contato obtidos com sucesso",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "number"
+                },
+                "name": {
+                  "type": "string"
+                },
+                "number": {
+                  "type": "string"
+                },
+                "email": {
+                  "type": "string"
+                },
+                "profilePicUrl": {
+                  "type": "string"
+                },
+                "extraInfo": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "id": {
+                        "type": "number"
+                      },
+                      "name": {
+                        "type": "string"
+                      },
+                      "value": {
+                        "type": "string"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Não autorizado - Token inválido ou ausente"
+          },
+          "500": {
+            "description": "Erro do servidor"
+          }
+        }
+      }
+    },
+    "/api/v1/contacts/findOrCreate": {
+      "post": {
+        "summary": "Encontrar um contato existente ou criar um novo",
+        "description": "Busca um contato pelo nome e número ou cria um novo caso não seja encontrado",
+        "consumes": [
+          "application/json"
+        ],
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "description": "Dados do contato",
+            "required": true,
+            "schema": {
+              "type": "object",
+              "required": [
+                "contactNumber",
+                "contactName"
+              ],
+              "properties": {
+                "contactNumber": {
+                  "type": "string",
+                  "description": "Número do contato com código do país e DDD, sem caracteres especiais"
+                },
+                "contactName": {
+                  "type": "string",
+                  "description": "Nome do contato"
+                }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Contato encontrado ou criado com sucesso",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "number"
+                },
+                "name": {
+                  "type": "string"
+                },
+                "number": {
+                  "type": "string"
+                },
+                "email": {
+                  "type": "string"
+                },
+                "profilePicUrl": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Não autorizado - Token inválido ou ausente"
+          },
+          "500": {
+            "description": "Erro do servidor"
+          }
+        }
+      }
+    },
+    "/api/v1/contacts/contactId": {
+      "put": {
+        "summary": "Atualizar um contato existente",
+        "description": "Atualiza os dados de um contato existente",
+        "consumes": [
+          "application/json"
+        ],
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "description": "Dados do contato a serem atualizados",
+            "required": true,
+            "schema": {
+              "type": "object",
+              "required": [
+                "contactId",
+                "contactName",
+                "companyId"
+              ],
+              "properties": {
+                "contactId": {
+                  "type": "string",
+                  "description": "ID do contato a ser atualizado"
+                },
+                "contactName": {
+                  "type": "string",
+                  "description": "Novo nome do contato"
+                },
+                "contactEmail": {
+                  "type": "string",
+                  "description": "Novo email do contato"
+                },
+                "companyId": {
+                  "type": "string",
+                  "description": "ID da empresa (opcional, será obtido do token se não informado)"
+                }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Contato atualizado com sucesso",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "number"
+                },
+                "name": {
+                  "type": "string"
+                },
+                "number": {
+                  "type": "string"
+                },
+                "email": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Não autorizado - Token inválido ou ausente"
+          },
+          "500": {
+            "description": "Erro do servidor"
+          }
+        }
+      }
+    },
+    "/api/v1/contacts/contactId/delete": {
+      "delete": {
+        "summary": "Remover um contato por ID",
+        "description": "Remove um contato específico da base de dados",
+        "consumes": [
+          "application/json"
+        ],
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "description": "Dados do contato a ser removido",
+            "required": true,
+            "schema": {
+              "type": "object",
+              "properties": {
+                "contactId": {
+                  "type": "string",
+                  "description": "ID do contato a ser removido"
+                }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Contato removido com sucesso",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "message": {
+                  "type": "string",
+                  "example": "Contact deleted"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Não autorizado - Token inválido ou ausente"
+          },
+          "500": {
+            "description": "Erro do servidor",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "error": {
+                  "type": "string",
+                  "example": "Error deleting contact"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/contacts/toggleDisableBot/contactId": {
+      "put": {
+        "summary": "Ativar ou desativar o bot para um contato específico",
+        "description": "Alterna o estado de ativação do bot para um contato",
+        "consumes": [
+          "application/json"
+        ],
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "description": "Dados do contato",
+            "required": true,
+            "schema": {
+              "type": "object",
+              "properties": {
+                "contactId": {
+                  "type": "string",
+                  "description": "ID do contato para ativar/desativar bot"
+                }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Status do bot atualizado com sucesso",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "number"
+                },
+                "name": {
+                  "type": "string"
+                },
+                "number": {
+                  "type": "string"
+                },
+                "disableBot": {
+                  "type": "boolean"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Não autorizado - Token inválido ou ausente"
+          },
+          "500": {
+            "description": "Erro do servidor"
+          }
+        }
+      }
+    },
+    "/api/v1/contacts/delete/all": {
+      "delete": {
+        "summary": "Remover todos os contatos da empresa",
+        "description": "Remove todos os contatos associados à empresa do token",
+        "consumes": [
+          "application/json"
+        ],
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "description": "Parâmetros opcionais",
+            "required": false,
+            "schema": {
+              "type": "object",
+              "properties": {
+                "companyId": {
+                  "type": "string",
+                  "description": "ID da empresa (opcional, será obtido do token se não informado)"
+                }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Todos os contatos removidos com sucesso"
+          },
+          "401": {
+            "description": "Não autorizado - Token inválido ou ausente"
+          },
+          "500": {
+            "description": "Erro do servidor",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "error": {
+                  "type": "string",
+                  "example": "Error deleting all contacts"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/contacts/upload": {
+      "post": {
+        "summary": "Enviar um arquivo com contatos para upload",
+        "description": "Importa contatos a partir de um arquivo Excel (XLS/XLSX) ou CSV",
+        "consumes": [
+          "multipart/form-data"
+        ],
+        "parameters": [
+          {
+            "name": "file",
+            "in": "formData",
+            "description": "Arquivo de contatos para upload (XLS, XLSX ou CSV)",
+            "required": true,
+            "type": "file"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Arquivo de contatos importado com sucesso",
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string"
+                  },
+                  "number": {
+                    "type": "string"
+                  },
+                  "email": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Não autorizado - Token inválido ou ausente"
+          },
+          "500": {
+            "description": "Erro do servidor",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "error": {
+                  "type": "string",
+                  "example": "Error uploading contacts"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/company/new": {
+      "post": {
+        "summary": "Criar uma nova empresa",
+        "description": "Cria uma nova empresa com os dados fornecidos",
+        "consumes": [
+          "application/json"
+        ],
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "description": "Dados da nova empresa",
+            "required": true,
+            "schema": {
+              "type": "object",
+              "required": [
+                "name",
+                "email"
+              ],
+              "properties": {
+                "name": {
+                  "type": "string",
+                  "description": "Nome da empresa"
+                },
+                "email": {
+                  "type": "string",
+                  "description": "Email principal da empresa"
+                },
+                "phone": {
+                  "type": "string",
+                  "description": "Telefone de contato da empresa"
+                },
+                "status": {
+                  "type": "boolean",
+                  "description": "Status ativo/inativo da empresa",
+                  "default": true
+                }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Empresa criada com sucesso",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "message": {
+                  "type": "string",
+                  "example": "Empresa criada com sucesso"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Erro de validação",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "errors": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Não autorizado - Token inválido ou ausente"
+          },
+          "500": {
+            "description": "Erro do servidor"
+          }
+        }
+      }
+    },
+    "/api/v1/company/edit/{id}": {
+      "post": {
+        "summary": "Atualizar dados de uma empresa",
+        "description": "Atualiza os dados de uma empresa existente",
+        "consumes": [
+          "application/json"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "ID da empresa a ser atualizada",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "body",
+            "in": "body",
+            "description": "Dados da empresa a serem atualizados",
+            "required": true,
+            "schema": {
+              "type": "object",
+              "properties": {
+                "name": {
+                  "type": "string",
+                  "description": "Nome da empresa"
+                },
+                "email": {
+                  "type": "string",
+                  "description": "Email principal da empresa"
+                },
+                "phone": {
+                  "type": "string",
+                  "description": "Telefone de contato da empresa"
+                },
+                "status": {
+                  "type": "boolean",
+                  "description": "Status ativo/inativo da empresa"
+                }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Empresa atualizada com sucesso",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "number"
+                },
+                "name": {
+                  "type": "string"
+                },
+                "email": {
+                  "type": "string"
+                },
+                "phone": {
+                  "type": "string"
+                },
+                "status": {
+                  "type": "boolean"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Erro de validação",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "errors": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Não autorizado - Token inválido ou ausente"
+          },
+          "404": {
+            "description": "Empresa não encontrada",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "error": {
+                  "type": "string",
+                  "example": "Company not found"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Erro do servidor"
+          }
+        }
+      }
+    },
+    "/api/v1/company/block": {
+      "post": {
+        "summary": "Bloquear uma empresa",
+        "description": "Define o status de uma empresa como inativo (bloqueado)",
+        "consumes": [
+          "application/json"
+        ],
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "description": "Dados da empresa a ser bloqueada",
+            "required": true,
+            "schema": {
+              "type": "object",
+              "properties": {
+                "companyId": {
+                  "type": "string",
+                  "description": "ID da empresa a ser bloqueada"
+                }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Empresa bloqueada com sucesso",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "number"
+                },
+                "name": {
+                  "type": "string"
+                },
+                "email": {
+                  "type": "string"
+                },
+                "status": {
+                  "type": "boolean",
+                  "example": false
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Não autorizado - Token inválido ou ausente"
+          },
+          "404": {
+            "description": "Empresa não encontrada",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "error": {
+                  "type": "string",
+                  "example": "Company not found"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Erro do servidor"
+          }
+        }
+      }
+    },
+    "/api/v1/dashboard/overview": {
+      "post": {
+        "summary": "Obter visão geral do dashboard",
+        "description": "Retorna métricas e dados estatísticos para o dashboard",
+        "consumes": [
+          "application/json"
+        ],
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "description": "Parâmetros para obter os dados do dashboard",
+            "required": true,
+            "schema": {
+              "type": "object",
+              "required": [
+                "period",
+                "date"
+              ],
+              "properties": {
+                "period": {
+                  "type": "string",
+                  "description": "Período para análise ('day', 'week' ou 'month')",
+                  "enum": [
+                    "day",
+                    "week",
+                    "month"
+                  ]
+                },
+                "date": {
+                  "type": "string",
+                  "description": "Data de referência (YYYY-MM-DD)",
+                  "format": "date"
+                },
+                "userId": {
+                  "type": "number",
+                  "description": "ID do usuário para filtrar (opcional)"
+                },
+                "queueId": {
+                  "type": "number",
+                  "description": "ID da fila para filtrar (opcional)"
+                }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Dados do dashboard obtidos com sucesso",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "status": {
+                  "type": "string",
+                  "example": "SUCCESS"
+                },
+                "data": {
+                  "type": "object",
+                  "properties": {
+                    "tickets": {
+                      "type": "object",
+                      "properties": {
+                        "total": {
+                          "type": "number"
+                        },
+                        "open": {
+                          "type": "number"
+                        },
+                        "pending": {
+                          "type": "number"
+                        },
+                        "closed": {
+                          "type": "number"
+                        }
+                      }
+                    },
+                    "messages": {
+                      "type": "object",
+                      "properties": {
+                        "total": {
+                          "type": "number"
+                        },
+                        "received": {
+                          "type": "number"
+                        },
+                        "sent": {
+                          "type": "number"
+                        }
+                      }
+                    },
+                    "users": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "number"
+                          },
+                          "name": {
+                            "type": "string"
+                          },
+                          "tickets": {
+                            "type": "number"
+                          },
+                          "messages": {
+                            "type": "number"
+                          }
+                        }
+                      }
+                    },
+                    "queues": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "number"
+                          },
+                          "name": {
+                            "type": "string"
+                          },
+                          "tickets": {
+                            "type": "number"
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Erro de validação",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "status": {
+                  "type": "string",
+                  "example": "ERROR"
+                },
+                "message": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Não autorizado - Token inválido ou ausente"
+          },
+          "500": {
+            "description": "Erro interno do servidor",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "status": {
+                  "type": "string",
+                  "example": "ERROR"
+                },
+                "message": {
+                  "type": "string",
+                  "example": "Erro interno do servidor"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "definitions": {
+    "Contact": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "name": {
+          "type": "string"
+        },
+        "number": {
+          "type": "string"
+        },
+        "email": {
+          "type": "string"
+        },
+        "profilePicUrl": {
+          "type": "string"
+        },
+        "disableBot": {
+          "type": "boolean"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      }
+    },
+    "Ticket": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "uuid": {
+          "type": "string"
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "open",
+            "pending",
+            "closed"
+          ]
+        },
+        "unreadMessages": {
+          "type": "integer"
+        },
+        "lastMessage": {
+          "type": "string"
+        },
+        "contactId": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "userId": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "queueId": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "whatsappId": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "companyId": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      }
+    },
+    "Message": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "body": {
+          "type": "string"
+        },
+        "fromMe": {
+          "type": "boolean"
+        },
+        "read": {
+          "type": "boolean"
+        },
+        "mediaUrl": {
+          "type": "string"
+        },
+        "mediaType": {
+          "type": "string"
+        },
+        "ticketId": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      }
+    },
+    "Company": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "name": {
+          "type": "string"
+        },
+        "email": {
+          "type": "string"
+        },
+        "phone": {
+          "type": "string"
+        },
+        "status": {
+          "type": "boolean"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      }
+    },
+    "Invoice": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "pending",
+            "paid",
+            "canceled"
+          ]
+        },
+        "dueDate": {
+          "type": "string",
+          "format": "date"
+        },
+        "value": {
+          "type": "number",
+          "format": "float"
+        },
+        "companyId": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      }
+    },
+    "Error": {
+      "type": "object",
+      "properties": {
+        "status": {
+          "type": "string",
+          "example": "ERROR"
+        },
+        "message": {
+          "type": "string"
+        }
+      }
+    },
+    "Success": {
+      "type": "object",
+      "properties": {
+        "status": {
+          "type": "string",
+          "example": "SUCCESS"
+        }
+      }
+    }
+  }
+}

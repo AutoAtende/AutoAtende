@@ -1,0 +1,39 @@
+{
+  "compilerOptions": {
+    "target": "es2020",
+    "allowJs": true,
+    "resolveJsonModule": true,
+    "baseUrl": "./src",
+    "paths": {
+      "@config/*": ["config/*"],
+      "@libs/*": ["libs/*"],
+      "@helpers/*": ["helpers/*"],
+      "@services/*": ["services/*"],
+      "@routes/*": ["routes/*"],
+      "@models/*": ["models/*"],
+      "@database/*": ["database/*"],
+      "@errors/*": ["errors/*"],
+      "@jobs/*": ["jobs/*"],
+      "@middleware/*": ["middleware/*"],
+      "@types/*": ["@types/*"],
+      "@utils/*": ["utils/*"],
+      "@workers/*": ["workers/*"],
+      "@validators/*": ["validators/*"]
+    },
+    "module": "commonjs",
+    "moduleResolution": "node",
+    "esModuleInterop": true,
+    "outDir": "./dist",
+    "rootDir": "./src",
+    "strict": false,
+    "strictPropertyInitialization": false,
+    "importHelpers": true,
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": false,
+    "sourceMap": false
+  },
+  "include": ["src/**/*"],
+  "exclude": ["node_modules", "public", "typings"]
+}

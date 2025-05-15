@@ -1,0 +1,23 @@
+node_modules
+public
+backend/CHANGELOG_DO_DIA.md
+.editorconfig
+.DS_Store
+src/.DS_Store
+
+# Build
+dist
+build
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Logs
+logs
+*.log
+
+frontend/public/manifest.json
+
+metadados/*
