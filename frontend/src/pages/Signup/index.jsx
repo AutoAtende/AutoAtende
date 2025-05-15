@@ -297,6 +297,7 @@ const SignUp = () => {
   const [tipoPessoa, setTipoPessoa] = useState('F');
   const [phoneError, setPhoneError] = useState("");
   const phoneInputRef = useRef(null);
+  const [cepLoading, setCepLoading] = useState(false);
 
   const initialValues = {
     tipoPessoa: 'F',

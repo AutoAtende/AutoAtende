@@ -300,7 +300,7 @@ const UserModal = ({ open, onClose, userId }) => {
       let isValidPhone = true;
 
       // Se o campo não estiver vazio, valide-o
-      if (phoneNumber) {
+      if (phoneNumber && phoneNumber.length > 4) {
         if (!phoneNumber.startsWith('+')) {
           // Adicione o prefixo internacional se não existir
           phoneNumber = `+${phoneNumber}`;
