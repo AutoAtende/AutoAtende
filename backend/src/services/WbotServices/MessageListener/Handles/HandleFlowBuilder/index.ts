@@ -80,7 +80,7 @@ export const handleFlowBuilder = async (
       }
     }
 
-    if (ticket.appointmentMode === true && !ticket.chatbot && !ticket.userId) {
+    if (ticket.appointmentMode === true) {
       logger.info(`[FLOWBUILDER] Ticket ${ticket.id} está em modo de agendamento, ignorando processamento pelo FlowBuilder`);
       
       // Se a mensagem não foi enviada pelo próprio bot, processar com o sistema de agendamento

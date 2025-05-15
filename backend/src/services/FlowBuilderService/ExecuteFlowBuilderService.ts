@@ -399,24 +399,18 @@ const ExecuteFlowBuilderService = async ({
             contact: ticket.contact,
             companyId,
             whatsappId: whatsappIdToUse,
-            flowExecutionId: execution.id, // ADICIONAR ESTA LINHA!
-            msg // Manter este parâmetro se já estiver presente
+            flowExecutionId: execution.id,
+            msg
           });
-
-          // Como o nó é terminal, o retorno será false
           if (!appointmentContinueFlow) {
             await execution.update({
-              status: "completed"
-            });
-            FinishFlowService(
-              {
-                ticketId: ticket.id,
-                companyId: companyId,
-                executionId: execution.id,
-                ticketStatus: "pending",
-                flowStatus: "completed"
+              status: "active",
+              variables: {
+                ...execution.variables,
+                __inAppointmentMode: true,
+                __appointmentStartedAt: Date.now()
               }
-            );
+            });
             return execution;
           }
           break;

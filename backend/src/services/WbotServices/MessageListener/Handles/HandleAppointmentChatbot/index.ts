@@ -238,46 +238,53 @@ class handleAppointmentChatbot {
   }
 
   // Método para finalizar um fluxo de execução do FlowBuilder, se existir
-private static async finishFlowIfNeeded(ticket: Ticket, flowExecutionId?: number): Promise<void> {
-  if (flowExecutionId) {
-    try {
-      const execution = await FlowBuilderExecution.findOne({
-        where: {
-          id: flowExecutionId,
-          companyId: ticket.companyId,
-          status: "active"
+  private static async finishFlowIfNeeded(ticket: Ticket, flowExecutionId?: number): Promise<void> {
+    if (flowExecutionId) {
+      try {
+        // Verificar se estamos realmente no final do fluxo de agendamento
+        const state = await this.getConversationState(ticket.id, ticket.companyId);
+        
+        // Só finalizar se o estado for DONE ou se não houver estado
+        if (!state || state.step === SchedulingStep.DONE) {
+          const execution = await FlowBuilderExecution.findOne({
+            where: {
+              id: flowExecutionId,
+              companyId: ticket.companyId
+            }
+          });
+          
+          if (execution) {
+            logger.info(`[APPOINTMENT_CHATBOT] Finalizando execução de fluxo ${flowExecutionId} para ticket ${ticket.id}`);
+            
+            await FinishFlowService({
+              ticketId: ticket.id,
+              companyId: ticket.companyId,
+              executionId: flowExecutionId,
+              ticketStatus: "pending", // Status padrão ao finalizar
+              flowStatus: "completed"
+            });
+            
+            // Atualizar o ticket para sair do modo de agendamento
+            await ticket.update({
+              appointmentMode: false,   // Desativar modo de agendamento
+              useIntegration: false,    // Desativar integração
+              chatbot: false,           // Desativar chatbot
+              isBot: false,             // <-- IMPORTANTE: Adicionar esta flag
+              flowExecutionId: null,    // Limpar referência ao fluxo
+              flowExecution: null,
+              integrationId: null,      // <-- IMPORTANTE: Limpar integração
+            });
+  
+            await ticket.reload();
+          }
+        } else {
+          logger.info(`[APPOINTMENT_CHATBOT] Não finalizando fluxo ${flowExecutionId} pois agendamento ainda está em andamento (etapa: ${state.step})`);
         }
-      });
-      
-      if (execution) {
-        logger.info(`[APPOINTMENT_CHATBOT] Finalizando execução de fluxo ${flowExecutionId} para ticket ${ticket.id}`);
-        
-        await FinishFlowService({
-          ticketId: ticket.id,
-          companyId: ticket.companyId,
-          executionId: flowExecutionId,
-          ticketStatus: "pending", // Status padrão ao finalizar
-          flowStatus: "completed"
-        });
-        
-        // Atualizar o ticket para sair do modo de agendamento
-        await ticket.update({
-          appointmentMode: false,   // Desativar modo de agendamento
-          useIntegration: false,    // Desativar integração
-          chatbot: false,           // Desativar chatbot
-          isBot: false,             // <-- IMPORTANTE: Adicionar esta flag
-          flowExecutionId: null,    // Limpar referência ao fluxo
-          flowExecution: null,
-          integrationId: null,      // <-- IMPORTANTE: Limpar integração
-        });
-
-        await ticket.reload();
+      } catch (error) {
+        logger.error(`[APPOINTMENT_CHATBOT] Erro ao finalizar execução de fluxo: ${error.message}`);
       }
-    } catch (error) {
-      logger.error(`[APPOINTMENT_CHATBOT] Erro ao finalizar execução de fluxo: ${error.message}`);
     }
   }
-}
 
   // Método principal para processar mensagens
   static async execute(msg: proto.IWebMessageInfo, ticket: Ticket, contact: Contact, wbot: Session): Promise<boolean> {
@@ -1130,44 +1137,11 @@ private static async finishFlowIfNeeded(ticket: Ticket, flowExecutionId?: number
           
           await this.sendMessage(successMessage, ticket, wbot);
 
-          await ticket.update({
-            appointmentMode: false,   // Desativar modo de agendamento
-            useIntegration: false,    // Desativar integração
-            chatbot: false,           // Desativar chatbot
-            isBot: false,             // <-- IMPORTANTE: Adicionar esta flag
-            flowExecutionId: null,    // Limpar referência ao fluxo
-            flowExecution: null,
-            integrationId: null,      // <-- IMPORTANTE: Limpar integração
-            typebotStatus: false      // Desativar typebot se estiver usando
-          });
-
-          await ticket.reload();
-          
-            const execution = await FlowBuilderExecution.findByPk(state.flowExecutionId);
-            if (execution) {
-              await execution.update({
-                variables: {
-                  ...execution.variables,
-                  __appointmentCompleted: true,
-                  __appointmentResult: "confirmed",
-                  __appointmentId: appointment.id,
-                  __lastAction: "appointment_confirmed",
-                  __awaitingResponse: false,
-                  __awaitingResponseFor: null,
-                  __responseValidation: null,
-                  __validationAttempts: 0,
-                  __lastQuestionTimestamp: null
-                },
-                status: "completed"
-              });
-            }
-
-            await execution.reload();
-          
           // Mudar o estado para DONE e depois limpar
           state.step = SchedulingStep.DONE;
           state.appointmentId = appointment.id;
           await this.saveConversationState(ticket.id, ticket.companyId, state);
+          // Agora sim, finalizar o fluxo corretamente
           await this.finishFlowIfNeeded(ticket, state.flowExecutionId);
           await this.removeConversationState(ticket.id, ticket.companyId);
           
