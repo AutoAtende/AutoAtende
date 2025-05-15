@@ -458,6 +458,10 @@ const SignUp = () => {
         // Aceitar "Centro" como valor padrão mesmo quando preenchido automaticamente
         if (value === "Centro") return true;
         
+        // Ignorar validação detalhada para campos preenchidos automaticamente via CEP
+        const { cep } = this.parent;
+        if (cep && cep.length === 9) return true;
+        
         // Check if the neighborhood has at least 2 characters and isn't a repeated sequence
         if (value.length < 2 || isRepeatedSequence(value)) 
           return this.createError({ message: i18n.t("signup.validation.endereco.bairroMin") });
@@ -475,6 +479,10 @@ const SignUp = () => {
       .min(3, i18n.t("signup.validation.endereco.logradouroMin"))  // Reduzir o mínimo para 3 caracteres
       .test('logradouro-valido', i18n.t("signup.validation.endereco.logradouroMin"), function(value) {
         if (!value) return false;
+        
+        // Ignorar validação detalhada para campos preenchidos automaticamente via CEP
+        const { cep } = this.parent;
+        if (cep && cep.length === 9) return true;
         
         // Ser mais flexível com logradouros curtos preenchidos via API
         if (value.length >= 3) return true;
@@ -595,51 +603,59 @@ const SignUp = () => {
     return "";
   };
 
-  // Estado para controlar o carregamento da consulta de CEP
-  const [cepLoading, setCepLoading] = useState(false);
-  
-  // Função melhorada para buscar endereço com melhor tratamento de erros
+  // Função melhorada para buscar endereço com melhor tratamento do CEP
   const buscarEndereco = async (cep) => {
     try {
       const cepLimpo = removeMask(cep);
       
-      // Validar formato do CEP
-      if (cepLimpo.length !== 8 || !/^\d{8}$/.test(cepLimpo)) {
+      // Garantir que o CEP tenha 8 dígitos
+      if (cepLimpo.length !== 8) {
+        console.log("CEP inválido: deve ter 8 dígitos", cepLimpo);
         toast.error(i18n.t("signup.toasts.invalidCEP"));
         return null;
       }
       
       setCepLoading(true);
       
+      // Imprimir CEP para verificar se está completo
+      console.log("Consultando CEP:", cepLimpo);
+      
       const response = await fetch(`https://viacep.com.br/ws/${cepLimpo}/json/`);
       
       // Verificar se a resposta é bem-sucedida
       if (!response.ok) {
+        console.log("Erro na resposta da API de CEP:", response.status);
         toast.error(`${i18n.t("signup.toasts.errorAddress")} (${response.status})`);
         return null;
       }
       
       const data = await response.json();
+      console.log("Dados retornados pela API de CEP:", data);
       
       // Verificar erro explícito da API de CEP
       if (data.erro) {
+        console.log("CEP não encontrado");
         toast.error(i18n.t("signup.toasts.cepNotFound"));
         return null;
       }
       
       // Verificar se retornou dados básicos
       if (!data.localidade || !data.uf) {
+        console.log("Endereço incompleto retornado pela API");
         toast.error(i18n.t("signup.toasts.incompleteAddress"));
         return null;
       }
       
       // Garantir que nenhum campo esteja vazio com valores padrão quando necessário
-      return {
+      const enderecoNormalizado = {
         ...data,
         bairro: data.bairro || "Centro", // Valor padrão caso esteja vazio
         logradouro: data.logradouro || "",
         complemento: data.complemento || ""
       };
+      
+      console.log("Endereço normalizado:", enderecoNormalizado);
+      return enderecoNormalizado;
     } catch (err) {
       console.error("Erro na consulta de CEP:", err);
       toast.error(i18n.t("signup.toasts.errorAddress"));
@@ -680,16 +696,41 @@ const SignUp = () => {
     }
   };
 
-  // Function to check if the current step has errors
   const validateCurrentStep = async (formikProps, step) => {
     try {
+      // Adicionar delay para garantir que a validação ocorra após atualizações de campo
+      await new Promise(resolve => setTimeout(resolve, 300));
+      
+      // Logs para depuração
+      if (step === 1) {
+        console.log("Validando passo de endereço...");
+        console.log("Valores atuais:", formikProps.values);
+      }
+      
       // Atualizar o formulário antes de validar (importante para campos preenchidos automaticamente)
       if (step === 1) {
-        await formikProps.validateForm();
+        // Se temos um CEP válido, ignorar alguns erros de validação de endereço
+        if (formikProps.values.cep && formikProps.values.cep.length === 9) {
+          console.log("CEP válido detectado, relaxando validações de endereço");
+          
+          // Verificar se os campos foram preenchidos automaticamente com valores válidos
+          const contemDados = 
+            formikProps.values.estado && 
+            formikProps.values.cidade && 
+            formikProps.values.bairro && 
+            formikProps.values.logradouro;
+            
+          if (contemDados) {
+            console.log("Campos de endereço preenchidos automaticamente, ignorando validações");
+            return { hasErrors: false, fieldErrors: {} };
+          }
+        }
       }
       
       // Validar todos os campos
       const errors = await formikProps.validateForm();
+      console.log("Erros da validação:", errors);
+      
       const touchedFields = {};
       let hasErrors = false;
       
@@ -800,7 +841,7 @@ const SignUp = () => {
   const handleNext = async (formikProps) => {
     try {
       // Mostrar feedback visual de validação
-      const loadingToast = toast.loading(i18n.t("signup.toasts.validatingFields"));
+      toast.info(i18n.t("signup.toasts.validatingFields"));
       
       // Aguardar pequeno delay para garantir que todas as atualizações de campo foram concluídas
       await new Promise(resolve => setTimeout(resolve, 500));
@@ -810,9 +851,6 @@ const SignUp = () => {
       
       // Validar current step
       const { hasErrors, fieldErrors } = await validateCurrentStep(formikProps, activeStep);
-      
-      // Fechar toast de carregamento
-      toast.dismiss(loadingToast);
       
       // Se estamos na etapa de endereço, vamos fazer verificações adicionais
       if (activeStep === 1) {
@@ -831,13 +869,7 @@ const SignUp = () => {
         });
         
         if (camposVazios.length > 0) {
-          toast.error(
-            <div>
-              <strong>{i18n.t("signup.errors.missingFields")}</strong>
-              <p>{camposVazios.join(', ')}</p>
-            </div>,
-            { duration: 4000 }
-          );
+          toast.error(i18n.t("signup.errors.missingFields") + ": " + camposVazios.join(', '));
           return;
         }
         
@@ -878,12 +910,11 @@ const SignUp = () => {
         }
         
         // Verificar se o telefone já existe - com indicador visual
-        const phoneCheckToast = toast.loading(i18n.t("signup.toasts.checkingPhone"));
+        toast.info(i18n.t("signup.toasts.checkingPhone"));
         
         try {
           // Check if phone already exists
           const isPhoneValid = await validatePhone(phoneNumber, formikProps.setFieldError);
-          toast.dismiss(phoneCheckToast);
           
           if (!isPhoneValid) {
             document.getElementById('phone')?.focus();
@@ -891,7 +922,6 @@ const SignUp = () => {
             return;
           }
         } catch (error) {
-          toast.dismiss(phoneCheckToast);
           toast.error(i18n.t("signup.errors.errorCheckingPhone"));
           return;
         }
@@ -944,7 +974,7 @@ const SignUp = () => {
       setIsSubmitting(true);
       
       // Mostrar feedback visual de envio
-      const submittingToast = toast.loading(i18n.t("signup.toasts.submitting"));
+      toast.info(i18n.t("signup.toasts.submitting"));
   
       // Final validation before sending
       const { hasErrors } = await validateCurrentStep({ 
@@ -962,7 +992,6 @@ const SignUp = () => {
       }, 2);
       
       if (hasErrors) {
-        toast.dismiss(submittingToast);
         toast.error(i18n.t("signup.errors.verificarCampos"));
         setIsSubmitting(false);
         setSubmitting(false);
@@ -999,17 +1028,8 @@ const SignUp = () => {
   
       const response = await openApi.post('/companies/cadastro', cleanData);
       
-      // Fechar toast de carregamento
-      toast.dismiss(submittingToast);
-      
       // Mensagem de sucesso mais detalhada
-      toast.success(
-        <div>
-          <strong>{i18n.t("signup.toasts.success")}</strong>
-          <p>{i18n.t("signup.toasts.redirecting")}</p>
-        </div>, 
-        { duration: 5000 }
-      );
+      toast.success(i18n.t("signup.toasts.success") + ". " + i18n.t("signup.toasts.redirecting"));
       
       // Redirecionar após pequeno delay para mostrar mensagem
       setTimeout(() => {
@@ -1019,9 +1039,6 @@ const SignUp = () => {
     } catch (err) {
       console.error("Erro ao cadastrar:", err);
       
-      // Fechar qualquer toast de carregamento pendente
-      toast.dismiss();
-      
       const errorMsg = err.response?.data?.error || i18n.t("signup.toasts.error");
       
       // Tratar erros específicos
@@ -1030,12 +1047,7 @@ const SignUp = () => {
         toast.error(i18n.t("signup.errors.alreadyExists"));
       } else if (err.response?.status === 400) {
         // Erro de validação
-        toast.error(
-          <div>
-            <strong>{i18n.t("signup.errors.validationFailed")}</strong>
-            <p>{errorMsg}</p>
-          </div>
-        );
+        toast.error(i18n.t("signup.errors.validationFailed") + ": " + errorMsg);
       } else if (err.response?.status === 500) {
         // Erro interno do servidor
         toast.error(i18n.t("signup.errors.serverError"));
@@ -1206,23 +1218,37 @@ const SignUp = () => {
               value={formikProps.values.cep}
               onChange={async (e) => {
                 const maskedValue = cepMask(e.target.value);
+                
+                // Verificar se a máscara está funcionando corretamente
+                console.log("CEP com máscara:", maskedValue);
+                console.log("CEP sem máscara:", removeMask(maskedValue));
+                
                 await formikProps.setFieldValue("cep", maskedValue);
                 
+                // Verificar comprimento exato para consulta de CEP 
+                // (considerando a máscara XX.XXX-XXX com comprimento 10)
                 if (maskedValue.length === 9) {
                   try {
                     // Mostrar indicador de carregamento
                     setCepLoading(true);
                     
                     // Feedback visual de carregamento
-                    const loadingToast = toast.loading(i18n.t("signup.toasts.fetchingAddress"));
+                    toast.info(i18n.t("signup.toasts.fetchingAddress"));
                     
                     const endereco = await buscarEndereco(maskedValue);
                     
-                    // Fechar toast de carregamento
-                    toast.dismiss(loadingToast);
-                    
                     if (endereco) {
-                      // Criar um objeto com todos os valores atualizados
+                      // Para resolver o problema de validação, vamos:
+                      // 1. Remover os erros dos campos que serão atualizados
+                      formikProps.setErrors({
+                        ...formikProps.errors,
+                        estado: undefined,
+                        cidade: undefined,
+                        bairro: undefined,
+                        logradouro: undefined
+                      });
+                      
+                      // 2. Criar um objeto com todos os valores atualizados
                       const updatedValues = {
                         ...formikProps.values,
                         estado: endereco.uf,
@@ -1232,30 +1258,30 @@ const SignUp = () => {
                         complemento: endereco.complemento || formikProps.values.complemento
                       };
                       
-                      // Atualizar todos os valores de uma vez
-                      await formikProps.setValues(updatedValues);
+                      // 3. Atualizar todos os valores de uma vez
+                      await formikProps.setValues(updatedValues, false);
+                      console.log("Valores atualizados:", updatedValues);
                       
-                      // Marcar campos como touched
-                      const touchedFields = {
-                        ...formikProps.touched,
-                        estado: true,
-                        cidade: true,
-                        bairro: true,
-                        logradouro: true
-                      };
-                      formikProps.setTouched(touchedFields);
-                      
-                      // Validar o formulário inteiro para garantir consistência
-                      await formikProps.validateForm();
+                      // 4. Marcar campos como touched apenas após um pequeno delay
+                      setTimeout(() => {
+                        const touchedFields = {
+                          ...formikProps.touched,
+                          estado: true,
+                          cidade: true,
+                          bairro: true,
+                          logradouro: true
+                        };
+                        formikProps.setTouched(touchedFields);
+                        
+                        // 5. Validar apenas APÓS os campos serem marcados como touched
+                        formikProps.validateForm();
+                      }, 300);
                       
                       // Mensagem de sucesso mais detalhada
                       toast.success(
-                        <div>
-                          <strong>{i18n.t("signup.toasts.addressFound")}</strong>
-                          <p>{endereco.logradouro}, {endereco.bairro}</p>
-                          <p>{endereco.localidade} - {endereco.uf}</p>
-                        </div>,
-                        { duration: 4000 }
+                        i18n.t("signup.toasts.addressFound") + ": " + 
+                        endereco.logradouro + ", " + endereco.bairro + ", " + 
+                        endereco.localidade + " - " + endereco.uf
                       );
                     }
                   } catch (error) {
