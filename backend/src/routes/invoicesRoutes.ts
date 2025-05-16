@@ -2,17 +2,18 @@ import express from "express";
 import isAuth from "../middleware/isAuth";
 import isSuper from "../middleware/isSuper";
 import * as InvoicesController from "../controllers/InvoicesController";
+import isAdmin from "../middleware/isAdmin";
 
 const invoiceRoutes = express.Router();
 
 // Listagens de faturas
-invoiceRoutes.get("/invoices", isAuth, InvoicesController.index);
-invoiceRoutes.get("/invoices/list", isAuth, InvoicesController.list);
-invoiceRoutes.get("/invoices/all", isAuth, InvoicesController.list);
-invoiceRoutes.get("/invoices/:Invoiceid", isAuth, InvoicesController.show);
+invoiceRoutes.get("/invoices", isAuth, isAdmin, InvoicesController.index);
+invoiceRoutes.get("/invoices/list", isAuth, isAdmin, InvoicesController.list);
+invoiceRoutes.get("/invoices/all", isAuth, isAdmin, InvoicesController.list);
+invoiceRoutes.get("/invoices/:Invoiceid", isAuth, isAdmin, InvoicesController.show);
 
 // Operações de atualização
-invoiceRoutes.put("/invoices/:id", isAuth, InvoicesController.update);
+invoiceRoutes.put("/invoices/:id", isAuth, isAdmin, InvoicesController.update);
 invoiceRoutes.put(
   "/invoices/:id/due-date",
   isAuth,

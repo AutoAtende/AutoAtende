@@ -44,8 +44,8 @@ type IndexQuery = {
 
 export const list = async (req: Request, res: Response): Promise<Response> => {
   try {
-    const { companyId: userCompanyId, profile, isSuper } = req.user;
-    const { companyId, status } = req.query;
+    const { companyId, profile, isSuper } = req.user;
+    const { status } = req.query;
 
     let whereCondition: any = {};
 
@@ -55,7 +55,7 @@ export const list = async (req: Request, res: Response): Promise<Response> => {
         whereCondition.companyId = companyId;
       }
     } else {
-      whereCondition.companyId = userCompanyId;
+      whereCondition.companyId = companyId;
     }
 
     // Status filter
@@ -304,15 +304,6 @@ export const sendWhatsApp = async (
       { removeOnComplete: true, attempts: 3 }
     );
 
-    // Registrar log de envio
-    await InvoiceLogs.create({
-      invoiceId: id,
-      userId: req.user.id,
-      type: 'WHATSAPP_NOTIFICATION',
-      oldValue: null,
-      newValue: `Enviado para ${invoice.company.phone}`
-    });
-
     return res.status(200).json({ message: "WhatsApp message sent" });
   } catch (err) {
     logger.error(`Error sending invoice WhatsApp: ${err}`);
@@ -370,15 +361,6 @@ export const sendEmail = async (
       moment().add(1, 'hour').toDate()
     );
 
-    // Registrar log de envio
-    await InvoiceLogs.create({
-      invoiceId: id,
-      userId: req.user.id,
-      type: 'EMAIL_NOTIFICATION',
-      oldValue: null,
-      newValue: `Enviado para ${invoice.company.email}`
-    });
-
     return res.status(200).json({ message: "Email sent" });
   } catch (err) {
     logger.error(`Error sending invoice email: ${err}`);
@@ -399,15 +381,6 @@ export const remove = async (req: Request, res: Response): Promise<Response> => 
     if (!invoice) {
       throw new AppError("Invoice not found", 404);
     }
-
-    // Criar log antes de excluir
-    await InvoiceLogs.create({
-      invoiceId: id,
-      userId,
-      type: 'INVOICE_DELETE',
-      oldValue: JSON.stringify(invoice.get({ plain: true })),
-      newValue: null
-    });
 
     await invoice.destroy();
 
@@ -476,9 +449,6 @@ export const bulkRemove = async (req: Request, res: Response): Promise<Response>
           newValue: null
         };
       }));
-
-      // Criar logs
-      await InvoiceLogs.bulkCreate(logEntries, { transaction });
 
       // Excluir faturas
       await Invoices.destroy({
