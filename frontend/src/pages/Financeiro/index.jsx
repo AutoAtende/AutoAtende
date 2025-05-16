@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useContext } from "react";
 import { toast } from "../../helpers/toast";
 import { i18n } from "../../translate/i18n";
-import useAuth from "../../hooks/useAuth";
+import { AuthContext } from "../../context/Auth/AuthContext";
 import moment from "moment";
 
 import {
@@ -51,7 +51,7 @@ import api from "../../services/api";
 const Financeiro = () => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
-  const { isAuth, user } = useAuth();
+  const { user } = useContext(AuthContext);
   
   const [loading, setLoading] = useState(true);
   const [invoices, setInvoices] = useState([]);
@@ -70,7 +70,7 @@ const Financeiro = () => {
   const [selectedCompany, setSelectedCompany] = useState(null);
 
   // Verificar se o usuário é super administrador
-  const isAdmin = user?.profile === "admin" && user?.isSuper === true;
+  const isAdmin = user?.profile === "admin" && user?.super === true;
 
   useEffect(() => {
     loadInvoices();
