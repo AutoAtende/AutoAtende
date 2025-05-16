@@ -227,18 +227,62 @@ const UserModal = ({ open, onClose, userId }) => {
         setWhatsappId(data.whatsappId || null);
         setSuperUser(data.super);
 
-        // Lógica de permissão de edição de senha
-        if (loggedInUser.super) {
-          setCanEditPassword(data.super ? loggedInUser.id === userId : true);
-        } else if (loggedInUser.profile === "admin") {
-          setCanEditPassword(
-            ["user", "superv"].includes(data.profile) || loggedInUser.id === userId
-          );
-        } else if (loggedInUser.profile === "superv") {
-          setCanEditPassword(data.profile === "user" || loggedInUser.id === userId);
+        /**
+         * Define se o usuário logado tem permissão para editar a senha do usuário `data`,
+         * com base em regras de hierarquia, perfil e empresa.
+         *
+         * Regras:
+         * - Usuário tipo `super` (existe apenas na empresa 1):
+         *   - Pode editar outro `super` se for ele mesmo ou se for o usuário com `id === 1`;
+         *   - Pode editar usuários com perfil `admin`, `superv` ou `user` na empresa 1.
+         *
+         * - Usuário tipo `admin`:
+         *   - Pode editar usuários com perfil `superv` ou `user` da mesma empresa;
+         *   - Pode editar a si mesmo.
+         *
+         * - Usuário tipo `superv`:
+         *   - Pode editar usuários com perfil `user` da mesma empresa;
+         *   - Pode editar a si mesmo.
+         *
+         * - Usuário tipo `user`:
+         *   - Pode editar apenas a própria senha na empresa em que está vinculado.
+         *
+         * @param {Object} loggedInUser - Usuário atualmente logado no sistema.
+         * @param {number} loggedInUser.id - ID do usuário logado.
+         * @param {number} loggedInUser.companyId - ID da empresa do usuário logado.
+         * @param {boolean} loggedInUser.super - Flag indicando se o usuário é super.
+         * @param {string} loggedInUser.profile - Perfil do usuário (`admin`, `superv`, `user`).
+         *
+         * @param {Object} data - Usuário alvo da edição.
+         * @param {number} data.companyId - Empresa do usuário sendo editado.
+         * @param {boolean} data.super - Flag indicando se o usuário sendo editado é super.
+         * @param {string} data.profile - Perfil do usuário sendo editado.
+         *
+         * @param {number} userId - ID do usuário sendo editado.
+         */
+        let canEdit = false;
+
+        if (loggedInUser.super && loggedInUser.companyId === 1 && data.companyId === 1) {
+          // Usuário super pode editar qualquer outro da empresa 1
+          canEdit = data.super ? loggedInUser.id === userId || loggedInUser.id === 1 : true;
         } else {
-          setCanEditPassword(loggedInUser.id === userId);
+          // Casos comuns: admin, superv e user
+          const isSameUser = loggedInUser.id === userId;
+
+          switch (loggedInUser.profile) {
+            case "admin":
+              canEdit = ["user", "superv"].includes(data.profile) || isSameUser;
+              break;
+            case "superv":
+              canEdit = data.profile === "user" || isSameUser;
+              break;
+            default:
+              canEdit = isSameUser;
+          }
         }
+
+        setCanEditPassword(canEdit);
+
 
         // Lógica de permissão para edição de notificações
         setCanEditNotifications(
@@ -860,7 +904,7 @@ const UserModal = ({ open, onClose, userId }) => {
                     value={values.number || ''} // Garantir que nunca seja null
                     onChange={(phone, isValid) => {
                       // Apenas atualizar o valor do campo no formik
-                      phone = phone.replace("-", "").replace(" ", "");
+                      removeMask(phone);
                       setFieldValue('number', phone);
 
                       // Limpar o erro externo se o número for válido ou vazio
