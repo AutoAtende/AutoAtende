@@ -1832,7 +1832,7 @@ const messages = {
 			},
 			i18n: {
 			  language: "English",
-			  language_short: "enUS"
+			  language_short: "US"
 			}
 		  }
 		},
