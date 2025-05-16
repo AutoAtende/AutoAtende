@@ -61,6 +61,7 @@ const EditContactModal = ({ open, onClose, contactId, contactListId, onSave }) =
     initialValues: {
       name: "",
       number: "",
+      customMessage: "",
       email: ""
     },
     validationSchema: ContactSchema,
@@ -108,6 +109,7 @@ const EditContactModal = ({ open, onClose, contactId, contactListId, onSave }) =
         formik.setValues({
           name: data.name || "",
           number: data.number || "",
+          customMessage: data.customMessage || "",
           email: data.email || ""
         });
       } catch (err) {
@@ -212,6 +214,21 @@ const EditContactModal = ({ open, onClose, contactId, contactListId, onSave }) =
                 error={formik.touched.email && Boolean(formik.errors.email)}
                 helperText={formik.touched.email && formik.errors.email}
                 placeholder="email@exemplo.com"
+                disabled={loading}
+                variant="outlined"
+              />
+            </Grid>
+
+            <Grid item xs={12}>
+              <TextField
+                fullWidth
+                label={i18n.t("contactListItems.modal.customMessage")}
+                name="customMessage"
+                value={formik.values.customMessage}
+                onChange={formik.handleChange}
+                onBlur={formik.handleBlur}
+                error={formik.touched.customMessage && Boolean(formik.errors.customMessage)}
+                helperText={formik.touched.customMessage && formik.errors.customMessage}
                 disabled={loading}
                 variant="outlined"
               />

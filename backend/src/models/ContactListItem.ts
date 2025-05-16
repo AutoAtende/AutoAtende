@@ -36,6 +36,9 @@ class ContactListItem extends Model<ContactListItem> {
   email: string;
 
   @Column
+  customMessage: string;
+
+  @Column
   isWhatsappValid: boolean;
 
   @CreatedAt

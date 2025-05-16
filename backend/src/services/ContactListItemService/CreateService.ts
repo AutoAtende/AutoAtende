@@ -9,6 +9,7 @@ interface Data {
   number: string;
   contactListId: number;
   companyId: number;
+  customMessage?: string;
   email?: string;
 }
 

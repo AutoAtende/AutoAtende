@@ -30,6 +30,9 @@ class CampaignShipping extends Model<CampaignShipping> {
   message: string;
 
   @Column
+  customMessage: string;
+
+  @Column
   confirmationMessage: string;
 
   @Column

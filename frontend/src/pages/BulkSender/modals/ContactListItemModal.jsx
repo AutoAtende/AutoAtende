@@ -56,6 +56,7 @@ const ContactListItemModal = ({
   const [contact, setContact] = useState({
     name: "",
     number: "",
+    customMessage: "",
     email: "",
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -88,6 +89,7 @@ const ContactListItemModal = ({
       setContact({
         name: "",
         number: "",
+        customMessage: "",
         email: "",
       });
     }
@@ -197,6 +199,18 @@ const ContactListItemModal = ({
                     error={touched.email && Boolean(errors.email)}
                     helperText={touched.email && errors.email}
                     placeholder="email@exemplo.com"
+                    variant="outlined"
+                    fullWidth
+                  />
+                </Grid>
+
+                <Grid item xs={12}>
+                  <Field
+                    as={TextField}
+                    label={i18n.t("contactListItems.modal.customMessage")}
+                    name="customMessage"
+                    error={touched.customMessage && Boolean(errors.customMessage)}
+                    helperText={touched.customMessage && errors.customMessage}
                     variant="outlined"
                     fullWidth
                   />

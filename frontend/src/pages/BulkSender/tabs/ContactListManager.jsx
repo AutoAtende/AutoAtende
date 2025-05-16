@@ -1,4 +1,3 @@
-// ContactListManager.jsx (versão atualizada)
 import React, { useState, useRef, useEffect, useCallback, useContext } from 'react';
 import { useHistory } from 'react-router-dom';
 import { useTheme } from '@mui/material/styles';
@@ -649,6 +648,7 @@ const ContactListManager = ({ contactListId, onSuccess }) => {
               <TableCell>{i18n.t("contactListItems.table.name")}</TableCell>
               <TableCell>{i18n.t("contactListItems.table.number")}</TableCell>
               <TableCell>{i18n.t("contactListItems.table.email")}</TableCell>
+              <TableCell>{i18n.t("contactListItems.table.customMessage")}</TableCell>
               <TableCell align="center">{i18n.t("contactListItems.table.status")}</TableCell>
               <TableCell align="right">{i18n.t("contactListItems.table.actions")}</TableCell>
             </TableRow>
@@ -680,6 +680,7 @@ const ContactListManager = ({ contactListId, onSuccess }) => {
                   <TableCell>{contact.name}</TableCell>
                   <TableCell>{contact.number}</TableCell>
                   <TableCell>{contact.email || '-'}</TableCell>
+                  <TableCell>{contact.customMessage || '-'}</TableCell>
                   <TableCell align="center">
                     <Chip
                       size="small"

@@ -35,6 +35,7 @@ export async function ImportContacts(
     const numberVariations = ['numero', 'número', 'Numero', 'Número', 'number', 'Number', 'NUMERO', 'NÚMERO', 'NUMBER',
                              'telefone', 'Telefone', 'TELEFONE', 'phone', 'Phone', 'PHONE', 'celular', 'Celular', 'CELULAR', 'whatsapp', 'Whatsapp', 'WHATSAPP'];
     const emailVariations = ['email', 'Email', 'E-mail', 'e-mail', 'EMAIL', 'E-MAIL', 'correio', 'Correio', 'CORREIO'];
+    const customMessageVariations = ['mensagem', 'message', 'Mensagem', 'Message', 'MENSAGEM', 'MESSAGE'];
     
     const contacts = rows.map(row => {
       // Log para depuração
@@ -44,6 +45,7 @@ export async function ImportContacts(
       let name = '';
       let number = '';
       let email = '';
+      let customMessage = '';
       
       // Verifica todas as chaves possíveis para encontrar correspondências
       const rowKeys = Object.keys(row);
@@ -72,6 +74,14 @@ export async function ImportContacts(
         }
       }
       
+      // Busca o valor para mensagem personalizada
+      for (const key of rowKeys) {
+        if (customMessageVariations.some(v => key.toLowerCase().includes(v.toLowerCase()))) {
+          customMessage = String(row[key] || '');
+          break;
+        }
+      }
+      
       // Caso não ache por correspondência parcial, tenta pelas variações exatas
       if (!name) {
         for (const variation of nameVariations) {
@@ -95,6 +105,15 @@ export async function ImportContacts(
         for (const variation of emailVariations) {
           if (row[variation] !== undefined) {
             email = String(row[variation]);
+            break;
+          }
+        }
+      }
+
+      if (!customMessage) {
+        for (const variation of customMessageVariations) {
+          if (row[variation] !== undefined) {
+            customMessage = String(row[variation]);
             break;
           }
         }
@@ -139,6 +158,7 @@ export async function ImportContacts(
         name: name || "Contato Importado", 
         number: normalizedNumber, 
         email: email || "",
+        customMessage,
         contactListId, 
         companyId,
         isWhatsappValid: true // Assume válido por padrão para evitar problemas de validação
@@ -215,7 +235,8 @@ export async function ImportContacts(
               { 
                 name: contact.name,
                 email: contact.email,
-                isWhatsappValid: true
+                isWhatsappValid: true,
+                customMessage: contact.customMessage
               },
               { where: { id: contact.id } }
             );

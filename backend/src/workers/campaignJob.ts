@@ -276,6 +276,7 @@ export default class CampaignJob {
         contactId: contactId,
         campaignId: campaignId,
         message: '',
+        customMessage: contact.customMessage,
         confirmationMessage: ''
       };
 
@@ -410,6 +411,8 @@ export default class CampaignJob {
         }
         
         let body = campaignShipping.message?.trim();
+
+        // adicionar aqui uma mensagem que vem do contato
         
         if (campaign.confirmation && campaignShipping.confirmation === null) {
           body = campaignShipping.confirmationMessage?.trim();
@@ -672,6 +675,9 @@ export default class CampaignJob {
         }
       });
     }
+
+    // Adiciona a customMessage com quebra de linha
+    finalMessage += `\n${contact.customMessage || ""}`;
 
     return finalMessage;
   }
