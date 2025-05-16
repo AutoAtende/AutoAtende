@@ -30,6 +30,7 @@ import {
   StepLabel,
   StepContent,
   FormHelperText,
+  CircularProgress
 } from "@mui/material";
 import { makeStyles } from "@mui/styles";
 import {
@@ -192,7 +193,7 @@ const isRepeatedSequence = (value) => {
   return isAllSame || isSequential;
 };
 
-// CPF validation function
+// CPF validation function 1
 const validateCPF = (cpf) => {
   const cleanCPF = cpf.replace(/\D/g, '');
   
