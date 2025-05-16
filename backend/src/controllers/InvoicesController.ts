@@ -228,7 +228,7 @@ export const update = async (
   const InvoiceData: UpdateInvoiceData = req.body;
 
   const schema = Yup.object().shape({
-    name: Yup.string()
+    status: Yup.string().required()
   });
 
   try {
@@ -239,12 +239,12 @@ export const update = async (
 
   const { id, status } = InvoiceData;
 
-  const plan = await UpdateInvoiceService({
+  const invoice = await UpdateInvoiceService({
     id,
     status,
   });
 
-  return res.status(200).json(plan);
+  return res.status(200).json(invoice);
 };
 
 export const sendWhatsApp = async (
@@ -254,37 +254,44 @@ export const sendWhatsApp = async (
   const { id } = req.params;
   const { companyId } = req.user;
 
-  const invoice = await Invoices.findOne({
-    where: { id, companyId },
-    include: [
-      {
-        model: Contact,
-        as: 'contact',
-        attributes: ['number']
-      }
-    ]
-  });
-
-  if (!invoice) {
-    throw new AppError("Invoice not found", 404);
-  }
-
   try {
+    // Verificar se a fatura existe
+    const invoice = await Invoices.findOne({
+      where: { id },
+      include: [
+        {
+          model: Company,
+          attributes: ['name', 'email', 'phone']
+        }
+      ]
+    });
+
+    if (!invoice) {
+      throw new AppError("Invoice not found", 404);
+    }
+
+    // Verificar permissão (apenas usuários da mesma empresa ou super admin)
+    if (invoice.companyId !== companyId && !req.user.isSuper) {
+      throw new AppError("Unauthorized", 403);
+    }
+
+    // Montar mensagem
     const messageBody = `*Fatura #${invoice.id}*\n\n` +
       `Valor: ${invoice.value.toLocaleString('pt-br', { style: 'currency', currency: 'BRL' })}\n` +
       `Vencimento: ${moment(invoice.dueDate).format('DD/MM/YYYY')}\n` +
       `Status: ${invoice.status === 'paid' ? 'Pago' : 'Em Aberto'}\n\n` +
-      `${invoice.detail}`;
+      `${invoice.detail || ''}`;
 
-    // Usando a primeira conexão WhatsApp disponível da empresa
+    // Encontrar conexão WhatsApp padrão da empresa
     const defaultWhatsapp = await Whatsapp.findOne({
-      where: { companyId, default: true }
+      where: { companyId: invoice.companyId, default: true }
     });
 
     if (!defaultWhatsapp) {
       throw new AppError("No default WhatsApp connection found", 400);
     }
 
+    // Adicionar à fila de mensagens
     await req.app.get("queues").messageQueue.add(
       "SendMessage",
       {
@@ -297,10 +304,19 @@ export const sendWhatsApp = async (
       { removeOnComplete: true, attempts: 3 }
     );
 
+    // Registrar log de envio
+    await InvoiceLogs.create({
+      invoiceId: id,
+      userId: req.user.id,
+      type: 'WHATSAPP_NOTIFICATION',
+      oldValue: null,
+      newValue: `Enviado para ${invoice.company.phone}`
+    });
+
     return res.status(200).json({ message: "WhatsApp message sent" });
   } catch (err) {
     logger.error(`Error sending invoice WhatsApp: ${err}`);
-    throw new AppError("Error sending WhatsApp message", 500);
+    throw new AppError(err.message || "Error sending WhatsApp message", 500);
   }
 };
 
@@ -311,53 +327,69 @@ export const sendEmail = async (
   const { id } = req.params;
   const { companyId } = req.user;
 
-  const invoice = await Invoices.findOne({
-    where: { id, companyId },
-    include: [
-      {
-        model: Contact,
-        as: 'contact',
-        attributes: ['email']
-      }
-    ]
-  });
-
-  if (!invoice) {
-    throw new AppError("Invoice not found", 404);
-  }
-
-  if (!invoice.company?.email) {
-    throw new AppError("Contact has no email address", 400);
-  }
-
   try {
+    // Verificar se a fatura existe
+    const invoice = await Invoices.findOne({
+      where: { id },
+      include: [
+        {
+          model: Company,
+          attributes: ['name', 'email', 'phone']
+        }
+      ]
+    });
+
+    if (!invoice) {
+      throw new AppError("Invoice not found", 404);
+    }
+
+    // Verificar permissão (apenas usuários da mesma empresa ou super admin)
+    if (invoice.companyId !== companyId && !req.user.isSuper) {
+      throw new AppError("Unauthorized", 403);
+    }
+
+    if (!invoice.company?.email) {
+      throw new AppError("Company has no email address", 400);
+    }
+
+    // Montar corpo do email
     const emailBody = `
       <h2>Fatura #${invoice.id}</h2>
       <p>Valor: ${invoice.value.toLocaleString('pt-br', { style: 'currency', currency: 'BRL' })}</p>
       <p>Vencimento: ${moment(invoice.dueDate).format('DD/MM/YYYY')}</p>
       <p>Status: ${invoice.status === 'paid' ? 'Pago' : 'Em Aberto'}</p>
-      <p>${invoice.detail}</p>
+      <p>${invoice.detail || ''}</p>
     `;
 
+    // Enviar email
     await EmailService.sendMail(
-      companyId,
+      invoice.companyId,
       invoice.company.email,
       `Fatura #${invoice.id}`,
       emailBody,
       moment().add(1, 'hour').toDate()
     );
 
+    // Registrar log de envio
+    await InvoiceLogs.create({
+      invoiceId: id,
+      userId: req.user.id,
+      type: 'EMAIL_NOTIFICATION',
+      oldValue: null,
+      newValue: `Enviado para ${invoice.company.email}`
+    });
+
     return res.status(200).json({ message: "Email sent" });
   } catch (err) {
     logger.error(`Error sending invoice email: ${err}`);
-    throw new AppError("Error sending email", 500);
+    throw new AppError(err.message || "Error sending email", 500);
   }
 };
 
 export const remove = async (req: Request, res: Response): Promise<Response> => {
   try {
     const { id } = req.params;
-    const { companyId, profile, isSuper } = req.user;
+    const { id: userId, companyId, isSuper } = req.user;
 
     if (!isSuper) {
       throw new AppError("Unauthorized", 403);
@@ -368,35 +400,52 @@ export const remove = async (req: Request, res: Response): Promise<Response> => 
       throw new AppError("Invoice not found", 404);
     }
 
+    // Criar log antes de excluir
+    await InvoiceLogs.create({
+      invoiceId: id,
+      userId,
+      type: 'INVOICE_DELETE',
+      oldValue: JSON.stringify(invoice.get({ plain: true })),
+      newValue: null
+    });
+
     await invoice.destroy();
 
     const io = getIO();
-    io.emit(`company-${companyId}-invoice`, {
+    io.emit(`company-${invoice.companyId}-invoice`, {
       action: "delete",
       invoiceId: id
     });
 
     return res.status(200).json({ message: "Invoice deleted" });
   } catch (err) {
-    throw new AppError(err.message);
+    logger.error(`Error deleting invoice: ${err}`);
+    throw new AppError(err.message || "Error deleting invoice", 500);
   }
 };
 
 export const bulkRemove = async (req: Request, res: Response): Promise<Response> => {
   try {
     const { ids } = req.body;
-    const { companyId, isSuper } = req.user;
+    const { id: userId, isSuper } = req.user;
 
+    // Verificar permissão
     if (!isSuper) {
-      throw new AppError("Unauthorized", 403);
+      throw new AppError("Unauthorized: Super access required", 403);
     }
 
+    // Validar entrada
     const schema = Yup.object().shape({
-      ids: Yup.array().of(Yup.number().required()).required()
+      ids: Yup.array().of(Yup.number().required()).min(1).required()
     });
 
-    await schema.validate({ ids });
+    try {
+      await schema.validate({ ids });
+    } catch (validationError) {
+      throw new AppError(validationError.message, 400);
+    }
 
+    // Buscar as faturas que serão excluídas
     const invoices = await Invoices.findAll({
       where: { id: ids },
       attributes: ['id', 'companyId']
@@ -405,30 +454,40 @@ export const bulkRemove = async (req: Request, res: Response): Promise<Response>
     // Verificar se todas as faturas existem
     if (invoices.length !== ids.length) {
       const foundIds = invoices.map(invoice => invoice.id);
-      const missingIds = ids.filter((id: number) => !foundIds.includes(id));
-      throw new AppError(`Invoices not found: ${missingIds.join(', ')}`, 404);
+      const missingIds = ids.filter((id) => !foundIds.includes(Number(id)));
+      
+      if (missingIds.length > 0) {
+        throw new AppError(`Invoices not found: ${missingIds.join(', ')}`, 404);
+      }
     }
 
-    // Excluir em transação
+    // Executar exclusão em transação
     await Sequelize.transaction(async transaction => {
+      // Registrar logs de exclusão
+      const logEntries = await Promise.all(invoices.map(async (invoice) => {
+        // Buscar detalhes completos da fatura para o log
+        const invoiceDetails = await Invoices.findByPk(invoice.id, { transaction });
+        
+        return {
+          invoiceId: invoice.id,
+          userId,
+          type: 'INVOICE_DELETE',
+          oldValue: JSON.stringify(invoiceDetails?.get({ plain: true }) || {}),
+          newValue: null
+        };
+      }));
+
+      // Criar logs
+      await InvoiceLogs.bulkCreate(logEntries, { transaction });
+
+      // Excluir faturas
       await Invoices.destroy({
         where: { id: ids },
         transaction
       });
-
-      // Registrar logs de exclusão
-      const logEntries = invoices.map(invoice => ({
-        invoiceId: invoice.id,
-        userId: req.user.id,
-        type: 'INVOICE_DELETE',
-        oldValue: JSON.stringify(invoice.get({ plain: true })),
-        newValue: null
-      }));
-
-      await InvoiceLogs.bulkCreate(logEntries, { transaction });
     });
 
-    // Emitir eventos de exclusão
+    // Emitir eventos de exclusão via socket
     const io = getIO();
     invoices.forEach(invoice => {
       io.emit(`company-${invoice.companyId}-invoice`, {
@@ -438,11 +497,11 @@ export const bulkRemove = async (req: Request, res: Response): Promise<Response>
     });
 
     return res.status(200).json({ 
-      message: `${ids.length} invoices deleted successfully`,
-      count: ids.length
+      message: `${invoices.length} invoices deleted successfully`,
+      count: invoices.length
     });
   } catch (err) {
     logger.error(`Bulk delete error: ${err.message}`);
-    throw new AppError(err.message || "Error deleting invoices", 500);
+    throw new AppError(err.message || "Error deleting invoices", err.statusCode || 500);
   }
 };
