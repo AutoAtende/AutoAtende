@@ -32,7 +32,7 @@ class SocketUpdateBuffer {
     campaign: any,
     lastUpdate: number
   }> = new Map();
-  
+
   private readonly updateInterval = 3000;
   private intervalId: NodeJS.Timeout | null = null;
 
@@ -101,15 +101,15 @@ export default class CampaignJob {
       if (!queue) {
         throw new Error("Fila não fornecida para CampaignJob.create");
       }
-      
+
       const instance = new CampaignJob(queue);
-      
+
       logger.info("Obtendo configuração de Bull para worker");
       const workerConfig = await getBullConfig().catch(error => {
         logger.error("Erro ao obter configuração do Bull:", error);
         throw error;
       });
-      
+
       logger.info("Criando worker para campaignQueue");
       instance.worker = new Worker(
         queue.name,
@@ -135,10 +135,10 @@ export default class CampaignJob {
         },
         workerConfig
       );
-      
+
       logger.info("Configurando listeners para o worker");
       instance.setupWorkerListeners();
-      
+
       logger.info("CampaignJob criado com sucesso");
       return instance;
     } catch (error) {
@@ -153,34 +153,34 @@ export default class CampaignJob {
       try {
         const now = Date.now();
         const expiredKeys = [];
-        
+
         this.campaignCache.forEach((value, key) => {
           if (now - value.timestamp > this.CACHE_TTL) {
             expiredKeys.push(key);
           }
         });
-        
+
         expiredKeys.forEach(key => {
           this.campaignCache.delete(key);
         });
-        
+
         const expiredSettingsKeys = [];
         this.settingsCache.forEach((value, key) => {
           if (now - value.timestamp > this.CACHE_TTL) {
             expiredSettingsKeys.push(key);
           }
         });
-        
+
         expiredSettingsKeys.forEach(key => {
           this.settingsCache.delete(key);
         });
-        
+
         logger.info(`Cache cleanup completed. Removed ${expiredKeys.length} campaign items and ${expiredSettingsKeys.length} settings items.`);
       } catch (error) {
         logger.error('Error in cache cleanup:', error);
       }
     }, 15 * 60 * 1000);
-    
+
     this.cacheCleanupInterval = interval;
     logger.info("Intervalo de limpeza de cache configurado");
   }
@@ -207,7 +207,7 @@ export default class CampaignJob {
     this.worker.on("stalled", (jobId) => {
       logger.warn(`Campaign job ${jobId} has stalled`);
     });
-    
+
     logger.info("Listeners configurados com sucesso para o worker de campanhas");
   }
 
@@ -251,18 +251,27 @@ export default class CampaignJob {
   public async handlePrepareContact(job) {
     try {
       const { contactId, campaignId, delay, variables } = job.data;
-      
+
+      // Log detalhado para diagnóstico
+      logger.info(`Preparando contato ID=${contactId} para campanha ID=${campaignId}`);
+
       const campaign = await this.getCachedCampaign(campaignId);
       if (!campaign) {
         logger.error(`Campaign not found: ${campaignId}`);
         return { success: false, reason: 'CAMPAIGN_NOT_FOUND' };
       }
-      
+
       const contact = await ContactListItem.findByPk(contactId);
       if (!contact) {
         logger.error(`Contact not found: ${contactId}`);
         return { success: false, reason: 'CONTACT_NOT_FOUND' };
       }
+
+      // Log detalhado do contato, incluindo customMessage
+      logger.info(`Contato encontrado: ID=${contactId}, Nome=${contact.name}`, {
+        hasCustomMessage: !!contact.customMessage,
+        customMessageLength: contact.customMessage ? contact.customMessage.length : 0
+      });
 
       if (campaign.status === "CANCELADA") {
         logger.info(`Campaign ${campaignId} is canceled. Skipping contact ${contactId}`);
@@ -271,12 +280,13 @@ export default class CampaignJob {
 
       const finalDelay = delay < 1000 ? randomValue(1000, 5000) : delay;
 
+      // Certifique-se de que customMessage é seguro de usar (pode ser null)
       const campaignShipping = {
         number: contact.number,
         contactId: contactId,
         campaignId: campaignId,
         message: '',
-        customMessage: contact.customMessage,
+        customMessage: contact.customMessage || '', // Garanta que não seja null
         confirmationMessage: ''
       };
 
@@ -347,7 +357,10 @@ export default class CampaignJob {
       await this.verifyAndFinalizeCampaign(campaign);
       return { success: true };
     } catch (err) {
-      logger.error(`Campaign PrepareContact Error:`, err);
+      logger.error(`Erro detalhado em handlePrepareContact:`, {
+        error: err.message,
+        stack: err.stack
+      });
       return { success: false, reason: 'UNEXPECTED_ERROR', error: err.message };
     }
   }
@@ -361,7 +374,7 @@ export default class CampaignJob {
         logger.error(`Campaign ${campaignId} not found in handleDispatchCampaign`);
         return { success: false, reason: 'CAMPAIGN_NOT_FOUND' };
       }
-      
+
       if (campaign.status === "CANCELADA") {
         logger.info(`Campaign ${campaignId} is canceled. Skipping dispatch.`);
         return { success: false, reason: 'CAMPAIGN_CANCELED' };
@@ -380,7 +393,7 @@ export default class CampaignJob {
         logger.error(`Error getting WhatsApp connection ${wppId} for campaign ${campaignId}:`, wbotError);
         return { success: false, reason: 'WHATSAPP_CONNECTION_ERROR' };
       }
-      
+
       if (!wbot) {
         logger.error(`Unable to get WhatsApp connection ${wppId} for campaign ${campaignId}`);
         return { success: false, reason: 'WHATSAPP_CONNECTION_NOT_AVAILABLE' };
@@ -397,7 +410,7 @@ export default class CampaignJob {
 
       const normalizedNumber = campaignShipping.number.replace(/\D/g, "");
       const chatId = `${normalizedNumber}@s.whatsapp.net`;
-      
+
       try {
         // Verificar primeiro se o número existe e é válido
         const [result] = await wbot.onWhatsApp(campaignShipping.number);
@@ -409,11 +422,11 @@ export default class CampaignJob {
           });
           return { success: false, reason: 'NUMBER_NOT_ON_WHATSAPP' };
         }
-        
+
         let body = campaignShipping.message?.trim();
 
         // adicionar aqui uma mensagem que vem do contato
-        
+
         if (campaign.confirmation && campaignShipping.confirmation === null) {
           body = campaignShipping.confirmationMessage?.trim();
         }
@@ -432,7 +445,7 @@ export default class CampaignJob {
         };
 
         const contact = await CreateOrUpdateContactService(contactData, wbot, null);
-        
+
         // Enviar presença de digitação para tornar a interação mais natural
         await SendPresenceStatus(wbot, chatId, 0, 20000);
 
@@ -445,7 +458,7 @@ export default class CampaignJob {
         } else {
           body = formatBody(body, contact);
           await wbot.sendMessage(chatId, { text: body });
-          
+
           if (campaign.confirmation && campaignShipping.confirmation === null) {
             await campaignShipping.update({ confirmationRequestedAt: moment() });
           }
@@ -461,11 +474,11 @@ export default class CampaignJob {
                 status: { [Op.in]: ["open", "pending"] }
               }
             });
-            
+
             if (!existingTicket) {
               // Criar um novo ticket
               const contact = await ContactListItem.findByPk(campaignShipping.contactId);
-              
+
               if (contact) {
                 const newTicket = await Ticket.create({
                   contactId: contact.id,
@@ -475,7 +488,7 @@ export default class CampaignJob {
                   queueId: campaign.queueId,
                   companyId: campaign.companyId
                 });
-                
+
                 // Registrar a mensagem da campanha como parte do ticket
                 await Message.create({
                   ticketId: newTicket.id,
@@ -485,7 +498,7 @@ export default class CampaignJob {
                   read: true,
                   companyId: campaign.companyId
                 });
-                
+
                 // Notificar sobre o novo ticket
                 const io = getIO();
                 io.to(`company-${campaign.companyId}-mainchannel`)
@@ -502,29 +515,29 @@ export default class CampaignJob {
 
         await campaignShipping.update({ deliveredAt: moment() });
         await this.verifyAndFinalizeCampaign(campaign);
-        
+
         logger.info(`Message sent successfully to ${chatId} for campaign ${campaignId}`);
         return { success: true };
       } catch (error) {
         logger.error(`Error sending campaign message to ${chatId}:`, error);
-        
+
         // Registrar falha, mas não retentar para evitar bloqueio do WhatsApp
         await campaignShipping.update({
           deliveredAt: moment()
         });
-        
-        return { 
-          success: false, 
-          reason: 'MESSAGE_SEND_ERROR', 
-          error: error.message 
+
+        return {
+          success: false,
+          reason: 'MESSAGE_SEND_ERROR',
+          error: error.message
         };
       }
     } catch (err) {
       logger.error(`Campaign Dispatch Error:`, err);
-      return { 
-        success: false, 
-        reason: 'UNEXPECTED_ERROR', 
-        error: err.message 
+      return {
+        success: false,
+        reason: 'UNEXPECTED_ERROR',
+        error: err.message
       };
     }
   }
@@ -600,9 +613,9 @@ export default class CampaignJob {
       const totalContacts = campaign.contactList.contacts.length;
 
       if (shippings >= totalContacts) {
-        await campaign.update({ 
+        await campaign.update({
           status: "FINALIZADA",
-          completedAt: moment() 
+          completedAt: moment()
         });
 
         const updatedCampaign = await Campaign.findByPk(campaign.id, {
@@ -611,18 +624,18 @@ export default class CampaignJob {
               model: ContactList,
               include: [{ model: ContactListItem }]
             },
-            { 
-              model: Whatsapp, 
-              attributes: ["id", "name"] 
+            {
+              model: Whatsapp,
+              attributes: ["id", "name"]
             }
           ]
         });
-        
+
         this.notifyCampaignUpdate(updatedCampaign);
-        
+
         // Remover da cache
         this.campaignCache.delete(campaign.id);
-        
+
         logger.info(`Campaign ${campaign.id} completed successfully`);
       }
     } catch (err) {
@@ -653,33 +666,41 @@ export default class CampaignJob {
   }
 
   private getProcessedMessage(msg: string, variables: any[], contact: any) {
-    if (!msg) return "";
+    try {
+      if (!msg) return "";
 
-    let finalMessage = msg;
+      let finalMessage = msg;
 
-    const replacements = {
-      "{nome}": contact.name || "",
-      "{email}": contact.email || "",
-      "{numero}": contact.number || ""
-    };
+      const replacements = {
+        "{nome}": contact.name || "",
+        "{email}": contact.email || "",
+        "{numero}": contact.number || ""
+      };
 
-    Object.entries(replacements).forEach(([key, value]) => {
-      finalMessage = finalMessage.replace(new RegExp(key, "g"), value);
-    });
-
-    if (Array.isArray(variables)) {
-      variables.forEach(variable => {
-        if (variable && variable.key && finalMessage.includes(`{${variable.key}}`)) {
-          const regex = new RegExp(`{${variable.key}}`, "g");
-          finalMessage = finalMessage.replace(regex, variable.value || "");
-        }
+      Object.entries(replacements).forEach(([key, value]) => {
+        finalMessage = finalMessage.replace(new RegExp(key, "g"), value);
       });
+
+      if (Array.isArray(variables)) {
+        variables.forEach(variable => {
+          if (variable && variable.key && finalMessage.includes(`{${variable.key}}`)) {
+            const regex = new RegExp(`{${variable.key}}`, "g");
+            finalMessage = finalMessage.replace(regex, variable.value || "");
+          }
+        });
+      }
+
+      // Adiciona a customMessage apenas se existir - SEM quebrar com erro
+      if (contact.customMessage && typeof contact.customMessage === 'string') {
+        finalMessage += `\n${contact.customMessage}`;
+      }
+
+      return finalMessage;
+    } catch (error) {
+      logger.error("Erro ao processar mensagem de campanha:", error);
+      // Retornar a mensagem original em caso de erro, para não quebrar o fluxo
+      return msg || "";
     }
-
-    // Adiciona a customMessage com quebra de linha
-    finalMessage += `\n${contact.customMessage || ""}`;
-
-    return finalMessage;
   }
 
   private async getSettings(campaign: any) {
@@ -688,7 +709,7 @@ export default class CampaignJob {
       if (cachedSettings && Date.now() - cachedSettings.timestamp < this.CACHE_TTL) {
         return cachedSettings.data;
       }
-      
+
       const settings = await CampaignSetting.findAll({
         where: { companyId: campaign.companyId },
         attributes: ["key", "value"]
@@ -710,7 +731,7 @@ export default class CampaignJob {
           logger.warn(`Error parsing setting ${setting.key}: ${e.message}`);
         }
       });
-      
+
       // Armazenar no cache
       this.settingsCache.set(campaign.companyId, {
         data: defaultSettings,
@@ -745,16 +766,16 @@ export default class CampaignJob {
       const batchSize = 100; // Processar em lotes para não sobrecarregar
 
       logger.info(`Processing campaign ${id} with ${contacts.length} contacts`);
-      
+
       let processedCount = 0;
       let errorCount = 0;
 
       for (let i = 0; i < contacts.length; i += batchSize) {
         const batch = contacts.slice(i, i + batchSize);
-        
+
         // Registrar progresso
-        logger.info(`Processing batch ${Math.floor(i/batchSize) + 1}/${Math.ceil(contacts.length/batchSize)} of campaign ${id}`);
-        
+        logger.info(`Processing batch ${Math.floor(i / batchSize) + 1}/${Math.ceil(contacts.length / batchSize)} of campaign ${id}`);
+
         const processingPromises = batch.map(async (contact, index) => {
           try {
             const delay = this.calculateDelay(i + index, settings);
@@ -766,9 +787,9 @@ export default class CampaignJob {
                 variables: settings.variables,
                 delay: randomValue(1000, 5000)
               },
-              { 
-                removeOnComplete: true, 
-                attempts: 3, 
+              {
+                removeOnComplete: true,
+                attempts: 3,
                 delay,
                 backoff: {
                   type: 'exponential',
@@ -785,15 +806,15 @@ export default class CampaignJob {
 
         // Aguardar todas as promessas do lote atual
         await Promise.allSettled(processingPromises);
-        
+
         // Pequena pausa entre lotes para não sobrecarregar o sistema
         await new Promise(resolve => setTimeout(resolve, 1000));
       }
-      
+
       logger.info(`Campaign ${id} processing completed. Success: ${processedCount}, Errors: ${errorCount}`);
-      
-      return { 
-        success: true, 
+
+      return {
+        success: true,
         totalContacts: contacts.length,
         processedContacts: processedCount,
         errorCount
@@ -807,17 +828,17 @@ export default class CampaignJob {
   private calculateDelay(index: number, settings: any) {
     const { messageInterval, longerIntervalAfter, greaterInterval } = settings;
     const baseDelay = parseToMilliseconds(messageInterval);
-    
+
     // Aplica greaterInterval apenas se longerIntervalAfter estiver habilitado (> 0) 
     // e o índice for maior ou igual ao valor definido
     if (
-      longerIntervalAfter > 0 && 
-      index >= longerIntervalAfter &&  
+      longerIntervalAfter > 0 &&
+      index >= longerIntervalAfter &&
       greaterInterval > 0
     ) {
       return baseDelay + parseToMilliseconds(greaterInterval);
     }
-    
+
     return baseDelay;
   }
 
@@ -861,16 +882,16 @@ export default class CampaignJob {
               }
             }
           );
-          
+
           // Atualizar status da campanha
           await Campaign.update(
             { status: 'EM_ANDAMENTO' },
             { where: { id: campaign.id } }
           );
-          
+
           // Limpar cache para esta campanha
           this.campaignCache.delete(campaign.id);
-          
+
         } catch (err) {
           logger.error(`Error processing campaign ${campaign.id}:`, err);
         }
@@ -879,9 +900,9 @@ export default class CampaignJob {
       const results = await Promise.allSettled(processingPromises);
       const success = results.filter(r => r.status === 'fulfilled').length;
       const failed = results.filter(r => r.status === 'rejected').length;
-      
+
       logger.info(`Campaign processing completed. Success: ${success}, Failed: ${failed}`);
-      
+
       return { count: campaigns.length, success, failed };
     } catch (error) {
       logger.error("Error verifying campaigns:", error);
@@ -908,7 +929,7 @@ export default class CampaignJob {
     try {
       const campaign = await Campaign.findByPk(campaignId);
       if (campaign) {
-        await campaign.update({ status });            
+        await campaign.update({ status });
         const updatedCampaign = await this.getCachedCampaign(campaignId);
         this.notifyCampaignUpdate(updatedCampaign);
         this.campaignCache.delete(campaignId);
@@ -921,17 +942,17 @@ export default class CampaignJob {
   public async cancelCampaign(campaignId: number) {
     try {
       await this.updateCampaignStatus(campaignId, "CANCELADA");
-      
+
       // Cancelar jobs pendentes
       const jobs = await this.queue.getJobs(['waiting', 'delayed', 'active']);
-      const campaignJobs = jobs.filter(job => 
-        job.data.campaignId === campaignId || 
+      const campaignJobs = jobs.filter(job =>
+        job.data.campaignId === campaignId ||
         job.data.id === campaignId
       );
-      
+
       await Promise.all(campaignJobs.map(job => job.remove()));
       logger.info(`Canceled ${campaignJobs.length} pending jobs for campaign ${campaignId}`);
-      
+
     } catch (err) {
       logger.error(`Error canceling campaign: ${err}`);
     }
@@ -940,16 +961,16 @@ export default class CampaignJob {
   public async pauseCampaign(campaignId: number) {
     try {
       await this.updateCampaignStatus(campaignId, "PAUSADA");
-      
+
       const jobs = await this.queue.getJobs(['waiting', 'delayed']);
-      const campaignJobs = jobs.filter(job => 
-        job.data.campaignId === campaignId || 
+      const campaignJobs = jobs.filter(job =>
+        job.data.campaignId === campaignId ||
         job.data.id === campaignId
       );
-      
+
       await Promise.all(campaignJobs.map(job => job.moveToDelayed(Date.now() + 24 * 60 * 60 * 1000)));
       logger.info(`Paused ${campaignJobs.length} pending jobs for campaign ${campaignId}`);
-      
+
     } catch (err) {
       logger.error(`Error pausing campaign: ${err}`);
     }
@@ -958,16 +979,16 @@ export default class CampaignJob {
   public async resumeCampaign(campaignId: number) {
     try {
       await this.updateCampaignStatus(campaignId, "EM_ANDAMENTO");
-      
+
       const jobs = await this.queue.getJobs(['delayed']);
-      const campaignJobs = jobs.filter(job => 
-        job.data.campaignId === campaignId || 
+      const campaignJobs = jobs.filter(job =>
+        job.data.campaignId === campaignId ||
         job.data.id === campaignId
       );
-      
+
       await Promise.all(campaignJobs.map(job => job.moveToWaiting()));
       logger.info(`Resumed ${campaignJobs.length} pending jobs for campaign ${campaignId}`);
-      
+
     } catch (err) {
       logger.error(`Error resuming campaign: ${err}`);
     }
@@ -976,13 +997,13 @@ export default class CampaignJob {
   public async cleanup() {
     try {
       logger.info("Iniciando limpeza de recursos do CampaignJob");
-      
+
       if (this.cacheCleanupInterval) {
         clearInterval(this.cacheCleanupInterval);
         this.cacheCleanupInterval = null;
         logger.info("Intervalo de limpeza de cache cancelado");
       }
-      
+
       if (this.worker) {
         logger.info("Fechando worker de campanhas");
         await this.worker.close();
@@ -990,16 +1011,16 @@ export default class CampaignJob {
       } else {
         logger.warn("Worker de campanhas não está inicializado para fechamento");
       }
-      
+
       if (this.socketBuffer) {
         logger.info("Destruindo buffer de socket");
         this.socketBuffer.destroy();
         logger.info("Buffer de socket destruído com sucesso");
       }
-      
+
       this.campaignCache.clear();
       this.settingsCache.clear();
-      
+
       logger.info('Campaign job resources cleaned up successfully');
     } catch (error) {
       logger.error('Error cleaning up CampaignJob:', error);
@@ -1009,7 +1030,7 @@ export default class CampaignJob {
   public async healthCheck() {
     try {
       const isActive = this.worker ? await this.worker.isRunning() : false;
-      
+
       // Inicializar com valores padrão
       const queueHealth = {
         waiting: 0,
@@ -1018,7 +1039,7 @@ export default class CampaignJob {
         failed: 0,
         completed: 0
       };
-      
+
       try {
         if (this.queue) {
           // Obter as contagens reais, garantindo que as propriedades sejam atribuídas
@@ -1032,7 +1053,7 @@ export default class CampaignJob {
       } catch (queueError) {
         logger.error("Erro ao verificar contagem de jobs:", queueError);
       }
-      
+
       return {
         workerStatus: isActive ? 'running' : 'stopped',
         queueCounts: queueHealth,

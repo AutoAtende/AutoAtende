@@ -130,6 +130,7 @@ export const store = async (req: Request, res: Response): Promise<Response> => {
               name: contact.name,
               number: contact.number,
               email: contact.email,
+              customMessage: "",
               contactListId,
               companyId,
               isWhatsappValid: true,
