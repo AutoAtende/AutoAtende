@@ -30,9 +30,12 @@ import {
   StepLabel,
   StepContent,
   FormHelperText,
-  CircularProgress
+  CircularProgress,
+  styled,
+  Radio,
+  RadioGroup,
 } from "@mui/material";
-import { makeStyles } from "@mui/styles";
+
 import {
   Visibility,
   VisibilityOff,
@@ -43,125 +46,105 @@ import {
   NavigateNext,
   NavigateBefore,
 } from "@mui/icons-material";
-import { useSpring, animated } from "react-spring";
+import { useSpring, animated } from "@react-spring/web";
 import { i18n } from "../../translate/i18n";
 import { openApi } from "../../services/api";
 import useSettings from "../../hooks/useSettings";
-import { RadioGroup, Radio } from "@mui/material";
 import { cpfMask, cnpjMask, cepMask } from "../../helpers/masks";
 import { removeMask } from "../../helpers/removeMask";
 import SignUpPhoneInput from "../../components/PhoneInputs/SignUpPhoneInput";
 
-const useStyles = makeStyles((theme) => ({
-  root: {
-    minHeight: "100vh",
-    width: "100%",
-    display: "flex",
+// Componentes estilizados com MUI 5
+const RootContainer = styled(Box)(({ theme }) => ({
+  minHeight: "100vh",
+  width: "100%",
+  display: "flex",
+  flexDirection: "column",
+  position: "relative",
+}));
+
+const ContentContainer = styled(Box)(({ theme }) => ({
+  flex: 1,
+  display: "flex",
+  position: "relative",
+  zIndex: 2,
+  minHeight: "100vh",
+  [theme.breakpoints.down("md")]: {
     flexDirection: "column",
-    position: "relative",
-  },
-  contentContainer: {
-    flex: 1,
-    display: "flex",
-    position: "relative",
-    zIndex: 2,
-    minHeight: "100vh",
-    [theme.breakpoints.down("md")]: {
-      flexDirection: "column",
-    },
-  },
-  leftSection: {
-    flex: 1,
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    padding: theme.spacing(4),
-    position: "relative",
-    zIndex: 2,
-    [theme.breakpoints.down("md")]: {
-      padding: theme.spacing(2),
-    },
-  },
-  rightSection: {
-    flex: 1,
-    display: "flex",
-    flexDirection: "column",
-    alignItems: "center",
-    justifyContent: "center",
-    padding: theme.spacing(4),
-    position: "relative",
-    zIndex: 2,
-    [theme.breakpoints.down("md")]: {
-      padding: theme.spacing(2),
-    },
-  },
-  formContainer: {
-    backgroundColor: theme.palette.background.paper,
-    borderRadius: theme.shape.borderRadius * 2,
-    padding: theme.spacing(4),
-    width: "100%",
-    maxWidth: 900,
-    margin: "auto",
-    boxShadow: "0px 4px 20px rgba(0, 0, 0, 0.1)",
-    [theme.breakpoints.down("md")]: {
-      padding: theme.spacing(2),
-      margin: theme.spacing(2),
-      maxWidth: "calc(100% - 32px)",
-    },
-  },
-  stepper: {
-    backgroundColor: "transparent",
-    "& .MuiStepLabel-label": {
-      fontSize: "1rem",
-      fontWeight: 500,
-    },
-  },
-  buttonContainer: {
-    display: "flex",
-    justifyContent: "space-between",
-    marginTop: theme.spacing(3),
-  },
-  gridContainer: {
-    marginTop: theme.spacing(2),
-  },
-  logoContainer: {
-    width: "100%",
-    display: "flex",
-    justifyContent: "center",
-    marginBottom: theme.spacing(4),
-  },
-  logoImg: {
-    width: "75%",
-    maxWidth: "300px",
-    height: "auto",
-  },
-  link: {
-    color: theme.palette.secondary.main,
-    "&:hover": {
-      textDecoration: "underline",
-    },
-  },
-  passwordStrengthBar: {
-    marginTop: theme.spacing(1),
-    marginBottom: theme.spacing(1),
-  },
-  passwordStrengthText: {
-    fontSize: "0.75rem",
-    color: theme.palette.text.secondary,
-    marginTop: theme.spacing(0.5),
-  },
-  copyrightContainer: {
-    marginTop: theme.spacing(4),
-    width: "100%",
-    maxWidth: 900,
-    textAlign: "center",
-  },
-  phoneInputContainer: {
-    width: '100%',
-    position: 'relative',
-    marginBottom: theme.spacing(2),
   },
 }));
+
+const SectionContainer = styled(Box)(({ theme, position = "right" }) => ({
+  flex: 1,
+  display: "flex",
+  alignItems: "center",
+  justifyContent: position === "left" 
+    ? "flex-start" 
+    : position === "center" 
+      ? "center" 
+      : "flex-end",
+  padding: theme.spacing(4),
+  position: "relative",
+  zIndex: 2,
+  [theme.breakpoints.down("md")]: {
+    padding: theme.spacing(2),
+    justifyContent: "center",
+  },
+}));
+
+const FormPaper = styled(Paper)(({ theme, position = "right" }) => ({
+  backgroundColor: theme.palette.background.paper,
+  borderRadius: theme.shape.borderRadius * 2,
+  padding: theme.spacing(4),
+  width: "100%",
+  maxWidth: 900,
+  margin: position === "center" ? "auto" : undefined,
+  marginLeft: position === "left" ? theme.spacing(4) : undefined,
+  marginRight: position === "right" ? theme.spacing(4) : undefined,
+  boxShadow: "0px 4px 20px rgba(0, 0, 0, 0.1)",
+  [theme.breakpoints.down("md")]: {
+    padding: theme.spacing(2),
+    margin: theme.spacing(2),
+    maxWidth: "calc(100% - 32px)",
+  },
+}));
+
+const StyledStepper = styled(Stepper)(({ theme }) => ({
+  backgroundColor: "transparent",
+  "& .MuiStepLabel-label": {
+    fontSize: "1rem",
+    fontWeight: 500,
+  },
+}));
+
+const ButtonContainer = styled(Box)(({ theme }) => ({
+  display: "flex",
+  justifyContent: "space-between",
+  marginTop: theme.spacing(3),
+}));
+
+const LogoContainer = styled(Box)(({ theme }) => ({
+  width: "100%",
+  display: "flex",
+  justifyContent: "center",
+  marginBottom: theme.spacing(4),
+}));
+
+const StyledLogo = styled("img")(({ theme }) => ({
+  height: theme.spacing(8),
+  [theme.breakpoints.down("sm")]: {
+    height: theme.spacing(6),
+  },
+}));
+
+const CopyrightContainer = styled(Box)(({ theme }) => ({
+  marginTop: theme.spacing(4),
+  width: "100%",
+  maxWidth: 900,
+  textAlign: "center",
+}));
+
+const AnimatedBox = animated(Box);
 
 // Helper function to check repeated sequences
 const isRepeatedSequence = (value) => {
@@ -193,7 +176,7 @@ const isRepeatedSequence = (value) => {
   return isAllSame || isSequential;
 };
 
-// CPF validation function 1
+// CPF validation function
 const validateCPF = (cpf) => {
   const cleanCPF = cpf.replace(/\D/g, '');
   
@@ -277,14 +260,13 @@ const calculatePasswordStrength = (password) => {
 };
 
 const SignUp = () => {
-  const classes = useStyles();
   const history = useHistory();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("md"));
-
   const { getPublicSetting } = useSettings();
 
   const [activeStep, setActiveStep] = useState(0);
+  const [signupPosition, setSignupPosition] = useState("right"); // Posição padrão
 
   const [plans, setPlans] = useState([]);
   const { list: listPlans } = usePlans();
@@ -438,7 +420,7 @@ const SignUp = () => {
           this.createError({ message: i18n.t("signup.validation.endereco.estadoInvalido") });
       }),
     
-      cidade: Yup.string()
+    cidade: Yup.string()
       .required(i18n.t("signup.validation.required"))
       .min(2, i18n.t("signup.validation.endereco.cidadeMin"))
       .test('cidade-valida', i18n.t("signup.validation.endereco.cidadeMin"), function(value) {
@@ -457,8 +439,7 @@ const SignUp = () => {
         return true;
       }),
     
-    
-      bairro: Yup.string()
+    bairro: Yup.string()
       .required(i18n.t("signup.validation.required"))
       .min(2, i18n.t("signup.validation.endereco.bairroMin"))
       .test('bairro-valido', i18n.t("signup.validation.endereco.bairroMin"), function(value) {
@@ -487,7 +468,7 @@ const SignUp = () => {
     
     logradouro: Yup.string()
       .required(i18n.t("signup.validation.required"))
-      .min(3, i18n.t("signup.validation.endereco.logradouroMin"))  // Reduzir o mínimo para 3 caracteres
+      .min(3, i18n.t("signup.validation.endereco.logradouroMin"))
       .test('logradouro-valido', i18n.t("signup.validation.endereco.logradouroMin"), function(value) {
         if (!value) return false;
         
@@ -578,6 +559,7 @@ const SignUp = () => {
     getPublicSetting("copyright").then((data) => data && setCopyright(data));
     getPublicSetting("terms").then((data) => data && setTerms(data));
     getPublicSetting("privacy").then((data) => data && setPrivacy(data));
+    getPublicSetting("signupPosition").then((data) => data && setSignupPosition(data));
     getPublicSetting("signupBackground").then((data) => {
       if (data) {
         setSignupBackground(
@@ -598,7 +580,7 @@ const SignUp = () => {
       }
     };
     loadSettings();
-  }, []);
+  }, [listPlans]);
 
   const buscarDadosCNPJ = async (cnpj) => {
     try {
@@ -1131,474 +1113,509 @@ const SignUp = () => {
     }
   };
 
+  // Renderização do conteúdo de cada passo
+  const renderPersonDataStep = (formikProps) => (
+    <Grid container spacing={2}>
+      <Grid item xs={12}>
+        <FormControl component="fieldset">
+          <RadioGroup
+            row
+            name="tipoPessoa"
+            value={formikProps.values.tipoPessoa}
+            onChange={(e) => {
+              const newTipo = e.target.value;
+              formikProps.setFieldValue('tipoPessoa', newTipo);
+              setTipoPessoa(newTipo);
+              formikProps.setFieldValue('documento', '');
+              formikProps.setFieldValue('nome', '');
+            }}
+          >
+            <FormControlLabel 
+              value="F" 
+              control={<Radio />} 
+              label="Pessoa Física" 
+            />
+            <FormControlLabel 
+              value="J" 
+              control={<Radio />} 
+              label="Pessoa Jurídica" 
+            />
+          </RadioGroup>
+        </FormControl>
+      </Grid>
+
+      <Grid item xs={12} md={6}>
+        <Field
+          as={TextField}
+          variant="outlined"
+          fullWidth
+          id="documento"
+          name="documento"
+          label={tipoPessoa === 'F' ? "CPF" : "CNPJ"}
+          value={formikProps.values.documento}
+          onChange={(e) => handleDocumentoChange(e, formikProps)}
+          onBlur={formikProps.handleBlur}
+          error={formikProps.touched.documento && Boolean(formikProps.errors.documento)}
+          helperText={formikProps.touched.documento && formikProps.errors.documento}
+          InputProps={{
+            startAdornment: (
+              <InputAdornment position="start">
+                <Business sx={{ color: theme.palette.primary.main }}/>
+              </InputAdornment>
+            ),
+          }}
+        />
+      </Grid>
+
+      <Grid item xs={12} md={6}>
+        <Field
+          as={TextField}
+          variant="outlined"
+          fullWidth
+          id="nome"
+          name="nome"
+          label={tipoPessoa === 'F' ? "Nome Completo" : "Razão Social"}
+          value={formikProps.values.nome}
+          onChange={formikProps.handleChange}
+          onBlur={formikProps.handleBlur}
+          error={formikProps.touched.nome && Boolean(formikProps.errors.nome)}
+          helperText={formikProps.touched.nome && formikProps.errors.nome}
+        />
+      </Grid>
+
+      <Grid item xs={12} md={6}>
+        <Field
+          as={TextField}
+          variant="outlined"
+          fullWidth
+          id="email"
+          name="email"
+          label={i18n.t("signup.form.email")}
+          error={formikProps.touched.email && Boolean(formikProps.errors.email)}
+          helperText={formikProps.touched.email && formikProps.errors.email}
+          onBlur={async (e) => {
+            formikProps.handleBlur(e);
+            if (e.target.value) {
+              await validateEmail(e.target.value, formikProps.setFieldError);
+            }
+          }}
+          InputProps={{
+            startAdornment: (
+              <InputAdornment position="start">
+                <Mail sx={{ color: theme.palette.primary.main }}/>
+              </InputAdornment>
+            ),
+          }}
+        />
+      </Grid>
+
+      <Grid item xs={12} md={6}>
+        <SignUpPhoneInput
+          ref={phoneInputRef}
+          name="phone"
+          label={i18n.t("signup.form.phone")}
+          value={formikProps.values.phone}
+          onChange={(phone, isValid) => {
+            formikProps.setFieldValue('phone', phone, false);
+
+            // Show error immediately if phone is invalid
+            if (!isValid && phone) {
+              setPhoneError(i18n.t("signup.validation.invalidPhone"));
+            } else {
+              setPhoneError("");
+            }
+          }}
+          onBlur={async (e) => {
+            formikProps.setFieldTouched('phone', true, false);
+            
+            // Check if the number already exists in the database
+            if (phoneInputRef.current && phoneInputRef.current.getNumber) {
+              const phoneNumber = phoneInputRef.current.getNumber();
+              await validatePhone(phoneNumber, formikProps.setFieldError);
+            }
+          }}
+          error={formikProps.touched.phone && (Boolean(formikProps.errors.phone) || Boolean(phoneError))}
+          helperText={formikProps.touched.phone && (formikProps.errors.phone || phoneError)}
+          required
+        />
+        {/* Help message for the user */}
+        <Typography variant="caption" color="textSecondary">
+          Informe o número com DDD (Ex: (11) 98765-4321)
+        </Typography>
+      </Grid>
+
+      <Grid item xs={12}>
+        <Box sx={{ mt: 2, textAlign: 'center' }}>
+          <Typography variant="body2">
+            {i18n.t("signup.buttons.loginText")}{" "}
+            <Link component={RouterLink} to="/login" sx={{ 
+              color: theme.palette.secondary.main,
+              textDecoration: 'none',
+              '&:hover': {
+                textDecoration: 'underline',
+              },
+            }}>
+              {i18n.t("signup.buttons.login")}
+            </Link>
+          </Typography>
+          <Box sx={{ mt: 1, display: 'flex', justifyContent: 'center', gap: 2 }}>
+            <Button
+              variant="outlined"
+              size="small"
+              component={RouterLink}
+              to="/login"
+              startIcon={<NavigateBefore />}
+            >
+              {i18n.t("signup.buttons.backToLogin")}
+            </Button>
+            <Button
+              variant="text"
+              size="small"
+              component={RouterLink}
+              to="/forgot-password"
+              color="secondary"
+            >
+              {i18n.t("signup.buttons.forgotPassword")}
+            </Button>
+          </Box>
+        </Box>
+      </Grid>
+    </Grid>
+  );
+
+  const renderAddressStep = (formikProps) => (
+    <Grid container spacing={2}>
+      <Grid item xs={12} md={4}>
+        <Field
+          as={TextField}
+          variant="outlined"
+          fullWidth
+          id="cep"
+          name="cep"
+          label={i18n.t("signup.form.cep")}
+          value={formikProps.values.cep}
+          onChange={async (e) => {
+            const maskedValue = cepMask(e.target.value);
+            
+            // Atualizar primeiro o valor no formulário sem validar
+            await formikProps.setFieldValue("cep", maskedValue, false);
+            
+            // Verificar comprimento exato para consulta de CEP
+            if (maskedValue.length === 9) {
+              try {
+                setCepLoading(true);
+                toast.info(i18n.t("signup.toasts.fetchingAddress"));
+                
+                // Passar formikProps diretamente para a função buscarEndereco
+                await buscarEndereco(maskedValue, formikProps);
+                
+              } catch (error) {
+                console.error("Erro ao buscar endereço:", error);
+                toast.error(i18n.t("signup.toasts.errorAddress"));
+              } finally {
+                setCepLoading(false);
+              }
+            }
+          }}
+          onBlur={formikProps.handleBlur}
+          error={formikProps.touched.cep && Boolean(formikProps.errors.cep)}
+          helperText={formikProps.touched.cep && formikProps.errors.cep}
+          InputProps={{
+            startAdornment: (
+              <InputAdornment position="start">
+                <LocationOn sx={{ color: theme.palette.primary.main }}/>
+              </InputAdornment>
+            ),
+            endAdornment: cepLoading ? (
+              <InputAdornment position="end">
+                <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                  <LinearProgress 
+                    size={24} 
+                    sx={{ 
+                      width: 24, 
+                      marginRight: 1,
+                      color: theme.palette.primary.main 
+                    }}
+                  />
+                </Box>
+              </InputAdornment>
+            ) : null,
+          }}
+        />
+      </Grid>
+      <Grid item xs={12} md={4}>
+        <Field
+          as={TextField}
+          variant="outlined"
+          fullWidth
+          id="estado"
+          name="estado"
+          label={i18n.t("signup.form.estado")}
+          onBlur={formikProps.handleBlur}
+          error={formikProps.touched.estado && Boolean(formikProps.errors.estado)}
+          helperText={formikProps.touched.estado && formikProps.errors.estado}
+        />
+      </Grid>
+      <Grid item xs={12} md={4}>
+        <Field
+          as={TextField}
+          variant="outlined"
+          fullWidth
+          id="cidade"
+          name="cidade"
+          label={i18n.t("signup.form.cidade")}
+          onBlur={formikProps.handleBlur}
+          error={formikProps.touched.cidade && Boolean(formikProps.errors.cidade)}
+          helperText={formikProps.touched.cidade && formikProps.errors.cidade}
+        />
+      </Grid>
+      <Grid item xs={12} md={6}>
+        <Field
+          as={TextField}
+          variant="outlined"
+          fullWidth
+          id="bairro"
+          name="bairro"
+          label={i18n.t("signup.form.bairro")}
+          onBlur={formikProps.handleBlur}
+          error={formikProps.touched.bairro && Boolean(formikProps.errors.bairro)}
+          helperText={formikProps.touched.bairro && formikProps.errors.bairro}
+        />
+      </Grid>
+      <Grid item xs={12} md={6}>
+        <Field
+          as={TextField}
+          variant="outlined"
+          fullWidth
+          id="logradouro"
+          name="logradouro"
+          label={i18n.t("signup.form.logradouro")}
+          onBlur={formikProps.handleBlur}
+          error={formikProps.touched.logradouro && Boolean(formikProps.errors.logradouro)}
+          helperText={formikProps.touched.logradouro && formikProps.errors.logradouro}
+        />
+      </Grid>
+      <Grid item xs={9}>
+        <Field
+          as={TextField}
+          variant="outlined"
+          fullWidth
+          id="numero"
+          name="numero"
+          label={i18n.t("signup.form.numero")}
+          disabled={semNumero}
+          onBlur={formikProps.handleBlur}
+          error={formikProps.touched.numero && Boolean(formikProps.errors.numero)}
+          helperText={formikProps.touched.numero && formikProps.errors.numero}
+        />
+      </Grid>
+      <Grid item xs={3}>
+        <FormControlLabel
+          control={
+            <Checkbox
+              checked={semNumero}
+              onChange={(e) => setSemNumero(e.target.checked)}
+              color="primary"
+            />
+          }
+          label={i18n.t("signup.form.noNumber")}
+        />
+      </Grid>
+      <Grid item xs={12} md={6}>
+        <Field
+          as={TextField}
+          variant="outlined"
+          fullWidth
+          id="complemento"
+          name="complemento"
+          label="Complemento"
+          value={formikProps.values.complemento}
+          onChange={formikProps.handleChange}
+          onBlur={formikProps.handleBlur}
+          error={formikProps.touched.complemento && Boolean(formikProps.errors.complemento)}
+          helperText={formikProps.touched.complemento && formikProps.errors.complemento}
+        />
+      </Grid>
+    </Grid>
+  );
+
+  const renderAccessStep = (formikProps) => (
+    <Grid container spacing={2}>
+      <Grid item xs={12}>
+        <Field
+          as={TextField}
+          variant="outlined"
+          fullWidth
+          name="password"
+          label={i18n.t("signup.form.password")}
+          type={showPassword ? "text" : "password"}
+          id="password"
+          error={formikProps.touched.password && Boolean(formikProps.errors.password)}
+          helperText={formikProps.touched.password && formikProps.errors.password}
+          InputProps={{
+            startAdornment: (
+              <InputAdornment position="start">
+                <Lock sx={{ color: theme.palette.primary.main }}/>
+              </InputAdornment>
+            ),
+            endAdornment: (
+              <InputAdornment position="end">
+                <IconButton
+                  onClick={() => setShowPassword(!showPassword)}
+                  edge="end"
+                >
+                  {showPassword ? 
+                    <VisibilityOff sx={{ color: theme.palette.primary.main }}/> : 
+                    <Visibility sx={{ color: theme.palette.primary.main }}/>
+                  }
+                </IconButton>
+              </InputAdornment>
+            ),
+          }}
+          onFocus={() => setIsPasswordFieldFocused(true)}
+          onBlur={(e) => {
+            formikProps.handleBlur(e);
+            if (!e.target.value) {
+              setIsPasswordFieldFocused(false);
+            }
+          }}
+          onChange={(e) => {
+            formikProps.handleChange(e);
+            setPasswordStrength(calculatePasswordStrength(e.target.value));
+          }}
+        />
+        {isPasswordFieldFocused && (
+          <>
+            <Box sx={{ mt: 1, mb: 1 }}>
+              <LinearProgress
+                variant="determinate"
+                value={(passwordStrength / 5) * 100}
+                sx={{
+                  backgroundColor: theme.palette.grey[200],
+                  "& .MuiLinearProgress-bar": {
+                    backgroundColor:
+                      passwordStrength <= 2
+                        ? theme.palette.error.main
+                        : passwordStrength <= 4
+                        ? theme.palette.warning.main
+                        : theme.palette.success.main,
+                  },
+                }}
+              />
+              <Typography 
+                variant="caption" 
+                color="textSecondary"
+                sx={{ mt: 0.5, display: 'block' }}
+              >
+                {passwordStrength <= 2 && i18n.t("signup.passwordStrength.weak")}
+                {passwordStrength > 2 && passwordStrength <= 4 && i18n.t("signup.passwordStrength.medium")}
+                {passwordStrength > 4 && i18n.t("signup.passwordStrength.strong")}
+              </Typography>
+            </Box>
+            <Box sx={{ mt: 1 }}>
+              <Typography variant="body2" color="textSecondary">
+                {i18n.t("signup.validation.password.requirements")}:
+              </Typography>
+              <Typography variant="body2" color="textSecondary">
+                • {i18n.t("signup.validation.password.length")}
+              </Typography>
+              <Typography variant="body2" color="textSecondary">
+                • {i18n.t("signup.validation.password.lowercase")}
+              </Typography>
+              <Typography variant="body2" color="textSecondary">
+                • {i18n.t("signup.validation.password.uppercase")}
+              </Typography>
+              <Typography variant="body2" color="textSecondary">
+                • {i18n.t("signup.validation.password.number")}
+              </Typography>
+              <Typography variant="body2" color="textSecondary">
+                • {i18n.t("signup.validation.password.special")}
+              </Typography>
+            </Box>
+          </>
+        )}
+      </Grid>
+      <Grid item xs={12}>
+        <FormControl
+          fullWidth
+          variant="outlined"
+          error={formikProps.touched.planId && Boolean(formikProps.errors.planId)}
+        >
+          <InputLabel>{i18n.t("signup.form.plan")}</InputLabel>
+          <Field
+            as={Select}
+            name="planId"
+            label={i18n.t("signup.form.plan")}
+            id="planId"
+          >
+            {plans.map((plan) => (
+              <MenuItem key={plan.id} value={plan.id}>
+                {plan.name} - {i18n.t("signup.form.users")}: {plan.users} - WhatsApp: {plan.connections} - {i18n.t("signup.form.queues")}: {plan.queues} - R$ {plan.value}
+                </MenuItem>
+            ))}
+          </Field>
+          {formikProps.touched.planId && formikProps.errors.planId && (
+            <Typography variant="caption" color="error">
+              {formikProps.errors.planId}
+            </Typography>
+          )}
+        </FormControl>
+      </Grid>
+      <Grid item xs={12}>
+        <FormControlLabel
+          control={
+            <Checkbox
+              checked={aceitouTermos}
+              onChange={(e) => setAceitouTermos(e.target.checked)}
+              color="primary"
+            />
+          }
+          label={
+            <Typography variant="body2">
+              {i18n.t("signup.form.acceptTerms")}{" "}
+              <Link href={terms} target="_blank" sx={{
+                color: theme.palette.secondary.main,
+                textDecoration: 'none',
+                '&:hover': {
+                  textDecoration: 'underline',
+                },
+              }}>
+                {i18n.t("signup.form.terms")}
+              </Link>{" "}
+              {i18n.t("signup.form.and")}{" "}
+              <Link href={privacy} target="_blank" sx={{
+                color: theme.palette.secondary.main,
+                textDecoration: 'none',
+                '&:hover': {
+                  textDecoration: 'underline',
+                },
+              }}>
+                {i18n.t("signup.form.privacy")}
+              </Link>
+            </Typography>
+          }
+        />
+      </Grid>
+    </Grid>
+  );
+
+  // Definição dos passos
   const steps = [
     {
       label: i18n.t("signup.steps.person"),
-      content: (formikProps) => (
-        <Grid container spacing={2}>
-          <Grid item xs={12}>
-            <FormControl component="fieldset">
-              <RadioGroup
-                row
-                name="tipoPessoa"
-                value={formikProps.values.tipoPessoa}
-                onChange={(e) => {
-                  const newTipo = e.target.value;
-                  formikProps.setFieldValue('tipoPessoa', newTipo);
-                  setTipoPessoa(newTipo);
-                  formikProps.setFieldValue('documento', '');
-                  formikProps.setFieldValue('nome', '');
-                }}
-              >
-                <FormControlLabel 
-                  value="F" 
-                  control={<Radio />} 
-                  label="Pessoa Física" 
-                />
-                <FormControlLabel 
-                  value="J" 
-                  control={<Radio />} 
-                  label="Pessoa Jurídica" 
-                />
-              </RadioGroup>
-            </FormControl>
-          </Grid>
-
-          <Grid item xs={12} md={6}>
-            <Field
-              as={TextField}
-              variant="outlined"
-              fullWidth
-              id="documento"
-              name="documento"
-              label={tipoPessoa === 'F' ? "CPF" : "CNPJ"}
-              value={formikProps.values.documento}
-              onChange={(e) => handleDocumentoChange(e, formikProps)}
-              onBlur={formikProps.handleBlur}
-              error={formikProps.touched.documento && Boolean(formikProps.errors.documento)}
-              helperText={formikProps.touched.documento && formikProps.errors.documento}
-              InputProps={{
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <Business sx={{ color: theme.palette.primary.main }}/>
-                  </InputAdornment>
-                ),
-              }}
-            />
-          </Grid>
-
-          <Grid item xs={12} md={6}>
-            <Field
-              as={TextField}
-              variant="outlined"
-              fullWidth
-              id="nome"
-              name="nome"
-              label={tipoPessoa === 'F' ? "Nome Completo" : "Razão Social"}
-              value={formikProps.values.nome}
-              onChange={formikProps.handleChange}
-              onBlur={formikProps.handleBlur}
-              error={formikProps.touched.nome && Boolean(formikProps.errors.nome)}
-              helperText={formikProps.touched.nome && formikProps.errors.nome}
-            />
-          </Grid>
-
-          <Grid item xs={12} md={6}>
-            <Field
-              as={TextField}
-              variant="outlined"
-              fullWidth
-              id="email"
-              name="email"
-              label={i18n.t("signup.form.email")}
-              error={formikProps.touched.email && Boolean(formikProps.errors.email)}
-              helperText={formikProps.touched.email && formikProps.errors.email}
-              onBlur={async (e) => {
-                formikProps.handleBlur(e);
-                if (e.target.value) {
-                  await validateEmail(e.target.value, formikProps.setFieldError);
-                }
-              }}
-              InputProps={{
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <Mail sx={{ color: theme.palette.primary.main }}/>
-                  </InputAdornment>
-                ),
-              }}
-            />
-          </Grid>
-
-          <Grid item xs={12} md={6}>
-            <SignUpPhoneInput
-              ref={phoneInputRef}
-              name="phone"
-              label={i18n.t("signup.form.phone")}
-              value={formikProps.values.phone}
-              onChange={(phone, isValid) => {
-                formikProps.setFieldValue('phone', phone, false);
-
-                // Show error immediately if phone is invalid
-                if (!isValid && phone) {
-                  setPhoneError(i18n.t("signup.validation.invalidPhone"));
-                } else {
-                  setPhoneError("");
-                }
-              }}
-              onBlur={async (e) => {
-                formikProps.setFieldTouched('phone', true, false);
-                
-                // Check if the number already exists in the database
-                if (phoneInputRef.current && phoneInputRef.current.getNumber) {
-                  const phoneNumber = phoneInputRef.current.getNumber();
-                  await validatePhone(phoneNumber, formikProps.setFieldError);
-                }
-              }}
-              error={formikProps.touched.phone && (Boolean(formikProps.errors.phone) || Boolean(phoneError))}
-              helperText={formikProps.touched.phone && (formikProps.errors.phone || phoneError)}
-              required
-            />
-            {/* Help message for the user */}
-            <Typography variant="caption" color="textSecondary">
-              Informe o número com DDD (Ex: (11) 98765-4321)
-            </Typography>
-          </Grid>
-        </Grid>
-      ),
+      content: renderPersonDataStep,
     },
     {
       label: i18n.t("signup.steps.address"),
-      content: (formikProps) => (
-        <Grid container spacing={2}>
-          <Grid item xs={12} md={4}>
-            <Field
-              as={TextField}
-              variant="outlined"
-              fullWidth
-              id="cep"
-              name="cep"
-              label={i18n.t("signup.form.cep")}
-              value={formikProps.values.cep}
-              onChange={async (e) => {
-                const maskedValue = cepMask(e.target.value);
-                
-                // Atualizar primeiro o valor no formulário sem validar
-                await formikProps.setFieldValue("cep", maskedValue, false);
-                
-                // Verificar comprimento exato para consulta de CEP
-                if (maskedValue.length === 9) {
-                  try {
-                    setCepLoading(true);
-                    toast.info(i18n.t("signup.toasts.fetchingAddress"));
-                    
-                    // Passar formikProps diretamente para a função buscarEndereco
-                    await buscarEndereco(maskedValue, formikProps);
-                    
-                  } catch (error) {
-                    console.error("Erro ao buscar endereço:", error);
-                    toast.error(i18n.t("signup.toasts.errorAddress"));
-                  } finally {
-                    setCepLoading(false);
-                  }
-                }
-              }}
-              onBlur={formikProps.handleBlur}
-              error={formikProps.touched.cep && Boolean(formikProps.errors.cep)}
-              helperText={formikProps.touched.cep && formikProps.errors.cep}
-              InputProps={{
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <LocationOn sx={{ color: theme.palette.primary.main }}/>
-                  </InputAdornment>
-                ),
-                endAdornment: cepLoading ? (
-                  <InputAdornment position="end">
-                    <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                      <LinearProgress 
-                        size={24} 
-                        sx={{ 
-                          width: 24, 
-                          marginRight: 1,
-                          color: theme.palette.primary.main 
-                        }}
-                      />
-                    </Box>
-                  </InputAdornment>
-                ) : null,
-              }}
-            />
-          </Grid>
-          <Grid item xs={12} md={4}>
-            <Field
-              as={TextField}
-              variant="outlined"
-              fullWidth
-              id="estado"
-              name="estado"
-              label={i18n.t("signup.form.estado")}
-              onBlur={formikProps.handleBlur}
-              error={formikProps.touched.estado && Boolean(formikProps.errors.estado)}
-              helperText={formikProps.touched.estado && formikProps.errors.estado}
-            />
-          </Grid>
-          <Grid item xs={12} md={4}>
-            <Field
-              as={TextField}
-              variant="outlined"
-              fullWidth
-              id="cidade"
-              name="cidade"
-              label={i18n.t("signup.form.cidade")}
-              onBlur={formikProps.handleBlur}
-              error={formikProps.touched.cidade && Boolean(formikProps.errors.cidade)}
-              helperText={formikProps.touched.cidade && formikProps.errors.cidade}
-            />
-          </Grid>
-          <Grid item xs={12} md={6}>
-            <Field
-              as={TextField}
-              variant="outlined"
-              fullWidth
-              id="bairro"
-              name="bairro"
-              label={i18n.t("signup.form.bairro")}
-              onBlur={formikProps.handleBlur}
-              error={formikProps.touched.bairro && Boolean(formikProps.errors.bairro)}
-              helperText={formikProps.touched.bairro && formikProps.errors.bairro}
-            />
-          </Grid>
-          <Grid item xs={12} md={6}>
-            <Field
-              as={TextField}
-              variant="outlined"
-              fullWidth
-              id="logradouro"
-              name="logradouro"
-              label={i18n.t("signup.form.logradouro")}
-              onBlur={formikProps.handleBlur}
-              error={formikProps.touched.logradouro && Boolean(formikProps.errors.logradouro)}
-              helperText={formikProps.touched.logradouro && formikProps.errors.logradouro}
-            />
-          </Grid>
-          <Grid item xs={9}>
-            <Field
-              as={TextField}
-              variant="outlined"
-              fullWidth
-              id="numero"
-              name="numero"
-              label={i18n.t("signup.form.numero")}
-              disabled={semNumero}
-              onBlur={formikProps.handleBlur}
-              error={formikProps.touched.numero && Boolean(formikProps.errors.numero)}
-              helperText={formikProps.touched.numero && formikProps.errors.numero}
-            />
-          </Grid>
-          <Grid item xs={12} md={6}>
-            <Field
-              as={TextField}
-              variant="outlined"
-              fullWidth
-              id="complemento"
-              name="complemento"
-              label="Complemento"
-              value={formikProps.values.complemento}
-              onChange={formikProps.handleChange}
-              onBlur={formikProps.handleBlur}
-              error={formikProps.touched.complemento && Boolean(formikProps.errors.complemento)}
-              helperText={formikProps.touched.complemento && formikProps.errors.complemento}
-            />
-          </Grid>
-          <Grid item xs={3}>
-            <FormControlLabel
-              control={
-                <Checkbox
-                  checked={semNumero}
-                  onChange={(e) => setSemNumero(e.target.checked)}
-                  color="primary"
-                />
-              }
-              label={i18n.t("signup.form.noNumber")}
-            />
-          </Grid>
-        </Grid>
-      ),
+      content: renderAddressStep,
     },
     {
       label: i18n.t("signup.steps.access"),
-      content: (formikProps) => (
-        <Grid container spacing={2}>
-          <Grid item xs={12}>
-            <Field
-              as={TextField}
-              variant="outlined"
-              fullWidth
-              name="password"
-              label={i18n.t("signup.form.password")}
-              type={showPassword ? "text" : "password"}
-              id="password"
-              error={formikProps.touched.password && Boolean(formikProps.errors.password)}
-              helperText={formikProps.touched.password && formikProps.errors.password}
-              InputProps={{
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <Lock sx={{ color: theme.palette.primary.main }}/>
-                  </InputAdornment>
-                ),
-                endAdornment: (
-                  <InputAdornment position="end">
-                    <IconButton
-                      onClick={() => setShowPassword(!showPassword)}
-                      edge="end"
-                    >
-                      {showPassword ? <VisibilityOff sx={{ color: theme.palette.primary.main }}/> : <Visibility sx={{ color: theme.palette.primary.main }}/>}
-                    </IconButton>
-                  </InputAdornment>
-                ),
-              }}
-              onFocus={() => setIsPasswordFieldFocused(true)}
-              onBlur={(e) => {
-                formikProps.handleBlur(e);
-                if (!e.target.value) {
-                  setIsPasswordFieldFocused(false);
-                }
-              }}
-              onChange={(e) => {
-                formikProps.handleChange(e);
-                setPasswordStrength(calculatePasswordStrength(e.target.value));
-              }}
-            />
-            {isPasswordFieldFocused && (
-              <>
-                <Box className={classes.passwordStrengthBar}>
-                  <LinearProgress
-                    variant="determinate"
-                    value={(passwordStrength / 5) * 100}
-                    sx={{
-                      backgroundColor: theme.palette.grey[200],
-                      "& .MuiLinearProgress-bar": {
-                        backgroundColor:
-                          passwordStrength <= 2
-                            ? theme.palette.error.main
-                            : passwordStrength <= 4
-                            ? theme.palette.warning.main
-                            : theme.palette.success.main,
-                      },
-                    }}
-                  />
-                  <Typography className={classes.passwordStrengthText}>
-                    {passwordStrength <= 2 && i18n.t("signup.passwordStrength.weak")}
-                    {passwordStrength > 2 && passwordStrength <= 4 && i18n.t("signup.passwordStrength.medium")}
-                    {passwordStrength > 4 && i18n.t("signup.passwordStrength.strong")}
-                  </Typography>
-                </Box>
-                <Box mt={1}>
-                  <Typography variant="body2" color="textSecondary">
-                    {i18n.t("signup.validation.password.requirements")}:
-                  </Typography>
-                  <Typography variant="body2" color="textSecondary">
-                    • {i18n.t("signup.validation.password.length")}
-                  </Typography>
-                  <Typography variant="body2" color="textSecondary">
-                    • {i18n.t("signup.validation.password.lowercase")}
-                  </Typography>
-                  <Typography variant="body2" color="textSecondary">
-                    • {i18n.t("signup.validation.password.uppercase")}
-                  </Typography>
-                  <Typography variant="body2" color="textSecondary">
-                    • {i18n.t("signup.validation.password.number")}
-                  </Typography>
-                  <Typography variant="body2" color="textSecondary">
-                    • {i18n.t("signup.validation.password.special")}
-                  </Typography>
-                </Box>
-              </>
-            )}
-          </Grid>
-          <Grid item xs={12}>
-            <FormControl
-              fullWidth
-              variant="outlined"
-              error={formikProps.touched.planId && Boolean(formikProps.errors.planId)}
-            >
-              <InputLabel>{i18n.t("signup.form.plan")}</InputLabel>
-              <Field
-                as={Select}
-                name="planId"
-                label={i18n.t("signup.form.plan")}
-                id="planId"
-              >
-                {plans.map((plan) => (
-                  <MenuItem key={plan.id} value={plan.id}>
-                    {plan.name} - {i18n.t("signup.form.users")}: {plan.users} - WhatsApp: {plan.connections} - {i18n.t("signup.form.queues")}: {plan.queues} - R$ {plan.value}
-                    </MenuItem>
-                ))}
-              </Field>
-              {formikProps.touched.planId && formikProps.errors.planId && (
-                <Typography variant="caption" color="error">
-                  {formikProps.errors.planId}
-                </Typography>
-              )}
-            </FormControl>
-          </Grid>
-          <Grid item xs={12}>
-            <FormControlLabel
-              control={
-                <Checkbox
-                  checked={aceitouTermos}
-                  onChange={(e) => setAceitouTermos(e.target.checked)}
-                  color="primary"
-                />
-              }
-              label={
-                <Typography variant="body2">
-                  {i18n.t("signup.form.acceptTerms")}{" "}
-                  <Link href={terms} target="_blank">
-                    {i18n.t("signup.form.terms")}
-                  </Link>{" "}
-                  {i18n.t("signup.form.and")}{" "}
-                  <Link href={privacy} target="_blank">
-                    {i18n.t("signup.form.privacy")}
-                  </Link>
-                </Typography>
-              }
-            />
-          </Grid>
-          <Grid item xs={12}>
-            <Box mt={2} textAlign="center">
-              <Typography variant="body2">
-                {i18n.t("signup.buttons.loginText")}{" "}
-                <Link component={RouterLink} to="/login" className={classes.link}>
-                  {i18n.t("signup.buttons.login")}
-                </Link>
-              </Typography>
-              <Box mt={1} display="flex" justifyContent="center" gap={2}>
-                <Button
-                  variant="outlined"
-                  size="small"
-                  component={RouterLink}
-                  to="/login"
-                  startIcon={<NavigateBefore />}
-                >
-                  {i18n.t("signup.buttons.backToLogin")}
-                </Button>
-                <Button
-                  variant="text"
-                  size="small"
-                  component={RouterLink}
-                  to="/forgot-password"
-                  color="secondary"
-                >
-                  {i18n.t("signup.buttons.forgotPassword")}
-                </Button>
-              </Box>
-            </Box>
-          </Grid>
-        </Grid>
-      ),
+      content: renderAccessStep,
     },
   ];
 
+  // Animações
   const leftAnimation = useSpring({
     from: { opacity: 0, transform: "translateX(-50px)" },
     to: { opacity: 1, transform: "translateX(0)" },
@@ -1617,6 +1634,7 @@ const SignUp = () => {
     delay: 600,
   });
 
+  // Componente principal
   return (
     <Box
       sx={{
@@ -1631,20 +1649,25 @@ const SignUp = () => {
       }}
     >
       <CssBaseline />
-      <div className={classes.root}>
-        <Grid container className={classes.contentContainer}>
-          <animated.div style={leftAnimation} className={classes.leftSection}>
-            <div className={classes.logoContainer}>
-              <img
-                className={classes.logoImg}
-                src={theme.calculatedLogoLight ? theme.calculatedLogoLight() : "/logo.png"}
-                alt="Logo"
-              />
-            </div>
-          </animated.div>
+      <RootContainer>
+        <ContentContainer sx={{ 
+          justifyContent: 
+            signupPosition === "left" 
+              ? "flex-start" 
+              : signupPosition === "center" 
+                ? "center" 
+                : "flex-end" 
+        }}>
+          <SectionContainer component={AnimatedBox} style={rightAnimation} position={signupPosition}>
+            <FormPaper position={signupPosition}>
+              {/* Logo centralizada em todas as etapas */}
+              <LogoContainer>
+                <StyledLogo
+                  src={theme.calculatedLogoLight?.() || "/logo.png"}
+                  alt="Logo"
+                />
+              </LogoContainer>
 
-          <animated.div style={rightAnimation} className={classes.rightSection}>
-            <Paper className={classes.formContainer}>
               <Typography component="h1" variant="h5" align="center" gutterBottom>
                 {i18n.t("signup.title")}
               </Typography>
@@ -1659,13 +1682,13 @@ const SignUp = () => {
                 >
                   {(formikProps) => (
                     <Form>
-                      <Stepper activeStep={activeStep} orientation="vertical" className={classes.stepper}>
+                      <StyledStepper activeStep={activeStep} orientation="vertical">
                         {steps.map((step, index) => (
                           <Step key={step.label}>
                             <StepLabel>{step.label}</StepLabel>
                             <StepContent>
                               {step.content(formikProps)}
-                              <div className={classes.buttonContainer}>
+                              <ButtonContainer>
                                 <Button
                                   disabled={index === 0}
                                   onClick={handleBack}
@@ -1690,11 +1713,9 @@ const SignUp = () => {
                                         <Typography variant="button" sx={{ mr: 1 }}>
                                           {i18n.t("signup.form.loading")}
                                         </Typography>
-                                        <LinearProgress
+                                        <CircularProgress
                                           size={24}
                                           sx={{
-                                            width: 24,
-                                            marginLeft: 1,
                                             color: "inherit",
                                           }}
                                         />
@@ -1706,11 +1727,11 @@ const SignUp = () => {
                                     i18n.t("signup.buttons.next")
                                   )}
                                 </Button>
-                              </div>
+                              </ButtonContainer>
                             </StepContent>
                           </Step>
                         ))}
-                      </Stepper>
+                      </StyledStepper>
                     </Form>
                   )}
                 </Formik>
@@ -1719,9 +1740,9 @@ const SignUp = () => {
                   {i18n.t("signup.unavailable")}
                 </Typography>
               )}
-            </Paper>
+            </FormPaper>
 
-            <animated.div style={fadeIn} className={classes.copyrightContainer}>
+            <CopyrightContainer component={AnimatedBox} style={fadeIn}>
               <Typography variant="body2" color="textSecondary" align="center">
                 {`Copyright © ${new Date().getFullYear()} ${copyright}`}
               </Typography>
@@ -1729,22 +1750,42 @@ const SignUp = () => {
                 variant="body2" 
                 color="textSecondary" 
                 align="center" 
-                style={{ marginTop: "0.5rem" }}
+                sx={{ mt: 0.5 }}
               >
                 Este site é protegido pelo reCAPTCHA Enterprise e pela{" "}
-                <Link href={privacy} target="_blank" className={classes.link}>
+                <Link 
+                  href={privacy} 
+                  target="_blank" 
+                  sx={{
+                    color: theme.palette.secondary.main,
+                    textDecoration: 'none',
+                    '&:hover': {
+                      textDecoration: 'underline',
+                    },
+                  }}
+                >
                   {i18n.t("signup.form.privacy")}
                 </Link>{" "}
                 e{" "}
-                <Link href={terms} target="_blank" className={classes.link}>
+                <Link 
+                  href={terms} 
+                  target="_blank" 
+                  sx={{
+                    color: theme.palette.secondary.main,
+                    textDecoration: 'none',
+                    '&:hover': {
+                      textDecoration: 'underline',
+                    },
+                  }}
+                >
                   {i18n.t("signup.form.terms")}
                 </Link>{" "}
                 do Google
               </Typography>
-            </animated.div>
-          </animated.div>
-        </Grid>
-      </div>
+            </CopyrightContainer>
+          </SectionContainer>
+        </ContentContainer>
+      </RootContainer>
     </Box>
   );
 };

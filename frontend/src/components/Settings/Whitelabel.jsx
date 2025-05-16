@@ -159,13 +159,16 @@ function Whitelabel({ settings }) {
   const [selectedColorKey, setSelectedColorKey] = useState(themeColors[0]);
   const [selectedColorValue, setSelectedColorValue] = useState("");
   const [colorPickerAnchorEl, setColorPickerAnchorEl] = useState(null);
+
   
   // Estados para os formulários que devem ser salvos apenas quando explicitamente solicitado
   const [generalForm, setGeneralForm] = useState({
     appName: "",
     copyright: "",
     privacy: "",
-    terms: ""
+    terms: "",
+    loginPosition: "right",
+    signupPosition: "right"
   });
   
   // Estado para indicar se há alterações não salvas
@@ -591,19 +594,8 @@ function Whitelabel({ settings }) {
           return acc;
         }, {});
 
-        // Configurações padrão caso não existam
-        const defaultSettings = {
-          splashBackgroundLight: '#ffffff',
-          splashBackgroundDark: '#1C2E36',
-          splashTextColorLight: '#000000',
-          splashTextColorDark: '#ffffff',
-          splashAppName: 'AutoAtende',
-          splashSlogan: 'Sua plataforma completa de atendimento'
-        };
-
         // Mescla as configurações salvas com as padrão
         const mergedSettings = {
-          ...defaultSettings,
           ...initialSettings
         };
 
@@ -616,7 +608,9 @@ function Whitelabel({ settings }) {
             appName: mergedSettings.appName || '',
             copyright: mergedSettings.copyright || '',
             privacy: mergedSettings.privacy || '',
-            terms: mergedSettings.terms || ''
+            terms: mergedSettings.terms || '',
+            loginPosition: mergedSettings.loginPosition || 'right',
+            signupPosition: mergedSettings.signupPosition || 'right'
           });
 
           // Aplicar as configurações ao tema apenas uma vez
@@ -664,7 +658,9 @@ function Whitelabel({ settings }) {
       handleSaveSetting('appName', generalForm.appName, 'general'),
       handleSaveSetting('copyright', generalForm.copyright, 'general'),
       handleSaveSetting('privacy', generalForm.privacy, 'general'),
-      handleSaveSetting('terms', generalForm.terms, 'general')
+      handleSaveSetting('terms', generalForm.terms, 'general'),
+      handleSaveSetting('loginPosition', generalForm.loginPosition, 'general'),
+      handleSaveSetting('signupPosition', generalForm.signupPosition, 'general') 
     ])
       .then(() => {
         setHasUnsavedChanges(prev => ({...prev, general: false}));
@@ -711,6 +707,45 @@ function Whitelabel({ settings }) {
                 />
               </FormControl>
             </Grid>
+            
+            {/* Novas opções de posicionamento dos formulários */}
+            <Grid item xs={12} md={6}>
+              <FormControl fullWidth>
+                <InputLabel id="login-position-label">Posição do Formulário de Login</InputLabel>
+                <Select
+                  labelId="login-position-label"
+                  id="loginPosition"
+                  name="loginPosition"
+                  value={generalForm.loginPosition || 'right'}
+                  onChange={handleGeneralFormChange}
+                  label="Posição do Formulário de Login"
+                  sx={{ mb: 2 }}
+                >
+                  <MenuItem value="left">Esquerda</MenuItem>
+                  <MenuItem value="center">Centro</MenuItem>
+                  <MenuItem value="right">Direita</MenuItem>
+                </Select>
+              </FormControl>
+            </Grid>
+            <Grid item xs={12} md={6}>
+              <FormControl fullWidth>
+                <InputLabel id="signup-position-label">Posição do Formulário de Cadastro</InputLabel>
+                <Select
+                  labelId="signup-position-label"
+                  id="signupPosition"
+                  name="signupPosition"
+                  value={generalForm.signupPosition || 'right'}
+                  onChange={handleGeneralFormChange}
+                  label="Posição do Formulário de Cadastro"
+                  sx={{ mb: 2 }}
+                >
+                  <MenuItem value="left">Esquerda</MenuItem>
+                  <MenuItem value="center">Centro</MenuItem>
+                  <MenuItem value="right">Direita</MenuItem>
+                </Select>
+              </FormControl>
+            </Grid>
+            
             <Grid item xs={12} md={6}>
               <FormControl fullWidth>
                 <TextField

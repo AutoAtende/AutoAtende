@@ -49,7 +49,7 @@ import ColorModeContext from "../../layout/themeContext";
 const AnimatedPaper = animated(Paper);
 const AnimatedDialog = animated(Dialog);
 
-const FloatingFormContainer = styled(Paper)(({ theme }) => ({
+const FloatingFormContainer = styled(Paper)(({ theme, position = 'right' }) => ({
   position: 'relative',
   backgroundColor: theme.palette.background.paper,
   borderRadius: theme.shape.borderRadius * 3,
@@ -57,7 +57,9 @@ const FloatingFormContainer = styled(Paper)(({ theme }) => ({
   boxShadow: theme.shadows[10],
   width: '100%',
   maxWidth: 450,
-  marginRight: theme.spacing(4),
+  marginLeft: position === 'left' ? theme.spacing(4) : 0,
+  marginRight: position === 'right' ? theme.spacing(4) : 0,
+  margin: position === 'center' ? '0 auto' : undefined,
   transition: 'all 0.3s ease-out',
   
   [theme.breakpoints.down('sm')]: {
@@ -67,13 +69,14 @@ const FloatingFormContainer = styled(Paper)(({ theme }) => ({
   },
 }));
 
-
-const FooterContainer = styled(Box)(({ theme }) => ({
+const FooterContainer = styled(Box)(({ theme, position = 'right' }) => ({
   width: '100%',
   maxWidth: 450,
   textAlign: 'center',
   marginTop: theme.spacing(3),
-  marginRight: theme.spacing(4), 
+  marginLeft: position === 'left' ? theme.spacing(4) : 0,
+  marginRight: position === 'right' ? theme.spacing(4) : 0,
+  margin: position === 'center' ? theme.spacing(3, 'auto', 0) : undefined,
   
   [theme.breakpoints.down('sm')]: {
     margin: theme.spacing(3, 1, 1),
@@ -120,6 +123,7 @@ const Login = () => {
     localStorage.getItem("rememberMe") === "true"
   );
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [loginPosition, setLoginPosition] = useState("right"); // Posição padrão
 
   const [user, setUser] = useState({
     email: localStorage.getItem("email") || "",
@@ -150,6 +154,7 @@ const Login = () => {
     getPublicSetting("copyright").then((data) => data && setCopyright(data));
     getPublicSetting("terms").then((data) => data && setTerms(data));
     getPublicSetting("privacy").then((data) => data && setPrivacy(data));
+    getPublicSetting("loginPosition").then((data) => data && setLoginPosition(data));
     getPublicSetting("loginBackground").then((data) => {
       if (data) {
         setLoginBackground(`${process.env.REACT_APP_BACKEND_URL}/public/${data}`);
@@ -202,6 +207,21 @@ const Login = () => {
     setUser({ ...user, [e.target.name]: e.target.value });
   };
 
+  const handleRememberMeChange = (e) => {
+    const isChecked = e.target.checked;
+    setRememberMe(isChecked);
+    
+    // Se desmarcar "lembrar-me", remover os dados armazenados
+    if (!isChecked) {
+      localStorage.removeItem("rememberMe");
+      localStorage.removeItem("email");
+    } else {
+      // Se marcar "lembrar-me", apenas define a flag
+      localStorage.setItem("rememberMe", "true");
+      // O email será salvo apenas após o login bem-sucedido
+    }
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
@@ -212,6 +232,7 @@ const Login = () => {
   
       await handleLogin(loginData);
   
+      // Após login bem-sucedido, salvar o email apenas se "lembrar-me" estiver ativado
       if (rememberMe) {
         localStorage.setItem("rememberMe", "true");
         localStorage.setItem("email", loginData.email);
@@ -267,13 +288,26 @@ const Login = () => {
     }
   };
 
+  // Função para determinar a justificação com base na posição configurada
+  const getJustifyContent = () => {
+    switch(loginPosition) {
+      case 'left':
+        return 'flex-start';
+      case 'center':
+        return 'center';
+      case 'right':
+      default:
+        return 'flex-end';
+    }
+  };
+
   return (
     <Box
       sx={{
         minHeight: '100vh',
         display: 'flex',
         alignItems: 'center',
-        justifyContent: 'flex-end',
+        justifyContent: getJustifyContent(),
         background: `linear-gradient(rgba(0,0,0,0.05), rgba(0,0,0,0.05)), url(${loginBackground})`,
         backgroundSize: 'cover',
         backgroundPosition: 'center',
@@ -293,19 +327,19 @@ const Login = () => {
         <Box sx={{ 
           display: 'flex', 
           flexDirection: 'column', 
-          alignItems: 'flex-start',
+          alignItems: loginPosition === 'center' ? 'center' : 'flex-start',
           width: '100%',
           maxWidth: 450
         }}>
           {/* Formulário de login */}
-          <FloatingFormContainer>
+          <FloatingFormContainer position={loginPosition}>
             {/* Botão de alternar tema */}
             <ThemeToggleButton 
               onClick={handleToggleTheme} 
               size="small"
-              aria-label={theme.mode === 'dark' ? i18n.t("login.switchToLightMode") : i18n.t("login.switchToDarkMode")}
+              aria-label={theme.palette.mode === 'dark' ? i18n.t("login.switchToLightMode") : i18n.t("login.switchToDarkMode")}
             >
-              {theme.mode === 'dark' ? <Brightness7Icon sx={{ color: theme.palette.primary.main }}/> : <Brightness4Icon sx={{ color: theme.palette.primary.main }}/>}
+              {theme.palette.mode === 'dark' ? <Brightness7Icon sx={{ color: theme.palette.primary.main }}/> : <Brightness4Icon sx={{ color: theme.palette.primary.main }}/>}
             </ThemeToggleButton>
             
             <Box sx={{ textAlign: 'center', mb: 4 }}>
@@ -388,7 +422,7 @@ const Login = () => {
                   control={
                     <Checkbox
                       checked={rememberMe}
-                      onChange={(e) => setRememberMe(e.target.checked)}
+                      onChange={handleRememberMeChange}
                       color="primary"
                     />
                   }
@@ -448,7 +482,7 @@ const Login = () => {
 
           {/* Rodapé - agora com o mesmo alinhamento e largura do formulário */}
           <Fade in timeout={1200}>
-            <FooterContainer>
+            <FooterContainer position={loginPosition}>
               <Typography variant="body2" color="textSecondary" align="center">
                 {`Copyright © ${new Date().getFullYear()} ${copyright}`}
               </Typography>

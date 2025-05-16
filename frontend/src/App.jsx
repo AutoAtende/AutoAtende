@@ -199,23 +199,11 @@ const App = () => {
       setAppName: (name) => {
         setSetting("appName", name);
       },
-      setSplashBackgroundLight: (color) => {
-        setSetting("splashBackgroundLight", color);
+      setLoginPosition: (position) => {
+        setSetting("loginPosition", position);
       },
-      setSplashBackgroundDark: (color) => {
-        setSetting("splashBackgroundDark", color);
-      },
-      setSplashTextColorLight: (color) => {
-        setSetting("splashTextColorLight", color);
-      },
-      setSplashTextColorDark: (color) => {
-        setSetting("splashTextColorDark", color);
-      },
-      setSplashAppName: (name) => {
-        setSetting("splashAppName", name);
-      },
-      setSplashSlogan: (slogan) => {
-        setSetting("splashSlogan", slogan);
+      setSignupPosition: (position) => {
+        setSetting("signupPosition", position);
       },
       setLoginBackground: (file) => {
         setSetting("loginBackground", file);

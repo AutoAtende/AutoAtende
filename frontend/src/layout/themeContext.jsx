@@ -36,14 +36,8 @@ const ColorModeContext = React.createContext({
     setTerms: (_) => {},
     setAllowSignup: (_) => {},
     setTrialExpiration: (_) => {},
-
-    // Configurações do SplashScreen
-    setSplashBackgroundLight: (_) => {},
-    setSplashBackgroundDark: (_) => {},
-    setSplashTextColorLight: (_) => {},
-    setSplashTextColorDark: (_) => {},
-    setSplashAppName: (_) => {},
-    setSplashSlogan: (_) => {},
+    setLoginPosition: (_) => {},
+    setSignupPosition: (_) => {}
 });
 
 export default ColorModeContext;
