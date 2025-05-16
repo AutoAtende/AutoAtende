@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useContext } from "react";
 import { toast } from "../../helpers/toast";
 import { i18n } from "../../translate/i18n";
-import { AuthContext } from "../../context/Auth/AuthContext";
+import useAuth from "../../hooks/useAuth";
 import moment from "moment";
 
 import {
@@ -51,7 +51,7 @@ import api from "../../services/api";
 const Financeiro = () => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
-  const { user } = useContext(AuthContext);
+  const { isAuth, user } = useAuth();
   
   const [loading, setLoading] = useState(true);
   const [invoices, setInvoices] = useState([]);
