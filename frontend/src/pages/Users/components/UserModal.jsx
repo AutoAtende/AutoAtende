@@ -245,7 +245,7 @@ const UserModal = ({ open, onClose, userId }) => {
           (loggedInUser.profile === "admin" || loggedInUser.profile === "superv") ||
           (loggedInUser.id === userId && data.profile !== "user")
         );
-        
+
         // Lógica de permissão para edição de permissões
         setCanEditPermissions(
           (loggedInUser.profile === "admin" || loggedInUser.profile === "superv") &&
@@ -760,39 +760,39 @@ const UserModal = ({ open, onClose, userId }) => {
                     </Box>
                   }
                 />
-                
+
                 {/* Nova permissão para gerenciar horários no drawer de Schedule */}
                 <Divider sx={{ my: 2 }} />
                 <Typography variant="subtitle1" gutterBottom sx={{ fontWeight: 'medium', display: 'flex', alignItems: 'center' }}>
                   <CalendarToday sx={{ mr: 1, fontSize: '1rem' }} />
                   Permissões adicionais
                 </Typography>
-                
+
                 <SwitchItem
-  control={
-    <Switch
-      checked={values.canManageSchedulesNodesData === true}
-      onChange={(e) => {
-        // Qualquer perfil pode ter a permissão atribuída
-        // Apenas removemos a verificação que impedia atribuir a permissão
-        setFieldValue('canManageSchedulesNodesData', e.target.checked);
-      }}
-      // Apenas verificamos se o usuário atual tem permissão para editar
-      disabled={!canEditPermissions}
-      color="primary"
-    />
-  }
-  label={
-    <Box>
-      <Typography variant="body1">
-        Gerenciar horários no fluxo
-      </Typography>
-      <Typography className="description">
-        Permite ao usuário criar, editar e excluir horários diretamente no drawer do nó de Schedule do fluxo de atendimento
-      </Typography>
-    </Box>
-  }
-/>
+                  control={
+                    <Switch
+                      checked={values.canManageSchedulesNodesData === true}
+                      onChange={(e) => {
+                        // Qualquer perfil pode ter a permissão atribuída
+                        // Apenas removemos a verificação que impedia atribuir a permissão
+                        setFieldValue('canManageSchedulesNodesData', e.target.checked);
+                      }}
+                      // Apenas verificamos se o usuário atual tem permissão para editar
+                      disabled={!canEditPermissions}
+                      color="primary"
+                    />
+                  }
+                  label={
+                    <Box>
+                      <Typography variant="body1">
+                        Gerenciar horários no fluxo
+                      </Typography>
+                      <Typography className="description">
+                        Permite ao usuário criar, editar e excluir horários diretamente no drawer do nó de Schedule do fluxo de atendimento
+                      </Typography>
+                    </Box>
+                  }
+                />
 
                 <FormSection>
                   <FormControl fullWidth>
@@ -844,139 +844,138 @@ const UserModal = ({ open, onClose, userId }) => {
             )}
 
             {/* Aba de Notificações */}
-{activeTab === 2 && (
-  <TabPanel>
-    <Typography variant="h6" gutterBottom>
-      {i18n.t("userModal.form.notificationSettings")}
-    </Typography>
+            {activeTab === 2 && (
+              <TabPanel>
+                <Typography variant="h6" gutterBottom>
+                  {i18n.t("userModal.form.notificationSettings")}
+                </Typography>
 
-    <FormSection>
-      {/* Componente UserPhoneInput com tratamento para valores nulos */}
-      <UserPhoneInput
-        name="number"
-        label={i18n.t("userModal.form.number")}
-        value={values.number || ''} // Garantir que nunca seja null
-        onChange={(phone, isValid) => {
-          setFieldValue('number', phone);
-          
-          // Validação só quando houver valor e com verificação de nulidade
-          if (phone && typeof phone === 'string' && phone.trim() !== '') {
-            if (!isValid) {
-              setPhoneError(i18n.t("userModal.form.invalidPhone"));
-            } else {
-              setPhoneError("");
-            }
-          } else {
-            setPhoneError("");
-          }
-        }}
-        onBlur={() => {
-          setFieldTouched('number', true, false);
-        }}
-        error={phoneError}
-        helperText={phoneError || i18n.t("userModal.form.numberHelp")}
-        disabled={!canEditNotifications}
-      />
-    </FormSection>
+                <FormSection>
+                  {/* Componente UserPhoneInput com tratamento para valores nulos - versão simplificada */}
+                  <UserPhoneInput
+                    name="number"
+                    label={i18n.t("userModal.form.number")}
+                    value={values.number || ''} // Garantir que nunca seja null
+                    onChange={(phone, isValid) => {
+                      // Apenas atualizar o valor do campo no formik
+                      setFieldValue('number', phone);
 
-    <Typography variant="subtitle1" gutterBottom sx={{ mt: 3, fontWeight: 'medium' }}>
-      {i18n.t("userModal.form.notificationTypes")}
-    </Typography>
+                      // Limpar o erro externo se o número for válido ou vazio
+                      if (isValid || !phone || phone.trim() === '' || phone === '+55') {
+                        setPhoneError("");
+                      } else {
+                        // Só definir o erro se o componente indicar que é inválido
+                        // (isso agora só acontecerá após interação do usuário)
+                        setPhoneError(i18n.t("userModal.form.invalidPhone"));
+                      }
+                    }}
+                    onBlur={() => {
+                      setFieldTouched('number', true, false);
+                    }}
+                    error={phoneError} // Passar o erro para o componente
+                    helperText={phoneError || i18n.t("userModal.form.numberHelp")}
+                    disabled={!canEditNotifications}
+                  />
+                </FormSection>
 
-    <SwitchItem
-      control={
-        <Switch
-          checked={values.notifyNewTicket === true}
-          onChange={(e) => setFieldValue('notifyNewTicket', e.target.checked)}
-          color="primary"
-          disabled={!canEditNotifications}
-        />
-      }
-      label={
-        <Box>
-          <Typography variant="body1">
-            {i18n.t("userModal.form.notifyNewTicket")}
-          </Typography>
-          <Typography className="description">
-            {i18n.t("userModal.form.notifyNewTicketHelp")}
-          </Typography>
-        </Box>
-      }
-    />
+                <Typography variant="subtitle1" gutterBottom sx={{ mt: 3, fontWeight: 'medium' }}>
+                  {i18n.t("userModal.form.notificationTypes")}
+                </Typography>
 
-    <SwitchItem
-      control={
-        <Switch
-          checked={values.notifyTask === true}
-          onChange={(e) => setFieldValue('notifyTask', e.target.checked)}
-          color="primary"
-          disabled={!canEditNotifications}
-        />
-      }
-      label={
-        <Box>
-          <Typography variant="body1">
-            {i18n.t("userModal.form.notifyTask")}
-          </Typography>
-          <Typography className="description">
-            {i18n.t("userModal.form.notifyTaskHelp")}
-          </Typography>
-        </Box>
-      }
-    />
-    <Can
-      role={loggedInUser.profile}
-      perform="user-modal:editWhatsApp"
-      yes={() => (
-        <FormSection sx={{ mt: 4 }}>
-          <FormControl fullWidth>
-            <InputLabel>
-              {i18n.t("userModal.form.whatsapp")}
-            </InputLabel>
-            <Select
-              value={whatsappId || ''}
-              onChange={(e) => setWhatsappId(e.target.value ? Number(e.target.value) : null)}
-              label={i18n.t("userModal.form.whatsapp")}
-              disabled={!canEditNotifications || whatsappsLoading}
-            >
-              <MenuItem value="">
-                <em>{i18n.t("userModal.form.whatsappNone")}</em>
-              </MenuItem>
-              {/* Verificação para garantir que whatsApps seja um array antes de usar map */}
-              {Array.isArray(whatsApps) && whatsApps.length > 0 ? (
-                whatsApps.map((whatsapp) => (
-                  <MenuItem key={whatsapp.id} value={whatsapp.id}>
-                    {whatsapp.name}
-                  </MenuItem>
-                ))
-              ) : whatsappsLoading ? (
-                <MenuItem disabled>
-                  <CircularProgress size={20} sx={{ mr: 1 }} />
-                  Carregando...
-                </MenuItem>
-              ) : (
-                <MenuItem disabled>
-                  Nenhum WhatsApp disponível
-                </MenuItem>
-              )}
-            </Select>
-            <FormHelperText>
-              {i18n.t("userModal.form.whatsappHelp")}
-            </FormHelperText>
-          </FormControl>
-        </FormSection>
-      )}
-    />
+                <SwitchItem
+                  control={
+                    <Switch
+                      checked={values.notifyNewTicket === true}
+                      onChange={(e) => setFieldValue('notifyNewTicket', e.target.checked)}
+                      color="primary"
+                      disabled={!canEditNotifications}
+                    />
+                  }
+                  label={
+                    <Box>
+                      <Typography variant="body1">
+                        {i18n.t("userModal.form.notifyNewTicket")}
+                      </Typography>
+                      <Typography className="description">
+                        {i18n.t("userModal.form.notifyNewTicketHelp")}
+                      </Typography>
+                    </Box>
+                  }
+                />
 
-    {!canEditNotifications && (
-      <Box sx={{ mt: 2, p: 2, bgcolor: 'background.paper', borderRadius: 1, border: '1px solid', borderColor: 'divider' }}>
-        <Typography variant="body2" color="textSecondary">
-          {i18n.t("userModal.form.onlyAdminSupervHelp")}
-        </Typography>
-      </Box>
-    )}
-  </TabPanel>
-)}
+                <SwitchItem
+                  control={
+                    <Switch
+                      checked={values.notifyTask === true}
+                      onChange={(e) => setFieldValue('notifyTask', e.target.checked)}
+                      color="primary"
+                      disabled={!canEditNotifications}
+                    />
+                  }
+                  label={
+                    <Box>
+                      <Typography variant="body1">
+                        {i18n.t("userModal.form.notifyTask")}
+                      </Typography>
+                      <Typography className="description">
+                        {i18n.t("userModal.form.notifyTaskHelp")}
+                      </Typography>
+                    </Box>
+                  }
+                />
+                <Can
+                  role={loggedInUser.profile}
+                  perform="user-modal:editWhatsApp"
+                  yes={() => (
+                    <FormSection sx={{ mt: 4 }}>
+                      <FormControl fullWidth>
+                        <InputLabel>
+                          {i18n.t("userModal.form.whatsapp")}
+                        </InputLabel>
+                        <Select
+                          value={whatsappId || ''}
+                          onChange={(e) => setWhatsappId(e.target.value ? Number(e.target.value) : null)}
+                          label={i18n.t("userModal.form.whatsapp")}
+                          disabled={!canEditNotifications || whatsappsLoading}
+                        >
+                          <MenuItem value="">
+                            <em>{i18n.t("userModal.form.whatsappNone")}</em>
+                          </MenuItem>
+                          {/* Verificação para garantir que whatsApps seja um array antes de usar map */}
+                          {Array.isArray(whatsApps) && whatsApps.length > 0 ? (
+                            whatsApps.map((whatsapp) => (
+                              <MenuItem key={whatsapp.id} value={whatsapp.id}>
+                                {whatsapp.name}
+                              </MenuItem>
+                            ))
+                          ) : whatsappsLoading ? (
+                            <MenuItem disabled>
+                              <CircularProgress size={20} sx={{ mr: 1 }} />
+                              Carregando...
+                            </MenuItem>
+                          ) : (
+                            <MenuItem disabled>
+                              Nenhum WhatsApp disponível
+                            </MenuItem>
+                          )}
+                        </Select>
+                        <FormHelperText>
+                          {i18n.t("userModal.form.whatsappHelp")}
+                        </FormHelperText>
+                      </FormControl>
+                    </FormSection>
+                  )}
+                />
+
+                {!canEditNotifications && (
+                  <Box sx={{ mt: 2, p: 2, bgcolor: 'background.paper', borderRadius: 1, border: '1px solid', borderColor: 'divider' }}>
+                    <Typography variant="body2" color="textSecondary">
+                      {i18n.t("userModal.form.onlyAdminSupervHelp")}
+                    </Typography>
+                  </Box>
+                )}
+              </TabPanel>
+            )}
 
             {enableGLPI && activeTab === 3 && (
               <TabPanel>

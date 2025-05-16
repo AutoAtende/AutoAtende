@@ -1,4 +1,3 @@
-// src/components/PhoneInputs/UserPhoneInput.jsx
 import 'react-international-phone/style.css';
 import {
   InputAdornment,
@@ -8,7 +7,7 @@ import {
   Typography,
   FormHelperText,
 } from '@mui/material';
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   defaultCountries,
   FlagImage,
@@ -25,8 +24,19 @@ const UserPhoneInput = ({
   error, 
   helperText, 
   disabled,
+  onBlur,
   ...restProps 
 }) => {
+  // Estado para controlar se o usuário já interagiu com o campo
+  const [interacted, setInteracted] = useState(false);
+
+  // Resetar o estado de interação quando o valor é redefinido (modal reaberto)
+  useEffect(() => {
+    if (!value || value === '') {
+      setInteracted(false);
+    }
+  }, [value]);
+
   const { inputValue, handlePhoneValueChange, phone, isValid, country, setCountry } =
   usePhoneInput({
     defaultCountry: 'br',
@@ -34,9 +44,14 @@ const UserPhoneInput = ({
     countries: defaultCountries,
     onChange: (data) => {
       if (onChange) {
+        // Se o usuário está digitando, considerar que interagiu com o campo
+        if (!interacted && data.phone !== '+55') {
+          setInteracted(true);
+        }
+        
         // Verificar se o campo está vazio - nesse caso, não validar
-        if (!data.phone || data.phone.trim() === '') {
-          onChange(data.phone, true); // Campo vazio é sempre considerado válido
+        if (!data.phone || data.phone.trim() === '' || data.phone === '+55') {
+          onChange(data.phone, true); // Campo vazio ou só com código do país é considerado válido
         } else {
           onChange(data.phone, data.isValid);
         }
@@ -44,8 +59,26 @@ const UserPhoneInput = ({
     },
   });
 
-  // Determinar se deve mostrar erro - apenas se houver um valor e for inválido
-  const showError = Boolean(error) && phone && phone.trim() !== '' && !isValid;
+  // Função de tratamento de blur personalizada
+  const handleBlur = (e) => {
+    // Marcar o campo como interagido apenas se tiver conteúdo além do código do país
+    if (phone && phone !== '+55') {
+      setInteracted(true);
+    }
+    
+    // Chamar o onBlur original, se fornecido
+    if (onBlur) {
+      onBlur(e);
+    }
+  };
+
+  // Determinar se deve mostrar erro:
+  // 1. Apenas se houver um erro explícito OU
+  // 2. Se o usuário já interagiu com o campo, tem conteúdo além do código do país, e é inválido
+  const showError = Boolean(error) || (interacted && phone && phone !== '+55' && !isValid);
+  
+  // Mensagem de erro a ser exibida
+  const displayHelperText = showError && !error ? 'Número de telefone inválido' : helperText;
 
   return (
     <>
@@ -54,10 +87,11 @@ const UserPhoneInput = ({
         label={label}
         value={inputValue}
         onChange={handlePhoneValueChange}
-        error={showError} // Usar a lógica ajustada de exibição de erro
+        error={showError}
         fullWidth
         disabled={disabled}
         type="tel"
+        onBlur={handleBlur}
         InputProps={{
           startAdornment: (
             <InputAdornment position="start" style={{ marginRight: '2px' }}>
@@ -110,7 +144,7 @@ const UserPhoneInput = ({
         }}
         {...restProps}
       />
-      {helperText && <FormHelperText error={showError}>{helperText}</FormHelperText>}
+      {displayHelperText && <FormHelperText error={showError}>{displayHelperText}</FormHelperText>}
     </>
   );
 };
