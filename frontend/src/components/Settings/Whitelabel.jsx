@@ -39,7 +39,7 @@ import {
 } from '@mui/icons-material';
 import WhiteLabelHelp from "../WhitelabelHelp";
 import { toast } from "../../helpers/toast";
-import { AuthContext } from "../../context/Auth/AuthContext.jsx";
+import { AuthContext } from "../../context/Auth/AuthContext";
 import useSettings from "../../hooks/useSettings";
 import ColorModeContext from "../../layout/themeContext";
 import api from "../../services/api";

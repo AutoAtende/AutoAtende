@@ -39,8 +39,6 @@ export interface SerializedUser {
     spy: string;
     isTricked: string;
     defaultMenu: string;
-    glpiUser: string;
-    glpiPass: string;
     tokenVersion: number;
     ramal: string;
     notifyNewTicket: boolean;
@@ -110,8 +108,6 @@ export interface TokenPayload {
     super: boolean;
     canCreateTags: boolean;
     canManageSchedulesNodesData: boolean;
-    glpiUser: string;
-    glpiPass: string;
     online: boolean;
     limitAttendance: number;
     color: string;

@@ -24,8 +24,6 @@ interface UserData {
   spy?: string;
   super?: boolean;
   defaultMenu?: string;
-  glpiUser?: string;
-  glpiPass?: string;
   color?: string;
   number?: string;
   profilePic?: string;

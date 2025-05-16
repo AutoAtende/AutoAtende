@@ -23,8 +23,6 @@ interface Request {
   spy?: string;
   super?: boolean;
   defaultMenu?: string;
-  glpiUser?: string;
-  glpiPass?: string;
   color?: string;
   number?: string;
   profilePic?: string;
@@ -93,8 +91,6 @@ const CreateUserService = async ({
   isTricked = "disabled",
   super: superUser = false,
   defaultMenu = "default",
-  glpiUser = "",
-  glpiPass = "",
   color = "#7367F0",
   number = "",
   profilePic = "",
@@ -182,8 +178,6 @@ const CreateUserService = async ({
       isTricked,
       super: superUser,
       defaultMenu,
-      glpiUser,
-      glpiPass,
       companyId,
       color,
       number: normalizedUserNumber,

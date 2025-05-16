@@ -33,8 +33,6 @@ export const SerializeUser = async (user: User): Promise<SerializedUser> => {
     spy: user.spy,
     isTricked: user.isTricked,
     defaultMenu: user.defaultMenu,
-    glpiUser: user.glpiUser,
-    glpiPass: user.glpiPass,
     tokenVersion: user.tokenVersion,
     ramal: user.ramal,
     notifyNewTicket: user.notifyNewTicket,

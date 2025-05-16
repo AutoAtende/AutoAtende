@@ -149,7 +149,6 @@ const UserModal = ({ open, onClose, userId }) => {
   const [selectedQueueIds, setSelectedQueueIds] = useState([]);
   const [showPassword, setShowPassword] = useState(false);
   const [whatsappId, setWhatsappId] = useState(null);
-  const [enableGLPI, setEnableGLPI] = useState(false);
   const [superUser, setSuperUser] = useState(false);
   const [canEditPassword, setCanEditPassword] = useState(false);
   const [canEditNotifications, setCanEditNotifications] = useState(false);
@@ -177,14 +176,6 @@ const UserModal = ({ open, onClose, userId }) => {
     canRestartConnections: false,
     canManageSchedulesNodesData: false
   });
-
-  useEffect(() => {
-    const fetchGLPISetting = async () => {
-      const glpiSetting = await getCachedSetting("enableGLPI");
-      setEnableGLPI(glpiSetting?.value === "enabled");
-    };
-    fetchGLPISetting();
-  }, [getCachedSetting]);
 
   useEffect(() => {
     const fetchUser = async () => {
@@ -1021,35 +1012,6 @@ const UserModal = ({ open, onClose, userId }) => {
                     </Typography>
                   </Box>
                 )}
-              </TabPanel>
-            )}
-
-            {enableGLPI && activeTab === 3 && (
-              <TabPanel>
-                <FormSection>
-                  <TextField
-                    fullWidth
-                    name="glpiUser"
-                    label={i18n.t("userModal.form.glpiUser")}
-                    value={values.glpiUser || ''}
-                    onChange={handleChange}
-                  />
-                </FormSection>
-
-                <FormSection>
-                  <TextField
-                    fullWidth
-                    name="glpiPass"
-                    type="password"
-                    label={i18n.t("userModal.form.glpiPass")}
-                    value={values.glpiPass || ''}
-                    onChange={handleChange}
-                  />
-                </FormSection>
-
-                <FormHelperText>
-                  {i18n.t("userModal.form.glpiHelp")}
-                </FormHelperText>
               </TabPanel>
             )}
           </Form>

@@ -17,7 +17,6 @@ const settings = [
   { key: "userRating", value: "disabled" },
   { key: "scheduleType", value: "queue" },
   { key: "CheckMsgIsGroup", value: "enabled" },
-  { key: "apiToken", value: "" },
   { key: "sendGreetingAccepted", value: "disabled" },
   { key: "sendMsgTransfTicket", value: "disabled" },
   { key: "chatBotType", value: "text" }, // Valor correto é "text"
@@ -40,27 +39,14 @@ const settings = [
   { key: "enableTicketValueAndSku", value: "enabled" },
   { key: "enableReasonWhenCloseTicket", value: "disabled" },
   { key: "quickMessages", value: "company" },
-  { key: "enableGLPI", value: "disabled" },
-  { key: "urlApiGlpi", value: "" },
-  { key: "appTokenGlpi", value: "" },
-  { key: "tokenMasterGlpi", value: "" },
-  { key: "enableOmieInChatbot", value: "disabled" },
-  { key: "omieAppKey", value: "" },
-  { key: "omieAppSecret", value: "" },
   { key: "sendQueuePosition", value: "disabled" },
   { key: "settingsUserRandom", value: "disabled" },
   { key: "displayBusinessInfo", value: "disabled" },
-  { key: "enableZabbix", value: "disabled" },
-  { key: "zabbixAuth", value: "" },
-  { key: "zabbixBaseUrl", value: "" },
-  { key: "initialPage", value: "login" },
   { key: "enableUPSix", value: "disabled" },
   { key: "enableUPSixWebphone", value: "disabled" },
   { key: "enableUPSixNotifications", value: "disabled" },
   { key: "enableOfficialWhatsapp", value: "disabled" },
   { key: "enableSaveCommonContacts", value: "disabled" },
-  { key: "enableGroupTools", value: "disabled" },
-  { key: "enableMessageRules", value: "disabled" },
   { key: "displayProfileImages", value: "disabled" },
   { key: "enableQueueWhenCloseTicket", value: "disabled" },
   { key: "enableTagsWhenCloseTicket", value: "disabled" },
@@ -68,7 +54,9 @@ const settings = [
   { key: "tagsWhenClosingTicket", value: "disabled" },
   { key: "enableMetaPixel", value: "enabled" },
   { key: "metaPixelId", value: "" },
-  { key: "enableSatisfactionSurvey", value: "disabled" }
+  { key: "enableSatisfactionSurvey", value: "disabled" },
+  { key: "enableAudioTranscriptions", value: "disabled" },
+  { key: "openAiKey", value: "" }
 ];
 
 // Função para verificar e inserir configurações ausentes

@@ -421,7 +421,6 @@ const MainListItems = (props) => {
   const { user, handleLogout, isAuth } = useContext(AuthContext);
   const { toggleColorMode } = useContext(ColorModeContext);
   const [connectionWarning, setConnectionWarning] = useState(false);
-  const [openCampaignSubmenu, setOpenCampaignSubmenu] = useState(false);
   const [showCampaigns, setShowCampaigns] = useState(false);
   const [showEmail, setShowEmail] = useState(false);
   const theme = useTheme();
@@ -436,12 +435,10 @@ const MainListItems = (props) => {
   const [showInternalChat, setShowInternalChat] = useState(false);
   const [showExternalApi, setShowExternalApi] = useState(false);
   const [showKanban, setShowKanban] = useState(false);
-  const [openKanbanSubmenu, setOpenKanbanSubmenu] = useState(false);
   const [invisible, setInvisible] = useState(true);
   const [pageNumber, setPageNumber] = useState(1);
   const [searchParam] = useState("");
   const [chats, dispatch] = useReducer(reducer, []);
-  const [openEmailSubmenu, setOpenEmailSubmenu] = useState(false);
 
   const [version, setVersion] = useState(false);
   const { getPlanCompany } = usePlans();
@@ -460,9 +457,6 @@ const MainListItems = (props) => {
   const socketManager = useContext(SocketContext);
   const { makeRequestSettings, notifications, makeRequestTagTotalTicketPending } = useContext(GlobalContext);
 
-  const location = useLocation();
-  const isManagementActive = location.pathname === "/" || location.pathname.startsWith("/reports");
-
   const [settings, setSettings] = useState([]);
   const { getAll } = useSettings();
 
@@ -470,8 +464,7 @@ const MainListItems = (props) => {
   useEffect(() => {
     const loadSettings = async () => {
       if (window.location.pathname !== '/login' &&
-        window.location.pathname !== '/signup' &&
-        window.location.pathname !== '/home') {
+        window.location.pathname !== '/signup') {
         const settingsData = await getAll();
         setSettings(settingsData);
       }
@@ -709,10 +702,7 @@ const MainListItems = (props) => {
   // Fechar submenus quando drawer fecha
   useEffect(() => {
     if (collapsed) {
-      setOpenCampaignSubmenu(false);
-      setOpenEmailSubmenu(false);
       setOpenIntegrationsSubmenu(false);
-      setOpenKanbanSubmenu(false);
     }
   }, [collapsed]);
 
@@ -977,7 +967,6 @@ const MainListItems = (props) => {
               />
             )}
 
-            {settings?.find(s => s.key === 'enableGroupTool')?.value === 'enabled' && (
               <ListItemLink
                 to="/groups"
                 primary={i18n.t("mainDrawer.listItems.groups")}
@@ -987,7 +976,6 @@ const MainListItems = (props) => {
                 level={1}
                 collapsed={collapsed}
               />
-            )}
 
             {showFlowBuilder && (
               <ListItemLink
