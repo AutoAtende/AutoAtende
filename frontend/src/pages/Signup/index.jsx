@@ -438,20 +438,27 @@ const SignUp = () => {
           this.createError({ message: i18n.t("signup.validation.endereco.estadoInvalido") });
       }),
     
-    cidade: Yup.string()
+      cidade: Yup.string()
       .required(i18n.t("signup.validation.required"))
       .min(2, i18n.t("signup.validation.endereco.cidadeMin"))
       .test('cidade-valida', i18n.t("signup.validation.endereco.cidadeMin"), function(value) {
         if (!value) return false;
         
-        // Check if the city has at least 2 characters and isn't a repeated sequence
+        // IMPORTANTE: Aceitar valores preenchidos via API de CEP
+        const { cep } = this.parent;
+        if (cep && cep.length === 9) {
+          return true; // Sempre aceitar valores preenchidos pelo CEP
+        }
+        
+        // Validação normal para entradas manuais
         if (value.length < 2 || isRepeatedSequence(value)) 
           return this.createError({ message: i18n.t("signup.validation.endereco.cidadeMin") });
         
         return true;
       }),
     
-    bairro: Yup.string()
+    
+      bairro: Yup.string()
       .required(i18n.t("signup.validation.required"))
       .min(2, i18n.t("signup.validation.endereco.bairroMin"))
       .test('bairro-valido', i18n.t("signup.validation.endereco.bairroMin"), function(value) {
@@ -460,11 +467,13 @@ const SignUp = () => {
         // Aceitar "Centro" como valor padrão mesmo quando preenchido automaticamente
         if (value === "Centro") return true;
         
-        // Ignorar validação detalhada para campos preenchidos automaticamente via CEP
+        // IMPORTANTE: Aceitar valores preenchidos via API de CEP
         const { cep } = this.parent;
-        if (cep && cep.length === 9) return true;
+        if (cep && cep.length === 9) {
+          return true; // Sempre aceitar valores preenchidos pelo CEP
+        }
         
-        // Check if the neighborhood has at least 2 characters and isn't a repeated sequence
+        // Validação normal para entradas manuais
         if (value.length < 2 || isRepeatedSequence(value)) 
           return this.createError({ message: i18n.t("signup.validation.endereco.bairroMin") });
         
@@ -606,7 +615,7 @@ const SignUp = () => {
   };
 
   // Função melhorada para buscar endereço com melhor tratamento do CEP
-  const buscarEndereco = async (cep) => {
+  const buscarEndereco = async (cep, formikProps) => {
     try {
       const cepLimpo = removeMask(cep);
       
@@ -655,6 +664,58 @@ const SignUp = () => {
         logradouro: data.logradouro || "",
         complemento: data.complemento || ""
       };
+      
+      // NOVO: Atualização em um único passo para evitar problemas de validação
+      // e perda de caracteres do CEP
+      try {
+        // 1. Primeiro, vamos criar um objeto com todos os valores atualizados
+        const updatedValues = {
+          ...formikProps.values,
+          estado: enderecoNormalizado.uf,
+          cidade: enderecoNormalizado.localidade,
+          bairro: enderecoNormalizado.bairro,
+          logradouro: enderecoNormalizado.logradouro,
+          complemento: enderecoNormalizado.complemento || formikProps.values.complemento
+        };
+        
+        // 2. Importante: Mantenha o CEP com a formatação (não use o cepLimpo)
+        // Isso evita que o campo de CEP perca caracteres
+        updatedValues.cep = cep;
+        
+        // 3. Atualize todos os valores de uma vez só
+        await formikProps.setValues(updatedValues, false);
+        
+        // 4. Importante: Desative temporariamente a validação
+        // Remover erros específicos dos campos preenchidos automaticamente
+        const newErrors = {...formikProps.errors};
+        delete newErrors.estado;
+        delete newErrors.cidade;
+        delete newErrors.bairro;
+        delete newErrors.logradouro;
+        formikProps.setErrors(newErrors);
+        
+        // 5. Marque os campos como "touched" apenas após um breve atraso
+        // para garantir que os valores estejam totalmente atualizados
+        setTimeout(() => {
+          formikProps.setTouched({
+            ...formikProps.touched,
+            estado: true,
+            cidade: true,
+            bairro: true,
+            logradouro: true
+          });
+        }, 300);
+        
+        // 6. Mensagem de sucesso mais detalhada
+        toast.success(
+          i18n.t("signup.toasts.addressFound") + ": " + 
+          enderecoNormalizado.logradouro + ", " + enderecoNormalizado.bairro + ", " + 
+          enderecoNormalizado.localidade + " - " + enderecoNormalizado.uf
+        );
+      } catch (error) {
+        console.error("Erro ao atualizar formulário:", error);
+        toast.error(i18n.t("signup.errors.formUpdateFailed"));
+      }
       
       console.log("Endereço normalizado:", enderecoNormalizado);
       return enderecoNormalizado;
@@ -1221,71 +1282,18 @@ const SignUp = () => {
               onChange={async (e) => {
                 const maskedValue = cepMask(e.target.value);
                 
-                // Verificar se a máscara está funcionando corretamente
-                console.log("CEP com máscara:", maskedValue);
-                console.log("CEP sem máscara:", removeMask(maskedValue));
+                // Atualizar primeiro o valor no formulário sem validar
+                await formikProps.setFieldValue("cep", maskedValue, false);
                 
-                await formikProps.setFieldValue("cep", maskedValue);
-                
-                // Verificar comprimento exato para consulta de CEP 
-                // (considerando a máscara XX.XXX-XXX com comprimento 10)
+                // Verificar comprimento exato para consulta de CEP
                 if (maskedValue.length === 9) {
                   try {
-                    // Mostrar indicador de carregamento
                     setCepLoading(true);
-                    
-                    // Feedback visual de carregamento
                     toast.info(i18n.t("signup.toasts.fetchingAddress"));
                     
-                    const endereco = await buscarEndereco(maskedValue);
+                    // Passar formikProps diretamente para a função buscarEndereco
+                    await buscarEndereco(maskedValue, formikProps);
                     
-                    if (endereco) {
-                      // Para resolver o problema de validação, vamos:
-                      // 1. Remover os erros dos campos que serão atualizados
-                      formikProps.setErrors({
-                        ...formikProps.errors,
-                        estado: undefined,
-                        cidade: undefined,
-                        bairro: undefined,
-                        logradouro: undefined
-                      });
-                      
-                      // 2. Criar um objeto com todos os valores atualizados
-                      const updatedValues = {
-                        ...formikProps.values,
-                        estado: endereco.uf,
-                        cidade: endereco.localidade,
-                        bairro: endereco.bairro || "Centro", // Garantir que bairro não seja vazio
-                        logradouro: endereco.logradouro || "",
-                        complemento: endereco.complemento || formikProps.values.complemento
-                      };
-                      
-                      // 3. Atualizar todos os valores de uma vez
-                      await formikProps.setValues(updatedValues, false);
-                      console.log("Valores atualizados:", updatedValues);
-                      
-                      // 4. Marcar campos como touched apenas após um pequeno delay
-                      setTimeout(() => {
-                        const touchedFields = {
-                          ...formikProps.touched,
-                          estado: true,
-                          cidade: true,
-                          bairro: true,
-                          logradouro: true
-                        };
-                        formikProps.setTouched(touchedFields);
-                        
-                        // 5. Validar apenas APÓS os campos serem marcados como touched
-                        formikProps.validateForm();
-                      }, 300);
-                      
-                      // Mensagem de sucesso mais detalhada
-                      toast.success(
-                        i18n.t("signup.toasts.addressFound") + ": " + 
-                        endereco.logradouro + ", " + endereco.bairro + ", " + 
-                        endereco.localidade + " - " + endereco.uf
-                      );
-                    }
                   } catch (error) {
                     console.error("Erro ao buscar endereço:", error);
                     toast.error(i18n.t("signup.toasts.errorAddress"));
