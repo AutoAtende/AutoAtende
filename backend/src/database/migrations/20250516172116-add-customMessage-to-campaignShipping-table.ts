@@ -2,13 +2,13 @@
 
 module.exports = {
   up: async (queryInterface, Sequelize) => {
-    await queryInterface.addColumn('CampaignShippings', 'customMessage', {
+    await queryInterface.addColumn('CampaignShipping', 'customMessage', {
       type: Sequelize.STRING,
       allowNull: true,
     });
   },
 
   down: async (queryInterface, Sequelize) => {
-    await queryInterface.removeColumn('CampaignShippings', 'customMessage');
+    await queryInterface.removeColumn('CampaignShipping', 'customMessage');
   }
 };
