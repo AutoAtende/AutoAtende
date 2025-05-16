@@ -745,7 +745,7 @@ const SignUp = () => {
   const validatePhone = async (phone, setFieldError) => {
     try {
       // Remove the '+' and spaces before sending to the API
-      const cleanPhone = phone.replace(/^\+/, '').replace(/\s+/g, '');
+      const cleanPhone = removeMask(phone);
       const phoneExists = await openApi.get(`/companies/check-phone/${cleanPhone}`);
       
       if (phoneExists.data.exists) {

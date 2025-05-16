@@ -14,7 +14,7 @@ import Plan from "../models/Plan";
 import Queue from "../models/Queue";
 import Whatsapp from "../models/Whatsapp";
 import { getIO } from "../libs/socket";
-import { removeWbot } from "../libs/wbot";
+import { getWbot, removeWbot } from "../libs/wbot";
 import { CheckSettings } from "../helpers/CheckSettings";
 import { SendMessage } from "../helpers/SendMessage";
 import EmailService from "../services/EmailService";
@@ -32,6 +32,7 @@ import FindCompanySettingOneService from "../services/CompanySettingsServices/Fi
 import UpdateCompanySettingsService from "../services/CompanySettingsServices/UpdateCompanySettingService";
 import UnblockCompanyService from "services/CompanyService/UnblockCompanyService";
 import { exportCompanies as exportCompaniesService } from "services/CompanyService/ExportService";
+import GetDefaultWhatsApp from "../helpers/GetDefaultWhatsApp";
 //import CreateCompanyAssasService from "../services/CompanyService/CreateCompanyAssasService";
 import ShowPlanCompanyService from "../services/CompanyService/ShowPlanCompanyService";
 import ShowInvoicesFromCompanyService from "../services/CompanyService/ShowInvoicesFromCompanyService";
@@ -297,11 +298,37 @@ export const checkEmail = async (req: Request, res: Response): Promise<Response>
 export const checkPhone = async (req: Request, res: Response): Promise<Response> => {
   const { phone } = req.params;
 
-  const companyExists = await Company.findOne({
-    where: { phone }
-  });
+  const [companyExists, userExists] = await Promise.all([
+    Company.findOne({ where: { phone } }),
+    User.findOne({ where: { number: phone } })
+  ]);
 
-  return res.json({ exists: !!companyExists });
+  let whatsappValid = false;
+  
+  try {
+    const defaultWhatsapp = await GetDefaultWhatsApp(1);
+    if (defaultWhatsapp) {
+      const wbot = getWbot(defaultWhatsapp.id, 1);
+      const cleanNumber = phone.replace(/[^\d]/g, ''); // Remove todos não dígitos
+      const formattedNumber = `${cleanNumber}@s.whatsapp.net`;
+      const [validNumber] = await wbot.onWhatsApp(formattedNumber);
+      whatsappValid = validNumber?.exists as boolean;
+
+      console.log("[checkPhone] Número formatado:", formattedNumber);
+      console.log("[checkPhone] Número válido no WhatsApp:", whatsappValid);
+    }
+  } catch (error) {
+    console.error("[checkPhone] Erro na verificação do WhatsApp:", error);
+    whatsappValid = false;
+  }
+
+  const exists = (
+    !companyExists && 
+    !userExists && 
+    whatsappValid
+  );
+
+  return res.json({ exists });
 };
 
 export const apiCnpj = async (req: Request, res: Response): Promise<Response> => {
