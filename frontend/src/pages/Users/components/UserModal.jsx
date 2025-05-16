@@ -53,7 +53,7 @@ import { Can } from "../../../components/Can";
 import useWhatsApps from "../../../hooks/useWhatsApps";
 import useSettings from "../../../hooks/useSettings";
 import { toast } from "../../../helpers/toast";
-// Substitua a importação do StyledPhoneInput pelo novo componente
+import { removeMask } from "../../../helpers/removeMask";
 import UserPhoneInput from "../../../components/PhoneInputs/UserPhoneInput";
 
 // Styled Components
