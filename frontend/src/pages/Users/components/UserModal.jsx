@@ -295,6 +295,8 @@ const UserModal = ({ open, onClose, userId }) => {
         ...cleanValues
       } = values;
 
+      removeMask(cleanValues.number);
+
       // Validar o número de telefone
       let phoneNumber = values.number;
       let isValidPhone = true;
@@ -858,6 +860,7 @@ const UserModal = ({ open, onClose, userId }) => {
                     value={values.number || ''} // Garantir que nunca seja null
                     onChange={(phone, isValid) => {
                       // Apenas atualizar o valor do campo no formik
+                      phone = phone.replace("-", "").replace(" ", "");
                       setFieldValue('number', phone);
 
                       // Limpar o erro externo se o número for válido ou vazio
