@@ -466,7 +466,6 @@ const UserModal = ({ open, onClose, userId }) => {
                 <Tab label={i18n.t("userModal.tabs.info")} />
                 <Tab label={i18n.t("userModal.tabs.permission")} />
                 <Tab label={i18n.t("userModal.tabs.notifications")} icon={<Notifications />} iconPosition="start" />
-                {enableGLPI && <Tab label="GLPI" />}
               </Tabs>
             </Box>
 
