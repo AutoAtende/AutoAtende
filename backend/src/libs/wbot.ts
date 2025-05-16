@@ -1,9 +1,8 @@
-import makeWASocket, {
+import makeWASocket from "baileys";
+import {
   WASocket,
   DisconnectReason,
-  ConnectionState,
   makeCacheableSignalKeyStore,
-  makeInMemoryStore,
   AnyMessageContent,
   isJidBroadcast,
   CacheStore,

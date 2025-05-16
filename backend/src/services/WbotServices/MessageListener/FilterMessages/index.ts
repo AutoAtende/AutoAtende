@@ -1,4 +1,4 @@
-import { WAMessage, WAMessageStubType } from "baileys";
+import { WAMessage, WAMessageStubType, proto } from "baileys";
 
 export const filterMessages = (msg: WAMessage): boolean => {
   if (
@@ -7,7 +7,7 @@ export const filterMessages = (msg: WAMessage): boolean => {
       WAMessageStubType.E2E_DEVICE_CHANGED,
       WAMessageStubType.E2E_IDENTITY_CHANGED,
       WAMessageStubType.CIPHERTEXT
-    ].includes(msg.messageStubType as WAMessageStubType)
+    ].includes(msg.messageStubType as proto.WebMessageInfo.StubType)
   )
     return false;
 
