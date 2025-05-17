@@ -1,15 +1,17 @@
-import React, { createContext, useContext, useState, useCallback, useEffect } from "react";
+import React, { createContext, useState, useContext, useCallback, useEffect } from "react";
 import api from "../services/api";
 
+// Criação do contexto
 const SettingsContext = createContext({});
 
-export const SettingsProvider = ({ children }) => {
-  const [settings, setSettings] = useState({});
-  const [loading, setLoading] = useState(false);
-  const [cachedSettings, setCachedSettings] = useState({});
-  
-  const CACHE_EXPIRATION_TIME = 86400000; // 24 horas em milissegundos
+// Configuração do tempo de expiração do cache
+const CACHE_EXPIRATION_TIME = 86400000; // 24 horas em milissegundos
 
+export const SettingsProvider = ({ children }) => {
+  // Estado principal para armazenar as configurações como array (compatível com código existente)
+  const [settings, setSettings] = useState([]);
+  const [loading, setLoading] = useState(false);
+  
   // Função para armazenar configurações em cache
   const cacheSettings = useCallback((companyId, settingsData) => {
     try {
@@ -18,10 +20,6 @@ export const SettingsProvider = ({ children }) => {
         settings: settingsData
       };
       localStorage.setItem(`whitelabel_settings_${companyId}`, JSON.stringify(cacheData));
-      setCachedSettings(prev => ({
-        ...prev,
-        [companyId]: settingsData
-      }));
     } catch (error) {
       console.error('Erro ao armazenar configurações no cache:', error);
     }
@@ -30,44 +28,36 @@ export const SettingsProvider = ({ children }) => {
   // Função para obter configurações do cache
   const getSettingsFromCache = useCallback((companyId) => {
     try {
-      // Verificar primeiro no estado
-      if (cachedSettings[companyId]) {
-        return cachedSettings[companyId];
-      }
-      
-      // Se não estiver no estado, buscar do localStorage
       const cachedData = localStorage.getItem(`whitelabel_settings_${companyId}`);
       if (!cachedData) return null;
       
       const { timestamp, settings } = JSON.parse(cachedData);
       
-      // Verificar se o cache expirou (24 horas)
+      // Verificar se o cache expirou
       if (new Date().getTime() - timestamp > CACHE_EXPIRATION_TIME) {
         localStorage.removeItem(`whitelabel_settings_${companyId}`);
         return null;
       }
-      
-      // Atualizar o estado de cache
-      setCachedSettings(prev => ({
-        ...prev,
-        [companyId]: settings
-      }));
       
       return settings;
     } catch (error) {
       console.error('Erro ao recuperar configurações do cache:', error);
       return null;
     }
-  }, [CACHE_EXPIRATION_TIME, cachedSettings]);
+  }, []);
 
+  // Função para obter uma configuração pública específica
   const getPublicSetting = useCallback(async (key) => {
     try {
       setLoading(true);
       
-      // Primeiro tenta buscar do cache (companyId 1 para configurações públicas)
-      const cachedSettings = getSettingsFromCache("1");
-      if (cachedSettings && cachedSettings[key] !== undefined) {
-        return cachedSettings[key];
+      // Tenta buscar do cache primeiro (companyId 1 para configurações públicas)
+      const cachedData = getSettingsFromCache("1");
+      const settingArray = Array.isArray(cachedData) ? cachedData : [];
+      const cachedSetting = settingArray.find(s => s.key === key);
+      
+      if (cachedSetting) {
+        return cachedSetting.value;
       }
       
       // Se não encontrar no cache, busca da API
@@ -81,52 +71,48 @@ export const SettingsProvider = ({ children }) => {
     }
   }, [getSettingsFromCache]);
 
+  // Função para obter todas as configurações
   const getAll = useCallback(async (companyId) => {
     try {
       setLoading(true);
       
-      // Usar companyId do parâmetro ou padrão (1)
+      // Usar companyId do parâmetro ou padrão
       const targetCompanyId = companyId || localStorage.getItem("companyId") || "1";
       
       // Verificar cache primeiro
-      const cachedData = getSettingsFromCache(targetCompanyId);
-      if (cachedData) {
-        return cachedData;
+      const cachedSettings = getSettingsFromCache(targetCompanyId);
+      if (cachedSettings && Array.isArray(cachedSettings)) {
+        setSettings(cachedSettings);
+        return cachedSettings;
       }
       
-      // Adicionar parâmetro de companyId para buscar configurações específicas da empresa
+      // Buscar da API com parâmetro de companyId
       const { data } = await api.get("/settings", { 
         params: { companyId: targetCompanyId } 
       });
       
-      // Processar dados recebidos
-      const processedSettings = {};
+      // Garantir que os dados estão no formato correto (array)
+      const settingsArray = Array.isArray(data) ? data : [];
       
-      if (Array.isArray(data)) {
-        data.forEach(setting => {
-          if (setting && setting.key) {
-            processedSettings[setting.key] = setting.value;
-          }
-        });
-      }
+      // Salvar no cache e atualizar estado
+      cacheSettings(targetCompanyId, settingsArray);
+      setSettings(settingsArray);
       
-      // Atualizar cache
-      cacheSettings(targetCompanyId, processedSettings);
-      
-      return data;
+      return settingsArray;
     } catch (err) {
       console.error("Erro ao buscar configurações:", err);
-      throw err;
+      return [];
     } finally {
       setLoading(false);
     }
   }, [getSettingsFromCache, cacheSettings]);
 
+  // Função para obter todas as configurações públicas
   const getAllPublicSetting = useCallback(async (companyId) => {
     try {
       setLoading(true);
       
-      // Usar companyId do parâmetro ou padrão (1)
+      // Usar companyId do parâmetro ou padrão
       const targetCompanyId = companyId || localStorage.getItem("companyId") || "1";
       
       // Buscar configurações públicas
@@ -137,17 +123,18 @@ export const SettingsProvider = ({ children }) => {
       return data;
     } catch (err) {
       console.error("Erro ao buscar configurações públicas:", err);
-      throw err;
+      return [];
     } finally {
       setLoading(false);
     }
   }, []);
 
+  // Função para atualizar uma configuração
   const update = useCallback(async ({ key, value, companyId }) => {
     try {
       setLoading(true);
       
-      // Usar companyId do parâmetro ou padrão (1)
+      // Usar companyId do parâmetro ou padrão
       const targetCompanyId = companyId || localStorage.getItem("companyId") || "1";
       
       const { data } = await api.put(`/settings/${key}`, {
@@ -156,11 +143,20 @@ export const SettingsProvider = ({ children }) => {
         params: { companyId: targetCompanyId }
       });
       
-      // Atualizar cache
-      const cachedData = getSettingsFromCache(targetCompanyId);
-      if (cachedData) {
-        cachedData[key] = value;
-        cacheSettings(targetCompanyId, cachedData);
+      // Atualizar cache e estado
+      const cachedSettings = getSettingsFromCache(targetCompanyId);
+      if (cachedSettings && Array.isArray(cachedSettings)) {
+        const updatedSettings = cachedSettings.map(setting => 
+          setting.key === key ? { ...setting, value } : setting
+        );
+        cacheSettings(targetCompanyId, updatedSettings);
+        
+        // Atualizar estado
+        setSettings(prevSettings => 
+          prevSettings.map(setting => 
+            setting.key === key ? { ...setting, value } : setting
+          )
+        );
       }
       
       return data;
@@ -172,26 +168,43 @@ export const SettingsProvider = ({ children }) => {
     }
   }, [getSettingsFromCache, cacheSettings]);
 
-  // Pré-carregar configurações gerais quando o contexto for montado
+  // Funções de Webhook mantidas da versão nova
+  const updateWebhook = async (data) => {
+    await api.request({
+      url: `/queueIntegration/create_or_update`,
+      method: 'POST',
+      data
+    });
+  };
+  
+  const deleteWebhookByparamName = async (paramName) => {
+    await api.request({
+      url: `/queueIntegration/deleteWebhookByparamName`,
+      method: 'POST',
+      data: {
+        paramName
+      }
+    });
+  };
+  
+  const getWebhook = async (paramName) => {
+    const { data } = await api.request({
+      url: `/queueIntegration/getWebhook`,
+      method: 'POST',
+      data: {
+        paramName
+      }
+    });
+    return data;
+  };
+
+  // Pré-carregar configurações quando o contexto for montado
   useEffect(() => {
     const companyId = localStorage.getItem("companyId");
     if (companyId) {
-      getAll(companyId)
-        .then(data => {
-          // Processar os dados se necessário
-          if (Array.isArray(data)) {
-            const newSettings = {};
-            data.forEach(setting => {
-              if (setting && setting.key) {
-                newSettings[setting.key] = setting.value;
-              }
-            });
-            setSettings(newSettings);
-          }
-        })
-        .catch(error => {
-          console.error("Erro ao carregar configurações iniciais:", error);
-        });
+      getAll(companyId).catch(error => {
+        console.error("Erro ao carregar configurações iniciais:", error);
+      });
     }
   }, [getAll]);
 
@@ -203,7 +216,10 @@ export const SettingsProvider = ({ children }) => {
         getAll,
         getAllPublicSetting,
         getPublicSetting,
-        update
+        update,
+        updateWebhook,
+        deleteWebhookByparamName,
+        getWebhook
       }}
     >
       {children}
