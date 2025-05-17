@@ -3,7 +3,7 @@ import { Paper, Box, Typography } from '@mui/material';
 import { styled } from '@mui/material/styles';
 import { 
   AccessTime as ClockIcon,
-  PaperPlane as PaperPlaneIcon,
+  SendToMobileOutlined as PaperPlaneIcon,
   People as UsersIcon,
   ArrowUpward as ArrowUpIcon,
   ArrowDownward as ArrowDownIcon
