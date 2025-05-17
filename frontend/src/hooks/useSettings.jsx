@@ -60,6 +60,27 @@ export const SettingsProvider = ({ children }) => {
     }
   }, [CACHE_EXPIRATION_TIME, cachedSettings]);
 
+  const getPublicSetting = useCallback(async (key) => {
+    try {
+      setLoading(true);
+      
+      // Primeiro tenta buscar do cache (companyId 1 para configurações públicas)
+      const cachedSettings = getSettingsFromCache("1");
+      if (cachedSettings && cachedSettings[key] !== undefined) {
+        return cachedSettings[key];
+      }
+      
+      // Se não encontrar no cache, busca da API
+      const { data } = await api.get(`/public-settings/${key}`);
+      return data;
+    } catch (err) {
+      console.error(`Erro ao buscar configuração pública ${key}:`, err);
+      return null;
+    } finally {
+      setLoading(false);
+    }
+  }, [getSettingsFromCache]);
+
   const getAll = useCallback(async (companyId) => {
     try {
       setLoading(true);
@@ -181,6 +202,7 @@ export const SettingsProvider = ({ children }) => {
         loading,
         getAll,
         getAllPublicSetting,
+        getPublicSetting,
         update
       }}
     >
