@@ -28,6 +28,8 @@ import {
   FormControlLabel,
   Radio,
   RadioGroup,
+  FormHelperText,
+  InputAdornment,
 } from "@mui/material";
 
 // Icons
@@ -38,6 +40,7 @@ import {
   Close as CloseIcon,
   PlayCircleOutline as PlayCircleOutlineIcon,
   PauseCircleOutline as PauseCircleOutlineIcon,
+  Info as InfoIcon,
 } from "@mui/icons-material";
 
 // Componentes
@@ -77,6 +80,100 @@ const StyledTabs = styled(Tabs)(({ theme }) => ({
   },
 }));
 
+// Componente para campos de lista de contatos e tags
+const SelectListOrTag = ({ formik, contactLists, tagLists, disabled }) => {
+  const listSelected = !!formik.values.contactListId;
+  const tagSelected = !!formik.values.tagListId;
+
+  return (
+    <>
+      <Grid item xs={12} md={4}>
+        <FormControl
+          variant="outlined"
+          fullWidth
+        >
+          <InputLabel id="contactList-selection-label">
+            {i18n.t("campaigns.dialog.form.contactList")}
+          </InputLabel>
+          <Select
+            label={i18n.t("campaigns.dialog.form.contactList")}
+            labelId="contactList-selection-label"
+            id="contactListId"
+            name="contactListId"
+            value={formik.values.contactListId}
+            onChange={(e) => {
+              formik.handleChange(e);
+              // Se selecionar uma lista, limpa a seleção de tag
+              if (e.target.value) {
+                formik.setFieldValue("tagListId", "");
+              }
+            }}
+            error={formik.touched.contactListId && Boolean(formik.errors.contactListId)}
+            disabled={disabled || tagSelected}
+            InputLabelProps={{
+              shrink: true,
+            }}
+          >
+            <MenuItem value="">{i18n.t("campaigns.dialog.form.none")}</MenuItem>
+            {contactLists.map((contactList) => (
+              <MenuItem key={contactList.id} value={contactList.id}>
+                {contactList.name}
+              </MenuItem>
+            ))}
+          </Select>
+          {tagSelected && (
+            <FormHelperText>
+              {i18n.t("campaigns.dialog.form.disabledByTag")}
+            </FormHelperText>
+          )}
+        </FormControl>
+      </Grid>
+
+      <Grid item xs={12} md={4}>
+        <FormControl
+          variant="outlined"
+          fullWidth
+        >
+          <InputLabel id="tagList-selection-label">
+            {i18n.t("campaigns.dialog.form.tagList")}
+          </InputLabel>
+          <Select
+            label={i18n.t("campaigns.dialog.form.tagList")}
+            labelId="tagList-selection-label"
+            id="tagListId"
+            name="tagListId"
+            value={formik.values.tagListId}
+            onChange={(e) => {
+              formik.handleChange(e);
+              // Se selecionar uma tag, limpa a seleção de lista
+              if (e.target.value) {
+                formik.setFieldValue("contactListId", "");
+              }
+            }}
+            error={formik.touched.tagListId && Boolean(formik.errors.tagListId)}
+            disabled={disabled || listSelected}
+            InputLabelProps={{
+              shrink: true,
+            }}
+          >
+            <MenuItem value="">{i18n.t("campaigns.dialog.form.none")}</MenuItem>
+            {tagLists.map((tagList) => (
+              <MenuItem key={tagList.id} value={tagList.id}>
+                {tagList.name}
+              </MenuItem>
+            ))}
+          </Select>
+          {listSelected && (
+            <FormHelperText>
+              {i18n.t("campaigns.dialog.form.disabledByList")}
+            </FormHelperText>
+          )}
+        </FormControl>
+      </Grid>
+    </>
+  );
+};
+
 // Schema de validação
 const CampaignSchema = Yup.object().shape({
   name: Yup.string()
@@ -85,6 +182,8 @@ const CampaignSchema = Yup.object().shape({
     .required(i18n.t("campaigns.validation.nameRequired")),
   whatsappId: Yup.string()
     .required(i18n.t("campaigns.validation.whatsappRequired")),
+  campaignIdentifier: Yup.string()
+    .max(50, i18n.t("campaigns.validation.identifierMax")),
 });
 
 // Estado inicial
@@ -111,9 +210,10 @@ const initialState = {
   queueId: "",
   statusTicket: "pending",
   openTicket: "disabled",
+  campaignIdentifier: "", // Campo para identificador único
 };
 
-const CampaignModal = ({ open, onClose, campaignId, onSuccess }) => {
+const CampaignModal = ({ open, onClose, campaignId, onSuccess, duplicateFromId = null }) => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const isMounted = useRef(true);
@@ -134,6 +234,15 @@ const CampaignModal = ({ open, onClose, campaignId, onSuccess }) => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [users, setUsers] = useState([]);
   const [queues, setQueues] = useState([]);
+  const [loadingData, setLoadingData] = useState(false);
+  
+  // Limpar estado ao fechar o modal
+  const resetState = () => {
+    setCampaign(initialState);
+    setMessageTab(0);
+    setAttachment(null);
+    setIsSubmitting(false);
+  };
 
   // Cleanup ao desmontar
   useEffect(() => {
@@ -142,173 +251,101 @@ const CampaignModal = ({ open, onClose, campaignId, onSuccess }) => {
     };
   }, []);
 
+  // Efeito para abrir/fechar modal
+  useEffect(() => {
+    if (open) {
+      // Reinicializar estado ao abrir o modal para evitar dados de campanhas anteriores
+      if (!campaignId && !duplicateFromId) {
+        resetState();
+      }
+    }
+  }, [open, campaignId, duplicateFromId]);
+
   useEffect(() => {
     const fetchResources = async () => {
       if (!open) return;
 
-      const promises = [];
-      const controllers = [];
+      try {
+        setLoadingData(true);
+        
+        // Criar promises para todos os recursos
+        const [
+          filesResponse,
+          contactListsResponse,
+          whatsappsResponse,
+          tagsResponse,
+          usersResponse,
+          queuesResponse
+        ] = await Promise.all([
+          api.get("/files/", { params: { companyId } }),
+          api.get(`/contact-lists/list`, { params: { companyId } }),
+          api.get(`/whatsapp`, { params: { companyId, session: 0 } }),
+          api.get(`/tags`, { params: { companyId } }),
+          api.get(`/users/list`, { params: { companyId } }),
+          api.get(`/queue`)
+        ]);
 
-      // Criar AbortController para cada requisição
-      const createController = () => {
-        const controller = new AbortController();
-        controllers.push(controller);
-        return controller.signal;
-      };
-
-      // Buscar arquivos
-      promises.push(
-        api.get("/files/", {
-          params: { companyId },
-          signal: createController()
-        })
-          .then(({ data }) => {
-            setFileList(data.files || []);
-          })
-          .catch(err => {
-            if (!err.name === 'AbortError') {
-              console.error("Error fetching files:", err);
-              toast.error(i18n.t("campaigns.toasts.filesFetchError"));
-            }
-          })
-      );
-
-      // Buscar listas de contatos
-      promises.push(
-        api.get(`/contact-lists/list`, {
-          params: { companyId },
-          signal: createController()
-        })
-          .then(({ data }) => {
-            setContactLists(data || []);
-          })
-          .catch(err => {
-            if (!err.name === 'AbortError') {
-              console.error("Error fetching contact lists:", err);
-              toast.error(i18n.t("campaigns.toasts.contactListsFetchError"));
-            }
-          })
-      );
-
-      // Buscar conexões do WhatsApp
-      promises.push(
-        api.get(`/whatsapp`, {
-          params: { companyId, session: 0 },
-          signal: createController()
-        })
-          .then(({ data }) => {
-            setWhatsapps(data || []);
-          })
-          .catch(err => {
-            if (!err.name === 'AbortError') {
-              console.error("Error fetching WhatsApp connections:", err);
-              toast.error(i18n.t("campaigns.toasts.whatsappsFetchError"));
-            }
-          })
-      );
-
-      // Buscar tags
-      promises.push(
-        api.get(`/tags`, {
-          params: { companyId },
-          signal: createController()
-        })
-          .then(({ data }) => {
-            const formattedTagLists = data.tags.map((tag) => ({
-              id: tag.id,
-              name: tag.name,
-            }));
-            setTagLists(formattedTagLists);
-          })
-          .catch(err => {
-            if (!err.name === 'AbortError') {
-              console.error("Error retrieving tags:", err);
-            }
-          })
-      );
-
-      promises.push(
-        api.get(`/users/list`, {
-          params: { companyId },
-          signal: createController()
-        })
-          .then(({ data }) => {
-            setUsers(data || []);
-          })
-          .catch(err => {
-            if (!err.name === 'AbortError') {
-              console.error("Error fetching users:", err);
-            }
-          })
-      );
-
-      promises.push(
-        api.get(`/queue`, {
-          signal: createController()
-        })
-          .then(({ data }) => {
-            setQueues(data || []);
-          })
-          .catch(err => {
-            if (!err.name === 'AbortError') {
-              console.error("Error fetching queues:", err);
-            }
-          })
-      );
-
-      // Se for edição, buscar a campanha
-      if (campaignId) {
-        promises.push(
-          api.get(`/campaigns/${campaignId}`, {
-            signal: createController()
-          })
-            .then(({ data }) => {
-              setCampaign((prev) => {
-                let prevCampaignData = Object.assign({}, prev);
-
-                Object.entries(data).forEach(([key, value]) => {
-                  if (key === "scheduledAt" && value) {
-                    prevCampaignData[key] = moment(value).format("YYYY-MM-DDTHH:mm");
-                  } else {
-                    prevCampaignData[key] = value === null ? "" : value;
-                  }
-                });
-
-                return prevCampaignData;
-              });
-            })
-            .catch(err => {
-              if (!err.name === 'AbortError') {
-                console.error("Error fetching campaign:", err);
-                toast.error(i18n.t("campaigns.toasts.campaignFetchError"));
-                onClose(); // Fechar modal em caso de erro na busca da campanha
+        if (isMounted.current) {
+          setFileList(filesResponse.data.files || []);
+          setContactLists(contactListsResponse.data || []);
+          setWhatsapps(whatsappsResponse.data || []);
+          
+          // Formatar tags
+          const formattedTagLists = tagsResponse.data.tags.map((tag) => ({
+            id: tag.id,
+            name: tag.name,
+          }));
+          setTagLists(formattedTagLists);
+          
+          setUsers(usersResponse.data || []);
+          setQueues(queuesResponse.data || []);
+        }
+        
+        // Se for edição ou duplicação, buscar a campanha
+        if (campaignId || duplicateFromId) {
+          const targetId = campaignId || duplicateFromId;
+          const { data } = await api.get(`/campaigns/${targetId}`);
+          
+          if (isMounted.current) {
+            const newCampaignData = Object.assign({}, initialState);
+            
+            Object.entries(data).forEach(([key, value]) => {
+              if (key === "scheduledAt" && value) {
+                newCampaignData[key] = moment(value).format("YYYY-MM-DDTHH:mm");
+              } else {
+                newCampaignData[key] = value === null ? "" : value;
               }
-            })
-        );
-      }
-
-      // Executar todas as promises
-      await Promise.allSettled(promises);
-
-      // Retornar função de limpeza para cancelar requisições pendentes
-      return () => {
-        controllers.forEach(controller => controller.abort());
-      };
-    };
-
-    const cleanup = fetchResources();
-
-    // Função de limpeza para o useEffect
-    return () => {
-      if (cleanup && typeof cleanup.then === 'function') {
-        cleanup.then(cleanupFn => {
-          if (cleanupFn && typeof cleanupFn === 'function') {
-            cleanupFn();
+            });
+            
+            // Se for duplicação, limpar alguns campos e alterar o nome
+            if (duplicateFromId) {
+              newCampaignData.id = null;
+              newCampaignData.name = `${newCampaignData.name} (cópia)`;
+              newCampaignData.status = "INATIVA";
+              newCampaignData.mediaPath = null;
+              newCampaignData.mediaName = null;
+              
+              // Gerar identificador único para a campanha duplicada
+              newCampaignData.campaignIdentifier = `${newCampaignData.campaignIdentifier || ''}_copy_${Date.now().toString().substr(-6)}`;
+            }
+            
+            setCampaign(newCampaignData);
           }
-        });
+        }
+      } catch (err) {
+        console.error("Erro ao carregar recursos:", err);
+        toast.error(i18n.t("campaigns.toasts.resourcesError"));
+      } finally {
+        if (isMounted.current) {
+          setLoadingData(false);
+        }
       }
     };
-  }, [campaignId, open, companyId]);
+
+    if (open) {
+      fetchResources();
+    }
+  }, [campaignId, open, companyId, duplicateFromId]);
 
   // Verificar se a campanha é editável
   useEffect(() => {
@@ -326,10 +363,9 @@ const CampaignModal = ({ open, onClose, campaignId, onSuccess }) => {
 
   // Handlers
   const handleClose = () => {
+    if (isSubmitting) return;
     onClose();
-    setCampaign(initialState);
-    setMessageTab(0);
-    setAttachment(null);
+    resetState();
   };
 
   const handleTabChange = (event, newValue) => {
@@ -475,6 +511,7 @@ const CampaignModal = ({ open, onClose, campaignId, onSuccess }) => {
     } catch (err) {
       console.error("Save campaign error:", err);
       toast.error(i18n.t("campaigns.toasts.saveError"));
+    } finally {
       setIsSubmitting(false);
     }
   };
@@ -609,12 +646,14 @@ const CampaignModal = ({ open, onClose, campaignId, onSuccess }) => {
           campaignEditable
             ? campaignId
               ? i18n.t("campaigns.dialog.update")
-              : i18n.t("campaigns.dialog.new")
+              : duplicateFromId
+                ? i18n.t("campaigns.dialog.duplicate")
+                : i18n.t("campaigns.dialog.new")
             : i18n.t("campaigns.dialog.readonly")
         }
         maxWidth="md"
         actions={getModalActions()}
-        loading={isSubmitting}
+        loading={loadingData}
       >
         <Formik
           initialValues={campaign}
@@ -631,7 +670,7 @@ const CampaignModal = ({ open, onClose, campaignId, onSuccess }) => {
               </Box>
 
               <Grid container spacing={2} sx={{ mb: 3, mt: 1 }}>
-                <Grid item xs={12} md={9}>
+                <Grid item xs={12} md={6}>
                   <Field
                     as={TextField}
                     label={i18n.t("campaigns.dialog.form.name")}
@@ -673,65 +712,39 @@ const CampaignModal = ({ open, onClose, campaignId, onSuccess }) => {
                   </FormControl>
                 </Grid>
 
-                <Grid item xs={12} md={4}>
-                  <FormControl
+                <Grid item xs={12} md={3}>
+                  <Field
+                    as={TextField}
+                    label={i18n.t("campaigns.dialog.form.identifier")}
+                    name="campaignIdentifier"
+                    error={formikProps.touched.campaignIdentifier && Boolean(formikProps.errors.campaignIdentifier)}
+                    helperText={
+                      (formikProps.touched.campaignIdentifier && formikProps.errors.campaignIdentifier) ||
+                      i18n.t("campaigns.dialog.form.identifierHelp")
+                    }
                     variant="outlined"
                     fullWidth
-                  >
-                    <InputLabel id="contactList-selection-label">
-                      {i18n.t("campaigns.dialog.form.contactList")}
-                    </InputLabel>
-                    <Field
-                      as={Select}
-                      label={i18n.t("campaigns.dialog.form.contactList")}
-                      labelId="contactList-selection-label"
-                      id="contactListId"
-                      name="contactListId"
-                      error={formikProps.touched.contactListId && Boolean(formikProps.errors.contactListId)}
-                      disabled={!campaignEditable}
-                      InputLabelProps={{
-                        shrink: true,
-                      }}
-                    >
-                      <MenuItem value="">{i18n.t("campaigns.dialog.form.none")}</MenuItem>
-                      {contactLists.map((contactList) => (
-                        <MenuItem key={contactList.id} value={contactList.id}>
-                          {contactList.name}
-                        </MenuItem>
-                      ))}
-                    </Field>
-                  </FormControl>
+                    InputProps={{
+                      startAdornment: (
+                        <InputAdornment position="start">
+                          <InfoIcon fontSize="small" color="action" />
+                        </InputAdornment>
+                      ),
+                    }}
+                    disabled={!campaignEditable}
+                    InputLabelProps={{
+                      shrink: true,
+                    }}
+                  />
                 </Grid>
 
-                <Grid item xs={12} md={4}>
-                  <FormControl
-                    variant="outlined"
-                    fullWidth
-                  >
-                    <InputLabel id="tagList-selection-label">
-                      {i18n.t("campaigns.dialog.form.tagList")}
-                    </InputLabel>
-                    <Field
-                      as={Select}
-                      label={i18n.t("campaigns.dialog.form.tagList")}
-                      labelId="tagList-selection-label"
-                      id="tagListId"
-                      name="tagListId"
-                      error={formikProps.touched.tagListId && Boolean(formikProps.errors.tagListId)}
-                      disabled={!campaignEditable}
-                      InputLabelProps={{
-                        shrink: true,
-                      }}
-                    >
-                      <MenuItem value="">{i18n.t("campaigns.dialog.form.none")}</MenuItem>
-                      {tagLists.map((tagList) => (
-                        <MenuItem key={tagList.id} value={tagList.id}>
-                          {tagList.name}
-                        </MenuItem>
-                      ))}
-                    </Field>
-                  </FormControl>
-                </Grid>
+                {/* Contatos e Tags */}
+                <SelectListOrTag 
+                  formik={formikProps} 
+                  contactLists={contactLists}
+                  tagLists={tagLists} 
+                  disabled={!campaignEditable && campaign.status !== "CANCELADA"}
+                />
 
                 <Grid item xs={12} md={4}>
                   <FormControl
@@ -849,7 +862,7 @@ const CampaignModal = ({ open, onClose, campaignId, onSuccess }) => {
                 </Grid>
 
                 <Grid item xs={12} md={6}>
-                  <FormControl
+                <FormControl
                     variant="outlined"
                     fullWidth
                     disabled={formikProps.values.openTicket === "disabled"}
@@ -1047,15 +1060,12 @@ const CampaignModal = ({ open, onClose, campaignId, onSuccess }) => {
                     type="submit"
                     color="primary"
                     variant="contained"
-                    disabled={isSubmitting}
-                    startIcon={<SaveIcon />}
+                    disabled={isSubmitting || loadingData}
+                    startIcon={isSubmitting ? <CircularProgress size={20} color="inherit" /> : <SaveIcon />}
                   >
                     {campaignId
                       ? i18n.t("campaigns.dialog.buttons.edit")
                       : i18n.t("campaigns.dialog.buttons.add")}
-                    {isSubmitting && (
-                      <CircularProgress size={24} sx={{ ml: 1 }} />
-                    )}
                   </Button>
                 </Box>
               )}
