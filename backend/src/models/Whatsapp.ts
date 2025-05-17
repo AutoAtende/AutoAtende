@@ -197,6 +197,28 @@ class Whatsapp extends Model<Whatsapp> {
   @AllowNull
   @Column(DataType.TEXT)
   sessionChecksum: string;
+
+  // Campos específicos para API oficial
+@Column(DataType.TEXT)
+phoneNumberId: string;
+
+@Column(DataType.TEXT)
+metaBusinessId: string;
+
+@Column(DataType.TEXT)
+metaBusinessAccountId: string;
+
+@Column(DataType.TEXT)
+metaWABAId: string;
+
+@Column(DataType.TEXT)
+metaVerificationToken: string;
+
+@Column(DataType.BOOLEAN)
+isMetaSetupEnabled: boolean;
+
+@Column(DataType.TEXT)
+webhookUrl: string;
 }
 
 export default Whatsapp;

@@ -1,5 +1,7 @@
 #!/bin/bash
 
+# rodar npx sequelize-cli db:migrate:undo --name 20240317022607-add-columns-glpiUser-glpiPassowrd-Users
+
 # Definição de variáveis para log
 LOG_FILE="atualizar_$(date +"%Y%m%d%H%M%S").log"
 NODE_MIN_VERSION="20.17.0"
@@ -333,7 +335,6 @@ configure_database_settings() {
         ["enableTicketValueAndSku"]="enabled"
         ["enableReasonWhenCloseTicket"]="disabled"
         ["quickMessages"]="company"
-        ["enableGLPI"]="disabled"
         ["urlApiGlpi"]=""
         ["appTokenGlpi"]=""
         ["tokenMasterGlpi"]=""

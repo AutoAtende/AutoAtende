@@ -163,6 +163,7 @@ export const initIO = async (httpServer: Server): Promise<SocketIO> => {
       socket.join(`user-${user.id}-tasks`);
       socket.join(`company-${user.companyId}-mainchannel`);
       socket.join(`company-${user.companyId}-contact-import`);
+      socket.join(`company-${user.companyId}-appMessage`);
 
       if (user.profile === "admin" || user.profile === "superv") {
         socket.join(`company-${user.companyId}-admin-tasks`);
@@ -263,28 +264,6 @@ export const initIO = async (httpServer: Server): Promise<SocketIO> => {
         }
       });
 
-      socket.on("joinWaVersions", () => {
-        socket.join(`company-${user.companyId}-versions`);
-        logger.info(`Usuário ${user.id} entrou na sala de versões do WhatsApp`);
-      });
-
-      socket.on("leaveWaVersions", () => {
-        socket.leave(`company-${user.companyId}-versions`);
-        logger.info(`Usuário ${user.id} saiu da sala de versões do WhatsApp`);
-      });
-
-      socket.on(`company-${user.companyId}-asaasServices`, (data) => {
-        if (data.action === "update") {
-          socket.to(`company-${user.companyId}-mainchannel`).emit("asaasServices", data);
-        }
-      });
-    
-      socket.on(`company-${user.companyId}-asaasSchedule`, (data) => {
-        if (data.action === "update" || data.action === "error") {
-          socket.to(`company-${user.companyId}-mainchannel`).emit("asaasSchedule", data);
-        }
-      });
-
       socket.on("joinChatBox", async (ticketId: string) => {
         if (!ticketId || ticketId === 'undefined') return;
 
@@ -293,7 +272,7 @@ export const initIO = async (httpServer: Server): Promise<SocketIO> => {
 
         if (ticket.userId === user.id || user.profile === "admin" || user.allTicket) {
           counters.incrementCounter(`ticket-${ticketId}`);
-          socket.join(ticketId);
+          socket.join(`company-${user.companyId}-ticket-${ticketId}`);
         } else {
           socket.disconnect(true);
         }
@@ -302,7 +281,7 @@ export const initIO = async (httpServer: Server): Promise<SocketIO> => {
       socket.on("leaveChatBox", (ticketId: string) => {
         if (!ticketId) return socket.disconnect(true);
         counters.decrementCounter(`ticket-${ticketId}`);
-        socket.leave(ticketId);
+        socket.leave(`company-${user.companyId}-ticket-${ticketId}`);
       });
 
       socket.on("joinNotification", () => {

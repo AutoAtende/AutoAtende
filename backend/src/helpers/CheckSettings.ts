@@ -3,7 +3,7 @@ import AppError from "../errors/AppError";
 
 export const CheckSettings = async (
   key: string,
-  defaultValue: string | number
+  defaultValue: string = null
 ): Promise<string> => {
   const setting = await Setting.findOne({
     where: {
@@ -16,10 +16,17 @@ export const CheckSettings = async (
     throw new AppError("ERR_NO_SETTING_FOUND", 404);
   }
 
-  // Convertendo o valor para string antes de retornar
-  return setting?.value?.toString() || defaultValue.toString();
+  return setting?.value || defaultValue;
 };
 
+/**
+ * Get the company setting by key
+ *
+ * @param companyId - The ID of the company
+ * @param key - The key of the setting
+ * @param defaultValue - The default value to return if the setting is not found
+ * @return The value of the setting or the default value
+ */
 export const GetCompanySetting = async (
   companyId: number,
   key: string,
@@ -39,4 +46,4 @@ export const GetCompanySetting = async (
   return setting?.value || defaultValue;
 };
 
-export default { CheckSettings, GetCompanySetting };
+export default CheckSettings;

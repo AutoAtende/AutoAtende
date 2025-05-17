@@ -1,22 +1,19 @@
 import { logger } from "utils/logger";
 import Whatsapp from "../../models/Whatsapp";
-import { StartWhatsAppSession } from "./StartWhatsAppSession";
+import { StartMetaSession } from "./StartMetaSession";
 import ListWhatsAppsService from "../WhatsappService/ListWhatsAppsService";
 
 export const StartAllWhatsAppsSessions = async (companyId: number) => {
     logger.info(`[WhatsApp] Iniciando todas as sessões para empresa ${companyId}`);
 
     try {
-        const whatsapps = await ListWhatsAppsService({ companyId, channel: "baileys" });
+        const whatsapps = await ListWhatsAppsService({ companyId, channel: "whatsapp-api" });
 
         logger.info(`[WhatsApp] Encontrados ${whatsapps.length} WhatsApps para empresa ${companyId}`);
 
         for (const whatsapp of whatsapps) {
             try {
-                if (whatsapp.status !== 'DISCONNECTED' && whatsapp.status !== 'qrcode') {
-                    logger.info(`[WhatsApp] Iniciando sessão ${whatsapp.id}`);
-                    await StartWhatsAppSession(whatsapp, companyId);
-                }
+                await StartMetaSession(whatsapp, companyId);
             } catch (error) {
                 logger.error(`[WhatsApp] Erro ao iniciar sessão ${whatsapp.id}:`, {
                     error: error.message,

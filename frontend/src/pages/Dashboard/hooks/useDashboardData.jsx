@@ -1,4 +1,4 @@
-import { useState, useEffect, useContext } from 'react';
+import { useState, useEffect, useContext, useCallback } from 'react';
 import { AuthContext } from '../../../context/Auth/AuthContext';
 import api from '../../../services/api';
 import { toast } from '../../../helpers/toast';
@@ -56,15 +56,8 @@ const useDashboardData = () => {
     loadInitialData();
   }, []);
 
-  // Recarregar dados quando mudar a faixa de data ou a queue selecionada
-  useEffect(() => {
-    if (queues.length > 0) {
-      loadDashboardData();
-    }
-  }, [dateRange, selectedQueue, queues]);
-
   // Função para carregar os dados do dashboard
-  const loadDashboardData = async () => {
+  const loadDashboardData = useCallback(async () => {
     setIsLoading(true);
     setError(null);
     
@@ -125,7 +118,14 @@ const useDashboardData = () => {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [dateRange, selectedQueue]);
+
+  // Recarregar dados quando mudar a faixa de data ou a queue selecionada
+  useEffect(() => {
+    if (queues.length > 0) {
+      loadDashboardData();
+    }
+  }, [dateRange, selectedQueue, queues, loadDashboardData]);
 
   // Funções para formatação de dados
   const formatResponseTime = (minutes) => {

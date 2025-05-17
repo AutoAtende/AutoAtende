@@ -4,7 +4,7 @@ interface Request {
   companyId: number;
 }
 
-const FindAllPlanService = async (companyId: number): Promise<Invoices[]> => {
+const FindAllInvoiceService = async (companyId: number): Promise<Invoices[]> => {
   const invoice = await Invoices.findAll({
     attributes: [ "id", "detail", "value", "dueDate", "status", "createdAt", "updatedAt" ],
     where: {
@@ -15,4 +15,4 @@ const FindAllPlanService = async (companyId: number): Promise<Invoices[]> => {
   return invoice;
 };
 
-export default FindAllPlanService;
+export default FindAllInvoiceService;

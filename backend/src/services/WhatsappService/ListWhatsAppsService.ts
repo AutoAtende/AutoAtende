@@ -5,14 +5,16 @@ import Whatsapp from "../../models/Whatsapp";
 interface Request {
   companyId: number;
   session?: number | string;
+  channel?: string;
 }
 
 const ListWhatsAppsService = async ({
   session,
-  companyId
+  companyId,
+  channel
 }: Request): Promise<Whatsapp[]> => {
   const options: FindOptions = {
-    where: { companyId, channel: "baileys" },
+    where: { companyId, channel },
     include: [
       {
         model: Queue,
