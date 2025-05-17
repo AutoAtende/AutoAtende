@@ -7,7 +7,7 @@ export const StartAllWhatsAppsSessions = async (companyId: number) => {
     logger.info(`[WhatsApp] Iniciando todas as sessões para empresa ${companyId}`);
 
     try {
-        const whatsapps = await ListWhatsAppsService({ companyId, channel: "baileys" });
+        const whatsapps = await ListWhatsAppsService({ companyId });
 
         logger.info(`[WhatsApp] Encontrados ${whatsapps.length} WhatsApps para empresa ${companyId}`);
 

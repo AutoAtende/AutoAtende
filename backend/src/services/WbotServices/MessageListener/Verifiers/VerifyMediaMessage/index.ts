@@ -17,9 +17,6 @@ import CreateMessageService from "../../../../MessageServices/CreateMessageServi
 import Queue from "../../../../../models/Queue";
 import User from "../../../../../models/User";
 import formatBody from "../../../../../helpers/Mustache";
-import { transcriber } from "../../../../../helpers/transcriber";
-import { GetCompanySetting } from "../../../../../helpers/CheckSettings";
-import { GetPublicPath } from "../../../../../helpers/GetPublicPath";
 
 interface MediaData {
   filename: string;
@@ -90,39 +87,8 @@ export const verifyMediaMessage = async (
       logger.error(err);
     }
 
-    let body = getBodyMessage(msg);
+    const body = getBodyMessage(msg);
     const msgType = getTypeMessage(msg);
-
-    const mediaType = media?.mimetype.split("/")[0];
-    if (
-      mediaType === "audio" &&
-      (await GetCompanySetting(
-        ticket.companyId,
-        "audioTranscriptions",
-        "disabled"
-      )) === "enabled"
-    ) {
-      const apiKey = await GetCompanySetting(ticket.companyId, "openAiKey", null);
-      const provider = await GetCompanySetting(
-        ticket.companyId,
-        "aiProvider",
-        "openai"
-      );
-  
-      if (apiKey) {
-        const audioTranscription = await transcriber(
-          media.filename.startsWith("http")
-            ? media.filename
-            : `${GetPublicPath()}/${media.filename}`,
-          { apiKey, provider },
-          media.filename
-        );
-        if (audioTranscription) {
-          body = audioTranscription;
-        }
-      }
-    }
-
 
     const messageData = {
       id: msg.key.id,
@@ -132,7 +98,7 @@ export const verifyMediaMessage = async (
       fromMe: msg.key.fromMe,
       read: msg.key.fromMe,
       mediaUrl: media.filename,
-      mediaType,
+      mediaType: media.mimetype ? media.mimetype.split("/")[0] : "unknown",
       quotedMsgId: quotedMsg?.id,
       ack: getStatus(msg, "media"),
       remoteJid: msg.key.remoteJid,

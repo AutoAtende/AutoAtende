@@ -1,19 +1,14 @@
 class AppError {
   public readonly message: string;
-  public readonly statusCode: number;
-  public readonly level: string;
-  public readonly stack?: string;
 
-  constructor(
-    message: string, 
-    statusCode = 400, 
-    level = "warn",
-    stack?: string
-  ) {
+  public readonly statusCode: number;
+
+  public readonly level: string;
+
+  constructor(message: string, statusCode = 400, level = "warn") {
     this.message = message;
     this.statusCode = statusCode;
     this.level = level;
-    this.stack = stack;
   }
 }
 
