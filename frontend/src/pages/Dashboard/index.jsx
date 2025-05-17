@@ -4,6 +4,7 @@ import { styled } from '@mui/material/styles';
 import { CalendarToday, FileDownload } from '@mui/icons-material';
 import { toast } from "../../helpers/toast";
 import { useLoading } from "../../hooks/useLoading";
+import Title from '../../components/Title';
 import DashboardCard from './components/DashboardCard';
 import BarChartComponent from './components/BarChartComponent';
 import DonutChartComponent from './components/DonutChartComponent';
@@ -167,7 +168,7 @@ const Dashboard = () => {
   return (
     <StyledContainer maxWidth={false}>
       <PageHeader>
-        <PageTitle variant="h1">Dashboard de Desempenho</PageTitle>
+        <Title variant="h1">Dashboard de Desempenho</Title>
         <FiltersContainer>
           <DateFilter>
             <DateFilterIcon />

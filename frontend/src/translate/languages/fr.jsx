@@ -123,25 +123,6 @@ const messages = {
           select: "Tags",
           placeholder: "Sélectionner un ou plusieurs tags"
         },
-        glpi: {
-          title: "Ouverture d'un ticket",
-          titleField: "Titre",
-          descriptionField: "Description",
-          urgency: {
-            title: "Urgence",
-            high: "Élevée",
-            medium: "Moyenne",
-            low: "Faible",
-            veryHigh: "Très élevée",
-            veryLow: "Très faible"
-          },
-          buttons: {
-            cancel: "Annuler",
-            confirm: "Confirmer",
-            creatingTicket: "Création du ticket...",
-            createTicket: "Créer un ticket"
-          }
-        },
         vcard: {
           buttonSave: "Enregistrer",
           buttonConversation: "Discuter"
@@ -1428,9 +1409,6 @@ const messages = {
           notifyTask: "Notification de Tâches",
           notifyTaskHelp: "Envoie une notification sur WhatsApp concernant les nouvelles tâches ou les tâches en retard attribuées à cet utilisateur",
           onlyAdminSupervHelp: "Seuls les administrateurs et les superviseurs peuvent modifier les paramètres de notification.",
-          glpiUser: "Utilisateur GLPI",
-          glpiPass: "Mot de passe GLPI",
-          glpiHelp: "Informations d'identification pour l'intégration avec le GLPI",
           profilePicHelp: "Cliquez sur l'image pour modifier",
           canRestartConnections: "Redémarrer les connexions",
           canRestartConnectionsHelp: "Permet à l'utilisateur de redémarrer les connexions WhatsApp"
@@ -4153,38 +4131,6 @@ const messages = {
           warning: "Configurez les intégrations avec soin",
           enable: "Activer",
           save: "Enregistrer",
-          glpi: {
-            title: "GLPI",
-            url: "URL de l'API",
-            appToken: "Jeton de l'application",
-            masterToken: "Jeton principal",
-            testSuccess: "Test réussi",
-            testError: "Erreur lors du test de connexion",
-            validationError: "Remplissez tous les champs obligatoires",
-            saved: "Paramètres enregistrés avec succès",
-            error: "Erreur lors de l'enregistrement des paramètres"
-          },
-          ixc: {
-            title: "IXC",
-            serverIp: "Adresse IP du serveur",
-            token: "Jeton d'accès",
-            saved: "Paramètres enregistrés avec succès",
-            error: "Erreur lors de l'enregistrement des paramètres"
-          },
-          mkauth: {
-            title: "MK-AUTH",
-            serverIp: "Adresse IP du serveur",
-            clientId: "Identifiant du client",
-            clientSecret: "Clé secrète",
-            saved: "Paramètres enregistrés avec succès",
-            error: "Erreur lors de l'enregistrement des paramètres"
-          },
-          asaas: {
-            title: "Asaas",
-            apiKey: "Clé de l'API",
-            saved: "Paramètres enregistrés avec succès",
-            error: "Erreur lors de l'enregistrement des paramètres"
-          }
         },
         company: {
           title: "Paramètres de l'entreprise",
@@ -5640,17 +5586,7 @@ const messages = {
           label: "Salutation dans un seul secteur",
           helper: "Envoie une salutation lorsqu'il n'y a qu'un seul secteur"
         },
-        glpi: {
-          label: "Intégration avec GLPI",
-          config: "Paramètres GLPI",
-          urlApi: "URL de l'API",
-          appToken: "Jeton de l'Application",
-          masterToken: "Jeton principal",
-          helper: "Autoriser l'intégration avec le système GLPI",
-          configHelper: "Configurer les informations d'identification pour l'intégration avec GLPI",
-          saveButton: "Enregistrer les paramètres GLPI",
-          requiredFields: "Remplissez tous les champs obligatoires de GLPI"
-        },
+
         omie: {
           label: "Intégration avec Omie",
           config: "Paramètres Omie",
@@ -7634,39 +7570,6 @@ const messages = {
         enableUPSixWebphoneHelp: "Active ou désactive l'utilisation du webphone intégré d'UPSix.",
         enableUPSixNotifications: "Activer les notifications UPSix",
         enableUPSixNotificationsHelp: "Active ou désactive les notifications via UPSix.",
-        enableGLPI: "Activer l'intégration avec GLPI",
-        enableGLPIHelp: "Active ou désactive la fonction d'ouverture de ticket dans GLPI à partir de l'écran de ticket. Essentiel pour accélérer le service et le support, offrant une solution immédiate pour s'intégrer avec GLPI.",
-        glpiEnabled: "Intégration avec GLPI activée.",
-        glpiDisabled: "Intégration avec GLPI désactivée.",
-        glpiApiSettings: "Paramètres de l'API de GLPI",
-        glpiApiUrl: "URL de l'API GLPI",
-        glpiAppToken: "App-Token",
-        glpiMasterToken: "Token GLPI",
-        glpiIntegrationHelp: "Avec cette intégration, chaque fois qu'un service est enregistré sur notre plateforme, les informations peuvent être automatiquement envoyées à GLPI, facilitant le suivi des tickets et la résolution des demandes de support. La configuration correcte de ces paramètres est essentielle pour garantir un échange de données sécurisé et efficace.",
-        saveGlpiSettings: "Enregistrer les données de l'API GLPI",
-        glpiFieldsRequired: "Veuillez remplir tous les champs obligatoires de l'intégration avec GLPI avant de continuer.",
-        enableOmie: "Activer l'intégration avec Omie",
-        enableOmieHelp: "Active ou désactive l'intégration avec Omie dans le système, permettant l'accès aux fonctionnalités pendant le service. Essentiel pour intégrer les informations financières et commerciales directement dans la plateforme.",
-        omieEnabled: "Intégration avec Omie activée.",
-        omieDisabled: "Intégration avec Omie désactivée.",
-        omieApiSettings: "Paramètres de l'API d'Omie",
-        omieAppKey: "App Key",
-        omieAppSecret: "App Secret",
-        omieIntegrationHelp: "Avec cette intégration, il sera possible d'accéder aux fonctionnalités d'Omie directement depuis la plateforme, permettant des consultations et des opérations sans avoir besoin d'accéder séparément au système Omie. La configuration correcte des identifiants est essentielle pour garantir une intégration sécurisée et efficace.",
-        omieRequiredSector: "Pour utiliser cette intégration, il est nécessaire de créer un secteur dont le nom doit être l'une de ces options : 2ª Via de Boleto, 2 Via de Boleto ou Boleto - Cobrança.",
-        saveOmieSettings: "Enregistrer les données de l'API Omie",
-        omieFieldsRequired: "Veuillez remplir tous les champs obligatoires de l'intégration avec Omie avant de continuer.",
-        enableZabbix: "Activer l'intégration avec Zabbix",
-        enableZabbixHelp: "Active ou désactive l'intégration avec Zabbix pour surveiller le système. Important pour suivre les performances et la disponibilité des services.",
-        zabbixEnabled: "Intégration avec Zabbix activée.",
-        zabbixDisabled: "Intégration avec Zabbix désactivée.",
-        zabbixApiSettings: "Paramètres de l'API de Zabbix",
-        zabbixAuthToken: "Token d'authentification",
-        zabbixBaseUrl: "URL de base de Zabbix",
-        zabbixIntegrationHelp: "Configurez les identifiants d'accès à l'API de Zabbix pour activer la surveillance intégrée. Essentiel pour garder le contrôle sur les performances du système.",
-        saveZabbixSettings: "Enregistrer les paramètres de Zabbix",
-        zabbixFieldsRequired: "Veuillez remplir tous les champs obligatoires de l'intégration avec Zabbix avant de continuer.",
-        zabbixConfigSuccess: "Paramètres de Zabbix mis à jour avec succès.",
         whatsappApiEnabled: "API officielle de WhatsApp activée.",
         whatsappApiDisabled: "API officielle de WhatsApp désactivée.",
         support: "Support",
@@ -7744,7 +7647,6 @@ const messages = {
         ERR_SKU_VALUE_REQUIRED: "La valeur du SKU est obligatoire.",
         ERR_INVALID_TICKET_ID: "ID de ticket fourni invalide.",
         ERR_WORK_HOURS_UNDEFINED: "Les horaires de travail n'ont pas été définis.",
-        ERR_AUTHENTICATION_DATA_SEND_GLPI_ERROR: "Une erreur s'est produite lors de la tentative d'envoi des données d'authentification à GLPI.",
         ERR_INVALID_URL: "L'URL fournie n'est pas valide! Veuillez vérifier si les données d'authentification sont correctes dans l'écran de configuration du système et réessayez.",
         ERR_INTERNAL_SERVER_ERROR: "Une erreur interne du serveur s'est produite.",
         ERR_CONNECTION_NOT_PROVIDED: "Connexion non spécifiée.",
