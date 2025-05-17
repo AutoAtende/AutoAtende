@@ -13,6 +13,8 @@ const publicSettingsKeys = [
   "appName",
   "loginBackground",
   "signupBackground",
+  "loginPosition",
+  "signupPosition",
   "iconColorLight",
   "iconColorDark",
   "chatlistLight",
