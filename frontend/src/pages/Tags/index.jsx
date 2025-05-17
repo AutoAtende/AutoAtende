@@ -301,6 +301,7 @@ const Tags = () => {
         searchValue={searchParam}
         searchPlaceholder={i18n.t("tags.searchPlaceholder")}
         actions={headerActions}
+        sx={{ mb: 3 }} // Adicionado margin-bottom para criar espaço entre o cabeçalho e o conteúdo
       >
         <BaseButton
           variant="outlined"
@@ -328,6 +329,7 @@ const Tags = () => {
           onAction: () => handleOpenTagModal(),
           showButton: true,
         }}
+        sx={{ mb: 3 }} // Adiciona margin-bottom no conteúdo para espaçamento com o footer
       >
         <Box sx={{ height: '100%', overflow: 'auto' }}>
           <Table stickyHeader size="small">
