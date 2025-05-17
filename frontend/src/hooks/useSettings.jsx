@@ -1,11 +1,9 @@
 import React, { createContext, useContext, useState, useCallback, useEffect } from "react";
 import api from "../services/api";
-import { AuthContext } from "../context/Auth/AuthContext";
 
 const SettingsContext = createContext({});
 
 export const SettingsProvider = ({ children }) => {
-  const { user } = useContext(AuthContext);
   const [settings, setSettings] = useState({});
   const [loading, setLoading] = useState(false);
   const [cachedSettings, setCachedSettings] = useState({});
@@ -66,8 +64,8 @@ export const SettingsProvider = ({ children }) => {
     try {
       setLoading(true);
       
-      // Usar companyId do parâmetro, do usuário logado ou padrão (1)
-      const targetCompanyId = companyId || (user ? user.companyId : 1);
+      // Usar companyId do parâmetro ou padrão (1)
+      const targetCompanyId = companyId || localStorage.getItem("companyId") || "1";
       
       // Verificar cache primeiro
       const cachedData = getSettingsFromCache(targetCompanyId);
@@ -101,14 +99,14 @@ export const SettingsProvider = ({ children }) => {
     } finally {
       setLoading(false);
     }
-  }, [user, getSettingsFromCache, cacheSettings]);
+  }, [getSettingsFromCache, cacheSettings]);
 
   const getAllPublicSetting = useCallback(async (companyId) => {
     try {
       setLoading(true);
       
-      // Usar companyId do parâmetro, do usuário logado ou padrão (1)
-      const targetCompanyId = companyId || (user ? user.companyId : 1);
+      // Usar companyId do parâmetro ou padrão (1)
+      const targetCompanyId = companyId || localStorage.getItem("companyId") || "1";
       
       // Buscar configurações públicas
       const { data } = await api.get("/public-settings", { 
@@ -122,14 +120,14 @@ export const SettingsProvider = ({ children }) => {
     } finally {
       setLoading(false);
     }
-  }, [user]);
+  }, []);
 
   const update = useCallback(async ({ key, value, companyId }) => {
     try {
       setLoading(true);
       
-      // Usar companyId do parâmetro, do usuário logado ou padrão (1)
-      const targetCompanyId = companyId || (user ? user.companyId : 1);
+      // Usar companyId do parâmetro ou padrão (1)
+      const targetCompanyId = companyId || localStorage.getItem("companyId") || "1";
       
       const { data } = await api.put(`/settings/${key}`, {
         value
@@ -151,12 +149,13 @@ export const SettingsProvider = ({ children }) => {
     } finally {
       setLoading(false);
     }
-  }, [user, getSettingsFromCache, cacheSettings]);
+  }, [getSettingsFromCache, cacheSettings]);
 
-  // Pré-carregar configurações do usuário atual quando o contexto for montado
+  // Pré-carregar configurações gerais quando o contexto for montado
   useEffect(() => {
-    if (user && user.companyId) {
-      getAll(user.companyId)
+    const companyId = localStorage.getItem("companyId");
+    if (companyId) {
+      getAll(companyId)
         .then(data => {
           // Processar os dados se necessário
           if (Array.isArray(data)) {
@@ -173,7 +172,7 @@ export const SettingsProvider = ({ children }) => {
           console.error("Erro ao carregar configurações iniciais:", error);
         });
     }
-  }, [getAll, user]);
+  }, [getAll]);
 
   return (
     <SettingsContext.Provider
