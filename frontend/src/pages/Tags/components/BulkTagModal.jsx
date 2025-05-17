@@ -14,23 +14,15 @@ import {
     MenuItem
 } from "@mui/material";
 import {
-    Save as SaveIcon,
     Add as AddIcon,
     Numbers as NumbersIcon,
     Pattern as PatternIcon,
     ViewKanban as KanbanIcon
 } from "@mui/icons-material";
-import { makeStyles } from "@mui/styles";
 import { toast } from "../../../helpers/toast";
 import { i18n } from "../../../translate/i18n";
 import api from "../../../services/api";
-import BaseModal from "../../../components/shared/BaseModal";
-
-const useStyles = makeStyles((theme) => ({
-    formContainer: {
-        padding: theme.spacing(2)
-    }
-}));
+import BaseModal from "../../../components/BaseModal";
 
 const namePatterns = [
     { value: "tag_{n}", label: i18n.t("tags.bulk.patterns.tag") },
@@ -52,8 +44,6 @@ const BulkTagSchema = Yup.object().shape({
 });
 
 const BulkTagModal = ({ open, onClose, onSave }) => {
-    const classes = useStyles();
-
     const initialValues = {
         quantity: 1,
         namePattern: "tag_{n}",
@@ -69,6 +59,8 @@ const BulkTagModal = ({ open, onClose, onSave }) => {
         } catch (err) {
             console.error(err);
             toast.error(err.response?.data?.error || i18n.t("tags.notifications.bulkError"));
+        } finally {
+            setSubmitting(false);
         }
     };
 
@@ -110,7 +102,7 @@ const BulkTagModal = ({ open, onClose, onSave }) => {
                         actions={modalActions}
                     >
                         <Form>
-                            <Grid container spacing={3} className={classes.formContainer}>
+                            <Grid container spacing={3} sx={{ p: 2 }}>
                                 <Grid item xs={12}>
                                     <Field
                                         name="quantity"

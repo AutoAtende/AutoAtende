@@ -6,9 +6,10 @@ import 'jspdf-autotable';
 export const exportToExcel = (tags) => {
     // Prepara os dados para exportação
     const exportData = tags.map(tag => ({
+        'ID': tag.id,
         'Nome': tag.name,
-        'Tickets': tag.tickets?.length || 0,
-        'Kanban': tag.kanban ? 'Sim' : 'Não',
+        'Tickets': tag.ticketsCount || 0,
+        'Kanban': tag.kanban === 1 ? 'Sim' : 'Não',
         'Cor': tag.color
     }));
 
@@ -27,11 +28,12 @@ export const exportToPDF = (tags) => {
     doc.setFontSize(10);
     
     // Prepara os dados para a tabela
-    const tableColumn = ['Nome', 'Tickets', 'Kanban', 'Cor'];
+    const tableColumn = ['ID', 'Nome', 'Tickets', 'Kanban', 'Cor'];
     const tableRows = tags.map(tag => [
+        tag.id,
         tag.name,
-        tag.tickets?.length || 0,
-        tag.kanban ? 'Sim' : 'Não',
+        tag.ticketsCount || 0,
+        tag.kanban === 1 ? 'Sim' : 'Não',
         tag.color
     ]);
 
@@ -78,6 +80,7 @@ export const printTags = (tags) => {
                 <table>
                     <thead>
                         <tr>
+                            <th>ID</th>
                             <th>Nome</th>
                             <th>Tickets</th>
                             <th>Kanban</th>
@@ -87,9 +90,10 @@ export const printTags = (tags) => {
                     <tbody>
                         ${tags.map(tag => `
                             <tr>
+                                <td>${tag.id}</td>
                                 <td>${tag.name}</td>
-                                <td>${tag.tickets?.length || 0}</td>
-                                <td>${tag.kanban ? 'Sim' : 'Não'}</td>
+                                <td>${tag.ticketsCount || 0}</td>
+                                <td>${tag.kanban === 1 ? 'Sim' : 'Não'}</td>
                                 <td>
                                     <div class="tag-color" style="background-color: ${tag.color}"></div>
                                     ${tag.color}

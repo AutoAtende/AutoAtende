@@ -4498,157 +4498,104 @@ const messages = {
         },
       },
       tags: {
-        title: "Tags",
+        title: "Gerenciamento de Tags",
         searchPlaceholder: "Buscar tags...",
-        noDataFound: "Ops, nada por aqui!",
-        placeholder: "Ëscolha ou crie uma tag",
-        noDataFoundMessage: "Nenhuma tag foi encontrada. Não se preocupe, você pode criar a primeira! Clique no botão abaixo para começar.",
-        buttons: {
-          add: "Nova Tag",
-          edit: "Editar Tag",
-          delete: "Excluir Tag",
-          deleteSelected: "Excluir Selecionados",
-          addToKanban: "Adicionar ao Kanban",
-          removeFromKanban: "Remover do Kanban",
-          selectAll: "Selecionar Todos",
-          unselectAll: "Desmarcar Todos",
-          bulkActions: "Ações em massa",
-          export: "Exportar",
-          cancel: "Cancelar",
-          create: "Criar",
-          update: "Atualizar"
+        emptyState: {
+          title: "Nenhuma tag encontrada",
+          message: "Crie tags para organizar seus tickets e contatos. As tags podem ser usadas em filtros, relatórios e no quadro Kanban."
         },
-        toasts: {
-          updated: "Tag atualizada"
+        filters: {
+          allTags: "Todas as tags",
+          onlyKanban: "Apenas kanban",
+          onlyNonKanban: "Sem kanban"
+        },
+        buttons: {
+          add: "Nova tag",
+          export: "Exportar",
+          bulkActions: "Ações em massa"
         },
         table: {
           id: "ID",
           name: "Nome",
-          color: "Cor",
           tickets: "Tickets",
           kanban: "Kanban",
-          actions: "Ações",
-          msgRecurrent: "Mensagem Recorrente",
-          recurrentTime: "Tempo Recorrente",
-          actCamp: "Campanha Ativa",
-          rptDays: "Dias para Repetir",
+          actions: "Ações"
         },
-        tooltips: {
-          edit: "Editar tag",
-          delete: "Excluir tag",
-          addToKanban: "Adicionar ao quadro Kanban",
-          removeFromKanban: "Remover do quadro Kanban",
-          bulkActions: "Ações em massa",
-          search: "Buscar tags",
-        },
-        modal: {
+        form: {
           title: {
-            add: "Nova Tag",
+            new: "Nova Tag",
             edit: "Editar Tag"
           },
-          buttons: {
-            create: "Salvar Tag",
-            update: "Atualizar Tag",
-            cancel: "Cancelar"
+          fields: {
+            name: "Nome",
+            color: "Cor"
           },
-          form: {
-            name: {
-              label: "Nome",
-              error: {
-                required: "Nome é obrigatório",
-                min: "Nome muito curto"
-              }
-            },
-            color: {
-              label: "Cor",
-              error: {
-                required: "Cor é obrigatória"
-              }
-            },
-            kanban: {
-              label: "Kanban"
-            }
-          },
-        },
-        confirmationModal: {
-          deleteTitle: "Excluir Tag",
-          deleteMessage: "Tem certeza que deseja excluir esta tag?",
-          deleteSelectedTitle: "Excluir Tags Selecionadas",
-          deleteSelectedMessage:
-            "Tem certeza que deseja excluir as tags selecionadas?",
-          kanbanTitle: "Atualizar Kanban",
-          kanbanMessage:
-            "Deseja atualizar o status Kanban das tags selecionadas?",
-          confirmationMessage:
-            "Esta ação não pode ser desfeita. Deseja continuar?",
-          confirmButton: "Confirmar",
-          cancelButton: "Cancelar",
-        },
-        messages: {
-          success: {
-            create: "Tag criada com sucesso",
-            update: "Tag atualizada com sucesso",
-            delete: "Tag(s) excluída(s) com sucesso",
-            kanban: "Status Kanban atualizado com sucesso",
-          },
-          error: {
-            create: "Erro ao criar tag",
-            update: "Erro ao atualizar tag",
-            delete: "Erro ao excluir tag(s)",
-            kanban: "Erro ao atualizar status Kanban",
-          },
-        },
-        help: {
-          title: "Ajuda",
-          content: [
-            "Nesta tela você pode:",
-            "1. Criar ou editar uma tag",
-            "2. Definir um nome para identificação",
-            "3. Escolher uma cor personalizada",
-            "4. Ativar/desativar o modo Kanban para usar a tag no quadro Kanban",
-            "",
-            "Dicas:",
-            "- O nome deve ter pelo menos 3 caracteres",
-            "- A cor será usada como fundo da tag",
-            "- O modo Kanban permite que a tag apareça no quadro de gestão visual"
-          ].join("\n")
-        },
-        filters: {
-          allTags: "Todas as Tags",
-          onlyKanban: "Somente Kanban",
-          onlyNonKanban: "Somente não Kanban"
-        },
-        bulk: {
-          title: "Criar Tags em Massa",
-          patterns: {
-            tag: "Tag_1, Tag_2, Tag_3...",
-            ticket: "Ticket_1, Ticket_2, Ticket_3...",
-            priority: "Prioridade_1, Prioridade_2, Prioridade_3...",
-            status: "Status_1, Status_2, Status_3...",
-            department: "Depto_1, Depto_2, Depto_3...",
-            day: "Dia_1, Dia_2, Dia_3..."
-          },
+          colorHelp: "Clique para escolher a cor da tag",
           validation: {
-            quantity: {
-              min: "Quantidade mínima é 1",
-              max: "Quantidade máxima é 100",
-              required: "Quantidade é obrigatória"
-            },
-            pattern: {
-              required: "Padrão de nome é obrigatório"
-            }
-          },
-          form: {
-            quantity: "Quantidade de Tags",
-            pattern: "Padrão de Nome",
-            kanban: "Kanban"
+            nameRequired: "O nome é obrigatório",
+            nameMin: "O nome deve ter no mínimo 2 caracteres",
+            nameMax: "O nome deve ter no máximo 50 caracteres",
+            colorRequired: "A cor é obrigatória"
           },
           buttons: {
             cancel: "Cancelar",
-            create: "Criar"
+            create: "Criar",
+            update: "Atualizar"
           },
-          help: "Nesta tela você pode:\n1. Criar múltiplas tags de uma vez\n2. Definir a quantidade de tags (1-100)\n3. Escolher um padrão para os nomes\n4. Ativar/desativar o modo Kanban para todas as tags"
+          success: {
+            create: "Tag criada com sucesso!",
+            update: "Tag atualizada com sucesso!"
+          },
+          error: "Erro ao salvar a tag"
         },
+        bulk: {
+          title: "Criar Tags em Massa",
+          help: "Crie múltiplas tags com um padrão de nomenclatura",
+          form: {
+            quantity: "Quantidade",
+            pattern: "Padrão de nome",
+            kanban: "Incluir no Kanban"
+          },
+          patterns: {
+            tag: "tag_{n}",
+            ticket: "ticket_{n}",
+            priority: "prioridade_{n}",
+            status: "status_{n}",
+            department: "depto_{n}",
+            day: "dia_{n}"
+          },
+          validation: {
+            quantity: {
+              required: "A quantidade é obrigatória",
+              min: "A quantidade mínima é 1",
+              max: "A quantidade máxima é 100"
+            },
+            pattern: {
+              required: "O padrão de nome é obrigatório"
+            }
+          },
+          buttons: {
+            cancel: "Cancelar",
+            create: "Criar Tags"
+          }
+        },
+        confirmationModal: {
+          deleteTitle: "Excluir Tag",
+          deleteMessage: "Esta ação não pode ser desfeita. Deseja continuar?",
+          deleteSelectedTitle: "Excluir Tags Selecionadas",
+          deleteSelectedMessage: "Você está prestes a excluir as tags selecionadas. Esta ação não pode ser desfeita. Deseja continuar?"
+        },
+        toasts: {
+          deleted: "Tag(s) excluída(s) com sucesso!",
+          deleteError: "Erro ao excluir tag(s)",
+          updated: "Tag(s) atualizada(s) com sucesso!",
+          updateError: "Erro ao atualizar tag(s)",
+          loadError: "Erro ao carregar tags"
+        },
+        notifications: {
+          bulkCreated: "Tags criadas com sucesso!",
+          bulkError: "Erro ao criar tags em massa"
+        }
       },
       settings: {
         loading: "Carregando configurações...",

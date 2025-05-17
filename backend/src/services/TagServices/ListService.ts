@@ -1,6 +1,5 @@
-import { Op, fn, col, cast } from "sequelize";
+import { Op, literal } from "sequelize";
 import Tag from "../../models/Tag";
-import TicketTag from "../../models/TicketTag";
 
 interface Request {
   searchParam?: string;
@@ -10,7 +9,7 @@ interface Request {
 }
 
 interface Response {
-  tags: Tag[];
+  tags: any[];
   count: number;
   hasMore: boolean;
 }
@@ -45,25 +44,19 @@ const ListService = async ({
     limit: pageSize,
     offset,
     order: [["name", "ASC"]],
-    include: [{
-      model: TicketTag,
-      required: false,
-      attributes: []
-    }],
-    attributes: [
-      "id",
-      "name",
-      "color",
-      "kanban",
-      "mediaPath",
-      "msgR",
-      "recurrentTime",
-      "actCamp",
-      "rptDays",
-      [fn("COUNT", col("ticketTags.ticketId")), "ticketsCount"]
-    ],
-    group: ["Tag.id"],
-    subQuery: false
+    attributes: {
+      include: [
+        [
+          literal(`(
+            SELECT COUNT(*)
+            FROM "TicketTags"
+            WHERE "TicketTags"."tagId" = "Tag"."id"
+          )`),
+          'ticketsCount'
+        ]
+      ]
+    },
+    raw: true
   });
 
   const hasMore = totalCount > offset + tags.length;

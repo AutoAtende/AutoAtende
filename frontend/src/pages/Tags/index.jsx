@@ -1,15 +1,11 @@
-import React, { useState, useCallback, useContext, useRef, useEffect } from "react";
+import React, { useState, useCallback, useContext, useEffect } from "react";
 import {
-  Paper,
   Table,
   TableBody,
   TableCell,
   TableHead,
   TableRow,
   IconButton,
-  InputAdornment,
-  Button,
-  TextField,
   Checkbox,
   Box,
   CircularProgress,
@@ -19,6 +15,7 @@ import {
   ListItemText,
   Switch,
   Chip,
+  Paper
 } from "@mui/material";
 import {
   Edit as EditIcon,
@@ -30,17 +27,22 @@ import {
   TableChart as FileExcelIcon,
   PictureAsPdf as PictureAsPdfIcon,
   ViewKanban as KanbanIcon,
-  Print as PrintIcon
+  Print as PrintIcon,
+  FilterList as FilterIcon
 } from "@mui/icons-material";
 
-import MainContainer from "../../components/MainContainer";
-import MainHeader from "../../components/MainHeader";
-import Title from "../../components/Title";
+// Importação dos componentes Base
+import BasePage from "../../components/BasePage";
+import BasePageHeader from "../../components/BasePageHeader";
+import BasePageContent from "../../components/BasePageContent";
+import BasePageFooter from "../../components/BasePageFooter";
+import BaseButton from "../../components/BaseButton";
+
+// Importações existentes
 import api from "../../services/api";
 import { i18n } from "../../translate/i18n";
 import { toast } from "../../helpers/toast";
 import { AuthContext } from "../../context/Auth/AuthContext";
-import { SocketContext } from "../../context/Socket/SocketContext";
 import TagModal from "../../components/TagModal";
 import ConfirmationModal from "../../components/ConfirmationModal";
 import TableRowSkeleton from "../../components/TableRowSkeleton";
@@ -50,13 +52,14 @@ import { exportToExcel, exportToPDF, printTags } from './exportUtils';
 
 const Tags = () => {
   const { user } = useContext(AuthContext);
-  const socketManager = useContext(SocketContext);
 
+  // Estado
   const [tags, setTags] = useState([]);
   const [selectedTags, setSelectedTags] = useState([]);
   const [loading, setLoading] = useState(false);
   const [hasMore, setHasMore] = useState(false);
   const [page, setPage] = useState(1);
+  const [rowsPerPage, setRowsPerPage] = useState(10);
   const [searchParam, setSearchParam] = useState("");
   const [kanbanFilter, setKanbanFilter] = useState("all");
   const [tagModalOpen, setTagModalOpen] = useState(false);
@@ -67,99 +70,72 @@ const Tags = () => {
   const [exportAnchorEl, setExportAnchorEl] = useState(null);
   const [bulkActionAnchorEl, setBulkActionAnchorEl] = useState(null);
   const [totalCount, setTotalCount] = useState(0);
+  const [filterAnchorEl, setFilterAnchorEl] = useState(null);
 
-  const scrollRef = useRef(null);
-
-  const fetchTags = useCallback(async () => {
-    if (loading) return;
-
-    setLoading(true);
+  // Função para buscar tags do servidor
+  const fetchTags = useCallback(async (pageNumber = 1) => {
     try {
+      setLoading(true);
       const { data } = await api.get("/tags", {
         params: {
           searchParam,
-          pageNumber: page,
-          pageSize: 10,
+          pageNumber,
+          pageSize: rowsPerPage,
         },
       });
 
-      setTags((prevTags) => (page === 1 ? data.tags : [...prevTags, ...data.tags]));
+      setTags(data.tags);
       setHasMore(data.hasMore);
       setTotalCount(data.count || 0);
     } catch (err) {
+      console.error(err);
       toast.error(i18n.t("tags.toasts.loadError"));
     } finally {
       setLoading(false);
     }
-  }, [searchParam, page, loading]);
+  }, [searchParam, rowsPerPage]);
 
-  // Efeito para carregar as tags apenas na montagem inicial do componente
+  // Carregar tags na montagem e quando os filtros mudarem
   useEffect(() => {
-    const initialFetch = async () => {
-      try {
-        setLoading(true);
-        const { data } = await api.get("/tags", {
-          params: {
-            searchParam: "",
-            pageNumber: 1,
-            pageSize: 10,
-          },
-        });
-        setTags(data.tags);
-        setHasMore(data.hasMore);
-        setTotalCount(data.count || 0);
-      } catch (err) {
-        toast.error(i18n.t("tags.toasts.loadError"));
-      } finally {
-        setLoading(false);
-      }
-    };
-    
-    initialFetch();
-    // Array de dependências vazio para garantir que só executa uma vez na montagem
-  }, []);
+    fetchTags(1);
+  }, [fetchTags]);
 
-  const handleScroll = useCallback(() => {
-    if (!hasMore || loading) return;
-
-    const container = scrollRef.current;
-    if (!container) return;
-
-    const { scrollTop, scrollHeight, clientHeight } = container;
-
-    if (scrollHeight - scrollTop - clientHeight < clientHeight * 0.2) {
-      setPage((prevPage) => prevPage + 1);
-    }
-  }, [hasMore, loading]);
-
-  const handleSearch = (value) => {
+  // Manipuladores de eventos
+  const handleSearch = (e) => {
+    const value = e.target.value;
     setSearchParam(value);
+    // Resetar página ao fazer nova busca
     setPage(1);
-    // Adicionamos um pequeno atraso para evitar requisições em excesso durante a digitação
+    
+    // Adicionar delay para evitar excesso de requisições
     const timeoutId = setTimeout(() => {
-      fetchTags();
-    }, 300);
+      fetchTags(1);
+    }, 500);
     
     return () => clearTimeout(timeoutId);
   };
 
+  const handleChangePage = (event, newPage) => {
+    setPage(newPage + 1); // +1 porque a API usa paginação baseada em 1
+    fetchTags(newPage + 1);
+  };
+
+  const handleChangeRowsPerPage = (event) => {
+    const newRowsPerPage = parseInt(event.target.value, 10);
+    setRowsPerPage(newRowsPerPage);
+    setPage(1);
+    fetchTags(1);
+  };
+
   const handleOpenTagModal = (tag = null) => {
-    // Se estiver abrindo para criar uma nova tag
-    if (tag === null) {
-      setSelectedTag(null);
-    } else {
-      // Para editar, garantimos que estamos passando o objeto completo da tag
-      console.log("Abrindo modal para editar tag:", tag);
-      setSelectedTag(tag);
-    }
+    setSelectedTag(tag);
     setTagModalOpen(true);
   };
 
   const handleCloseTagModal = () => {
     setSelectedTag(null);
     setTagModalOpen(false);
-    setPage(1);
-    fetchTags();
+    fetchTags(page);
   };
 
   const handleDeleteTag = async () => {
@@ -176,7 +152,9 @@ const Tags = () => {
       }
       toast.success(i18n.t("tags.toasts.deleted"));
       setConfirmModalOpen(false);
+      fetchTags(page);
     } catch (err) {
+      console.error(err);
       toast.error(i18n.t("tags.toasts.deleteError"));
     }
   };
@@ -186,33 +164,34 @@ const Tags = () => {
       if (selectedTags.length > 0 && !tagId) {
         await api.post("/tags/bulk-update", {
           tagIds: selectedTags,
-          kanban: kanbanValue,
+          kanban: kanbanValue ? 1 : 0,
         });
         
-        // Atualizar as tags no estado local
         setTags(prevTags => 
           prevTags.map(tag => 
             selectedTags.includes(tag.id) 
-              ? { ...tag, kanban: kanbanValue } 
+              ? { ...tag, kanban: kanbanValue ? 1 : 0 } 
               : tag
           )
         );
+        
+        toast.success(i18n.t("tags.toasts.updated"));
       } else if (tagId) {
-        const tag = tags.find((t) => t.id === tagId);
+        const tag = tags.find(t => t.id === tagId);
         if (!tag) return;
   
-        // Enviar o objeto completo da tag junto com a atualização do kanban
-        const { data } = await api.put(`/tags/${tagId}`, {
+        await api.put(`/tags/${tagId}`, {
           name: tag.name,
           color: tag.color,
-          kanban: kanbanValue ? 1 : 0  // Converter para 1/0 conforme esperado pelo backend
+          kanban: kanbanValue ? 1 : 0
         });
         
-        setTags((prevTags) =>
-          prevTags.map((t) => (t.id === tagId ? data : t))
+        setTags(prevTags =>
+          prevTags.map(t => (t.id === tagId ? { ...t, kanban: kanbanValue ? 1 : 0 } : t))
         );
+        
+        toast.success(i18n.t("tags.toasts.updated"));
       }
-      toast.success(i18n.t("tags.toasts.updated"));
     } catch (err) {
       console.error(err);
       toast.error(i18n.t("tags.toasts.updateError"));
@@ -237,18 +216,9 @@ const Tags = () => {
     }
   };
 
-  const filteredTags = tags.filter((tag) => {
-    if (kanbanFilter === "kanban") return tag.kanban;
-    if (kanbanFilter === "nonKanban") return !tag.kanban;
-    return true;
-  });
-
   const handleKanbanFilterChange = (newValue) => {
     setKanbanFilter(newValue);
-    setPage(1);
-    setSelectedTags([]);
-    // Não recarregamos os dados do servidor ao mudar o filtro,
-    // apenas filtramos os dados já existentes no cliente
+    setFilterAnchorEl(null);
   };
 
   const handleToggleSelectAll = (checked) => {
@@ -260,19 +230,56 @@ const Tags = () => {
     }
   };
 
+  // Filtrar tags com base no kanbanFilter
+  const filteredTags = tags.filter((tag) => {
+    if (kanbanFilter === "kanban") return tag.kanban === 1;
+    if (kanbanFilter === "nonKanban") return tag.kanban === 0;
+    return true;
+  });
+
+  // Ações para o BasePageHeader
+  const headerActions = [
+    {
+      label: i18n.t("tags.buttons.add"),
+      onClick: () => handleOpenTagModal(),
+      icon: <AddIcon />,
+      variant: "contained",
+      color: "primary",
+    }
+  ];
+
+  // Ações para o BasePageFooter
+  const footerActions = [
+    {
+      label: i18n.t("tags.buttons.export"),
+      onClick: (e) => setExportAnchorEl(e.currentTarget),
+      icon: <DownloadIcon />,
+      variant: "outlined",
+    },
+    {
+      label: i18n.t("tags.buttons.bulkActions"),
+      onClick: (e) => setBulkActionAnchorEl(e.currentTarget),
+      icon: <MoreVertIcon />,
+      variant: "outlined",
+    }
+  ];
+
   return (
-    <MainContainer>
+    <BasePage title={i18n.t("tags.title")}>
+      {/* Modais */}
       <TagModal
         open={tagModalOpen}
         onClose={handleCloseTagModal}
-        tagData={selectedTag} 
-        onSave={fetchTags}
+        tagData={selectedTag}
+        onSave={() => fetchTags(page)}
       />
+      
       <BulkTagModal
         open={bulkModalOpen}
         onClose={() => setBulkModalOpen(false)}
-        onSave={fetchTags}
+        onSave={() => fetchTags(page)}
       />
+      
       <ConfirmationModal
         title={
           confirmModalAction === "selected"
@@ -288,120 +295,63 @@ const Tags = () => {
           : i18n.t("tags.confirmationModal.deleteMessage")}
       </ConfirmationModal>
 
-      <MainHeader>
-        <Box sx={{ 
-          display: "flex", 
-          width: "100%", 
-          justifyContent: "space-between", 
-          alignItems: "center" 
-        }}>
-          <Title>{i18n.t("tags.title")}</Title>
-          <Box sx={{ 
-            display: "flex", 
-            alignItems: "center", 
-            gap: 1 
-          }}>
-            <Button
-              variant="outlined"
-              size="small"
-              onClick={(e) => setBulkActionAnchorEl(e.currentTarget)}
-              startIcon={<MoreVertIcon />}
-            >
-              {i18n.t("tags.buttons.bulkActions")}
-            </Button>
-            <Button
-              variant="contained"
-              color="primary"
-              size="small"
-              onClick={() => handleOpenTagModal()}
-              startIcon={<AddIcon />}
-            >
-              {i18n.t("tags.buttons.add")}
-            </Button>
-          </Box>
-        </Box>
-      </MainHeader>
-
-      <Paper variant="outlined" sx={{ p: 2, mb: 2 }}>
-        <Box sx={{ 
-          display: "flex", 
-          alignItems: "center", 
-          gap: 2 
-        }}>
-          <TextField
-            size="small"
-            placeholder={i18n.t("tags.searchPlaceholder")}
-            value={searchParam}
-            onChange={(e) => handleSearch(e.target.value)}
-            sx={{ flex: 1 }}
-            InputProps={{
-              startAdornment: (
-                <InputAdornment position="start">
-                  <SearchIcon />
-                </InputAdornment>
-              ),
-            }}
-          />
-          <TextField
-            select
-            size="small"
-            value={kanbanFilter}
-            onChange={(e) => handleKanbanFilterChange(e.target.value)}
-            sx={{ width: "180px" }}
-          >
-            <MenuItem value="all">{i18n.t("tags.filters.allTags")}</MenuItem>
-            <MenuItem value="kanban">{i18n.t("tags.filters.onlyKanban")}</MenuItem>
-            <MenuItem value="nonKanban">{i18n.t("tags.filters.onlyNonKanban")}</MenuItem>
-          </TextField>
-          <Button
-            variant="outlined"
-            size="small"
-            onClick={(e) => setExportAnchorEl(e.currentTarget)}
-            startIcon={<DownloadIcon />}
-          >
-            {i18n.t("tags.buttons.export")}
-          </Button>
-        </Box>
-      </Paper>
-
-      <Paper sx={{ 
-        mt: 2, 
-        maxHeight: "calc(100vh - 250px)", 
-        display: "flex", 
-        flexDirection: "column" 
-      }}>
-        <Box 
-          ref={scrollRef} 
-          sx={{ flex: 1, overflow: "auto" }} 
-          onScroll={handleScroll}
+      {/* Cabeçalho da página */}
+      <BasePageHeader
+        onSearch={handleSearch}
+        searchValue={searchParam}
+        searchPlaceholder={i18n.t("tags.searchPlaceholder")}
+        actions={headerActions}
+      >
+        <BaseButton
+          variant="outlined"
+          size="small"
+          startIcon={<FilterIcon />}
+          onClick={(e) => setFilterAnchorEl(e.currentTarget)}
         >
-          {loading && page === 1 ? (
-            <TableRowSkeleton columns={6} />
-          ) : !loading && tags.length === 0 ? (
-            <EmptyState 
-              type="tags" 
-              onCreateNew={() => handleOpenTagModal()} 
-            />
-          ) : (
-            <Table stickyHeader size="small">
-              <TableHead>
-                <TableRow>
-                  <TableCell padding="checkbox" sx={{ width: "48px" }}>
-                    <Checkbox
-                      checked={filteredTags.length > 0 && selectedTags.length === filteredTags.length}
-                      indeterminate={selectedTags.length > 0 && selectedTags.length < filteredTags.length}
-                      onChange={(e) => handleToggleSelectAll(e.target.checked)}
-                    />
-                  </TableCell>
-                  <TableCell sx={{ width: "60px" }}>ID</TableCell>
-                  <TableCell>{i18n.t("tags.table.name")}</TableCell>
-                  <TableCell>{i18n.t("tags.table.tickets")}</TableCell>
-                  <TableCell>{i18n.t("tags.table.kanban")}</TableCell>
-                  <TableCell align="right">{i18n.t("tags.table.actions")}</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {filteredTags.map((tag) => (
+          {kanbanFilter === "all" 
+            ? i18n.t("tags.filters.allTags") 
+            : kanbanFilter === "kanban" 
+              ? i18n.t("tags.filters.onlyKanban") 
+              : i18n.t("tags.filters.onlyNonKanban")}
+        </BaseButton>
+      </BasePageHeader>
+
+      {/* Conteúdo da página */}
+      <BasePageContent 
+        loading={loading && page === 1}
+        empty={!loading && filteredTags.length === 0}
+        emptyProps={{
+          icon: <KanbanIcon fontSize="large" />,
+          title: i18n.t("tags.emptyState.title"),
+          message: i18n.t("tags.emptyState.message"),
+          buttonText: i18n.t("tags.buttons.add"),
+          onAction: () => handleOpenTagModal(),
+          showButton: true,
+        }}
+      >
+        <Box sx={{ height: '100%', overflow: 'auto' }}>
+          <Table stickyHeader size="small">
+            <TableHead>
+              <TableRow>
+                <TableCell padding="checkbox" sx={{ width: "48px" }}>
+                  <Checkbox
+                    checked={filteredTags.length > 0 && selectedTags.length === filteredTags.length}
+                    indeterminate={selectedTags.length > 0 && selectedTags.length < filteredTags.length}
+                    onChange={(e) => handleToggleSelectAll(e.target.checked)}
+                  />
+                </TableCell>
+                <TableCell sx={{ width: "60px" }}>ID</TableCell>
+                <TableCell>{i18n.t("tags.table.name")}</TableCell>
+                <TableCell>{i18n.t("tags.table.tickets")}</TableCell>
+                <TableCell>{i18n.t("tags.table.kanban")}</TableCell>
+                <TableCell align="right">{i18n.t("tags.table.actions")}</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {loading && page === 1 ? (
+                <TableRowSkeleton columns={6} />
+              ) : (
+                filteredTags.map((tag) => (
                   <TableRow key={tag.id}>
                     <TableCell padding="checkbox">
                       <Checkbox
@@ -425,12 +375,12 @@ const Tags = () => {
                         }}
                       />
                     </TableCell>
-                    <TableCell>{tag.tickets?.length || 0}</TableCell>
+                    <TableCell>{tag.ticketsCount || 0}</TableCell>
                     <TableCell>
                       <Switch
-                        checked={tag.kanban}
-                        onChange={() => handleUpdateKanban(!tag.kanban, tag.id)}
-                        disabled={!user.super}
+                        checked={tag.kanban === 1}
+                        onChange={() => handleUpdateKanban(tag.kanban === 0, tag.id)}
+                        disabled={!user?.super}
                       />
                     </TableCell>
                     <TableCell align="right">
@@ -448,18 +398,32 @@ const Tags = () => {
                       </IconButton>
                     </TableCell>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          )}
-          {loading && page > 1 && (
-            <Box display="flex" justifyContent="center" p={2}>
-              <CircularProgress size={24} />
-            </Box>
-          )}
+                ))
+              )}
+              
+              {loading && page > 1 && (
+                <TableRow>
+                  <TableCell colSpan={6} align="center" sx={{ py: 2 }}>
+                    <CircularProgress size={24} />
+                  </TableCell>
+                </TableRow>
+              )}
+            </TableBody>
+          </Table>
         </Box>
-      </Paper>
+      </BasePageContent>
 
+      {/* Rodapé da página */}
+      <BasePageFooter
+        count={totalCount}
+        page={page - 1} // -1 porque a paginação do MUI começa em 0
+        rowsPerPage={rowsPerPage}
+        onPageChange={handleChangePage}
+        onRowsPerPageChange={handleChangeRowsPerPage}
+        actions={footerActions}
+      />
+
+      {/* Menus */}
       <Menu
         anchorEl={exportAnchorEl}
         open={Boolean(exportAnchorEl)}
@@ -540,7 +504,32 @@ const Tags = () => {
           </MenuItem>
         )}
       </Menu>
-    </MainContainer>
+
+      <Menu
+        anchorEl={filterAnchorEl}
+        open={Boolean(filterAnchorEl)}
+        onClose={() => setFilterAnchorEl(null)}
+      >
+        <MenuItem 
+          selected={kanbanFilter === "all"}
+          onClick={() => handleKanbanFilterChange("all")}
+        >
+          {i18n.t("tags.filters.allTags")}
+        </MenuItem>
+        <MenuItem 
+          selected={kanbanFilter === "kanban"}
+          onClick={() => handleKanbanFilterChange("kanban")}
+        >
+          {i18n.t("tags.filters.onlyKanban")}
+        </MenuItem>
+        <MenuItem 
+          selected={kanbanFilter === "nonKanban"}
+          onClick={() => handleKanbanFilterChange("nonKanban")}
+        >
+          {i18n.t("tags.filters.onlyNonKanban")}
+        </MenuItem>
+      </Menu>
+    </BasePage>
   );
 };
 
