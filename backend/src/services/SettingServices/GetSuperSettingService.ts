@@ -1,11 +1,15 @@
 import Setting from "../../models/Setting";
-import { SettingRequest, DEFAULT_COMPANY_ID, isSuperSetting } from "../../@types/Settings";
+import { DEFAULT_COMPANY_ID, isSuperSetting } from "../../@types/Settings";
 import { logger } from "../../utils/logger";
 import AppError from "../../errors/AppError";
 
+interface SuperSettingRequest {
+  key: string;
+}
+
 const GetSuperSettingService = async ({
   key
-}: SettingRequest): Promise<string | null> => {
+}: SuperSettingRequest): Promise<string | null> => {
   try {
     if (!isSuperSetting(key)) {
       return null;

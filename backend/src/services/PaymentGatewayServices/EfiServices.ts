@@ -54,6 +54,7 @@ const createWebHook = async (efiPay: EfiPay) => {
 export const efiInitialize = async () => {
   const paymentGateway = await GetSuperSettingService({ key: "_paymentGateway" });
 
+
   if (!webhookUrl.startsWith("https://")) {
     logger.debug("efiInitialize: only SSL webhooks are supported");
     return;
@@ -186,8 +187,6 @@ const efiPollCheckStatus = async ( efiPay: EfiPay, invoice: Invoices, retries = 
 
     return pollStatus();
 }
-
-
 
 export const efiCreateSubscription = async (
   req: Request,

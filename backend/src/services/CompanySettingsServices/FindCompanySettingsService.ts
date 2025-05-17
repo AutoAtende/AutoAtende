@@ -2,9 +2,12 @@ import { WhereOptions } from "sequelize";
 import Setting from "../../models/Setting";
 import { logger } from "../../utils/logger";
 import AppError from "../../errors/AppError";
-import { SettingRequest } from "../../@types/Settings";
 
-const FindCompanySettingsService = async ({ companyId }: SettingRequest): Promise<Setting[]> => {
+interface CompanySettingsRequest {
+  companyId: number;
+}
+
+const FindCompanySettingsService = async ({ companyId }: CompanySettingsRequest): Promise<Setting[]> => {
   try {
     const where: WhereOptions = { companyId };
 
