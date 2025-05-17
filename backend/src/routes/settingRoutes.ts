@@ -1,3 +1,4 @@
+// routes/settingRoutes.ts
 import { Router } from "express";
 import multer from "multer";
 import isAuth from "../middleware/isAuth";
@@ -12,16 +13,20 @@ const settingRoutes = Router();
 // Rotas públicas (sem autenticação)
 settingRoutes.get("/public-settings/:settingKey", SettingController.publicShow);
 settingRoutes.get("/public-settings", SettingController.publicIndex);
+settingRoutes.get("/menu-config", isAuth, SettingController.getMenuConfig);
 
 // Rotas autenticadas
 settingRoutes.get("/settings", isAuth, SettingController.index);
 settingRoutes.get("/settingsregister", isAuth, isAdmin, SettingController.getSettingRegister);
 settingRoutes.put("/settings/:settingKey", isAuth, isAdmin, SettingController.update);
+settingRoutes.put("/menu-config", isAuth, isAdmin, SettingController.updateMenuConfig);
 
+// Configuração dos uploads
 const uploadPublic = multer(uploadPublicConfig);
 const uploadPrivate = multer(uploadPrivateConfig);
 const upload = multer(uploadConfig);
 
+// Rotas para uploads de arquivos
 settingRoutes.post(
   "/settings/logo",
   isAuth,
@@ -46,9 +51,8 @@ settingRoutes.post(
   SettingController.storePrivateFile
 );
 
+// Rotas para gerenciamento de backgrounds
 settingRoutes.get("/settings/backgrounds", isAuth, isAdmin, SettingController.listBackgrounds);
-
 settingRoutes.delete("/settings/backgrounds/:filename", isAuth, isAdmin, SettingController.deleteBackground);
-
 
 export default settingRoutes;

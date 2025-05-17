@@ -1,20 +1,16 @@
+// services/SettingServices/UpdateCompanySettingService.ts
 import { logger } from "../../utils/logger";
 import AppError from "../../errors/AppError";
 import Setting from "../../models/Setting";
-
-interface UpdateRequest {
-  companyId: number;
-  key: string;
-  value: string;
-}
+import { SettingUpdateRequest } from "../../@types/Settings";
 
 const UpdateCompanySettingService = async ({
   companyId,
   key,
   value
-}: UpdateRequest): Promise<Setting> => {
+}: SettingUpdateRequest): Promise<Setting> => {
   try {
-    const [setting] = await Setting.findOrCreate({
+    const [setting, created] = await Setting.findOrCreate({
       where: {
         companyId,
         key
@@ -26,21 +22,20 @@ const UpdateCompanySettingService = async ({
       }
     });
 
-    if (!setting.isNewRecord) {
+    if (!created) {
       await setting.update({ value });
     }
 
     return setting;
   } catch (err) {
     logger.error({
-      message: "Error updating company setting",
+      message: "Erro ao atualizar configuração da empresa",
       companyId,
       key,
       error: err
     });
-    throw new AppError("ERR_UPDATING_COMPANY_SETTING");
+    throw new AppError("ERR_UPDATING_COMPANY_SETTING", 500);
   }
 };
-
 
 export default UpdateCompanySettingService;

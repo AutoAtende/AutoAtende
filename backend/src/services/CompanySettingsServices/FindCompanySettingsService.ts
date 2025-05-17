@@ -2,13 +2,9 @@ import { WhereOptions } from "sequelize";
 import Setting from "../../models/Setting";
 import { logger } from "../../utils/logger";
 import AppError from "../../errors/AppError";
+import { SettingRequest } from "../../@types/Settings";
 
-interface Request {
-  companyId: number;
-  key?: string;
-}
-
-const FindCompanySettingsService = async ({ companyId }: Request): Promise<Setting[]> => {
+const FindCompanySettingsService = async ({ companyId }: SettingRequest): Promise<Setting[]> => {
   try {
     const where: WhereOptions = { companyId };
 
@@ -19,13 +15,13 @@ const FindCompanySettingsService = async ({ companyId }: Request): Promise<Setti
     });
 
     return settings;
-  } catch (err) {
+  } catch (error) {
     logger.error({
-      message: "Error retrieving company settings",
+      message: "Erro ao buscar configurações da empresa",
       companyId,
-      error: err
+      error
     });
-    throw new AppError("ERR_FINDING_COMPANY_SETTINGS");
+    throw new AppError("ERR_FINDING_COMPANY_SETTINGS", 500);
   }
 };
 

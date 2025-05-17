@@ -1,3 +1,4 @@
+// controllers/SettingController.ts
 import { Request, Response } from "express";
 import path from "path";
 import fs from "fs";
@@ -13,40 +14,39 @@ import GetPublicSettingService, {
   GetAllPublicSettingsService
 } from "../services/SettingServices/GetPublicSettingService";
 import GetMenuConfigService from "../services/SettingServices/GetMenuConfigService";
-
-interface MenuItem {
-  id: string;
-  name: string;
-  enabled: boolean;
-  order: number;
-}
-
-interface MenuConfig {
-  items: MenuItem[];
-}
-
-type LogoRequest = {
-  mode: string;
-};
-
-type BackgroundRequest = {
-  page: string;
-};
-
-type PrivateFileRequest = {
-  settingKey: string;
-};
+import { 
+  MenuItem,
+  LogoUploadRequest,
+  BackgroundUploadRequest,
+  PrivateFileUploadRequest,
+  isSuperSetting
+} from "../@types/Settings";
+import { logger } from "../utils/logger";
 
 export const index = async (req: Request, res: Response): Promise<Response> => {
   const isSuper = req.user.isSuper;
   const companyId = req.user.companyId;
-  const settings = await ListSettingsService(isSuper, companyId);
-  return res.status(200).json(settings);
+  
+  try {
+    const settings = await ListSettingsService(isSuper, companyId);
+    return res.status(200).json(settings);
+  } catch (error) {
+    logger.error({
+      message: "Erro ao listar configurações",
+      companyId,
+      isSuper,
+      error
+    });
+    if (error instanceof AppError) {
+      throw error;
+    }
+    throw new AppError("ERR_LIST_SETTINGS", 500);
+  }
 };
 
 export const storeLogo = async (req: Request, res: Response): Promise<Response> => {
   const file = req.file as Express.Multer.File;
-  const { mode }: LogoRequest = req.body;
+  const { mode }: LogoUploadRequest = req.body;
   const companyId = req.user.companyId;
   const validModes = ["appLogoLight", "appLogoDark", "appLogoFavicon", "appLogoPWAIcon"];
 
@@ -55,31 +55,45 @@ export const storeLogo = async (req: Request, res: Response): Promise<Response> 
   }
 
   if (validModes.indexOf(mode) === -1) {
-    return res.status(406).json({ failed: true, message: "Invalid mode" });
+    return res.status(406).json({ failed: true, message: "Modo inválido" });
   }
 
-  if (file && file.mimetype.startsWith("image/")) {
-    const logoDir = path.join(publicFolder, `company${companyId}`, 'logos');
-    await fs.promises.mkdir(logoDir, { recursive: true });
-    
-    const newPath = path.join(logoDir, file.filename);
-    await fs.promises.rename(file.path, newPath);
+  if (!file) {
+    return res.status(400).json({ failed: true, message: "Nenhum arquivo enviado" });
+  }
 
-    const setting = await UpdateSettingService({
-      key: mode,
-      value: `company${companyId}/logos/${file.filename}`,
-      companyId
+  try {
+    if (file.mimetype.startsWith("image/")) {
+      const logoDir = path.join(publicFolder, `company${companyId}`, 'logos');
+      await fs.promises.mkdir(logoDir, { recursive: true });
+      
+      const newPath = path.join(logoDir, file.filename);
+      await fs.promises.rename(file.path, newPath);
+
+      const setting = await UpdateSettingService({
+        key: mode,
+        value: `company${companyId}/logos/${file.filename}`,
+        companyId
+      });
+
+      return res.status(200).json(setting.value);
+    }
+
+    return res.status(406).json({ failed: true, message: "Tipo de arquivo inválido" });
+  } catch (error) {
+    logger.error({
+      message: "Erro ao salvar logo",
+      companyId,
+      mode,
+      error
     });
-
-    return res.status(200).json(setting.value);
+    return res.status(500).json({ failed: true, message: "Erro interno do servidor" });
   }
-
-  return res.status(406).json({ failed: true, message: "Invalid file type" });
-}
+};
 
 export const storeBackground = async (req: Request, res: Response): Promise<Response> => {
   const file = req.file as Express.Multer.File;
-  const { page }: BackgroundRequest = req.body;
+  const { page }: BackgroundUploadRequest = req.body;
   const companyId = req.user.companyId;
   const validPages = ["login", "signup"];
 
@@ -88,15 +102,15 @@ export const storeBackground = async (req: Request, res: Response): Promise<Resp
   }
 
   if (validPages.indexOf(page) === -1) {
-    return res.status(406).json({ failed: true, message: "Invalid page" });
+    return res.status(406).json({ failed: true, message: "Página inválida" });
   }
 
   if (!file) {
-    return res.status(400).json({ failed: true, message: "No file uploaded" });
+    return res.status(400).json({ failed: true, message: "Nenhum arquivo enviado" });
   }
 
-  if (file.mimetype.startsWith("image/")) {
-    try {
+  try {
+    if (file.mimetype.startsWith("image/")) {
       const backgroundsDir = path.join(publicFolder, `company${companyId}`, 'backgrounds');
       await fs.promises.mkdir(backgroundsDir, { recursive: true });
       
@@ -110,13 +124,18 @@ export const storeBackground = async (req: Request, res: Response): Promise<Resp
       });
 
       return res.status(200).json(setting.value);
-    } catch (error) {
-      console.error("Error in storeBackground:", error);
-      return res.status(500).json({ failed: true, message: "Internal server error" });
     }
-  }
 
-  return res.status(406).json({ failed: true, message: "Invalid file type" });
+    return res.status(406).json({ failed: true, message: "Tipo de arquivo inválido" });
+  } catch (error) {
+    logger.error({
+      message: "Erro ao salvar background",
+      companyId,
+      page,
+      error
+    });
+    return res.status(500).json({ failed: true, message: "Erro interno do servidor" });
+  }
 };
 
 export const listBackgrounds = async (req: Request, res: Response): Promise<Response> => {
@@ -133,7 +152,11 @@ export const listBackgrounds = async (req: Request, res: Response): Promise<Resp
     );
     return res.status(200).json(backgrounds);
   } catch (error) {
-    console.error("Error listing backgrounds:", error);
+    logger.error({
+      message: "Erro ao listar backgrounds",
+      companyId,
+      error
+    });
     throw new AppError("ERR_LIST_BACKGROUNDS", 500);
   }
 };
@@ -151,10 +174,9 @@ export const deleteBackground = async (req: Request, res: Response): Promise<Res
     if (fs.existsSync(backgroundPath)) {
       await fs.promises.unlink(backgroundPath);
       
-      // Find the setting that uses this background
+      // Encontrar a configuração que usa este background
       const setting = await ListSettingByValueService(`company${companyId}/backgrounds/${filename}`);
       if (setting) {
-        // const defaultBackgroundValue = setting.key.includes('login') ? 'backgrounds/default_login.jpeg' : 'backgrounds/default_signup.jpeg';
         const defaultBackgroundValue = setting.key.includes('login') ? 'backgrounds/default.jpeg' : 'backgrounds/default.jpeg';
         await UpdateSettingService({
           key: setting.key,
@@ -162,15 +184,26 @@ export const deleteBackground = async (req: Request, res: Response): Promise<Res
           companyId
         });
 
-        return res.status(200).json({ message: "Background deleted successfully", defaultBackground: defaultBackgroundValue });
+        return res.status(200).json({ 
+          message: "Background excluído com sucesso", 
+          defaultBackground: defaultBackgroundValue 
+        });
       }
 
-      return res.status(200).json({ message: "Background deleted successfully" });
+      return res.status(200).json({ message: "Background excluído com sucesso" });
     } else {
       throw new AppError("ERR_BACKGROUND_NOT_FOUND", 404);
     }
   } catch (error) {
-    console.error("Error deleting background:", error);
+    logger.error({
+      message: "Erro ao excluir background",
+      companyId,
+      filename,
+      error
+    });
+    if (error instanceof AppError) {
+      throw error;
+    }
     throw new AppError("ERR_DELETE_BACKGROUND", 500);
   }
 };
@@ -183,9 +216,20 @@ export const getSettingRegister = async (req: Request, res: Response): Promise<R
     throw new AppError("ERR_NO_PERMISSION", 403);
   }
 
-  const settings = await ListSettingsService(isSuper, companyId);
-
-  return res.status(200).json(settings);
+  try {
+    const settings = await ListSettingsService(isSuper, companyId);
+    return res.status(200).json(settings);
+  } catch (error) {
+    logger.error({
+      message: "Erro ao obter registro de configurações",
+      companyId,
+      error
+    });
+    if (error instanceof AppError) {
+      throw error;
+    }
+    throw new AppError("ERR_GET_SETTING_REGISTER", 500);
+  }
 };
 
 export const getMenuConfig = async (req: Request, res: Response): Promise<Response> => {
@@ -195,7 +239,14 @@ export const getMenuConfig = async (req: Request, res: Response): Promise<Respon
     const menuConfig = await GetMenuConfigService(companyId);
     return res.status(200).json(menuConfig);
   } catch (error) {
-    console.error("Error fetching menu config:", error);
+    logger.error({
+      message: "Erro ao buscar configuração do menu",
+      companyId,
+      error
+    });
+    if (error instanceof AppError) {
+      throw error;
+    }
     throw new AppError("ERR_FETCH_MENU_CONFIG", 500);
   }
 };
@@ -204,29 +255,43 @@ export const update = async (req: Request, res: Response): Promise<Response> => 
   if (req.user.profile !== "admin") {
     throw new AppError("ERR_NO_PERMISSION", 403);
   }
-  const {settingKey: key} = req.params;
-  const {value} = req.body;
+  
+  const { settingKey: key } = req.params;
+  const { value } = req.body;
   const companyId = req.user.companyId;
 
-  if (key.startsWith("_") && !req.user.isSuper) {
+  if (isSuperSetting(key) && !req.user.isSuper) {
     throw new AppError("ERR_NO_PERMISSION", 403);
   }
 
-  const setting = await UpdateSettingService({
-    key,
-    value,
-    companyId
-  });
-
-  const io = getIO();
-  io
-    .to(`company-${companyId}-mainchannel`)
-    .emit(`company-${companyId}-settings`, {
-      action: "update",
-      setting
+  try {
+    const setting = await UpdateSettingService({
+      key,
+      value,
+      companyId
     });
 
-  return res.status(200).json(setting);
+    const io = getIO();
+    io
+      .to(`company-${companyId}-mainchannel`)
+      .emit(`company-${companyId}-settings`, {
+        action: "update",
+        setting
+      });
+
+    return res.status(200).json(setting);
+  } catch (error) {
+    logger.error({
+      message: "Erro ao atualizar configuração",
+      key,
+      companyId,
+      error
+    });
+    if (error instanceof AppError) {
+      throw error;
+    }
+    throw new AppError("ERR_UPDATE_SETTING", 500);
+  }
 };
 
 export const updateMenuConfig = async (req: Request, res: Response): Promise<Response> => {
@@ -282,24 +347,37 @@ export const updateMenuConfig = async (req: Request, res: Response): Promise<Res
     // Retorna a configuração atualizada
     return res.status(200).json({
       status: "success",
-      message: "Menu configuration updated successfully",
+      message: "Configuração do menu atualizada com sucesso",
       data: { items: sortedItems }
     });
 
   } catch (error) {
+    logger.error({
+      message: "Erro ao atualizar configuração do menu",
+      companyId,
+      error
+    });
     if (error instanceof AppError) {
       throw error;
     }
-    
-    console.error("Error updating menu config:", error);
     throw new AppError("ERR_UPDATING_MENU_CONFIG", 500);
   }
 };
 
 export const publicIndex = async (req: Request, res: Response): Promise<Response> => {
   const companyId = req.query.companyId ? parseInt(req.query.companyId as string) : undefined;
-  const settings = await GetAllPublicSettingsService(companyId);
-  return res.status(200).json(settings);
+  
+  try {
+    const settings = await GetAllPublicSettingsService(companyId);
+    return res.status(200).json(settings);
+  } catch (error) {
+    logger.error({
+      message: "Erro ao obter configurações públicas",
+      companyId,
+      error
+    });
+    return res.status(500).json({ error: "Erro ao obter configurações públicas" });
+  }
 };
 
 export const publicShow = async (req: Request, res: Response): Promise<Response> => {
@@ -310,21 +388,47 @@ export const publicShow = async (req: Request, res: Response): Promise<Response>
     const settingValue = await GetPublicSettingService({ key, companyId });
     return res.status(200).json(settingValue);
   } catch (error) {
-    return res.status(404).json({ error: "Setting not found or not public" });
+    logger.error({
+      message: "Erro ao obter configuração pública",
+      key,
+      companyId,
+      error
+    });
+    return res.status(404).json({ error: "Configuração não encontrada ou não é pública" });
   }
 };
 
 export const storePrivateFile = async (req: Request, res: Response): Promise<Response> => {
+  if (req.user.profile !== "admin") {
+    throw new AppError("ERR_NO_PERMISSION", 403);
+  }
+  
   const file = req.file as Express.Multer.File;
-  const {settingKey}: PrivateFileRequest = req.body;
+  const { settingKey }: PrivateFileUploadRequest = req.body;
   const companyId = req.user.companyId;
 
-  const setting = await UpdateSettingService({
-    key: `_${settingKey}`,
-    value: file.filename,
-    companyId
-  });
+  if (!file) {
+    return res.status(400).json({ failed: true, message: "Nenhum arquivo enviado" });
+  }
 
-  return res.status(200).json(setting.value);
-}
+  try {
+    const setting = await UpdateSettingService({
+      key: `_${settingKey}`,
+      value: file.filename,
+      companyId
+    });
 
+    return res.status(200).json(setting.value);
+  } catch (error) {
+    logger.error({
+      message: "Erro ao salvar arquivo privado",
+      settingKey,
+      companyId,
+      error
+    });
+    if (error instanceof AppError) {
+      throw error;
+    }
+    throw new AppError("ERR_STORE_PRIVATE_FILE", 500);
+  }
+};

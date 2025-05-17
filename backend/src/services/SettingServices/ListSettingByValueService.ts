@@ -1,23 +1,37 @@
 import AppError from "../../errors/AppError";
 import Setting from "../../models/Setting";
+import { BaseSetting } from "../../@types/Settings";
+import { logger } from "../../utils/logger";
 
-interface Response {
-  key: string;
-  value: string;
-  companyId: number;
-}
 const ListSettingByValueService = async (
   value: string
-): Promise<Response | undefined> => {
-  const settings = await Setting.findOne({
-    where: { value }
-  });
+): Promise<BaseSetting | undefined> => {
+  try {
+    const settings = await Setting.findOne({
+      where: { value }
+    });
 
-  if (!settings) {
-    throw new AppError("ERR_NO_KEY_FOUND", 404);
+    if (!settings) {
+      throw new AppError("ERR_NO_KEY_FOUND", 404);
+    }
+
+    return { 
+      key: settings.key, 
+      value: settings.value, 
+      companyId: settings.companyId 
+    };
+  } catch (error) {
+    if (error instanceof AppError) {
+      throw error;
+    }
+    
+    logger.error({
+      message: "Erro ao buscar configuração por valor",
+      value,
+      error
+    });
+    throw new AppError("ERR_LIST_SETTING_BY_VALUE", 500);
   }
-
-  return { key: settings.key, value: settings.value, companyId: settings.companyId };
 };
 
 export default ListSettingByValueService;
