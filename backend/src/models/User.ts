@@ -10,7 +10,7 @@ import Whatsapp from "./Whatsapp";
 import EmployerPassword from "./EmployerPassword";
 import Task from "./Task";
 import TaskUser from "./TaskUser";
-import UserDashboardSettings from "./UserDashboardSettings";
+
 
 interface IUser {
   id: number;
@@ -194,9 +194,6 @@ class User extends Model<User> implements IUser {
 
   @BelongsTo(() => Whatsapp)
   whatsapp: Whatsapp;
-
-  @HasOne(() => UserDashboardSettings)
-dashboardSettings: UserDashboardSettings;
 
   @HasMany(() => UserRating, {
     foreignKey: "userId",
