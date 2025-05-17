@@ -401,19 +401,31 @@ function Whitelabel({ settings }) {
     }
   }, [handleSaveSetting, setLoadingForSection]);
 
-  const getImagePath = useCallback((imageKey, imagePath, companyId) => {
-    // Verificar se o caminho já é uma URL completa
-    if (!imagePath) {
-      return getImageDefaultByImageKey(imageKey);
-    }
-    
-    if (imagePath.startsWith('http://') || imagePath.startsWith('https://')) {
-      return imagePath;
-    }
+// Primeira correção: Defina a função getImageDefaultByImageKey antes de qualquer função que a utilize
+const getImageDefaultByImageKey = (imageKey) => {
+  if (imageKey === "appLogoLight") return logotipoImage;
+  if (imageKey === "appLogoDark") return logotipoImage;
+  if (imageKey === "appLogoFavicon") return faviconImage;
+  if (imageKey === "appLogoPWAIcon") return pwaImage;
+  if (imageKey === "loginBackground") return login_signup;
+  if (imageKey === "signupBackground") return login_signup;
+  return null;
+};
 
-    // Construir URL específica para a empresa
-    return `${process.env.REACT_APP_BACKEND_URL}/public/${imagePath}`;
-  }, [getImageDefaultByImageKey]);
+// Segunda correção: Em seguida, modifique getImagePath para usar a função já definida
+const getImagePath = (imageKey, imagePath, companyId) => {
+  // Verificar se o caminho já é uma URL completa
+  if (!imagePath) {
+    return getImageDefaultByImageKey(imageKey);
+  }
+  
+  if (imagePath.startsWith('http://') || imagePath.startsWith('https://')) {
+    return imagePath;
+  }
+
+  // Construir URL específica para a empresa
+  return `${process.env.REACT_APP_BACKEND_URL}/public/${imagePath}`;
+};
 
   // Função otimizada para fazer upload de imagens de fundo
   const uploadBackground = useCallback(
@@ -533,16 +545,7 @@ function Whitelabel({ settings }) {
     [colorMode, handleSaveSetting, updateSettingsLoaded, setLoadingForSection, user.companyId]
   );
   
-  // Função auxiliar para obter imagens padrão
-  const getImageDefaultByImageKey = useCallback((imageKey) => {
-    if (imageKey === "appLogoLight") return logotipoImage;
-    if (imageKey === "appLogoDark") return logotipoImage;
-    if (imageKey === "appLogoFavicon") return faviconImage;
-    if (imageKey === "appLogoPWAIcon") return pwaImage;
-    if (imageKey === "loginBackground") return login_signup;
-    if (imageKey === "signupBackground") return login_signup;
-    return null;
-  }, []);
+
   
   // Implementação de função auxiliar para aplicar configurações ao tema de uma vez
   const applySettingsToTheme = useCallback((settings, companyId) => {
