@@ -9,8 +9,9 @@ import CustomRoute from "./CustomRoute";
 import { AutoAtendeLoading } from "../components/Loading/AutoAtendeLoading";
 import { ModalGlobalComponent } from "../components/Modal";
 import { MessageNotificationProvider } from "../context/MessageNotification";
+import { DashboardProvider } from "../pages/Dashboard/context/DashboardContext";
 import useSettings from "../hooks/useSettings";
-import { DashboardSettingsProvider } from '../context/DashboardSettingsContext';
+
 import ErrorBoundary from "../components/ErrorBoundary";
 
 // Lazy Loading de componentes - Páginas Principais
@@ -43,7 +44,6 @@ const Prompts = React.lazy(() => import("../pages/Prompts"));
 const Assistants = React.lazy(() => import("../pages/Assistants"));
 const QueueIntegration = React.lazy(() => import("../pages/QueueIntegration"));
 const EmailDashboard = React.lazy(() => import("../pages/EmailDashboard/"));
-const AdminDashboard = React.lazy(() => import("../pages/AdminDashboard"));
 const EmployerManagement = React.lazy(() => import("../pages/EmployerManagement"));
 const PasswordManager = React.lazy(() => import("../pages/PasswordManager"));
 const PositionManagement = React.lazy(() => import("../pages/PositionManagement"));
@@ -62,21 +62,6 @@ const FlowBuilder = React.lazy(() => import("../pages/FlowBuilder"));
 
 // Componente de fallback otimizado
 const PageLoadingFallback = () => <AutoAtendeLoading />;
-
-// Componente RootComponent com lazy loading
-const RootComponent = () => {
-  const { settings } = useSettings();
-  const history = useHistory();
-  
-  useEffect(() => {
-    const initialPage = settings?.find(s => s.key === "initialPage")?.value || "login";
-    if (initialPage) {
-      history.push(`/${initialPage}`);
-    }
-  }, [settings, history]);
-
-  return <AutoAtendeLoading />;
-};
 
 // Wrapper com Suspense para Companies
 const WrappedCompanies = (props) => (
@@ -113,14 +98,15 @@ const Routes = () => {
               <TicketsContextProvider>
                 <Suspense fallback={<PageLoadingFallback />}>
                   <Switch>
-                    <CustomRoute exact path="/" component={RootComponent} />
+                    <CustomRoute exact path="/" component={Login} />
                     <CustomRoute exact path="/login" component={Login} />
                     <CustomRoute exact path="/signup" component={Signup} />
 
                     <WhatsAppsProvider>
                       <LoggedInLayout>
-                        <DashboardSettingsProvider>
-                        <CustomRoute exact path="/dashboard" component={Dashboard} isPrivate />
+                        <DashboardProvider>
+                          <CustomRoute exact path="/dashboard" component={Dashboard} isPrivate />
+                        </DashboardProvider>
                         
                         <CustomRoute
                           exact
@@ -140,7 +126,6 @@ const Routes = () => {
                           component={ConnectionsWrapper}
                           isPrivate
                         />
-                        <CustomRoute exact path="/admin-dashboard" component={AdminDashboard} isPrivate />
                         <CustomRoute exact path="/groups" component={Groups} isPrivate />
                         <CustomRoute exact path="/message-rules" component={MessageRules} isPrivate />
                         <CustomRoute exact path="/agendamento" component={AgendamentoServicos} isPrivate />
@@ -276,7 +261,6 @@ const Routes = () => {
                             />
                           </>
                         )}
-                      </DashboardSettingsProvider>
                       </LoggedInLayout>
                     </WhatsAppsProvider>
                   </Switch>

@@ -755,17 +755,6 @@ const MainListItems = (props) => {
                   level={1}
                   collapsed={collapsed}
                 />
-                {user.id === 1 && user.companyId === 1 && (
-                  <ListItemLink
-                    to="/admin-dashboard"
-                    primary={i18n.t("mainDrawer.listItems.adminDashboard")}
-                    icon={<DashboardOutlined />}
-                    tooltip={collapsed}
-                    drawerClose={drawerClose}
-                    level={1}
-                    collapsed={collapsed}
-                  />
-                )}
               </MainCategoryItem>
             </>
           )}
@@ -858,7 +847,7 @@ const MainListItems = (props) => {
                     icon={<People />}
                     tooltip={collapsed}
                     drawerClose={drawerClose}
-                    level={2}
+                    level={1}
                     collapsed={collapsed}
                   />
                   {settings?.find(s => s.key === 'displayBusinessInfo')?.value === 'enabled' && (
@@ -869,7 +858,7 @@ const MainListItems = (props) => {
                         icon={<Business />}
                         tooltip={collapsed}
                         drawerClose={drawerClose}
-                        level={2}
+                        level={1}
                         collapsed={collapsed}
                       />
                       <ListItemLink
@@ -878,7 +867,7 @@ const MainListItems = (props) => {
                         icon={<PasswordOutlined />}
                         tooltip={collapsed}
                         drawerClose={drawerClose}
-                        level={2}
+                        level={1}
                         collapsed={collapsed}
                       />
                       <ListItemLink
@@ -887,7 +876,7 @@ const MainListItems = (props) => {
                         icon={<WorkOutline />}
                         tooltip={collapsed}
                         drawerClose={drawerClose}
-                        level={2}
+                        level={1}
                         collapsed={collapsed}
                       />
                     </>
@@ -1122,9 +1111,6 @@ const MainListItems = (props) => {
                   level={1}
                   collapsed={collapsed}
                 />
-
-
-
                 <ListItemLink
                   to="/settings"
                   primary={i18n.t("mainDrawer.listItems.settings")}

@@ -21,6 +21,7 @@ import {
   Settings as SettingsIcon,
   Assessment as AssessmentIcon,
   AttachFile as AttachFileIcon,
+  ContentCopy as ContentCopyIcon,
 } from "@mui/icons-material";
 
 // Componentes Base
@@ -106,6 +107,7 @@ const BulkSender = () => {
   // Estado dos modais
   const [campaignModalOpen, setCampaignModalOpen] = useState(false);
   const [selectedCampaign, setSelectedCampaign] = useState(null);
+  const [duplicateFromId, setDuplicateFromId] = useState(null);
   const [contactListModalOpen, setContactListModalOpen] = useState(false);
   const [selectedContactList, setSelectedContactList] = useState(null);
   const [confirmModalOpen, setConfirmModalOpen] = useState(false);
@@ -205,6 +207,15 @@ const BulkSender = () => {
 
   const handleOpenCampaignModal = (campaign = null) => {
     setSelectedCampaign(campaign);
+    setDuplicateFromId(null);
+    setCampaignModalOpen(true);
+  };
+
+  const handleDuplicateCampaign = (campaign) => {
+    if (!campaign || !campaign.id) return;
+    
+    setSelectedCampaign(null);
+    setDuplicateFromId(campaign.id);
     setCampaignModalOpen(true);
   };
 
@@ -295,6 +306,7 @@ const BulkSender = () => {
           loading={campaignsState.loading}
           onEdit={handleOpenCampaignModal}
           onDelete={item => handleOpenDeleteConfirmation(item, 'campaign')}
+          onDuplicate={handleDuplicateCampaign}
           onAction={handleCampaignAction}
           hasMore={campaignsState.hasMore}
           onScroll={() => {
@@ -333,7 +345,6 @@ const BulkSender = () => {
     }
   ];
 
-  // Determinar se deve mostrar o campo de busca para a tab atual
   const showSearch = tabValue === 0 || tabValue === 1 || tabValue === 4;
 
   return (
@@ -370,9 +381,11 @@ const BulkSender = () => {
         open={campaignModalOpen}
         onClose={() => {
           setSelectedCampaign(null);
+          setDuplicateFromId(null);
           setCampaignModalOpen(false);
         }}
         campaignId={selectedCampaign?.id}
+        duplicateFromId={duplicateFromId}
         onSuccess={() => {
           fetchCampaigns();
         }}
