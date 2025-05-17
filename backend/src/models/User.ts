@@ -29,8 +29,6 @@ interface IUser {
   super: boolean;
   canCreateTags: boolean;
   canManageSchedulesNodesData: boolean;
-  glpiUser: string;
-  glpiPass: string;
   online: boolean;
   limitAttendance: number;
   color: string;
@@ -120,14 +118,6 @@ class User extends Model<User> implements IUser {
   @Default(false)
   @Column(DataType.BOOLEAN)
   canManageSchedulesNodesData: boolean;
-
-  @Default("")
-  @Column(DataType.TEXT)
-  glpiUser: string;
-  
-  @Default("")
-  @Column(DataType.TEXT)
-  glpiPass: string;
 
   @Column(DataType.BOOLEAN)
   online: boolean;

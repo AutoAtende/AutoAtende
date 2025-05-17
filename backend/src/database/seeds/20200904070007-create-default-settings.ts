@@ -1,16 +1,12 @@
 import { QueryInterface, where } from "sequelize";
 
 module.exports = {
-
-
-  
   up: async (queryInterface: QueryInterface) => {
 
     const settings = [
       { key: 'userRating', value: 'disabled', companyId: 1, createdAt: new Date(), updatedAt: new Date() },
       { key: 'scheduleType', value: 'queue', companyId: 1, createdAt: new Date(), updatedAt: new Date() },
       { key: 'CheckMsgIsGroup', value: 'enabled', companyId: 1, createdAt: new Date(), updatedAt: new Date() },
-      { key: 'apiToken', value: '', companyId: 1, createdAt: new Date(), updatedAt: new Date() },
       { key: 'sendGreetingAccepted', value: 'disabled', companyId: 1, createdAt: new Date(), updatedAt: new Date() },
       { key: 'sendMsgTransfTicket', value: 'disabled', companyId: 1, createdAt: new Date(), updatedAt: new Date() },
       { key: 'chatBotType', value: 'text', companyId: 1, createdAt: new Date(), updatedAt: new Date() },
@@ -33,27 +29,14 @@ module.exports = {
       { key: 'enableTicketValueAndSku', value: 'enabled', companyId: 1, createdAt: new Date(), updatedAt: new Date() },
       { key: 'enableReasonWhenCloseTicket', value: 'disabled', companyId: 1, createdAt: new Date(), updatedAt: new Date() },
       { key: 'quickMessages', value: 'company', companyId: 1, createdAt: new Date(), updatedAt: new Date() },
-      { key: 'enableGLPI', value: 'disabled', companyId: 1, createdAt: new Date(), updatedAt: new Date() },
-      { key: 'urlApiGlpi', value: '', companyId: 1, createdAt: new Date(), updatedAt: new Date() },
-      { key: 'appTokenGlpi', value: '', companyId: 1, createdAt: new Date(), updatedAt: new Date() },
-      { key: 'tokenMasterGlpi', value: '', companyId: 1, createdAt: new Date(), updatedAt: new Date() },
-      { key: 'enableOmieInChatbot', value: 'disabled', companyId: 1, createdAt: new Date(), updatedAt: new Date() },
-      { key: 'omieAppKey', value: '', companyId: 1, createdAt: new Date(), updatedAt: new Date() },
-      { key: 'omieAppSecret', value: '', companyId: 1, createdAt: new Date(), updatedAt: new Date() },
       { key: 'sendQueuePosition', value: 'disabled', companyId: 1, createdAt: new Date(), updatedAt: new Date() },
       { key: 'settingsUserRandom', value: 'disabled', companyId: 1, createdAt: new Date(), updatedAt: new Date() },
       { key: 'displayBusinessInfo', value: 'disabled', companyId: 1, createdAt: new Date(), updatedAt: new Date() },
-      { key: 'enableZabbix', value: 'disabled', companyId: 1, createdAt: new Date(), updatedAt: new Date() },
-      { key: 'zabbixAuth', value: '', companyId: 1, createdAt: new Date(), updatedAt: new Date() },
-      { key: 'zabbixBaseUrl', value: '', companyId: 1, createdAt: new Date(), updatedAt: new Date() },
-      { key: 'initialPage', value: 'login', companyId: 1, createdAt: new Date(), updatedAt: new Date() },
       { key: 'enableUPSix', value: 'disabled', companyId: 1, createdAt: new Date(), updatedAt: new Date() },
       { key: 'enableUPSixWebphone', value: 'disabled', companyId: 1, createdAt: new Date(), updatedAt: new Date() },
       { key: 'enableUPSixNotifications', value: 'disabled', companyId: 1, createdAt: new Date(), updatedAt: new Date() },
       { key: 'enableOfficialWhatsapp', value: 'disabled', companyId: 1, createdAt: new Date(), updatedAt: new Date() },
       { key: 'enableSaveCommonContacts', value: 'disabled', companyId: 1, createdAt: new Date(), updatedAt: new Date() },
-      { key: 'enableGroupTools', value: 'disabled', companyId: 1, createdAt: new Date(), updatedAt: new Date() },
-      { key: 'enableMessageRules', value: 'disabled', companyId: 1, createdAt: new Date(), updatedAt: new Date() },
       { key: 'displayProfileImages', value: 'disabled', companyId: 1, createdAt: new Date(), updatedAt: new Date() },
       { key: 'enableQueueWhenCloseTicket', value: 'disabled', companyId: 1, createdAt: new Date(), updatedAt: new Date() },
       { key: 'enableTagsWhenCloseTicket', value: 'disabled', companyId: 1, createdAt: new Date(), updatedAt: new Date() }
@@ -61,6 +44,20 @@ module.exports = {
 
     const removeOldSettings = [
       { key: 'call', value: 'disabled', companyId: 1, createdAt: new Date(), updatedAt: new Date() },
+      { key: 'enableGLPI', value: 'disabled', companyId: 1, createdAt: new Date(), updatedAt: new Date() },
+      { key: 'urlApiGlpi', value: '', companyId: 1, createdAt: new Date(), updatedAt: new Date() },
+      { key: 'appTokenGlpi', value: '', companyId: 1, createdAt: new Date(), updatedAt: new Date() },
+      { key: 'tokenMasterGlpi', value: '', companyId: 1, createdAt: new Date(), updatedAt: new Date() },
+      { key: 'enableOmieInChatbot', value: 'disabled', companyId: 1, createdAt: new Date(), updatedAt: new Date() },
+      { key: 'omieAppKey', value: '', companyId: 1, createdAt: new Date(), updatedAt: new Date() },
+      { key: 'omieAppSecret', value: '', companyId: 1, createdAt: new Date(), updatedAt: new Date() },
+      { key: 'enableGroupTools', value: 'disabled', companyId: 1, createdAt: new Date(), updatedAt: new Date() },
+      { key: 'enableMessageRules', value: 'disabled', companyId: 1, createdAt: new Date(), updatedAt: new Date() },
+      { key: 'enableZabbix', value: 'disabled', companyId: 1, createdAt: new Date(), updatedAt: new Date() },
+      { key: 'zabbixAuth', value: '', companyId: 1, createdAt: new Date(), updatedAt: new Date() },
+      { key: 'zabbixBaseUrl', value: '', companyId: 1, createdAt: new Date(), updatedAt: new Date() },
+      { key: 'initialPage', value: 'login', companyId: 1, createdAt: new Date(), updatedAt: new Date() },
+      { key: 'apiToken', value: '', companyId: 1, createdAt: new Date(), updatedAt: new Date() },    
     ];
 
     // Remove old settings

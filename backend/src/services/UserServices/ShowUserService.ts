@@ -21,8 +21,6 @@ const ShowUserService = async (id: string | number, requestUserId?: string | num
       "spy",
       "isTricked",
       "defaultMenu",
-      "glpiUser",
-      "glpiPass",
       "color",
       "number",
       "profilePic",

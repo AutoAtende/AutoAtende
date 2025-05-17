@@ -127,25 +127,6 @@ const messages = {
           select: "Tags",
           placeholder: "Selecione uma ou mais tags"
         },
-        glpi: {
-          title: "Abertura de Chamado",
-          titleField: "Título",
-          descriptionField: "Descrição",
-          urgency: {
-            title: "Urgência",
-            high: "Alta",
-            medium: "Média",
-            low: "Baixa",
-            veryHigh: "Muito Alta",
-            veryLow: "Muito Baixa",
-          },
-          buttons: {
-            cancel: "Cancelar",
-            confirm: "Confirmar",
-            creatingTicket: "Criando Chamado...",
-            createTicket: "Criar Chamado",
-          },
-        },
         vcard: {
           buttonSave: "Salvar",
           buttonConversation: "Conversar",
@@ -2124,9 +2105,6 @@ const messages = {
           notifyTask: "Notificação de Tarefas",
           notifyTaskHelp: "Envia notificação no WhatsApp sobre novas tarefas ou tarefas vencidas atribuídas a este usuário",
           onlyAdminSupervHelp: "Somente administradores e supervisores podem editar as configurações de notificação.",
-          glpiUser: "Usuário GLPI",
-          glpiPass: "Senha GLPI",
-          glpiHelp: "Credenciais para integração com o GLPI",
           profilePicHelp: "Clique na imagem para alterar",
           canRestartConnections: "Reiniciar Conexões",
           canRestartConnectionsHelp: "Permite ao usuário reiniciar conexões WhatsApp"
@@ -4808,42 +4786,6 @@ const messages = {
           save: "Salvar",
 
 
-
-          glpi: {
-            title: "GLPI",
-            url: "URL da API",
-            appToken: "Token da Aplicação",
-            masterToken: "Token Master",
-            testSuccess: "Teste realizado com sucesso",
-            testError: "Erro ao testar conexão",
-            validationError: "Preencha todos os campos obrigatórios",
-            saved: "Configurações salvas com sucesso",
-            error: "Erro ao salvar configurações",
-          },
-
-          ixc: {
-            title: "IXC",
-            serverIp: "IP do Servidor",
-            token: "Token de Acesso",
-            saved: "Configurações salvas com sucesso",
-            error: "Erro ao salvar configurações",
-          },
-
-          mkauth: {
-            title: "MK-AUTH",
-            serverIp: "IP do Servidor",
-            clientId: "ID do Cliente",
-            clientSecret: "Chave Secreta",
-            saved: "Configurações salvas com sucesso",
-            error: "Erro ao salvar configurações",
-          },
-
-          asaas: {
-            title: "Asaas",
-            apiKey: "Chave da API",
-            saved: "Configurações salvas com sucesso",
-            error: "Erro ao salvar configurações",
-          },
         },
 
         company: {
@@ -6253,49 +6195,6 @@ const messages = {
           label: "Saudação em setor único",
           helper: "Envia saudação quando há apenas um setor"
         },
-
-        // Integrações
-        glpi: {
-          label: "Integração com GLPI",
-          config: "Configurações GLPI",
-          urlApi: "URL da API",
-          appToken: "Token do Aplicativo",
-          masterToken: "Token Master",
-          helper: "Permite integração com sistema GLPI",
-          configHelper: "Configure as credenciais para integração com GLPI",
-          saveButton: "Salvar Configurações GLPI",
-          requiredFields: "Preencha todos os campos obrigatórios do GLPI"
-        },
-
-        omie: {
-          label: "Integração com Omie",
-          config: "Configurações Omie",
-          appKey: "Chave do Aplicativo",
-          appSecret: "Segredo do Aplicativo",
-          helper: "Permite integração com sistema Omie",
-          configHelper: "Configure as credenciais para integração com Omie",
-          saveButton: "Salvar Configurações Omie",
-          requiredFields: "Preencha todos os campos obrigatórios do Omie"
-        },
-
-        ixc: {
-          title: "IXC",
-          ip: "IP do IXC",
-          token: "Token do IXC"
-        },
-
-        mkauth: {
-          title: "MK-AUTH",
-          ip: "IP do MK-AUTH",
-          clientId: "ID do Cliente",
-          clientSecret: "Segredo do Cliente"
-        },
-
-        asaas: {
-          title: "ASAAS",
-          token: "Token ASAAS"
-        },
-
         smtp: {
           title: "SMTP",
           server: "Servidor SMTP",
@@ -8552,42 +8451,6 @@ const messages = {
         enableUPSixNotifications: "Ativar notificações UPSix",
         enableUPSixNotificationsHelp: "Ativa ou desativa as notificações via UPSix.",
 
-        enableGLPI: "Habilitar integração com GLPI",
-        enableGLPIHelp: "Ativa ou desativa a função de abertura de chamado no GLPI pela tela de ticket. Essencial para agilizar o atendimento e o suporte, oferecendo uma solução imediata para integregar com o GLPI.",
-        glpiEnabled: "Integração com GLPI ativada.",
-        glpiDisabled: "Integração com GLPI desativada.",
-        glpiApiSettings: "Configurações da API do GLPI",
-        glpiApiUrl: "URL da API GLPI",
-        glpiAppToken: "App-Token",
-        glpiMasterToken: "Token GLPI",
-        glpiIntegrationHelp: "Com essa integração, sempre que um atendimento for registrado em nossa plataforma, as informações podem ser automaticamente encaminhadas para o GLPI, facilitando o acompanhamento de tickets e a resolução de solicitações de suporte. A correta configuração desses parâmetros é essencial para garantir que a troca de dados entre os sistemas ocorra de forma segura e eficiente.",
-        saveGlpiSettings: "Salvar dados API GLPI",
-        glpiFieldsRequired: "Por favor, preencha todos os campos obrigatórios de integração com GLPI antes de prosseguir.",
-
-        enableOmie: "Habilitar integração com Omie",
-        enableOmieHelp: "Ativa ou desativa a integração com o Omie no sistema, permitindo acesso às funcionalidades durante o atendimento. Essencial para integrar informações financeiras e comerciais diretamente na plataforma.",
-        omieEnabled: "Integração com Omie ativada.",
-        omieDisabled: "Integração com Omie desativada.",
-        omieApiSettings: "Configurações da API do Omie",
-        omieAppKey: "App Key",
-        omieAppSecret: "App Secret",
-        omieIntegrationHelp: "Com essa integração, será possível acessar as funcionalidades do Omie diretamente pela plataforma, permitindo consultas e operações sem necessidade de acessar o sistema Omie separadamente. A correta configuração das credenciais é essencial para garantir uma integração segura e eficiente.",
-        omieRequiredSector: "Para utilizar esta integração é preciso criar um setor cujo nome deve ser uma dessas opções: 2ª Via de Boleto, 2 Via de Boleto ou Boleto - Cobrança.",
-        saveOmieSettings: "Salvar dados API Omie",
-        omieFieldsRequired: "Por favor, preencha todos os campos obrigatórios de integração com Omie antes de prosseguir.",
-
-        enableZabbix: "Habilitar integração com Zabbix",
-        enableZabbixHelp: "Ativa ou desativa a integração com o Zabbix para monitoramento do sistema. Importante para acompanhar o desempenho e disponibilidade dos serviços.",
-        zabbixEnabled: "Integração com Zabbix ativada.",
-        zabbixDisabled: "Integração com Zabbix desativada.",
-        zabbixApiSettings: "Configurações da API do Zabbix",
-        zabbixAuthToken: "Token de Autenticação",
-        zabbixBaseUrl: "URL Base do Zabbix",
-        zabbixIntegrationHelp: "Configure as credenciais de acesso à API do Zabbix para habilitar o monitoramento integrado. Essencial para manter o controle sobre o desempenho do sistema.",
-        saveZabbixSettings: "Salvar configurações do Zabbix",
-        zabbixFieldsRequired: "Por favor, preencha todos os campos obrigatórios de integração com Zabbix antes de prosseguir.",
-        zabbixConfigSuccess: "Configurações do Zabbix atualizadas com sucesso.",
-
         whatsappApiEnabled: "API Oficial do WhatsApp ativada.",
         whatsappApiDisabled: "API Oficial do WhatsApp desativada.",
 
@@ -8813,8 +8676,6 @@ const messages = {
         ERR_SKU_VALUE_REQUIRED: "Valor do SKU obrigatório.",
         ERR_INVALID_TICKET_ID: "ID de tíquete inválido fornecido.",
         ERR_WORK_HOURS_UNDEFINED: "O horário de trabalho não foi definido.",
-        ERR_AUTHENTICATION_DATA_SEND_GLPI_ERROR:
-          "Ocorreu um erro ao tentar enviar os dados de autenticação para o GLPI.",
         ERR_INVALID_URL:
           "A URL informada é inválida! Por favor, verifique se os dados de autenticação estão corretos na tela de configurações do sistema e tente novamente.",
         ERR_INTERNAL_SERVER_ERROR: "Ocorreu um erro interno do servidor.",

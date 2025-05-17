@@ -116,25 +116,6 @@ const messages = {
 			select: "Tags",
 			placeholder: "Select one or more tags"
 		  },
-		  glpi: {
-			title: "Opening a Ticket",
-			titleField: "Title",
-			descriptionField: "Description",
-			urgency: {
-			  title: "Urgency",
-			  high: "High",
-			  medium: "Medium",
-			  low: "Low",
-			  veryHigh: "Very High",
-			  veryLow: "Very Low"
-			},
-			buttons: {
-			  cancel: "Cancel",
-			  confirm: "Confirm",
-			  creatingTicket: "Creating Ticket...",
-			  createTicket: "Create Ticket"
-			}
-		  },
 		  vcard: {
 			buttonSave: "Save",
 			buttonConversation: "Chat"
@@ -1421,9 +1402,6 @@ const messages = {
 			notifyTask: "Tasks Notification",
 			notifyTaskHelp: "Sends notification on WhatsApp about new tasks or overdue tasks assigned to this user",
 			onlyAdminSupervHelp: "Only administrators and supervisors can edit notification settings.",
-			glpiUser: "GLPI User",
-			glpiPass: "GLPI Password",
-			glpiHelp: "Credentials for integration with GLPI",
 			profilePicHelp: "Click on the image to change",
 			canRestartConnections: "Restart Connections",
 			canRestartConnectionsHelp: "Allows the user to restart WhatsApp connections"
@@ -4146,38 +4124,6 @@ const messages = {
 			warning: "Configure integrations carefully",
 			enable: "Enable",
 			save: "Save",
-			glpi: {
-			  title: "GLPI",
-			  url: "API URL",
-			  appToken: "Application Token",
-			  masterToken: "Master Token",
-			  testSuccess: "Test successful",
-			  testError: "Error testing connection",
-			  validationError: "Fill in all required fields",
-			  saved: "Settings saved successfully",
-			  error: "Error saving settings"
-			},
-			ixc: {
-			  title: "IXC",
-			  serverIp: "Server IP",
-			  token: "Access Token",
-			  saved: "Settings saved successfully",
-			  error: "Error saving settings"
-			},
-			mkauth: {
-			  title: "MK-AUTH",
-			  serverIp: "Server IP",
-			  clientId: "Client ID",
-			  clientSecret: "Secret Key",
-			  saved: "Settings saved successfully",
-			  error: "Error saving settings"
-			},
-			asaas: {
-			  title: "Asaas",
-			  apiKey: "API Key",
-			  saved: "Settings saved successfully",
-			  error: "Error saving settings"
-			}
 		  },
 		  company: {
 			title: "Company Settings",
@@ -5632,42 +5578,6 @@ const messages = {
 		  queueGreeting: {
 			label: "Greeting in single department",
 			helper: "Sends greeting when there is only one department"
-		  },
-		  glpi: {
-			label: "Integration with GLPI",
-			config: "GLPI Settings",
-			urlApi: "API URL",
-			appToken: "App Token",
-			masterToken: "Master Token",
-			helper: "Allows integration with GLPI system",
-			configHelper: "Set up credentials for integration with GLPI",
-			saveButton: "Save GLPI Settings",
-			requiredFields: "Fill in all mandatory fields of GLPI"
-		  },
-		  omie: {
-			label: "Integration with Omie",
-			config: "Omie Settings",
-			appKey: "App Key",
-			appSecret: "App Secret",
-			helper: "Allows integration with Omie system",
-			configHelper: "Set up credentials for integration with Omie",
-			saveButton: "Save Omie Settings",
-			requiredFields: "Fill in all mandatory fields of Omie"
-		  },
-		  ixc: {
-			title: "IXC",
-			ip: "IXC IP",
-			token: "IXC Token"
-		  },
-		  mkauth: {
-			title: "MK-AUTH",
-			ip: "MK-AUTH IP",
-			clientId: "Client ID",
-			clientSecret: "Client Secret"
-		  },
-		  asaas: {
-			title: "ASAAS",
-			token: "ASAAS Token"
 		  },
 		  smtp: {
 			title: "SMTP",
@@ -7627,39 +7537,6 @@ const messages = {
 		  enableUPSixWebphoneHelp: "Enable or disable the use of the integrated UPSix webphone.",
 		  enableUPSixNotifications: "Enable UPSix notifications",
 		  enableUPSixNotificationsHelp: "Enable or disable notifications via UPSix.",
-		  enableGLPI: "Enable integration with GLPI",
-		  enableGLPIHelp: "Enable or disable the function of opening a ticket in GLPI through the ticket screen. Essential to streamline service and support, offering an immediate solution to integrate with GLPI.",
-		  glpiEnabled: "Integration with GLPI enabled.",
-		  glpiDisabled: "Integration with GLPI disabled.",
-		  glpiApiSettings: "GLPI API settings",
-		  glpiApiUrl: "GLPI API URL",
-		  glpiAppToken: "App Token",
-		  glpiMasterToken: "GLPI Token",
-		  glpiIntegrationHelp: "With this integration, whenever a service is registered on our platform, the information can be automatically forwarded to GLPI, facilitating ticket tracking and support request resolution. Correct configuration of these parameters is essential to ensure that data exchange between systems occurs securely and efficiently.",
-		  saveGlpiSettings: "Save GLPI API data",
-		  glpiFieldsRequired: "Please fill in all required fields for GLPI integration before proceeding.",
-		  enableOmie: "Enable integration with Omie",
-		  enableOmieHelp: "Enable or disable integration with Omie in the system, allowing access to features during service. Essential to integrate financial and commercial information directly on the platform.",
-		  omieEnabled: "Integration with Omie enabled.",
-		  omieDisabled: "Integration with Omie disabled.",
-		  omieApiSettings: "Omie API settings",
-		  omieAppKey: "App Key",
-		  omieAppSecret: "App Secret",
-		  omieIntegrationHelp: "With this integration, it will be possible to access Omie's features directly through the platform, allowing queries and operations without the need to access the Omie system separately. Correct configuration of credentials is essential to ensure a secure and efficient integration.",
-		  omieRequiredSector: "To use this integration, you need to create a sector whose name must be one of these options: 2nd Boleto, 2nd Boleto or Boleto - Billing.",
-		  saveOmieSettings: "Save Omie API data",
-		  omieFieldsRequired: "Please fill in all required fields for Omie integration before proceeding.",
-		  enableZabbix: "Enable integration with Zabbix",
-		  enableZabbixHelp: "Enable or disable integration with Zabbix for system monitoring. Important to monitor performance and service availability.",
-		  zabbixEnabled: "Integration with Zabbix enabled.",
-		  zabbixDisabled: "Integration with Zabbix disabled.",
-		  zabbixApiSettings: "Zabbix API settings",
-		  zabbixAuthToken: "Authentication Token",
-		  zabbixBaseUrl: "Zabbix Base URL",
-		  zabbixIntegrationHelp: "Configure Zabbix API access credentials to enable integrated monitoring. Essential to maintain control over system performance.",
-		  saveZabbixSettings: "Save Zabbix settings",
-		  zabbixFieldsRequired: "Please fill in all required fields for Zabbix integration before proceeding.",
-		  zabbixConfigSuccess: "Zabbix settings updated successfully.",
 		  whatsappApiEnabled: "Official WhatsApp API enabled.",
 		  whatsappApiDisabled: "Official WhatsApp API disabled.",
 		  support: "Support",
@@ -7737,7 +7614,6 @@ const messages = {
 		  ERR_SKU_VALUE_REQUIRED: "SKU value is mandatory.",
 		  ERR_INVALID_TICKET_ID: "Invalid ticket ID provided.",
 		  ERR_WORK_HOURS_UNDEFINED: "Business hours have not been set.",
-		  ERR_AUTHENTICATION_DATA_SEND_GLPI_ERROR: "An error occurred while trying to send authentication data to GLPI.",
 		  ERR_INVALID_URL: "The provided URL is invalid! Please check if the authentication data is correct on the system settings screen and try again.",
 		  ERR_INTERNAL_SERVER_ERROR: "An internal server error occurred.",
 		  ERR_CONNECTION_NOT_PROVIDED: "Connection not informed.",

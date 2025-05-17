@@ -39,7 +39,7 @@ import {
     Assignment as AssignmentIcon,
     Email as EmailIcon
   } from '@mui/icons-material';
-import GlpiModal from "../GLPIModal";
+
 import EmailPdfModal from "../EmailPdfModal";
 import { GlobalContext } from "../../context/GlobalContext";
 import useSettings from "../../hooks/useSettings";
@@ -132,7 +132,7 @@ const TicketActionButtons = ({
     const [enableTicketValueAndSku, setEnableTicketValueAndSku] = useState(false);
     const [enableUPSix, setEnableUPSix] = useState(false);
     const [enableUPSixWebphone, setEnableUPSixWebphone] = useState(false);
-    const [enableGLPI, setEnableGLPI] = useState(false);
+
     const { getPlanCompany } = usePlans();
     const { getCachedSetting } = useSettings();
     const [taskModalOpen, setTaskModalOpen] = useState(false);
@@ -202,13 +202,7 @@ const TicketActionButtons = ({
         }
     }, []);
 
-    useEffect(async () => {
-        const enableGLPI = await getCachedSetting("enableGLPI");
-        if (enableGLPI) {
-            setEnableGLPI(enableGLPI?.value || "enabled");
-        }
-    }, []);
-    
+
     // Adicionar useEffect para buscar as configurações de fechamento de ticket
     useEffect(async () => {
         try {
@@ -238,15 +232,6 @@ const TicketActionButtons = ({
     const handleCloseTicketOptionsMenu = e => {
         setAnchorEl(null);
     };
-
-    const handleOpenGlpiModal = (e) => {
-        setGlApiModalOpen(true);
-        handleCloseTicketOptionsMenu();
-    };
-
-    const handleCloseGlpiModal = () => {
-        setGlApiModalOpen(false);
-    }
 
     const handleOpenSetValueModal = () => {
         setTicketValue(ticketValue);
@@ -653,14 +638,6 @@ const TicketActionButtons = ({
                         </Tooltip>
                     )}
 
-                    {!ticket.isGroup && enableGLPI === "enabled" && ticket.status === "open" && (
-                        <Tooltip title="GLPI" placement="left">
-                            <MenuItem onClick={handleOpenGlpiModal}>
-                                <ApiIcon sx={{ color: theme.palette.primary.main }} />
-                            </MenuItem>
-                        </Tooltip>
-                    )}
-
                     {ticket.status === "closed" && (
                         <MenuItem onClick={e => { handleCloseTicketOptionsMenu(); handleUpdateTicketStatus(e, "open", user?.id); }}>
                             <ButtonWithSpinner
@@ -752,13 +729,6 @@ const TicketActionButtons = ({
                         </ButtonWithSpinner>
                     )}
                 </div>
-    
-                {glApiModalOpen && (
-                    <GlpiModal
-                        open={glApiModalOpen}
-                        onClose={handleCloseGlpiModal}
-                    />
-                )}
     
                 {taskModalOpen && (
                     <TaskModal
