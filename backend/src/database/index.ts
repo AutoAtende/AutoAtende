@@ -93,8 +93,8 @@ import ChatbotState from "../models/ChatbotState";
 import VoiceMessage from "../models/VoiceMessage";
 import VoiceConfig from "../models/VoiceConfig";
 import AppointmentNode from "../models/AppointmentNode";
-import UserDashboardSettings from "../models/UserDashboardSettings";
 import InternalMessageNode from "../models/InternalMessageNode";
+import DashboardSettings from "../models/DashboardSettings";
 import * as dbConfig from "../config/database";
 const sequelize = new Sequelize(dbConfig as any);
 
@@ -164,7 +164,6 @@ const models = [
   User,
   UserQueue,
   UserRating,
-  UserDashboardSettings,
   Service,
   Professional,
   ProfessionalService, 
@@ -194,7 +193,8 @@ const models = [
   VoiceMessage,
   VoiceConfig,
   AppointmentNode,
-  InternalMessageNode
+  InternalMessageNode,
+  DashboardSettings
 ];
 
 sequelize.addModels(models);
