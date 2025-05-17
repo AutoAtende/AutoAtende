@@ -27,10 +27,12 @@ import BasePage from "../../components/BasePage";
 import BasePageHeader from "../../components/BasePageHeader";
 import BasePageContent from "../../components/BasePageContent";
 import BasePageFooter from "../../components/BasePageFooter";
+import BaseButton from "../../components/BaseButton";
 import BaseModal from "../../components/BaseModal";
-import AnnouncementDialog from "../../components/AnnouncementDialog";
-import AnnouncementCardView from "./AnnouncementCardView";
-import AnnouncementTableView from "./AnnouncementTableView";
+import AnnouncementDialog from "./components/AnnouncementDialog";
+import AnnouncementModal from "./components/AnnouncementModal";
+import AnnouncementCardView from "./components/AnnouncementCardView";
+import AnnouncementTableView from "./components/AnnouncementTableView";
 
 const announcementsReducer = (state, action) => {
   switch (action.type) {
@@ -323,47 +325,15 @@ const Announcements = () => {
       />
 
       {/* Modal para criação/edição de anúncios */}
-      <BaseModal
+      <AnnouncementModal
         open={modalOpen}
         onClose={() => {
           setModalOpen(false);
           setSelectedAnnouncement(null);
         }}
-        title={selectedAnnouncement 
-          ? i18n.t("announcements.modal.editTitle") 
-          : i18n.t("announcements.modal.createTitle")}
-        actions={[
-          {
-            label: i18n.t("announcements.buttons.cancel"),
-            onClick: () => {
-              setModalOpen(false);
-              setSelectedAnnouncement(null);
-            },
-            variant: "outlined",
-            color: "primary"
-          },
-          {
-            label: i18n.t("announcements.buttons.save"),
-            onClick: () => {
-              // Esta lógica seria tratada pelo componente AnnouncementModal
-              setModalOpen(false);
-              setSelectedAnnouncement(null);
-            },
-            variant: "contained",
-            color: "primary"
-          }
-        ]}
-      >
-        {/* O conteúdo original do AnnouncementModal seria inserido aqui */}
-        {/* Mantendo a referência para preservar a funcionalidade */}
-        <AnnouncementDialog 
-          announcement={selectedAnnouncement} 
-          open={true} 
-          handleClose={() => {}}
-          isModal={true}
-          reload={fetchAnnouncements}
-        />
-      </BaseModal>
+        announcementId={selectedAnnouncement?.id}
+        reload={fetchAnnouncements}
+      />
 
       {/* Modal de confirmação de exclusão */}
       <BaseModal
@@ -381,62 +351,14 @@ const Announcements = () => {
       </BaseModal>
 
       {/* Modal para visualização completa do anúncio */}
-      <BaseModal
+      <AnnouncementDialog
+        announcement={viewingAnnouncement}
         open={showAnnouncementDialog}
-        onClose={() => {
+        handleClose={() => {
           setShowAnnouncementDialog(false);
           setViewingAnnouncement(null);
         }}
-        title={viewingAnnouncement?.title || ""}
-        actions={[
-          {
-            label: i18n.t("announcements.buttons.close"),
-            onClick: () => {
-              setShowAnnouncementDialog(false);
-              setViewingAnnouncement(null);
-            },
-            variant: "contained",
-            color: "primary"
-          }
-        ]}
-      >
-        {viewingAnnouncement && (
-          <Box>
-            {viewingAnnouncement.mediaPath && (
-              <Box 
-                component="img"
-                src={`${process.env.REACT_APP_BACKEND_URL}/public/company${viewingAnnouncement.companyId}/${viewingAnnouncement.mediaPath}`}
-                alt={viewingAnnouncement.mediaName}
-                sx={{ maxWidth: '100%', maxHeight: 300, objectFit: 'contain', mb: 2 }}
-              />
-            )}
-            <Typography variant="body2" color="textSecondary" gutterBottom>
-              {new Date(viewingAnnouncement.createdAt).toLocaleString()}
-            </Typography>
-            <Box 
-              sx={{ 
-                mt: 2,
-                '& img': {
-                  maxWidth: '100%',
-                  height: 'auto'
-                },
-                '& ul, & ol': {
-                  paddingLeft: 2
-                },
-                '& blockquote': {
-                  borderLeft: `4px solid ${theme.palette.primary.main}`,
-                  paddingLeft: 2,
-                  margin: '16px 0',
-                  fontStyle: 'italic'
-                }
-              }}
-              dangerouslySetInnerHTML={{
-                __html: DOMPurify.sanitize(viewingAnnouncement.text)
-              }}
-            />
-          </Box>
-        )}
-      </BaseModal>
+      />
     </BasePage>
   );
 };

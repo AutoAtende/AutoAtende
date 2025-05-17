@@ -15,8 +15,8 @@ import EditIcon from '@mui/icons-material/Edit';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 import DOMPurify from 'dompurify';
 import moment from 'moment';
-import BaseButton from '../../components/BaseButton';
-import BaseEmptyState from '../../components/BaseEmptyState';
+import BaseButton from '../../../components/BaseButton';
+import BaseEmptyState from '../../../components/BaseEmptyState';
 
 const AnnouncementTableView = ({ 
   announcements, 
