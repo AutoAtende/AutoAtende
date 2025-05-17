@@ -25,6 +25,8 @@ const settings = [
   { key: "callSuport", value: "disabled" },
   { key: "displayContactInfo", value: "enabled" },
   { key: "trialExpiration", value: "7" },
+  { key: "loginPosition", value: "center" },
+  { key: "signUpPosition", value: "center" },
   { key: "sendEmailWhenRegister", value: "enabled" },
   { key: "sendMessageWhenRegister", value: "enabled" },
   { key: "smtpauth", value: "disabled" },

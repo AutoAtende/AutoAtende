@@ -36,12 +36,12 @@ const useDashboardData = () => {
       
       try {
         // Carregar setores (queues)
-        const queuesResponse = await api.get('/queues');
+        const queuesResponse = await api.get('/queue');
         const loadedQueues = [{ id: 'all', name: 'Todos' }, ...queuesResponse.data];
         setQueues(loadedQueues);
         
         // Carregar usuários
-        const usersResponse = await api.get('/users');
+        const usersResponse = await api.get('/users/list');
         setUsers([{ id: 'all', name: 'Todos os Agentes' }, ...usersResponse.data]);
         
       } catch (error) {
