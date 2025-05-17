@@ -54,7 +54,20 @@ const useAuth = () => {
           throw new Error("Falha ao renovar token");
         } catch (err) {
           refreshTokenPromise = null;
+          // Salvar lastCompanyId antes de limpar o localStorage
+          const companyId = localStorage.getItem("companyId");
+          if (companyId) {
+            localStorage.setItem("lastCompanyId", companyId);
+          }
           localStorage.clear();
+          // Restaurar lastCompanyId após limpar localStorage para manter a referência
+          const lastCompanyId = localStorage.getItem("lastCompanyId");
+          if (lastCompanyId) {
+            localStorage.setItem("companyId", lastCompanyId);
+          } else {
+            localStorage.setItem("companyId", "1");
+          }
+          
           setUser({});
           setIsAuth(false);
           window.location.href = "/login";
@@ -63,7 +76,20 @@ const useAuth = () => {
       }
 
       if (error?.response?.status === 401) {
+        // Salvar lastCompanyId antes de limpar o localStorage
+        const companyId = localStorage.getItem("companyId");
+        if (companyId) {
+          localStorage.setItem("lastCompanyId", companyId);
+        }
         localStorage.clear();
+        // Restaurar lastCompanyId após limpar localStorage para manter a referência
+        const lastCompanyId = localStorage.getItem("lastCompanyId");
+        if (lastCompanyId) {
+          localStorage.setItem("companyId", lastCompanyId);
+        } else {
+          localStorage.setItem("companyId", "1");
+        }
+        
         setUser({});
         setIsAuth(false);
         window.location.href = "/login";
@@ -78,6 +104,8 @@ const useAuth = () => {
       if (data?.token) {
         localStorage.setItem("token", JSON.stringify(data.token));
         localStorage.setItem("companyId", data.user.companyId);
+        // Atualizar também lastCompanyId para manter sincronizado
+        localStorage.setItem("lastCompanyId", data.user.companyId);
         localStorage.setItem("userId", data.user.id);
         api.defaults.headers.Authorization = `Bearer ${data.token}`;
         setUser(data.user);
@@ -86,7 +114,20 @@ const useAuth = () => {
       }
       throw new Error("Token de atualização inválido");
     } catch (err) {
+      // Salvar lastCompanyId antes de limpar o localStorage
+      const companyId = localStorage.getItem("companyId");
+      if (companyId) {
+        localStorage.setItem("lastCompanyId", companyId);
+      }
       localStorage.clear();
+      // Restaurar lastCompanyId após limpar localStorage para manter a referência
+      const lastCompanyId = localStorage.getItem("lastCompanyId");
+      if (lastCompanyId) {
+        localStorage.setItem("companyId", lastCompanyId);
+      } else {
+        localStorage.setItem("companyId", "1");
+      }
+      
       setUser({});
       setIsAuth(false);
       throw err;
@@ -101,6 +142,16 @@ const useAuth = () => {
           await refreshToken();
         } catch (err) {
           console.error("Erro ao renovar token:", err);
+        }
+      } else {
+        // Se não estiver autenticado, verifique se há lastCompanyId
+        const lastCompanyId = localStorage.getItem("lastCompanyId");
+        if (lastCompanyId) {
+          // Usar lastCompanyId para whitelabel na tela de login
+          localStorage.setItem("companyId", lastCompanyId);
+        } else {
+          // Se não houver lastCompanyId, usar empresa padrão (1)
+          localStorage.setItem("companyId", "1");
         }
       }
       setLoading(false);
@@ -157,7 +208,11 @@ const useAuth = () => {
         if (data.user.id === +userId) {
           toast.error("Sua conta foi acessada em outro computador.");
           setTimeout(() => {
+            // Salvar lastCompanyId antes de limpar o localStorage
+            localStorage.setItem("lastCompanyId", companyId);
             localStorage.clear();
+            // Restaurar lastCompanyId após limpar localStorage para manter a referência
+            localStorage.setItem("companyId", localStorage.getItem("lastCompanyId") || "1");
             window.location.reload();
           }, 1000);
         }
@@ -196,6 +251,8 @@ const useAuth = () => {
       // Configurar autenticação
       localStorage.setItem("token", JSON.stringify(token));
       localStorage.setItem("companyId", String(companyId));
+      // Salvar também o lastCompanyId para lembrar após logout
+      localStorage.setItem("lastCompanyId", String(companyId));
       localStorage.setItem("userId", String(id));
       api.defaults.headers.Authorization = `Bearer ${token}`;
       
@@ -277,9 +334,27 @@ const useAuth = () => {
     setLoading(true);
     try {
       await api.delete("/auth/logout");
+      
+      // Salvar lastCompanyId antes de limpar o localStorage
+      const companyId = localStorage.getItem("companyId");
+      if (companyId) {
+        localStorage.setItem("lastCompanyId", companyId);
+      }
+      
       setIsAuth(false);
       setUser({});
+      
+      // Limpar localStorage
       localStorage.clear();
+      
+      // Restaurar lastCompanyId após limpar localStorage para manter a referência
+      const lastCompanyId = localStorage.getItem("lastCompanyId");
+      if (lastCompanyId) {
+        localStorage.setItem("companyId", lastCompanyId);
+      } else {
+        localStorage.setItem("companyId", "1");
+      }
+      
       api.defaults.headers.Authorization = undefined;
       window.location.href = "/login";
     } catch (err) {
