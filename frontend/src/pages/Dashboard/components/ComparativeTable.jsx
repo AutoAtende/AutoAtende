@@ -137,20 +137,6 @@ const ComparativeTable = ({ data }) => {
     return [convertPercent(percent1), convertPercent(percent2)];
   };
 
-  // Usar dados de exemplo se necessário
-  const displayData = data && data.length > 0 ? data : [
-    { id: 1, name: 'Atendimento', messages: 852, avgTime: '3m 45s', clients: 51, responseRate: '94%', firstContact: '1m 22s' },
-    { id: 2, name: 'Comercial', messages: 575, avgTime: '5m 20s', clients: 32, responseRate: '87%', firstContact: '2m 15s' }
-  ];
-  
-  const comparisonRows = comparativeData.length > 0 ? comparativeData : [
-    { metric: 'Mensagens', value1: 852, value2: 575, variation: 48 },
-    { metric: 'Tempo médio', value1: '3m 45s', value2: '5m 20s', variation: -29 },
-    { metric: 'Clientes', value1: 51, value2: 32, variation: 59 },
-    { metric: 'Taxa de resposta', value1: '94%', value2: '87%', variation: 8 },
-    { metric: 'Primeiro contato', value1: '1m 22s', value2: '2m 15s', variation: -39 }
-  ];
-
   return (
     <>
       <SelectorsContainer>
@@ -162,7 +148,7 @@ const ComparativeTable = ({ data }) => {
             sx={{ fontSize: '0.9rem' }}
           >
             <MenuItem disabled value="">Setor 1</MenuItem>
-            {displayData.map((item) => (
+            {data && data.map((item) => (
               <MenuItem key={`q1-${item.id}`} value={item.id}>
                 {item.name}
               </MenuItem>
@@ -178,7 +164,7 @@ const ComparativeTable = ({ data }) => {
             sx={{ fontSize: '0.9rem' }}
           >
             <MenuItem disabled value="">Setor 2</MenuItem>
-            {displayData.map((item) => (
+            {data && data.map((item) => (
               <MenuItem key={`q2-${item.id}`} value={item.id}>
                 {item.name}
               </MenuItem>
@@ -193,16 +179,16 @@ const ComparativeTable = ({ data }) => {
             <TableRow>
               <StyledTableHeadCell>Métrica</StyledTableHeadCell>
               <StyledTableHeadCell align="right">
-                {queue1 ? displayData.find(item => item.id === queue1)?.name : 'Atendimento'}
+                {queue1 && data ? data.find(item => item.id === queue1)?.name : ''}
               </StyledTableHeadCell>
               <StyledTableHeadCell align="right">
-                {queue2 ? displayData.find(item => item.id === queue2)?.name : 'Comercial'}
+                {queue2 && data ? data.find(item => item.id === queue2)?.name : ''}
               </StyledTableHeadCell>
               <StyledTableHeadCell align="right">Variação</StyledTableHeadCell>
             </TableRow>
           </TableHead>
           <TableBody>
-            {comparisonRows.map((row, index) => (
+            {comparativeData.map((row, index) => (
               <StyledTableRow key={row.metric} index={index}>
                 <StyledTableCell component="th" scope="row">
                   {row.metric}

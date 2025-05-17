@@ -38,6 +38,7 @@ export const DashboardProvider = ({ children }) => {
         }
       } catch (error) {
         console.error('Erro ao carregar configurações do dashboard:', error);
+        // Silenciosamente falha e mantém as configurações padrão
       }
     };
     

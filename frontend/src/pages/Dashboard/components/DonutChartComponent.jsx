@@ -45,7 +45,7 @@ const DonutChartComponent = ({ data }) => {
   const [chartData, setChartData] = useState([]);
   
   useEffect(() => {
-    // Processar dados ou usar dados de exemplo
+    // Processar dados
     if (data && data.length > 0) {
       // Calcular percentuais
       const total = data.reduce((sum, item) => sum + item.value, 0);
@@ -58,14 +58,7 @@ const DonutChartComponent = ({ data }) => {
       }));
       setChartData(processedData);
     } else {
-      // Dados de exemplo
-      setChartData([
-        { id: 1, name: 'João', value: 32, percentage: 32, color: COLORS[0] },
-        { id: 2, name: 'Maria', value: 28, percentage: 28, color: COLORS[1] },
-        { id: 3, name: 'Pedro', value: 18, percentage: 18, color: COLORS[2] },
-        { id: 4, name: 'Ana', value: 12, percentage: 12, color: COLORS[3] },
-        { id: 5, name: 'Outros', value: 10, percentage: 10, color: COLORS[4] },
-      ]);
+      setChartData([]);
     }
   }, [data]);
 
@@ -91,6 +84,16 @@ const DonutChartComponent = ({ data }) => {
     }
     return null;
   };
+
+  if (chartData.length === 0) {
+    return (
+      <ChartContainer>
+        <Typography variant="body1" color="text.secondary">
+          Nenhum dado disponível
+        </Typography>
+      </ChartContainer>
+    );
+  }
 
   return (
     <ChartContainer>

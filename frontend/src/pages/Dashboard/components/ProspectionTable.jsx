@@ -6,7 +6,9 @@ import {
   TableContainer,
   TableHead,
   TableRow,
-  Chip
+  Chip,
+  Typography,
+  Box
 } from '@mui/material';
 import { styled } from '@mui/material/styles';
 
@@ -56,14 +58,15 @@ const StatusChip = styled(Chip)(({ theme, status }) => {
 });
 
 const ProspectionTable = ({ data }) => {
-  // Usar dados de exemplo se necessário
-  const displayData = data && data.length > 0 ? data : [
-    { id: 1, name: 'João Silva', clients: 14, messages: 186, performance: 'Alto' },
-    { id: 2, name: 'Maria Oliveira', clients: 12, messages: 154, performance: 'Alto' },
-    { id: 3, name: 'Pedro Santos', clients: 9, messages: 97, performance: 'Médio' },
-    { id: 4, name: 'Ana Costa', clients: 7, messages: 83, performance: 'Médio' },
-    { id: 5, name: 'Lucas Martins', clients: 5, messages: 62, performance: 'Baixo' },
-  ];
+  if (!data || data.length === 0) {
+    return (
+      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: 180 }}>
+        <Typography variant="body1" color="text.secondary">
+          Nenhum dado de prospecção disponível
+        </Typography>
+      </Box>
+    );
+  }
 
   return (
     <TableContainer>
@@ -77,7 +80,7 @@ const ProspectionTable = ({ data }) => {
           </TableRow>
         </TableHead>
         <TableBody>
-          {displayData.map((row, index) => (
+          {data.map((row, index) => (
             <StyledTableRow key={row.id} index={index}>
               <StyledTableCell component="th" scope="row">
                 {row.name}

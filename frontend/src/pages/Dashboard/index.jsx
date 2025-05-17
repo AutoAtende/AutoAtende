@@ -1,7 +1,7 @@
 import React from 'react';
-import { Box, Container, Typography, Grid, Paper, Select, MenuItem, FormControl, Button, Tabs, Tab } from '@mui/material';
+import { Box, Container, Typography, Grid, Paper, Select, MenuItem, FormControl, Button } from '@mui/material';
 import { styled } from '@mui/material/styles';
-import { CalendarToday, ChevronLeft, ChevronRight, FileDownload } from '@mui/icons-material';
+import { CalendarToday, FileDownload } from '@mui/icons-material';
 import { toast } from "../../helpers/toast";
 import { useLoading } from "../../hooks/useLoading";
 import DashboardCard from './components/DashboardCard';
@@ -66,27 +66,18 @@ const DateFilterIcon = styled(CalendarToday)(({ theme }) => ({
   fontSize: '1rem',
 }));
 
-const StyledTabs = styled(Tabs)(({ theme }) => ({
-  marginBottom: theme.spacing(2.5),
-  '& .MuiTabs-indicator': {
-    display: 'none',
-  },
-}));
-
-const StyledTab = styled(Tab)(({ theme }) => ({
+const QueueButton = styled(Button)(({ theme, active }) => ({
   borderRadius: '20px',
   minWidth: 'auto',
   padding: '6px 12px',
   fontSize: '0.85rem',
   textTransform: 'none',
   fontWeight: 'normal',
-  color: theme.palette.text.secondary,
-  backgroundColor: theme.palette.grey[200],
+  color: active ? theme.palette.common.white : theme.palette.text.secondary,
+  backgroundColor: active ? theme.palette.primary.main : theme.palette.grey[200],
   marginRight: theme.spacing(1.25),
-  '&.Mui-selected': {
-    backgroundColor: theme.palette.primary.main,
-    color: theme.palette.common.white,
-    fontWeight: 'normal',
+  '&:hover': {
+    backgroundColor: active ? theme.palette.primary.dark : theme.palette.grey[300],
   },
 }));
 
@@ -99,31 +90,12 @@ const ChartsPaper = styled(Paper)(({ theme }) => ({
 
 const FooterContainer = styled(Box)(({ theme }) => ({
   display: 'flex',
-  justifyContent: 'space-between',
+  justifyContent: 'flex-end',
   alignItems: 'center',
   marginTop: theme.spacing(2.5),
   [theme.breakpoints.down('sm')]: {
     flexDirection: 'column',
     gap: theme.spacing(2),
-  },
-}));
-
-const Pagination = styled(Box)(({ theme }) => ({
-  display: 'flex',
-  alignItems: 'center',
-  gap: theme.spacing(1),
-}));
-
-const PageButton = styled(Button)(({ theme, active }) => ({
-  minWidth: '30px',
-  width: '30px',
-  height: '30px',
-  padding: 0,
-  borderRadius: '50%',
-  backgroundColor: active ? theme.palette.primary.main : 'white',
-  color: active ? 'white' : theme.palette.text.secondary,
-  '&:hover': {
-    backgroundColor: active ? theme.palette.primary.dark : theme.palette.grey[100],
   },
 }));
 
@@ -154,30 +126,14 @@ const Dashboard = () => {
     setDateRange,
     selectedQueue,
     setSelectedQueue,
-    selectedAgent,
-    setSelectedAgent,
     queues,
-    users,
     dashboardData,
     getDateRangeDisplay
   } = useDashboardData();
-
-  // Converter selectedQueue para índice da aba
-  const selectedTab = queues.findIndex(q => q.id === selectedQueue);
-  
-  // Handler para mudança de aba
-  const handleTabChange = (event, newValue) => {
-    setSelectedQueue(queues[newValue]?.id || 'all');
-  };
   
   // Handler para mudança de faixa de data
   const handleDateRangeChange = (event) => {
     setDateRange(event.target.value);
-  };
-  
-  // Handler para mudança de agente
-  const handleAgentChange = (event) => {
-    setSelectedAgent(event.target.value);
   };
   
   // Handler para exportação para Excel
@@ -238,40 +194,20 @@ const Dashboard = () => {
               ))}
             </Select>
           </FormControl>
-          <FormControl size="small">
-            <Select
-              value={selectedAgent}
-              onChange={handleAgentChange}
-              variant="outlined"
-              sx={{ 
-                minWidth: 180, 
-                bgcolor: 'white',
-                fontSize: '0.9rem',
-                '& .MuiOutlinedInput-notchedOutline': {
-                  borderColor: theme => theme.palette.grey[300]
-                }
-              }}
-            >
-              {users.map(user => (
-                <MenuItem key={user.id} value={user.id}>
-                  {user.name}
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
         </FiltersContainer>
       </PageHeader>
 
-      <StyledTabs 
-        value={selectedTab > -1 ? selectedTab : 0} 
-        onChange={handleTabChange}
-        variant="scrollable"
-        scrollButtons="auto"
-      >
-        {queues.map((queue, index) => (
-          <StyledTab key={queue.id} label={queue.name} />
+      <Box sx={{ mb: 2.5, display: 'flex', flexWrap: 'wrap' }}>
+        {queues.map((queue) => (
+          <QueueButton
+            key={queue.id}
+            active={selectedQueue === queue.id}
+            onClick={() => setSelectedQueue(queue.id)}
+          >
+            {queue.name}
+          </QueueButton>
         ))}
-      </StyledTabs>
+      </Box>
 
       {isLoading ? (
         <Box sx={{ 
@@ -336,22 +272,16 @@ const Dashboard = () => {
           <Grid container spacing={2.5} sx={{ mb: 2.5 }}>
             <Grid item xs={12} md={6}>
               <ChartsPaper>
-                <Typography variant="h6" sx={{ mb: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <Typography variant="h6" sx={{ mb: 2 }}>
                   Mensagens por Dia
-                  <Box component="span" sx={{ fontSize: '0.9rem', color: 'text.secondary', cursor: 'pointer' }}>
-                    &#8942;
-                  </Box>
                 </Typography>
                 <BarChartComponent data={dashboardData.messagesByDay} />
               </ChartsPaper>
             </Grid>
             <Grid item xs={12} md={6}>
               <ChartsPaper>
-                <Typography variant="h6" sx={{ mb: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  Mensagens por Agente
-                  <Box component="span" sx={{ fontSize: '0.9rem', color: 'text.secondary', cursor: 'pointer' }}>
-                    &#8942;
-                  </Box>
+                <Typography variant="h6" sx={{ mb: 2 }}>
+                  Mensagens por Usuário
                 </Typography>
                 <DonutChartComponent data={dashboardData.messagesByUser} />
               </ChartsPaper>
@@ -362,29 +292,23 @@ const Dashboard = () => {
           <Grid container spacing={2.5} sx={{ mb: 2.5 }}>
             <Grid item xs={12} md={6}>
               <ChartsPaper>
-                <Typography variant="h6" sx={{ mb: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  Atendimento vs Comercial
-                  <Box component="span" sx={{ fontSize: '0.9rem', color: 'text.secondary', cursor: 'pointer' }}>
-                    &#8942;
-                  </Box>
+                <Typography variant="h6" sx={{ mb: 2 }}>
+                  Comparativo de Setores
                 </Typography>
                 <ComparativeTable data={dashboardData.comparativeData} />
               </ChartsPaper>
             </Grid>
             <Grid item xs={12} md={6}>
               <ChartsPaper>
-                <Typography variant="h6" sx={{ mb: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  Prospecção por Agente
-                  <Box component="span" sx={{ fontSize: '0.9rem', color: 'text.secondary', cursor: 'pointer' }}>
-                    &#8942;
-                  </Box>
+                <Typography variant="h6" sx={{ mb: 2 }}>
+                  Prospecção por Usuário
                 </Typography>
                 <ProspectionTable data={dashboardData.prospectionData} />
               </ChartsPaper>
             </Grid>
           </Grid>
 
-          {/* Footer com Paginação e Botão de Exportação */}
+          {/* Footer com Botão de Exportação */}
           <FooterContainer>
             <ExportButton startIcon={<FileDownload />} onClick={handleExportToExcel}>
               Exportar para Excel

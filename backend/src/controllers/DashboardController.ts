@@ -1,5 +1,6 @@
 import { Request, Response } from "express";
 import DashboardService from "../services/DashboardService";
+import AppError from "../errors/AppError";
 import { logger } from "../utils/logger";
 
 class DashboardController {
@@ -10,207 +11,122 @@ class DashboardController {
   }
 
   public getOverview = async (req: Request, res: Response): Promise<Response> => {
-    try {
-      const { companyId } = req.user;
-      const { startDate, endDate } = req.query as { startDate: string; endDate: string };
+    const { companyId } = req.user;
+    const { startDate, endDate } = req.query as { startDate?: string; endDate?: string };
 
-      logger.info("DashboardController.getOverview", { companyId, startDate, endDate });
+    try {
+      logger.info("Iniciando getOverview", { companyId, startDate, endDate });
+
+      const parsedStartDate = startDate ? new Date(startDate) : undefined;
+      const parsedEndDate = endDate ? new Date(endDate) : undefined;
 
       const data = await this.dashboardService.getOverviewMetrics(
         companyId,
-        startDate ? new Date(startDate) : undefined,
-        endDate ? new Date(endDate) : undefined
-      );
-
-      // Ajuste: O frontend espera os dados diretamente, não dentro de um objeto "overview"
-      const response = {
-        ...data.overview,
-        ticketsByDay: data.ticketsByDay,
-        messagesByDay: data.messagesByDay
-      };
-
-      return res.status(200).json(response);
-    } catch (error) {
-      logger.error("DashboardController.getOverview error:", error);
-      return res.status(500).json({ error: "Internal server error" });
-    }
-  };
-
-  public getTicketsMetrics = async (req: Request, res: Response): Promise<Response> => {
-    try {
-      const { companyId } = req.user;
-      const { startDate, endDate } = req.query as { startDate: string; endDate: string };
-
-      logger.info("DashboardController.getTicketsMetrics", { companyId, startDate, endDate });
-
-      const data = await this.dashboardService.getTicketsMetrics(
-        companyId,
-        startDate ? new Date(startDate) : undefined,
-        endDate ? new Date(endDate) : undefined
+        parsedStartDate,
+        parsedEndDate
       );
 
       return res.status(200).json(data);
     } catch (error) {
-      logger.error("DashboardController.getTicketsMetrics error:", error);
-      return res.status(500).json({ error: "Internal server error" });
-    }
-  };
-
-  public getUsersMetrics = async (req: Request, res: Response): Promise<Response> => {
-    try {
-      const { companyId } = req.user;
-      const { startDate, endDate } = req.query as { startDate: string; endDate: string };
-
-      logger.info("DashboardController.getUsersMetrics", { companyId, startDate, endDate });
-
-      const data = await this.dashboardService.getUsersMetrics(
-        companyId,
-        startDate ? new Date(startDate) : undefined,
-        endDate ? new Date(endDate) : undefined
-      );
-
-      return res.status(200).json(data);
-    } catch (error) {
-      logger.error("DashboardController.getUsersMetrics error:", error);
-      return res.status(500).json({ error: "Internal server error" });
-    }
-  };
-
-  public getContactsMetrics = async (req: Request, res: Response): Promise<Response> => {
-    try {
-      const { companyId } = req.user;
-      const { startDate, endDate } = req.query as { startDate: string; endDate: string };
-
-      logger.info("DashboardController.getContactsMetrics", { companyId, startDate, endDate });
-
-      const data = await this.dashboardService.getContactsMetrics(
-        companyId,
-        startDate ? new Date(startDate) : undefined,
-        endDate ? new Date(endDate) : undefined
-      );
-
-      return res.status(200).json(data);
-    } catch (error) {
-      logger.error("DashboardController.getContactsMetrics error:", error);
-      return res.status(500).json({ error: "Internal server error" });
+      logger.error("Erro em getOverview", { error });
+      if (error instanceof AppError) {
+        return res.status(error.statusCode).json({ error: error.message });
+      }
+      return res.status(500).json({ error: "Erro interno do servidor" });
     }
   };
 
   public getQueuesMetrics = async (req: Request, res: Response): Promise<Response> => {
-    try {
-      const { companyId } = req.user;
-      const { startDate, endDate } = req.query as { startDate: string; endDate: string };
+    const { companyId } = req.user;
+    const { startDate, endDate, queueId } = req.query as { 
+      startDate?: string; 
+      endDate?: string;
+      queueId?: string;
+    };
 
-      logger.info("DashboardController.getQueuesMetrics", { companyId, startDate, endDate });
+    try {
+      logger.info("Iniciando getQueuesMetrics", { companyId, startDate, endDate, queueId });
+
+      const parsedStartDate = startDate ? new Date(startDate) : undefined;
+      const parsedEndDate = endDate ? new Date(endDate) : undefined;
+      const parsedQueueId = queueId ? parseInt(queueId, 10) : undefined;
 
       const data = await this.dashboardService.getQueuesMetrics(
         companyId,
-        startDate ? new Date(startDate) : undefined,
-        endDate ? new Date(endDate) : undefined
+        parsedStartDate,
+        parsedEndDate,
+        parsedQueueId
       );
 
       return res.status(200).json(data);
     } catch (error) {
-      logger.error("DashboardController.getQueuesMetrics error:", error);
-      return res.status(500).json({ error: "Internal server error" });
-    }
-  };
-
-  public getTagsMetrics = async (req: Request, res: Response): Promise<Response> => {
-    try {
-      const { companyId } = req.user;
-      const { startDate, endDate } = req.query as { startDate: string; endDate: string };
-
-      logger.info("DashboardController.getTagsMetrics", { companyId, startDate, endDate });
-
-      const data = await this.dashboardService.getTagsMetrics(
-        companyId,
-        startDate ? new Date(startDate) : undefined,
-        endDate ? new Date(endDate) : undefined
-      );
-
-      const response = {
-        ...data,
-        avgResponseTimeByTag: data.avgResponseTimeByTag
-      };
-
-      return res.status(200).json(response);
-    } catch (error) {
-      logger.error("DashboardController.getTagsMetrics error:", error);
-      return res.status(500).json({ error: "Internal server error" });
+      logger.error("Erro em getQueuesMetrics", { error });
+      if (error instanceof AppError) {
+        return res.status(error.statusCode).json({ error: error.message });
+      }
+      return res.status(500).json({ error: "Erro interno do servidor" });
     }
   };
 
   public getQueuesComparison = async (req: Request, res: Response): Promise<Response> => {
+    const { companyId } = req.user;
+    const { queue1, queue2 } = req.query as { queue1?: string; queue2?: string };
+
     try {
-      const { queue1Id, queue2Id } = req.query as { queue1Id: string; queue2Id: string };
-      const { companyId } = req.user;
+      logger.info("Iniciando getQueuesComparison", { companyId, queue1, queue2 });
 
-      logger.info("DashboardController.getQueuesComparison", { companyId, queue1Id, queue2Id });
+      if (!queue1 || !queue2) {
+        throw new AppError("Parâmetros queue1 e queue2 são obrigatórios", 400);
+      }
 
-      if (!queue1Id || !queue2Id) {
-        return res.status(400).json({ error: "É necessário informar duas queues para comparação" });
+      const parsedQueue1 = parseInt(queue1, 10);
+      const parsedQueue2 = parseInt(queue2, 10);
+
+      if (isNaN(parsedQueue1) || isNaN(parsedQueue2)) {
+        throw new AppError("IDs de fila inválidos", 400);
       }
 
       const data = await this.dashboardService.getQueuesComparison(
         companyId,
-        parseInt(queue1Id),
-        parseInt(queue2Id)
+        parsedQueue1,
+        parsedQueue2
       );
 
       return res.status(200).json(data);
     } catch (error) {
-      logger.error("DashboardController.getQueuesComparison error:", error);
-      return res.status(500).json({ error: "Erro ao obter comparativo de queues" });
+      logger.error("Erro em getQueuesComparison", { error });
+      if (error instanceof AppError) {
+        return res.status(error.statusCode).json({ error: error.message });
+      }
+      return res.status(500).json({ error: "Erro interno do servidor" });
     }
   };
 
   public getAgentProspection = async (req: Request, res: Response): Promise<Response> => {
-    try {
-      const { period } = req.query as { period: string };
-      const { companyId } = req.user;
+    const { companyId } = req.user;
+    const { period } = req.query as { period?: string };
 
-      logger.info("DashboardController.getAgentProspection", { companyId, period });
+    try {
+      logger.info("Iniciando getAgentProspection", { companyId, period });
+
+      // Validar período
+      const validPeriods = ['hoje', 'semana', 'quinzena', 'mes'];
+      const parsedPeriod = validPeriods.includes(period || '') ? period : 'semana';
 
       const data = await this.dashboardService.getAgentProspection(
         companyId,
-        period || 'hoje'
+        parsedPeriod
       );
 
       return res.status(200).json(data);
     } catch (error) {
-      logger.error("DashboardController.getAgentProspection error:", error);
-      return res.status(500).json({ error: "Erro ao obter dados de prospecção por agente" });
+      logger.error("Erro em getAgentProspection", { error });
+      if (error instanceof AppError) {
+        return res.status(error.statusCode).json({ error: error.message });
+      }
+      return res.status(500).json({ error: "Erro interno do servidor" });
     }
   };
-
-public getUserQueueMetrics = async (req: Request, res: Response): Promise<Response> => {
-  try {
-    const { companyId } = req.user;
-    const { userId } = req.params;
-    const { startDate, endDate } = req.query as { startDate: string; endDate: string };
-
-    logger.info("DashboardController.getUserQueueMetrics", { 
-      companyId, 
-      userId, 
-      startDate, 
-      endDate 
-    });
-
-    const data = await this.dashboardService.getUserQueueMetrics(
-      companyId,
-      parseInt(userId),
-      startDate ? new Date(startDate) : undefined,
-      endDate ? new Date(endDate) : undefined
-    );
-
-    return res.status(200).json(data);
-  } catch (error) {
-    logger.error("DashboardController.getUserQueueMetrics error:", error);
-    return res.status(500).json({ error: "Erro ao obter métricas do usuário por fila" });
-  }
-};
-
 }
 
 export default DashboardController;

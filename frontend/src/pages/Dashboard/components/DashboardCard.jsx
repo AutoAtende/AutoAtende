@@ -96,19 +96,21 @@ const DashboardCard = ({ icon, title, value, subtitle, trend, trendText, invertT
       </CardTitle>
       <CardValue variant="h2">{value}</CardValue>
       <CardSubtitle variant="body2">{subtitle}</CardSubtitle>
-      <CardFooter>
-        {isPositiveTrend ? (
-          <CardTrendUp>
-            <ArrowUpIcon fontSize="small" sx={{ mr: 0.5 }} />
-            {trendText}
-          </CardTrendUp>
-        ) : (
-          <CardTrendDown>
-            <ArrowDownIcon fontSize="small" sx={{ mr: 0.5 }} />
-            {trendText}
-          </CardTrendDown>
-        )}
-      </CardFooter>
+      {trend !== undefined && trendText && (
+        <CardFooter>
+          {isPositiveTrend ? (
+            <CardTrendUp>
+              <ArrowUpIcon fontSize="small" sx={{ mr: 0.5 }} />
+              {trendText}
+            </CardTrendUp>
+          ) : (
+            <CardTrendDown>
+              <ArrowDownIcon fontSize="small" sx={{ mr: 0.5 }} />
+              {trendText}
+            </CardTrendDown>
+          )}
+        </CardFooter>
+      )}
     </CardContainer>
   );
 };

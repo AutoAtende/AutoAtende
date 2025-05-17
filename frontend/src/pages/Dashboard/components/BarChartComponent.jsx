@@ -17,22 +17,11 @@ const BarChartComponent = ({ data }) => {
     count: item.count
   }));
 
-  // Se não houver dados, mostrar dados de exemplo
-  const displayData = chartData.length > 0 ? chartData : [
-    { date: '10/04', count: 80 },
-    { date: '11/04', count: 60 },
-    { date: '12/04', count: 90 },
-    { date: '13/04', count: 75 },
-    { date: '14/04', count: 110 },
-    { date: '15/04', count: 65 },
-    { date: '16/04', count: 40 },
-  ];
-
   return (
     <ChartContainer>
       <ResponsiveContainer width="100%" height="100%">
         <BarChart
-          data={displayData}
+          data={chartData}
           margin={{
             top: 20,
             right: 20,

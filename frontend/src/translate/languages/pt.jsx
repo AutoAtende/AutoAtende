@@ -8378,6 +8378,7 @@ const messages = {
           edit: "Editar",
           delete: "Excluir",
           upload: "Escolher Arquivo",
+          uploadFile: "Enviar Arquivo",
           download: "Download",
           close: "Fechar",
           openPdf: "Abrir PDF",
