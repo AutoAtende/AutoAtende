@@ -1,10 +1,10 @@
 import { useState, useEffect, useContext } from 'react';
-import {AuthContext} from '../../../context/Auth/AuthContext';
+import { AuthContext } from '../../../context/Auth/AuthContext';
 import api from '../../../services/api';
 import { toast } from '../../../helpers/toast';
 
 const useDashboardData = () => {
-  const {user} = useContext(AuthContext);
+  const { user } = useContext(AuthContext);
   // Estados
   const [dateRange, setDateRange] = useState(7);
   const [selectedQueue, setSelectedQueue] = useState('all');
@@ -96,19 +96,28 @@ const useDashboardData = () => {
       // Carregar dados para comparativo
       const queueMetrics = await api.get(`/dashboard/queues?startDate=${startDateStr}&endDate=${endDateStr}`);
       
+      // Verificar e inicializar dados para evitar erros
+      const overviewData = response.data || {};
+      const ticketsByUser = queueMetrics.data?.ticketsByUser || [];
+      const ticketsByQueue = queueMetrics.data?.ticketsByQueue || [];
+      
       // Processar dados recebidos
-      setDashboardData({
-        messagesCount: response.data.totalMessages || 0,
-        avgResponseTime: formatResponseTime(response.data.averageFirstResponseTime || 0),
-        clientsCount: response.data.newContacts || 0,
-        messagesTrend: Math.floor(Math.random() * 20) - 10, // Simulação para efeito visual
-        responseTimeTrend: Math.floor(Math.random() * 20) - 10,
-        clientsTrend: Math.floor(Math.random() * 20) - 10,
-        messagesByDay: formatMessagesByDay(response.data.messagesByDay || []),
-        messagesByUser: formatMessagesByUser(queueMetrics.data.ticketsByUser || []),
-        comparativeData: formatComparativeData(queueMetrics.data.ticketsByQueue || []),
+      const newData = {
+        messagesCount: overviewData.totalMessages || 0,
+        avgResponseTime: formatResponseTime(overviewData.averageFirstResponseTime || 0),
+        clientsCount: overviewData.newContacts || 0,
+        // Calcular tendências com base nos dados reais, quando disponíveis
+        messagesTrend: calculateTrend(overviewData.messageTrend),
+        responseTimeTrend: calculateTrend(overviewData.responseTrend),
+        clientsTrend: calculateTrend(overviewData.clientTrend),
+        messagesByDay: formatMessagesByDay(overviewData.messagesByDay || []),
+        messagesByUser: formatMessagesByUser(ticketsByUser),
+        comparativeData: formatComparativeData(ticketsByQueue),
         prospectionData: prospectionResponse.data || []
-      });
+      };
+      
+      setDashboardData(newData);
+      
     } catch (error) {
       console.error('Erro ao carregar dados do dashboard', error);
       setError('Erro ao carregar métricas do dashboard.');
@@ -124,6 +133,11 @@ const useDashboardData = () => {
     const mins = Math.floor(minutes);
     const secs = Math.round((minutes - mins) * 60);
     return `${mins}m ${secs.toString().padStart(2, '0')}s`;
+  };
+
+  const calculateTrend = (trendValue) => {
+    // Se a tendência estiver disponível na API, use-a; caso contrário, retorne 0
+    return trendValue !== undefined ? trendValue : 0;
   };
 
   const formatMessagesByDay = (data) => {
@@ -161,10 +175,10 @@ const useDashboardData = () => {
       id: queue.queueId,
       name: queue.queueName,
       messages: queue.count,
-      avgTime: formatResponseTime(queue.avgWaitTime || 0),
-      clients: Math.floor(queue.count / 10), // Valor simulado
-      responseRate: `${Math.floor(70 + Math.random() * 30)}%`, // Valor simulado
-      firstContact: formatResponseTime(queue.avgWaitTime ? queue.avgWaitTime / 2 : 0) // Valor simulado
+      avgTime: formatResponseTime(queue.avgResolutionTime || 0),
+      clients: queue.clients || 0,
+      responseRate: `${queue.responseRate || 0}%`,
+      firstContact: formatResponseTime(queue.firstContactTime || 0)
     }));
   };
 
