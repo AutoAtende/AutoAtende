@@ -37,7 +37,6 @@ import Help from "../models/Help";
 import InactivityMessage from "../models/InactivityMessage";
 import InvoiceLogs from "../models/InvoiceLogs";
 import Invoices from "../models/Invoices";
-import KanbanBoard from "../models/KanbanBoard";
 import Message from "../models/Message";
 import OldMessage from "../models/OldMessage";
 import Plan from "../models/Plan";
@@ -95,6 +94,14 @@ import VoiceConfig from "../models/VoiceConfig";
 import AppointmentNode from "../models/AppointmentNode";
 import InternalMessageNode from "../models/InternalMessageNode";
 import DashboardSettings from "../models/DashboardSettings";
+import KanbanBoard from "../models/KanbanBoard";
+import KanbanCard from "../models/KanbanCard";
+import KanbanChecklistItem from "../models/KanbanChecklistItem";
+import KanbanChecklistTemplate from "../models/KanbanChecklistTemplate";
+import KanbanLane from "../models/KanbanLane";
+import KanbanMetric from "../models/KanbanMetric";
+import KanbanWorkflow from "../models/KanbanWorkflow";
+import KanbanAutomationRule from "../models/KanbanAutomationRule";
 import * as dbConfig from "../config/database";
 const sequelize = new Sequelize(dbConfig as any);
 
@@ -133,7 +140,6 @@ const models = [
   InactivityMessage,
   InvoiceLogs,
   Invoices,
-  KanbanBoard,
   Appointment,
   Message,
   OldMessage,
@@ -194,7 +200,15 @@ const models = [
   VoiceConfig,
   AppointmentNode,
   InternalMessageNode,
-  DashboardSettings
+  DashboardSettings,
+  KanbanBoard,
+  KanbanCard,
+  KanbanChecklistItem,
+  KanbanChecklistTemplate,
+  KanbanLane,
+  KanbanMetric,
+  KanbanWorkflow,
+  KanbanAutomationRule
 ];
 
 sequelize.addModels(models);
