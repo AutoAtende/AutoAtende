@@ -240,7 +240,7 @@ function Whitelabel({ settings }) {
           setLoadingForSection(section, true);
         }
         
-        await update({ key, value });
+        await update({ key, value, companyId: user.companyId });
         
         if (isMounted.current) {
           // Atualizar o estado localmente em uma única operação
@@ -277,7 +277,7 @@ function Whitelabel({ settings }) {
         }
       }
     },
-    [update, settingsLoaded, colorMode, setLoadingForSection, updateThemeColorValues]
+    [update, settingsLoaded, colorMode, setLoadingForSection, updateThemeColorValues, user.companyId]
   );
 
   // Função para atualizar o cache
@@ -411,8 +411,9 @@ function Whitelabel({ settings }) {
       return imagePath;
     }
 
+    // Construir URL específica para a empresa
     return `${process.env.REACT_APP_BACKEND_URL}/public/${imagePath}`;
-  }, []);
+  }, [getImageDefaultByImageKey]);
 
   // Função otimizada para fazer upload de imagens de fundo
   const uploadBackground = useCallback(
@@ -423,7 +424,7 @@ function Whitelabel({ settings }) {
       const formData = new FormData();
       formData.append("file", file);
       formData.append("page", page);
-
+      formData.append("companyId", user.companyId.toString());
       try {
         setLoadingForSection('logos', true);
         const response = await api.post("/settings/background", formData);
@@ -444,7 +445,7 @@ function Whitelabel({ settings }) {
         }
       }
     },
-    [handleSaveSetting, updateSettingsLoaded, setLoadingForSection]
+    [handleSaveSetting, updateSettingsLoaded, setLoadingForSection, user.companyId]
   );
 
   // Função otimizada para excluir imagens de fundo
@@ -455,7 +456,7 @@ function Whitelabel({ settings }) {
       filename = removePathName(filename);
       try {
         setLoadingForSection('logos', true);
-        await api.delete(`/settings/backgrounds/${filename}`);
+        await api.delete(`/settings/backgrounds/${filename}?companyId=${user.companyId}`);
         
         if (isMounted.current) {
           if (imageKey === "loginBackground") {
@@ -478,7 +479,7 @@ function Whitelabel({ settings }) {
         }
       }
     },
-    [updateSettingsLoaded, handleSaveSetting, setLoadingForSection]
+    [updateSettingsLoaded, handleSaveSetting, setLoadingForSection, user.companyId]
   );
 
   const handleTabChange = useCallback((event, newValue) => {
@@ -494,6 +495,7 @@ function Whitelabel({ settings }) {
       const formData = new FormData();
       formData.append("file", file);
       formData.append("mode", mode);
+      formData.append("companyId", user.companyId.toString());
   
       try {
         setLoadingForSection('logos', true);
@@ -528,7 +530,7 @@ function Whitelabel({ settings }) {
         }
       }
     },
-    [colorMode, handleSaveSetting, updateSettingsLoaded, setLoadingForSection]
+    [colorMode, handleSaveSetting, updateSettingsLoaded, setLoadingForSection, user.companyId]
   );
   
   // Função auxiliar para obter imagens padrão

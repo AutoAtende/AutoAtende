@@ -35,7 +35,7 @@ const App = () => {
   );
   const [activeWhatsapp, setActiveWhatsapp] = useState("default");
   const [themeSettings, setThemeSettings] = useState({});
-  const { isAuth } = useAuth();
+  const { isAuth, user } = useAuth();
   const { getAllPublicSetting } = useSettings();
   
   // Função para armazenar configurações em cache
@@ -113,12 +113,13 @@ const App = () => {
   // Função principal para carregar as configurações
   const loadSettings = useCallback(async () => {
     try {
-      const companyId = localStorage.getItem("companyId") || "1"; // Company 1 como padrão
+      // Importante: Obter companyId do usuário logado ou do localStorage
+      const companyId = user?.companyId || localStorage.getItem("companyId") || "1";
       
       // Primeiro, tenta carregar do cache
       const cachedSettings = getSettingsFromCache(companyId);
       if (cachedSettings) {
-        console.log('Usando configurações em cache');
+        console.log('Usando configurações em cache para empresa:', companyId);
         setThemeSettings(cachedSettings);
         
         // Se tiver configuração de nome da aplicação, atualiza o título
@@ -127,8 +128,8 @@ const App = () => {
         }
       }
       
-      // Em seguida, busca as configurações atualizadas da API
-      const allSettings = await getAllPublicSetting();
+      // Em seguida, busca as configurações atualizadas da API especificando a empresa
+      const allSettings = await getAllPublicSetting(companyId);
       if (allSettings) {
         const processedSettings = processSettings(allSettings, companyId);
         setThemeSettings(processedSettings);
@@ -145,12 +146,14 @@ const App = () => {
     } catch (error) {
       console.error("Erro ao carregar configurações:", error);
     }
-  }, [getAllPublicSetting, getSettingsFromCache, processSettings]);
+  }, [getAllPublicSetting, getSettingsFromCache, processSettings, user]);
 
-  // Efeito para carregar as configurações ao iniciar ou quando mudar o status de autenticação
+  // Efeito para carregar as configurações ao iniciar ou quando mudar o status de autenticação ou o usuário
   useEffect(() => {
-    loadSettings();
-  }, [loadSettings, isAuth]);
+    if (isAuth) {
+      loadSettings();
+    }
+  }, [loadSettings, isAuth, user?.companyId]);
 
   // Funções para modificação do tema
   const colorMode = useMemo(
@@ -184,6 +187,54 @@ const App = () => {
         }
         setSetting("secondaryColorDark", color);
       },
+      setIconColorLight: (color) => {
+        if (!color || !color.startsWith("#")) {
+          color = "#0693E3";
+        }
+        setSetting("iconColorLight", color);
+      },
+      setIconColorDark: (color) => {
+        if (!color || !color.startsWith("#")) {
+          color = "#39ACE7";
+        }
+        setSetting("iconColorDark", color);
+      },
+      setChatlistLight: (color) => {
+        if (!color || !color.startsWith("#")) {
+          color = "#eeeeee";
+        }
+        setSetting("chatlistLight", color);
+      },
+      setChatlistDark: (color) => {
+        if (!color || !color.startsWith("#")) {
+          color = "#1C2E36";
+        }
+        setSetting("chatlistDark", color);
+      },
+      setBoxLeftLight: (color) => {
+        if (!color || !color.startsWith("#")) {
+          color = "#39ACE7";
+        }
+        setSetting("boxLeftLight", color);
+      },
+      setBoxLeftDark: (color) => {
+        if (!color || !color.startsWith("#")) {
+          color = "#39ACE7";
+        }
+        setSetting("boxLeftDark", color);
+      },
+      setBoxRightLight: (color) => {
+        if (!color || !color.startsWith("#")) {
+          color = "#39ACE7";
+        }
+        setSetting("boxRightLight", color);
+      },
+      setBoxRightDark: (color) => {
+        if (!color || !color.startsWith("#")) {
+          color = "#39ACE7";
+        }
+        setSetting("boxRightDark", color);
+      },
       setAppLogoLight: (file) => {
         setSetting("appLogoLight", file);
       },
@@ -210,30 +261,6 @@ const App = () => {
       },
       setSignupBackground: (file) => {
         setSetting("signupBackground", file);
-      },
-      setIconColorLight: (color) => {
-        setSetting("iconColorLight", color);
-      },
-      setIconColorDark: (color) => {
-        setSetting("iconColorDark", color);
-      },
-      setChatlistLight: (color) => {
-        setSetting("chatlistLight", color);
-      },
-      setChatlistDark: (color) => {
-        setSetting("chatlistDark", color);
-      },
-      setBoxLeftLight: (color) => {
-        setSetting("boxLeftLight", color);
-      },
-      setBoxLeftDark: (color) => {
-        setSetting("boxLeftDark", color);
-      },
-      setBoxRightLight: (color) => {
-        setSetting("boxRightLight", color);
-      },
-      setBoxRightDark: (color) => {
-        setSetting("boxRightDark", color);
       },
       setNumberOfSupport: (number) => {
         setSetting("numberOfSupport", number);
