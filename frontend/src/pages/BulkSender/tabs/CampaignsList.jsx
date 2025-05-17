@@ -25,6 +25,7 @@ import {
   DeleteOutline as DeleteOutlineIcon,
   Edit as EditIcon,
   Description as DescriptionIcon,
+  ContentCopy as ContentCopyIcon,
   PlayCircleOutline as PlayCircleOutlineIcon,
   PauseCircleOutline as PauseCircleOutlineIcon,
   CheckCircleOutlined as CheckCircleOutlinedIcon,
@@ -289,6 +290,16 @@ const CampaignsList = ({
                           </IconButton>
                         </Tooltip>
                       )}
+
+                      <Tooltip title={i18n.t("campaigns.buttons.duplicate")}>
+                        <IconButton
+                          size="small"
+                          onClick={() => onDuplicate && onDuplicate(campaign)}
+                          color="primary"
+                        >
+                          <ContentCopyIcon />
+                        </IconButton>
+                      </Tooltip>
 
                       <Tooltip title={i18n.t("campaigns.buttons.edit")}>
                         <IconButton

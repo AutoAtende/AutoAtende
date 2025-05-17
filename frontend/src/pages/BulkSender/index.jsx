@@ -1,4 +1,3 @@
-// src/pages/BulkSender/index.jsx - Versão Refatorada
 import React, { useState, useEffect, useReducer, useCallback, useContext } from "react";
 import { useTheme } from "@mui/material/styles";
 import { toast } from "../../helpers/toast";
@@ -211,13 +210,14 @@ const BulkSender = () => {
     setCampaignModalOpen(true);
   };
 
-  const handleDuplicateCampaign = (campaign) => {
-    if (!campaign || !campaign.id) return;
-    
-    setSelectedCampaign(null);
-    setDuplicateFromId(campaign.id);
-    setCampaignModalOpen(true);
-  };
+// Função para duplicar campanha
+const handleDuplicateCampaign = (campaign) => {
+  if (!campaign || !campaign.id) return;
+  
+  setSelectedCampaign(null);
+  setDuplicateFromId(campaign.id);
+  setCampaignModalOpen(true);
+};
 
   const handleOpenContactListModal = (contactList = null) => {
     setSelectedContactList(contactList);
@@ -345,6 +345,7 @@ const BulkSender = () => {
     }
   ];
 
+  // Determinar se deve mostrar o campo de busca para a tab atual
   const showSearch = tabValue === 0 || tabValue === 1 || tabValue === 4;
 
   return (

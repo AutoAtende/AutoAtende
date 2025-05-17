@@ -7812,6 +7812,7 @@ const messages = {
           edit: "Editar",
           delete: "Excluir",
           report: "Relatório",
+          duplicate: "Duplicar",
           stop: "Parar",
           restart: "Reiniciar",
           upload: "Fazer Upload"
@@ -7856,6 +7857,8 @@ const messages = {
             name: "Nome da Campanha",
             confirmation: "Confirmação de Leitura",
             contactList: "Lista de Contatos",
+            identifier: "Identificador",
+            identifierHelper: "Identificador único para a campanha",
             tagList: "Tag",
             whatsapp: "Conexão WhatsApp",
             scheduledAt: "Agendamento",
