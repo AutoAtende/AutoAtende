@@ -35,6 +35,15 @@ export const DashboardProvider = ({ children }) => {
             ...prevSettings,
             ...response.data
           }));
+          
+          // Aplicar as configurações carregadas
+          if (response.data.defaultDateRange) {
+            dashboardData.setDateRange(response.data.defaultDateRange);
+          }
+          
+          if (response.data.defaultQueue) {
+            dashboardData.setSelectedQueue(response.data.defaultQueue);
+          }
         }
       } catch (error) {
         console.error('Erro ao carregar configurações do dashboard:', error);
@@ -59,6 +68,7 @@ export const DashboardProvider = ({ children }) => {
     } catch (error) {
       console.error('Erro ao atualizar configurações do dashboard:', error);
       toast.error('Erro ao atualizar configurações do dashboard');
+      throw error;
     }
   };
   
@@ -84,6 +94,7 @@ export const DashboardProvider = ({ children }) => {
     } catch (error) {
       console.error('Erro ao atualizar visibilidade do componente:', error);
       toast.error('Erro ao atualizar visibilidade do componente');
+      throw error;
     }
   };
   
@@ -93,11 +104,22 @@ export const DashboardProvider = ({ children }) => {
       const response = await api.post('/dashboard/settings/reset');
       if (response.data) {
         setDashboardSettings(response.data);
+        
+        // Aplicar as configurações padrão
+        if (response.data.defaultDateRange) {
+          dashboardData.setDateRange(response.data.defaultDateRange);
+        }
+        
+        if (response.data.defaultQueue) {
+          dashboardData.setSelectedQueue(response.data.defaultQueue);
+        }
+        
         toast.success('Configurações do dashboard resetadas');
       }
     } catch (error) {
       console.error('Erro ao resetar configurações do dashboard:', error);
       toast.error('Erro ao resetar configurações do dashboard');
+      throw error;
     }
   };
   

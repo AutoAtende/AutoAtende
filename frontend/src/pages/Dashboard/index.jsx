@@ -1,7 +1,7 @@
-import React from 'react';
-import { Box, Container, Typography, Grid, Paper, Select, MenuItem, FormControl, Button } from '@mui/material';
+import React, { useState, useEffect } from 'react';
+import { Box, Container, Typography, Grid, Paper, Select, MenuItem, FormControl, Button, IconButton, Tooltip } from '@mui/material';
 import { styled } from '@mui/material/styles';
-import { CalendarToday, FileDownload } from '@mui/icons-material';
+import { CalendarToday, FileDownload, Settings as SettingsIcon } from '@mui/icons-material';
 import { toast } from "../../helpers/toast";
 import { useLoading } from "../../hooks/useLoading";
 import Title from '../../components/Title';
@@ -10,7 +10,9 @@ import BarChartComponent from './components/BarChartComponent';
 import DonutChartComponent from './components/DonutChartComponent';
 import ComparativeTable from './components/ComparativeTable';
 import ProspectionTable from './components/ProspectionTable';
-import useDashboardData from './hooks/useDashboardData';
+import ComponentVisibilityControl from './components/ComponentVisibilityControl';
+import DashboardConfigModal from './components/DashboardConfigModal';
+import { useDashboardContext } from './context';
 import ExcelExportService from './services/ExcelExportService';
 
 // Styled Components
@@ -89,6 +91,13 @@ const ChartsPaper = styled(Paper)(({ theme }) => ({
   height: '100%',
 }));
 
+const ChartHeader = styled(Box)(({ theme }) => ({
+  display: 'flex',
+  justifyContent: 'space-between',
+  alignItems: 'center',
+  marginBottom: theme.spacing(2),
+}));
+
 const FooterContainer = styled(Box)(({ theme }) => ({
   display: 'flex',
   justifyContent: 'flex-end',
@@ -111,6 +120,11 @@ const ExportButton = styled(Button)(({ theme }) => ({
   },
 }));
 
+const ConfigButton = styled(IconButton)(({ theme }) => ({
+  color: theme.palette.grey[700],
+  marginLeft: theme.spacing(1.25),
+}));
+
 // Data range options
 const DATE_RANGES = [
   { value: 7, label: 'Últimos 7 dias' },
@@ -129,8 +143,17 @@ const Dashboard = () => {
     setSelectedQueue,
     queues,
     dashboardData,
-    getDateRangeDisplay
-  } = useDashboardData();
+    getDateRangeDisplay,
+    dashboardSettings
+  } = useDashboardContext();
+  
+  // Estado para controlar a abertura do modal de configurações
+  const [configModalOpen, setConfigModalOpen] = useState(false);
+  
+  // Verificar se um componente deve ser exibido
+  const isComponentVisible = (componentKey) => {
+    return dashboardSettings?.componentVisibility?.[componentKey] !== false;
+  };
   
   // Handler para mudança de faixa de data
   const handleDateRangeChange = (event) => {
@@ -195,6 +218,12 @@ const Dashboard = () => {
               ))}
             </Select>
           </FormControl>
+          
+          <Tooltip title="Configurações do Dashboard">
+            <ConfigButton onClick={() => setConfigModalOpen(true)}>
+              <SettingsIcon />
+            </ConfigButton>
+          </Tooltip>
         </FiltersContainer>
       </PageHeader>
 
@@ -236,77 +265,110 @@ const Dashboard = () => {
         <>
           {/* Cards de Métricas */}
           <Grid container spacing={2.5} sx={{ mb: 2.5 }}>
-            <Grid item xs={12} md={4}>
-              <DashboardCard
-                icon="paper-plane"
-                title="Mensagens Enviadas"
-                value={dashboardData.messagesCount.toLocaleString()}
-                subtitle="Total no período"
-                trend={dashboardData.messagesTrend}
-                trendText={`${Math.abs(dashboardData.messagesTrend)}% em relação à semana anterior`}
-              />
-            </Grid>
-            <Grid item xs={12} md={4}>
-              <DashboardCard
-                icon="clock"
-                title="Tempo Médio de Resposta"
-                value={dashboardData.avgResponseTime}
-                subtitle="Após primeira mensagem do cliente"
-                trend={dashboardData.responseTimeTrend}
-                trendText={`${Math.abs(dashboardData.responseTimeTrend)}% em relação à semana anterior`}
-                invertTrend={true}
-              />
-            </Grid>
-            <Grid item xs={12} md={4}>
-              <DashboardCard
-                icon="users"
-                title="Clientes Interagidos"
-                value={dashboardData.clientsCount.toLocaleString()}
-                subtitle="No período selecionado"
-                trend={dashboardData.clientsTrend}
-                trendText={`${Math.abs(dashboardData.clientsTrend)}% em relação à semana anterior`}
-              />
-            </Grid>
+            {isComponentVisible('messagesCard') && (
+              <Grid item xs={12} md={4}>
+                <DashboardCard
+                  icon="paper-plane"
+                  title="Mensagens Enviadas"
+                  value={dashboardData.messagesCount.toLocaleString()}
+                  subtitle="Total no período"
+                  trend={dashboardData.messagesTrend}
+                  trendText={`${Math.abs(dashboardData.messagesTrend)}% em relação à semana anterior`}
+                  visibilityControl={<ComponentVisibilityControl componentKey="messagesCard" />}
+                />
+              </Grid>
+            )}
+            
+            {isComponentVisible('responseTimeCard') && (
+              <Grid item xs={12} md={4}>
+                <DashboardCard
+                  icon="clock"
+                  title="Tempo Médio de Resposta"
+                  value={dashboardData.avgResponseTime}
+                  subtitle="Após primeira mensagem do cliente"
+                  trend={dashboardData.responseTimeTrend}
+                  trendText={`${Math.abs(dashboardData.responseTimeTrend)}% em relação à semana anterior`}
+                  invertTrend={true}
+                  visibilityControl={<ComponentVisibilityControl componentKey="responseTimeCard" />}
+                />
+              </Grid>
+            )}
+            
+            {isComponentVisible('clientsCard') && (
+              <Grid item xs={12} md={4}>
+                <DashboardCard
+                  icon="users"
+                  title="Clientes Interagidos"
+                  value={dashboardData.clientsCount.toLocaleString()}
+                  subtitle="No período selecionado"
+                  trend={dashboardData.clientsTrend}
+                  trendText={`${Math.abs(dashboardData.clientsTrend)}% em relação à semana anterior`}
+                  visibilityControl={<ComponentVisibilityControl componentKey="clientsCard" />}
+                />
+              </Grid>
+            )}
           </Grid>
 
           {/* Gráficos */}
           <Grid container spacing={2.5} sx={{ mb: 2.5 }}>
-            <Grid item xs={12} md={6}>
-              <ChartsPaper>
-                <Typography variant="h6" sx={{ mb: 2 }}>
-                  Mensagens por Dia
-                </Typography>
-                <BarChartComponent data={dashboardData.messagesByDay} />
-              </ChartsPaper>
-            </Grid>
-            <Grid item xs={12} md={6}>
-              <ChartsPaper>
-                <Typography variant="h6" sx={{ mb: 2 }}>
-                  Mensagens por Usuário
-                </Typography>
-                <DonutChartComponent data={dashboardData.messagesByUser} />
-              </ChartsPaper>
-            </Grid>
+            {isComponentVisible('messagesByDayChart') && (
+              <Grid item xs={12} md={6}>
+                <ChartsPaper>
+                  <ChartHeader>
+                    <Typography variant="h6">
+                      Mensagens por Dia
+                    </Typography>
+                    <ComponentVisibilityControl componentKey="messagesByDayChart" />
+                  </ChartHeader>
+                  <BarChartComponent data={dashboardData.messagesByDay} />
+                </ChartsPaper>
+              </Grid>
+            )}
+            
+            {isComponentVisible('messagesByUserChart') && (
+              <Grid item xs={12} md={6}>
+                <ChartsPaper>
+                  <ChartHeader>
+                    <Typography variant="h6">
+                      Mensagens por Usuário
+                    </Typography>
+                    <ComponentVisibilityControl componentKey="messagesByUserChart" />
+                  </ChartHeader>
+                  <DonutChartComponent data={dashboardData.messagesByUser} />
+                </ChartsPaper>
+              </Grid>
+            )}
           </Grid>
 
           {/* Tabelas */}
           <Grid container spacing={2.5} sx={{ mb: 2.5 }}>
-            <Grid item xs={12} md={6}>
-              <ChartsPaper>
-                <Typography variant="h6" sx={{ mb: 2 }}>
-                  Comparativo de Setores
-                </Typography>
-                <ComparativeTable data={dashboardData.comparativeData} />
-              </ChartsPaper>
-            </Grid>
-            <Grid item xs={12} md={6}>
-              <ChartsPaper>
-                <Typography variant="h6" sx={{ mb: 2 }}>
-                  Prospecção por Usuário
-                </Typography>
-                <ProspectionTable data={dashboardData.prospectionData} />
-              </ChartsPaper>
-            </Grid>
+            {isComponentVisible('comparativeTable') && (
+              <Grid item xs={12} md={6}>
+                <ChartsPaper>
+                  <ChartHeader>
+                    <Typography variant="h6">
+                      Comparativo de Setores
+                    </Typography>
+                    <ComponentVisibilityControl componentKey="comparativeTable" />
+                  </ChartHeader>
+                  <ComparativeTable data={dashboardData.comparativeData} />
+                </ChartsPaper>
+              </Grid>
+            )}
+            
+            {isComponentVisible('prospectionTable') && (
+              <Grid item xs={12} md={6}>
+                <ChartsPaper>
+                  <ChartHeader>
+                    <Typography variant="h6">
+                      Prospecção por Usuário
+                    </Typography>
+                    <ComponentVisibilityControl componentKey="prospectionTable" />
+                  </ChartHeader>
+                  <ProspectionTable data={dashboardData.prospectionData} />
+                </ChartsPaper>
+              </Grid>
+            )}
           </Grid>
 
           {/* Footer com Botão de Exportação */}
@@ -317,6 +379,12 @@ const Dashboard = () => {
           </FooterContainer>
         </>
       )}
+      
+      {/* Modal de Configurações do Dashboard */}
+      <DashboardConfigModal 
+        open={configModalOpen} 
+        onClose={() => setConfigModalOpen(false)} 
+      />
     </StyledContainer>
   );
 };

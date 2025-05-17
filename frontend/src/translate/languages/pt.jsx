@@ -3995,7 +3995,7 @@ const messages = {
           add: "Novo Informativo",
           contactLists: "Listas de Informativos",
         },
-        empty: {
+        emptyState: {
           title: "Nenhum informativo disponível",
           message: "Nenhum comunicado encontrado. Clique em 'Novo Informativo' para criar o primeiro!",
           button: "Novo Informativo"

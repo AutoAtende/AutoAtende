@@ -22,10 +22,16 @@ const CardContainer = styled(Paper)(({ theme }) => ({
   },
 }));
 
+const CardHeader = styled(Box)(({ theme }) => ({
+  display: 'flex',
+  justifyContent: 'space-between',
+  alignItems: 'center',
+  marginBottom: theme.spacing(1),
+}));
+
 const CardTitle = styled(Box)(({ theme }) => ({
   fontSize: '1rem',
   color: theme.palette.text.secondary,
-  marginBottom: theme.spacing(1.25),
   display: 'flex',
   alignItems: 'center',
 }));
@@ -82,18 +88,32 @@ const getIcon = (iconName) => {
   }
 };
 
-const DashboardCard = ({ icon, title, value, subtitle, trend, trendText, invertTrend = false }) => {
+const DashboardCard = ({ 
+  icon, 
+  title, 
+  value, 
+  subtitle, 
+  trend, 
+  trendText, 
+  invertTrend = false,
+  visibilityControl
+}) => {
   // Determinar se a tendência é positiva (considerando a inversão se necessário)
   const isPositiveTrend = invertTrend ? trend < 0 : trend > 0;
   
   return (
     <CardContainer>
-      <CardTitle>
-        <CardTitleIcon>
-          {getIcon(icon)}
-        </CardTitleIcon>
-        {title}
-      </CardTitle>
+      <CardHeader>
+        <CardTitle>
+          <CardTitleIcon>
+            {getIcon(icon)}
+          </CardTitleIcon>
+          {title}
+        </CardTitle>
+        {visibilityControl && (
+          <Box>{visibilityControl}</Box>
+        )}
+      </CardHeader>
       <CardValue variant="h2">{value}</CardValue>
       <CardSubtitle variant="body2">{subtitle}</CardSubtitle>
       {trend !== undefined && trendText && (
