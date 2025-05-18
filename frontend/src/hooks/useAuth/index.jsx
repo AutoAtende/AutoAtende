@@ -5,7 +5,7 @@ import { i18n } from "../../translate/i18n";
 import api from "../../services/api";
 import FacebookPixelService from "../../services/facebookPixel";
 import { SocketContext } from "../../context/Socket/SocketContext";
-import { usePublicSettings } from "../../context/PublicSettingsProvider";
+import { usePublicSettings } from "../../context/PublicSettingsContext";
 import moment from "moment";
 
 let refreshTokenPromise = null;
@@ -14,7 +14,6 @@ const useAuth = () => {
   const history = useHistory();
   const [isAuth, setIsAuth] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [user, setUser] = useState({});
   
   // Usar o hook usePublicSettings para carregar configurações públicas
   const { publicSettings, loadPublicSettings } = usePublicSettings();
