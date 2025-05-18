@@ -3,7 +3,7 @@ import { Route as RouterRoute, Redirect, useLocation } from "react-router-dom";
 import { AuthContext } from "../context/Auth/AuthContext";
 import BackdropLoading from "../components/BackdropLoading";
 import { AutoAtendeLoading } from "../components/Loading/AutoAtendeLoading";
-import { usePublicSettings } from "../context/PublicSettingsProvider";
+import { usePublicSettings } from "../context/PublicSettingsContext";
 
 const CustomRoute = ({ component: Component, isPrivate = false, ...rest }) => {
   const { isAuth, loading, user } = useContext(AuthContext);

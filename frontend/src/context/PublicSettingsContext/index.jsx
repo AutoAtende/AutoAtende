@@ -1,5 +1,5 @@
 import React, { createContext, useState, useContext, useEffect, useCallback } from "react";
-import openApi from "../services/api";
+import openApi from "../../services/api";
 
 // Criação do contexto
 const PublicSettingsContext = createContext({});
