@@ -22,8 +22,8 @@ import { ModalProvider } from "./hooks/useModal";
 import { GlobalContextProvider } from "./context/GlobalContext";
 import { socketManager, SocketContext } from "./context/Socket/SocketContext";
 import { ActiveWhatsappProvider } from "./context/ActiveWhatsappContext";
-import { PublicSettingsProvider } from "./context/PublicSettingsProvider";
-import { usePublicSettings } from "./context/PublicSettingsProvider";
+import { PublicSettingsProvider } from "./context/PublicSettingsContext";
+import { usePublicSettings } from "./context/PublicSettingsContext";
 
 const queryClient = new QueryClient();
 
