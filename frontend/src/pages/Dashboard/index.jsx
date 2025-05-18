@@ -12,6 +12,7 @@ import ComparativeTable from './components/ComparativeTable';
 import ProspectionTable from './components/ProspectionTable';
 import ComponentVisibilityControl from './components/ComponentVisibilityControl';
 import DashboardConfigModal from './components/DashboardConfigModal';
+import { AuthContext } from '../../context/Auth/AuthContext';
 import { useDashboardContext } from './context/DashboardContext';
 import ExcelExportService from './services/ExcelExportService';
 
@@ -133,6 +134,7 @@ const DATE_RANGES = [
 ];
 
 const Dashboard = () => {
+  const { user } = useContext(AuthContext);
   const { Loading } = useLoading();
   const {
     isLoading,

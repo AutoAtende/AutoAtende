@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import { AuthContext } from '../../../../context/Auth/AuthContext';
 import api from '../../../../services/api';
 import { toast } from '../../../../helpers/toast';
 import useDashboardData from '../../hooks/useDashboardData';
@@ -9,6 +10,7 @@ const DashboardContext = createContext();
 // Provider do contexto
 export const DashboardProvider = ({ children }) => {
   const dashboardData = useDashboardData();
+  const { user } = useContext(AuthContext);
   
   // Estado para configurações do dashboard
   const [dashboardSettings, setDashboardSettings] = useState({
