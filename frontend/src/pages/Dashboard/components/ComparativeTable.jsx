@@ -246,13 +246,13 @@ const ComparativeTable = ({ data }) => {
                 {queue1 && data ? data.find(item => item.id === queue1)?.name : ''}
               </StyledTableHeadCell>
               <StyledTableHeadCell align="right">
-                % Setor 1
+                % {queue1 && data ? data.find(item => item.id === queue1)?.name : ''}
               </StyledTableHeadCell>
               <StyledTableHeadCell align="right">
                 {queue2 && data ? data.find(item => item.id === queue2)?.name : ''}
               </StyledTableHeadCell>
               <StyledTableHeadCell align="right">
-                % Setor 2
+                % {queue2 && data ? data.find(item => item.id === queue2)?.name : ''}
               </StyledTableHeadCell>
               <StyledTableHeadCell align="right">Variação</StyledTableHeadCell>
             </TableRow>
