@@ -91,6 +91,29 @@ interface AgentProspectionData {
   performance: string;
 }
 
+interface UserQueueComparison {
+  user: {
+    id: number;
+    name: string;
+  };
+  queue1: {
+    id: number;
+    name: string;
+    clients: number;
+    messages: number;
+  };
+  queue2: {
+    id: number;
+    name: string;
+    clients: number;
+    messages: number;
+  };
+  totals: {
+    clients: number;
+    messages: number;
+  };
+}
+
 class DashboardService {
   private getDateRange(startDate?: Date, endDate?: Date): TimeRange {
     const now = new Date();
@@ -120,7 +143,8 @@ class DashboardService {
     metric: string, 
     currentStartDate: Date, 
     currentEndDate: Date,
-    defaultValue: number = 0
+    defaultValue: number = 0,
+    maxTrendPercentage: number = 200 // Limitar tendência a 200% (tanto positiva quanto negativa)
   ): Promise<number> {
     try {
       // Duração do período atual em milissegundos
@@ -212,7 +236,8 @@ class DashboardService {
           
           // Para tempo de resposta, um valor menor é melhor, então invertemos a lógica
           if (previousValue > 0 && currentValue > 0) {
-            return Math.round(((previousValue - currentValue) / previousValue) * 100);
+            const trend = Math.round(((previousValue - currentValue) / previousValue) * 100);
+            return Math.max(Math.min(trend, maxTrendPercentage), -maxTrendPercentage);
           }
           return defaultValue;
           
@@ -240,9 +265,10 @@ class DashboardService {
           return defaultValue;
       }
       
-      // Calcular a variação percentual
+      // Calcular a variação percentual com limitação
       if (previousValue > 0) {
-        return Math.round(((currentValue - previousValue) / previousValue) * 100);
+        const trend = Math.round(((currentValue - previousValue) / previousValue) * 100);
+        return Math.max(Math.min(trend, maxTrendPercentage), -maxTrendPercentage);
       }
       
       return defaultValue;
@@ -308,26 +334,32 @@ class DashboardService {
         }
       });
 
-      // Calcular tendências
+      // Calcular tendências (com limitação)
       const messageTrend = await this.calculateTrend(
         companyId, 
         'messages', 
         start, 
-        end
+        end,
+        0,  // valor padrão
+        200 // limitação de porcentagem
       );
 
       const responseTrend = await this.calculateTrend(
         companyId, 
         'responseTime', 
         start, 
-        end
+        end,
+        0,
+        200
       );
 
       const clientTrend = await this.calculateTrend(
         companyId, 
         'clients', 
         start, 
-        end
+        end,
+        0,
+        200
       );
 
       // Mensagens por dia
@@ -826,7 +858,7 @@ class DashboardService {
         users.map(async (user) => {
           // Contar novos contatos
           const clientsResult = await sequelize.query(`
-            SELECT COUNT(DISTINCT c.id) as count
+SELECT COUNT(DISTINCT c.id) as count
             FROM "Contacts" c
             INNER JOIN "Tickets" t ON t."contactId" = c.id
             WHERE c."companyId" = :companyId
@@ -890,6 +922,150 @@ class DashboardService {
     } catch (error) {
       logger.error("Erro em getAgentProspection", { error });
       throw new AppError("Erro ao obter dados de prospecção por agente", 500);
+    }
+  }
+
+  // Novo método para comparar desempenho de um usuário em dois setores diferentes
+  public async getUserQueuesComparison(
+    companyId: number, 
+    userId: number, 
+    queue1Id: number, 
+    queue2Id: number,
+    startDate?: Date,
+    endDate?: Date
+  ): Promise<UserQueueComparison> {
+    logger.info("DashboardService.getUserQueuesComparison - Iniciando comparação", {
+      companyId,
+      userId,
+      queue1Id,
+      queue2Id
+    });
+
+    try {
+      // Verificar se as filas existem e pertencem à empresa
+      const queues = await Queue.findAll({
+        where: {
+          companyId,
+          id: { [Op.in]: [queue1Id, queue2Id] }
+        }
+      });
+
+      if (queues.length !== 2) {
+        throw new AppError("Uma ou ambas as filas não foram encontradas", 404);
+      }
+
+      // Verificar se o usuário existe e pertence à empresa
+      const user = await User.findOne({
+        where: {
+          id: userId,
+          companyId
+        }
+      });
+
+      if (!user) {
+        throw new AppError("Usuário não encontrado", 404);
+      }
+
+      // Definir período padrão se não fornecido
+      const { startDate: start, endDate: end } = this.getDateRange(startDate, endDate);
+
+      // Buscar dados do usuário na fila 1
+      const queue1Data = await this.getUserQueueMetrics(companyId, userId, queue1Id, start, end);
+      
+      // Buscar dados do usuário na fila 2
+      const queue2Data = await this.getUserQueueMetrics(companyId, userId, queue2Id, start, end);
+
+      // Calcular totais
+      const totalClients = queue1Data.clients + queue2Data.clients;
+      const totalMessages = queue1Data.messages + queue2Data.messages;
+
+      return {
+        user: {
+          id: userId,
+          name: user.name
+        },
+        queue1: {
+          id: queue1Id,
+          name: queues.find(q => q.id === queue1Id)?.name || "Desconhecido",
+          clients: queue1Data.clients,
+          messages: queue1Data.messages
+        },
+        queue2: {
+          id: queue2Id,
+          name: queues.find(q => q.id === queue2Id)?.name || "Desconhecido",
+          clients: queue2Data.clients,
+          messages: queue2Data.messages
+        },
+        totals: {
+          clients: totalClients,
+          messages: totalMessages
+        }
+      };
+    } catch (error) {
+      logger.error("Erro em getUserQueuesComparison", { error });
+      throw new AppError("Erro ao obter comparativo do usuário entre filas", 500);
+    }
+  }
+
+  // Método auxiliar para buscar métricas de um usuário em uma fila específica
+  private async getUserQueueMetrics(
+    companyId: number, 
+    userId: number, 
+    queueId: number,
+    startDate: Date,
+    endDate: Date
+  ): Promise<{ clients: number; messages: number }> {
+    try {
+      // Contar clientes únicos atendidos pelo usuário na fila
+      const clientsResult = await sequelize.query(`
+        SELECT COUNT(DISTINCT t."contactId") as count
+        FROM "Tickets" t
+        WHERE t."companyId" = :companyId
+        AND t."userId" = :userId
+        AND t."queueId" = :queueId
+        AND t."createdAt" BETWEEN :startDate AND :endDate
+      `, {
+        replacements: {
+          companyId,
+          userId,
+          queueId,
+          startDate,
+          endDate
+        },
+        type: QueryTypes.SELECT,
+        plain: true
+      }) as any;
+      
+      const clients = clientsResult ? parseInt(clientsResult.count) : 0;
+      
+      // Contar mensagens enviadas pelo usuário na fila
+      const messagesResult = await sequelize.query(`
+        SELECT COUNT(m.id) as count
+        FROM "Messages" m
+        INNER JOIN "Tickets" t ON t.id = m."ticketId"
+        WHERE m."companyId" = :companyId
+        AND m."createdAt" BETWEEN :startDate AND :endDate
+        AND m."fromMe" = true
+        AND t."userId" = :userId
+        AND t."queueId" = :queueId
+      `, {
+        replacements: {
+          companyId,
+          userId,
+          queueId,
+          startDate,
+          endDate
+        },
+        type: QueryTypes.SELECT,
+        plain: true
+      }) as any;
+      
+      const messages = messagesResult ? parseInt(messagesResult.count) : 0;
+      
+      return { clients, messages };
+    } catch (error) {
+      logger.error("Erro em getUserQueueMetrics", { error });
+      throw error;
     }
   }
 }

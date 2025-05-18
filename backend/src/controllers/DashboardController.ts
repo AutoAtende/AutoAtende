@@ -127,6 +127,53 @@ class DashboardController {
       return res.status(500).json({ error: "Erro interno do servidor" });
     }
   };
+
+  // Novo método para comparar usuário entre dois setores
+  public getUserQueuesComparison = async (req: Request, res: Response): Promise<Response> => {
+    const { companyId } = req.user;
+    const { userId, queue1, queue2, startDate, endDate } = req.query as { 
+      userId?: string; 
+      queue1?: string; 
+      queue2?: string;
+      startDate?: string;
+      endDate?: string;
+    };
+
+    try {
+      logger.info("Iniciando getUserQueuesComparison", { companyId, userId, queue1, queue2, startDate, endDate });
+
+      if (!userId || !queue1 || !queue2) {
+        throw new AppError("Parâmetros userId, queue1 e queue2 são obrigatórios", 400);
+      }
+
+      const parsedUserId = parseInt(userId, 10);
+      const parsedQueue1 = parseInt(queue1, 10);
+      const parsedQueue2 = parseInt(queue2, 10);
+      const parsedStartDate = startDate ? new Date(startDate) : undefined;
+      const parsedEndDate = endDate ? new Date(endDate) : undefined;
+
+      if (isNaN(parsedUserId) || isNaN(parsedQueue1) || isNaN(parsedQueue2)) {
+        throw new AppError("IDs inválidos", 400);
+      }
+
+      const data = await this.dashboardService.getUserQueuesComparison(
+        companyId,
+        parsedUserId,
+        parsedQueue1,
+        parsedQueue2,
+        parsedStartDate,
+        parsedEndDate
+      );
+
+      return res.status(200).json(data);
+    } catch (error) {
+      logger.error("Erro em getUserQueuesComparison", { error });
+      if (error instanceof AppError) {
+        return res.status(error.statusCode).json({ error: error.message });
+      }
+      return res.status(500).json({ error: "Erro interno do servidor" });
+    }
+  };
 }
 
 export default DashboardController;

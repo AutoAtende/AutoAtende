@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useContext } from 'react';
-import { Box, Container, Typography, Grid, Paper, Select, MenuItem, FormControl, Button, IconButton, Tooltip } from '@mui/material';
+import React, { useState, useEffect } from 'react';
+import { Box, Container, Typography, Grid, Paper, Select, MenuItem, FormControl, Button, IconButton, Tooltip, Tabs, Tab } from '@mui/material';
 import { styled } from '@mui/material/styles';
 import { CalendarToday, FileDownload, Settings as SettingsIcon } from '@mui/icons-material';
 import { toast } from "../../helpers/toast";
@@ -10,9 +10,9 @@ import BarChartComponent from './components/BarChartComponent';
 import DonutChartComponent from './components/DonutChartComponent';
 import ComparativeTable from './components/ComparativeTable';
 import ProspectionTable from './components/ProspectionTable';
+import UserQueueComparison from './components/UserQueueComparison';
 import ComponentVisibilityControl from './components/ComponentVisibilityControl';
 import DashboardConfigModal from './components/DashboardConfigModal';
-import { AuthContext } from '../../context/Auth/AuthContext';
 import { useDashboardContext } from './context/DashboardContext';
 import ExcelExportService from './services/ExcelExportService';
 
@@ -126,6 +126,11 @@ const ConfigButton = styled(IconButton)(({ theme }) => ({
   marginLeft: theme.spacing(1.25),
 }));
 
+const StyledTabs = styled(Tabs)(({ theme }) => ({
+  marginBottom: theme.spacing(3),
+  borderBottom: `1px solid ${theme.palette.divider}`,
+}));
+
 // Data range options
 const DATE_RANGES = [
   { value: 7, label: 'Últimos 7 dias' },
@@ -134,7 +139,6 @@ const DATE_RANGES = [
 ];
 
 const Dashboard = () => {
-  const { user } = useContext(AuthContext);
   const { Loading } = useLoading();
   const {
     isLoading,
@@ -146,11 +150,15 @@ const Dashboard = () => {
     queues,
     dashboardData,
     getDateRangeDisplay,
-    dashboardSettings
+    dashboardSettings,
+    loadDashboardData
   } = useDashboardContext();
   
   // Estado para controlar a abertura do modal de configurações
   const [configModalOpen, setConfigModalOpen] = useState(false);
+  
+  // Estado para controlar a tab ativa
+  const [activeTab, setActiveTab] = useState(0);
   
   // Verificar se um componente deve ser exibido
   const isComponentVisible = (componentKey) => {
@@ -160,6 +168,11 @@ const Dashboard = () => {
   // Handler para mudança de faixa de data
   const handleDateRangeChange = (event) => {
     setDateRange(event.target.value);
+  };
+  
+  // Handler para mudança de tab
+  const handleTabChange = (event, newValue) => {
+    setActiveTab(newValue);
   };
   
   // Handler para exportação para Excel
@@ -189,6 +202,13 @@ const Dashboard = () => {
       Loading.turnOff();
     }
   };
+
+  // Recarregar dados quando mudar de tab
+  useEffect(() => {
+    if (activeTab === 0) {
+      loadDashboardData();
+    }
+  }, [activeTab]);
 
   return (
     <StyledContainer maxWidth={false}>
@@ -229,157 +249,182 @@ const Dashboard = () => {
         </FiltersContainer>
       </PageHeader>
 
-      <Box sx={{ mb: 2.5, display: 'flex', flexWrap: 'wrap' }}>
-        {queues.map((queue) => (
-          <QueueButton
-            key={queue.id}
-            active={selectedQueue === queue.id}
-            onClick={() => setSelectedQueue(queue.id)}
-          >
-            {queue.name}
-          </QueueButton>
-        ))}
-      </Box>
+      <StyledTabs 
+        value={activeTab} 
+        onChange={handleTabChange}
+        indicatorColor="primary"
+        textColor="primary"
+      >
+        <Tab label="Visão Geral" />
+        <Tab label="Comparativo de Usuário" />
+      </StyledTabs>
 
-      {isLoading ? (
-        <Box sx={{ 
-          display: 'flex', 
-          justifyContent: 'center', 
-          alignItems: 'center', 
-          height: '50vh' 
-        }}>
-          <Typography variant="h6" color="text.secondary">
-            Carregando dados...
-          </Typography>
-        </Box>
-      ) : error ? (
-        <Box sx={{ 
-          display: 'flex', 
-          justifyContent: 'center', 
-          alignItems: 'center', 
-          height: '50vh' 
-        }}>
-          <Typography variant="h6" color="error">
-            {error}
-          </Typography>
-        </Box>
-      ) : (
+      {activeTab === 0 && (
         <>
-          {/* Cards de Métricas */}
-          <Grid container spacing={2.5} sx={{ mb: 2.5 }}>
-            {isComponentVisible('messagesCard') && (
-              <Grid item xs={12} md={4}>
-                <DashboardCard
-                  icon="paper-plane"
-                  title="Mensagens Enviadas"
-                  value={dashboardData.messagesCount.toLocaleString()}
-                  subtitle="Total no período"
-                  trend={dashboardData.messagesTrend}
-                  trendText={`${Math.abs(dashboardData.messagesTrend)}% em relação à semana anterior`}
-                  visibilityControl={<ComponentVisibilityControl componentKey="messagesCard" />}
-                />
-              </Grid>
-            )}
-            
-            {isComponentVisible('responseTimeCard') && (
-              <Grid item xs={12} md={4}>
-                <DashboardCard
-                  icon="clock"
-                  title="Tempo Médio de Resposta"
-                  value={dashboardData.avgResponseTime}
-                  subtitle="Após primeira mensagem do cliente"
-                  trend={dashboardData.responseTimeTrend}
-                  trendText={`${Math.abs(dashboardData.responseTimeTrend)}% em relação à semana anterior`}
-                  invertTrend={true}
-                  visibilityControl={<ComponentVisibilityControl componentKey="responseTimeCard" />}
-                />
-              </Grid>
-            )}
-            
-            {isComponentVisible('clientsCard') && (
-              <Grid item xs={12} md={4}>
-                <DashboardCard
-                  icon="users"
-                  title="Clientes Interagidos"
-                  value={dashboardData.clientsCount.toLocaleString()}
-                  subtitle="No período selecionado"
-                  trend={dashboardData.clientsTrend}
-                  trendText={`${Math.abs(dashboardData.clientsTrend)}% em relação à semana anterior`}
-                  visibilityControl={<ComponentVisibilityControl componentKey="clientsCard" />}
-                />
-              </Grid>
-            )}
-          </Grid>
+          <Box sx={{ mb: 2.5, display: 'flex', flexWrap: 'wrap' }}>
+            {queues.map((queue) => (
+              <QueueButton
+                key={queue.id}
+                active={selectedQueue === queue.id}
+                onClick={() => setSelectedQueue(queue.id)}
+              >
+                {queue.name}
+              </QueueButton>
+            ))}
+          </Box>
 
-          {/* Gráficos */}
-          <Grid container spacing={2.5} sx={{ mb: 2.5 }}>
-            {isComponentVisible('messagesByDayChart') && (
-              <Grid item xs={12} md={6}>
-                <ChartsPaper>
-                  <ChartHeader>
-                    <Typography variant="h6">
-                      Mensagens por Dia
-                    </Typography>
-                    <ComponentVisibilityControl componentKey="messagesByDayChart" />
-                  </ChartHeader>
-                  <BarChartComponent data={dashboardData.messagesByDay} />
-                </ChartsPaper>
+          {isLoading ? (
+            <Box sx={{ 
+              display: 'flex', 
+              justifyContent: 'center', 
+              alignItems: 'center', 
+              height: '50vh' 
+            }}>
+              <Typography variant="h6" color="text.secondary">
+                Carregando dados...
+              </Typography>
+            </Box>
+          ) : error ? (
+            <Box sx={{ 
+              display: 'flex', 
+              justifyContent: 'center', 
+              alignItems: 'center', 
+              height: '50vh' 
+            }}>
+              <Typography variant="h6" color="error">
+                {error}
+              </Typography>
+            </Box>
+          ) : (
+            <>
+              {/* Cards de Métricas */}
+              <Grid container spacing={2.5} sx={{ mb: 2.5 }}>
+                {isComponentVisible('messagesCard') && (
+                  <Grid item xs={12} md={4}>
+                    <DashboardCard
+                      icon="paper-plane"
+                      title="Mensagens Enviadas"
+                      value={dashboardData.messagesCount.toLocaleString()}
+                      subtitle="Total no período"
+                      trend={dashboardData.messagesTrend}
+                      trendText={`${Math.abs(dashboardData.messagesTrend)}% em relação à semana anterior`}
+                      visibilityControl={<ComponentVisibilityControl componentKey="messagesCard" />}
+                    />
+                  </Grid>
+                )}
+                
+                {isComponentVisible('responseTimeCard') && (
+                  <Grid item xs={12} md={4}>
+                    <DashboardCard
+                      icon="clock"
+                      title="Tempo Médio de Resposta"
+                      value={dashboardData.avgResponseTime}
+                      subtitle="Após primeira mensagem do cliente"
+                      trend={dashboardData.responseTimeTrend}
+                      trendText={`${Math.abs(dashboardData.responseTimeTrend)}% em relação à semana anterior`}
+                      invertTrend={true}
+                      visibilityControl={<ComponentVisibilityControl componentKey="responseTimeCard" />}
+                    />
+                  </Grid>
+                )}
+                
+                {isComponentVisible('clientsCard') && (
+                  <Grid item xs={12} md={4}>
+                    <DashboardCard
+                      icon="users"
+                      title="Clientes Interagidos"
+                      value={dashboardData.clientsCount.toLocaleString()}
+                      subtitle="No período selecionado"
+                      trend={dashboardData.clientsTrend}
+                      trendText={`${Math.abs(dashboardData.clientsTrend)}% em relação à semana anterior`}
+                      visibilityControl={<ComponentVisibilityControl componentKey="clientsCard" />}
+                    />
+                  </Grid>
+                )}
               </Grid>
-            )}
-            
-            {isComponentVisible('messagesByUserChart') && (
-              <Grid item xs={12} md={6}>
-                <ChartsPaper>
-                  <ChartHeader>
-                    <Typography variant="h6">
-                      Mensagens por Usuário
-                    </Typography>
-                    <ComponentVisibilityControl componentKey="messagesByUserChart" />
-                  </ChartHeader>
-                  <DonutChartComponent data={dashboardData.messagesByUser} />
-                </ChartsPaper>
-              </Grid>
-            )}
-          </Grid>
 
-          {/* Tabelas */}
-          <Grid container spacing={2.5} sx={{ mb: 2.5 }}>
-            {isComponentVisible('comparativeTable') && (
-              <Grid item xs={12} md={6}>
-                <ChartsPaper>
-                  <ChartHeader>
-                    <Typography variant="h6">
-                      Comparativo de Setores
-                    </Typography>
-                    <ComponentVisibilityControl componentKey="comparativeTable" />
-                  </ChartHeader>
-                  <ComparativeTable data={dashboardData.comparativeData} />
-                </ChartsPaper>
+              {/* Gráficos */}
+              <Grid container spacing={2.5} sx={{ mb: 2.5 }}>
+                {isComponentVisible('messagesByDayChart') && (
+                  <Grid item xs={12} md={6}>
+                    <ChartsPaper>
+                      <ChartHeader>
+                        <Typography variant="h6">
+                          Mensagens por Dia
+                        </Typography>
+                        <ComponentVisibilityControl componentKey="messagesByDayChart" />
+                      </ChartHeader>
+                      <BarChartComponent data={dashboardData.messagesByDay} />
+                    </ChartsPaper>
+                  </Grid>
+                )}
+                
+                {isComponentVisible('messagesByUserChart') && (
+                  <Grid item xs={12} md={6}>
+                    <ChartsPaper>
+                      <ChartHeader>
+                        <Typography variant="h6">
+                          Mensagens por Usuário
+                        </Typography>
+                        <ComponentVisibilityControl componentKey="messagesByUserChart" />
+                      </ChartHeader>
+                      <DonutChartComponent data={dashboardData.messagesByUser} />
+                    </ChartsPaper>
+                  </Grid>
+                )}
               </Grid>
-            )}
-            
-            {isComponentVisible('prospectionTable') && (
-              <Grid item xs={12} md={6}>
-                <ChartsPaper>
-                  <ChartHeader>
-                    <Typography variant="h6">
-                      Prospecção por Usuário
-                    </Typography>
-                    <ComponentVisibilityControl componentKey="prospectionTable" />
-                  </ChartHeader>
-                  <ProspectionTable data={dashboardData.prospectionData} />
-                </ChartsPaper>
-              </Grid>
-            )}
-          </Grid>
 
-          {/* Footer com Botão de Exportação */}
-          <FooterContainer>
-            <ExportButton startIcon={<FileDownload />} onClick={handleExportToExcel}>
-              Exportar para Excel
-            </ExportButton>
-          </FooterContainer>
+              {/* Tabelas */}
+              <Grid container spacing={2.5} sx={{ mb: 2.5 }}>
+                {isComponentVisible('comparativeTable') && (
+                  <Grid item xs={12} md={6}>
+                    <ChartsPaper>
+                      <ChartHeader>
+                        <Typography variant="h6">
+                          Comparativo de Setores
+                        </Typography>
+                        <ComponentVisibilityControl componentKey="comparativeTable" />
+                      </ChartHeader>
+                      <ComparativeTable data={dashboardData.comparativeData} />
+                    </ChartsPaper>
+                  </Grid>
+                )}
+                
+                {isComponentVisible('prospectionTable') && (
+                  <Grid item xs={12} md={6}>
+                    <ChartsPaper>
+                      <ChartHeader>
+                        <Typography variant="h6">
+                          Prospecção por Usuário
+                        </Typography>
+                        <ComponentVisibilityControl componentKey="prospectionTable" />
+                      </ChartHeader>
+                      <ProspectionTable data={dashboardData.prospectionData} />
+                    </ChartsPaper>
+                  </Grid>
+                )}
+              </Grid>
+
+              {/* Footer com Botão de Exportação */}
+              <FooterContainer>
+                <ExportButton startIcon={<FileDownload />} onClick={handleExportToExcel}>
+                  Exportar para Excel
+                </ExportButton>
+              </FooterContainer>
+            </>
+          )}
         </>
+      )}
+
+      {activeTab === 1 && (
+        <ChartsPaper>
+          <ChartHeader>
+            <Typography variant="h6">
+              Comparativo de Usuário entre Setores
+            </Typography>
+          </ChartHeader>
+          <UserQueueComparison />
+        </ChartsPaper>
       )}
       
       {/* Modal de Configurações do Dashboard */}
