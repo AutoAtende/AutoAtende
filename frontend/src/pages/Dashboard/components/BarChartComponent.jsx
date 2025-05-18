@@ -1,7 +1,7 @@
 import React from 'react';
 import { Box } from '@mui/material';
 import { styled } from '@mui/material/styles';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LabelList } from 'recharts';
 
 // Styled Components
 const ChartContainer = styled(Box)(({ theme }) => ({
@@ -17,13 +17,30 @@ const BarChartComponent = ({ data }) => {
     count: item.count
   }));
 
+  // Componente personalizado para exibir os valores das barras
+  const renderCustomizedLabel = (props) => {
+    const { x, y, width, height, value } = props;
+    return (
+      <text
+        x={x + width / 2}
+        y={y - 5}
+        fill="#555"
+        fontSize={12}
+        textAnchor="middle"
+        dominantBaseline="bottom"
+      >
+        {value}
+      </text>
+    );
+  };
+
   return (
     <ChartContainer>
       <ResponsiveContainer width="100%" height="100%">
         <BarChart
           data={chartData}
           margin={{
-            top: 20,
+            top: 30,  // Aumentado para espaço dos labels
             right: 20,
             left: 20,
             bottom: 10,
@@ -56,7 +73,12 @@ const BarChartComponent = ({ data }) => {
             radius={[3, 3, 0, 0]}
             barSize={30}
             animationDuration={1000}
-          />
+          >
+            <LabelList 
+              dataKey="count" 
+              content={renderCustomizedLabel} 
+            />
+          </Bar>
         </BarChart>
       </ResponsiveContainer>
     </ChartContainer>

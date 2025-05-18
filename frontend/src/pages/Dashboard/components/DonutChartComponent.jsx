@@ -1,26 +1,41 @@
 import React, { useEffect, useState } from 'react';
-import { Box, Typography } from '@mui/material';
+import { Box, Typography, useMediaQuery } from '@mui/material';
 import { styled } from '@mui/material/styles';
-import { PieChart, Pie, ResponsiveContainer, Cell, Tooltip } from 'recharts';
+import { PieChart, Pie, ResponsiveContainer, Cell, Tooltip, Label } from 'recharts';
 
 // Styled Components
 const ChartContainer = styled(Box)(({ theme }) => ({
-  height: 240,
-  width: '100%',
-  position: 'relative',
   display: 'flex',
+  flexDirection: 'column',
   alignItems: 'center',
-  justifyContent: 'center',
+  width: '100%',
+  gap: theme.spacing(4),
+  padding: theme.spacing(2),
+  [theme.breakpoints.up('sm')]: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    height: 320,
+  },
+}));
+
+const ChartWrapper = styled(Box)(({ theme }) => ({
+  width: '100%',
+  height: 240,
+  [theme.breakpoints.up('sm')]: {
+    width: '60%',
+    height: '100%',
+  },
 }));
 
 const LegendContainer = styled(Box)(({ theme }) => ({
-  position: 'absolute',
-  right: 20,
-  top: '50%',
-  transform: 'translateY(-50%)',
-  display: 'flex',
-  flexDirection: 'column',
-  gap: theme.spacing(1.25),
+  display: 'grid',
+  gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))',
+  gap: theme.spacing(2),
+  width: '100%',
+  [theme.breakpoints.up('sm')]: {
+    width: '35%',
+    gridTemplateColumns: '1fr',
+  },
 }));
 
 const LegendItem = styled(Box)(({ theme }) => ({
@@ -41,13 +56,39 @@ const LegendColor = styled(Box)(({ theme, bgcolor }) => ({
 // Cores para o gráfico
 const COLORS = ['#1976d2', '#4caf50', '#ff9800', '#f44336', '#9c27b0'];
 
+const renderCustomizedLabel = ({
+  cx,
+  cy,
+  midAngle,
+  innerRadius,
+  outerRadius,
+  payload,
+}) => {
+  const radius = innerRadius + (outerRadius - innerRadius) * 0.6;
+  const x = cx + radius * Math.cos(-midAngle * (Math.PI / 180));
+  const y = cy + radius * Math.sin(-midAngle * (Math.PI / 180));
+
+  return (
+    <text
+      x={x}
+      y={y}
+      fill="white"
+      textAnchor={x > cx ? 'start' : 'end'}
+      dominantBaseline="central"
+      fontSize={12}
+      fontWeight={500}
+    >
+      {`${payload.percentage}%`}
+    </text>
+  );
+};
+
 const DonutChartComponent = ({ data }) => {
   const [chartData, setChartData] = useState([]);
-  
+  const isMobile = useMediaQuery((theme) => theme.breakpoints.down('sm'));
+
   useEffect(() => {
-    // Processar dados
     if (data && data.length > 0) {
-      // Calcular percentuais
       const total = data.reduce((sum, item) => sum + item.value, 0);
       const processedData = data.map((item, index) => ({
         id: item.id,
@@ -62,7 +103,6 @@ const DonutChartComponent = ({ data }) => {
     }
   }, [data]);
 
-  // Componente customizado para o tooltip
   const CustomTooltip = ({ active, payload }) => {
     if (active && payload && payload.length) {
       const data = payload[0].payload;
@@ -97,37 +137,55 @@ const DonutChartComponent = ({ data }) => {
 
   return (
     <ChartContainer>
-      <ResponsiveContainer width="100%" height="100%">
-        <PieChart>
-          <Pie
-            data={chartData}
-            cx="40%"
-            cy="50%"
-            innerRadius={60}
-            outerRadius={85}
-            paddingAngle={2}
-            dataKey="value"
-            startAngle={90}
-            endAngle={-270}
-            animationDuration={1000}
-          >
-            {chartData.map((entry, index) => (
-              <Cell 
-                key={`cell-${index}`} 
-                fill={entry.color} 
-                stroke="none"
+      <ChartWrapper>
+        <ResponsiveContainer width="100%" height="100%">
+          <PieChart>
+            <Pie
+              data={chartData}
+              cx="50%"
+              cy="50%"
+              innerRadius={isMobile ? 60 : 80}
+              outerRadius={isMobile ? 85 : 100}
+              paddingAngle={2}
+              dataKey="value"
+              startAngle={90}
+              endAngle={-270}
+              animationDuration={1000}
+              label={renderCustomizedLabel}
+              labelLine={false}
+            >
+              {chartData.map((entry, index) => (
+                <Cell 
+                  key={`cell-${index}`} 
+                  fill={entry.color} 
+                  stroke="none"
+                />
+              ))}
+              <Label
+                value="Total"
+                position="center"
+                style={{
+                  fontSize: '1rem',
+                  fontWeight: 500,
+                  fill: 'text.secondary',
+                }}
               />
-            ))}
-          </Pie>
-          <Tooltip content={<CustomTooltip />} />
-        </PieChart>
-      </ResponsiveContainer>
-      
+            </Pie>
+            <Tooltip content={<CustomTooltip />} />
+          </PieChart>
+        </ResponsiveContainer>
+      </ChartWrapper>
+
       <LegendContainer>
         {chartData.map((entry, index) => (
           <LegendItem key={`legend-${index}`}>
             <LegendColor bgcolor={entry.color} />
-            {entry.name} ({entry.percentage}%)
+            <Box>
+              <Typography variant="body2">{entry.name}</Typography>
+              <Typography variant="caption" color="text.secondary">
+                {entry.value} mensagens
+              </Typography>
+            </Box>
           </LegendItem>
         ))}
       </LegendContainer>
