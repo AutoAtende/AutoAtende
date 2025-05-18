@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useContext } from 'react';
 import {
   Table,
   TableBody,
@@ -13,6 +13,8 @@ import {
 } from '@mui/material';
 import { styled } from '@mui/material/styles';
 import { ArrowUpward, ArrowDownward } from '@mui/icons-material';
+import { useDashboardContext } from '../context/DashboardContext';
+import AuthContext from '../../context/AuthContext';
 
 // Styled Components
 const StyledTableCell = styled(TableCell)(({ theme }) => ({
@@ -59,6 +61,8 @@ const ComparativeTable = ({ data }) => {
   const [queue1, setQueue1] = useState('');
   const [queue2, setQueue2] = useState('');
   const [comparativeData, setComparativeData] = useState([]);
+  const { user } = useContext(AuthContext);
+  
 
   useEffect(() => {
     // Inicializar com os dois primeiros itens se disponíveis
