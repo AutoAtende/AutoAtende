@@ -42,7 +42,6 @@ const StyledDialogTitle = styled(MuiDialogTitle)(({ theme }) => ({
   padding: theme.spacing(2),
 }));
 
-// Ajuste no componente BaseModal.jsx
 const StyledDialogContent = styled(DialogContent)(({ theme }) => ({
   padding: theme.spacing(5),
   paddingTop: theme.spacing(5),
@@ -54,7 +53,6 @@ const StyledDialogContent = styled(DialogContent)(({ theme }) => ({
 const StyledDialogActions = styled(DialogActions)(({ theme }) => ({
   padding: theme.spacing(2),
   gap: theme.spacing(1),
-  // Garantir adaptação ao tema escuro
   backgroundColor: theme.palette.background.paper,
   borderTop: `1px solid ${theme.palette.divider}`,
 }));
@@ -92,6 +90,7 @@ const BaseModal = ({
         disabled={loading || action.disabled}
         startIcon={action.icon}
         size={isMobile ? 'small' : 'medium'}
+        type={action.type} // Adicionando suporte para a propriedade type
       >
         {action.label}
       </BaseButton>
@@ -159,7 +158,8 @@ BaseModal.propTypes = {
     variant: PropTypes.string,
     color: PropTypes.string,
     disabled: PropTypes.bool,
-    icon: PropTypes.node
+    icon: PropTypes.node,
+    type: PropTypes.string // Adicionando type ao PropTypes
   })),
   maxWidth: PropTypes.string,
   helpText: PropTypes.string,

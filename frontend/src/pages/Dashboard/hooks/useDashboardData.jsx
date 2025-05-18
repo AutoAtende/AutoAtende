@@ -79,38 +79,59 @@ const useDashboardData = () => {
       
       // Seleção do endpoint com base na fila atual
       const queueId = selectedQueue === 'all' ? null : selectedQueue;
-      let endpoint = `/dashboard/overview?startDate=${startDateStr}&endDate=${endDateStr}`;
+      let overviewEndpoint = `/dashboard/overview?startDate=${startDateStr}&endDate=${endDateStr}`;
+      let queuesEndpoint = `/dashboard/queues?startDate=${startDateStr}&endDate=${endDateStr}`;
       
       if (queueId) {
-        endpoint = `/dashboard/queues?startDate=${startDateStr}&endDate=${endDateStr}&queueId=${queueId}`;
+        queuesEndpoint = `/dashboard/queues?startDate=${startDateStr}&endDate=${endDateStr}&queueId=${queueId}`;
       }
       
-      // Carregar dados principais
-      const response = await api.get(endpoint);
+      // Carregar dados principais - sempre pegar o overview geral e também os dados específicos da queue
+      const overviewResponse = await api.get(overviewEndpoint);
+      const queueMetricsResponse = await api.get(queuesEndpoint);
       
       // Carregar dados de prospecção
       const prospectionResponse = await api.get(
         `/dashboard/agent-prospection?period=${dateRange === 7 ? 'semana' : dateRange === 15 ? 'quinzena' : 'mes'}`
       );
       
-      // Carregar dados para comparativo
-      const queueMetrics = await api.get(`/dashboard/queues?startDate=${startDateStr}&endDate=${endDateStr}`);
-      
       // Verificar e inicializar dados para evitar erros
-      const overviewData = response.data || {};
-      const ticketsByUser = queueMetrics.data?.ticketsByUser || [];
-      const ticketsByQueue = queueMetrics.data?.ticketsByQueue || [];
+      const overviewData = overviewResponse.data || {};
+      const queueMetricsData = queueMetricsResponse.data || {};
+      
+      // Se estamos em uma fila específica, usar os dados dela, senão usar os dados do overview geral
+      let messagesCount = overviewData.totalMessages || 0;
+      let avgResponseTime = overviewData.averageFirstResponseTime || 0;
+      let clientsCount = overviewData.newContacts || 0;
+      let messagesTrend = overviewData.messageTrend || 0;
+      let responseTimeTrend = overviewData.responseTrend || 0;
+      let clientsTrend = overviewData.clientTrend || 0;
+      let messagesByDay = overviewData.messagesByDay || [];
+      
+      // Se temos uma fila selecionada e dados disponíveis para ela, atualizamos os valores
+      if (queueId && queueMetricsData.ticketsByQueue && queueMetricsData.ticketsByQueue.length > 0) {
+        const queueData = queueMetricsData.ticketsByQueue[0];
+        messagesCount = queueData.count || 0;
+        avgResponseTime = queueData.firstContactTime || 0;
+        clientsCount = queueData.clients || 0;
+        
+        // Para as tendências, deixar os valores do overview geral caso não tenhamos dados específicos
+        // Idealmente, o backend deveria calcular tendências específicas por fila também
+      }
+      
+      const ticketsByUser = queueMetricsData.ticketsByUser || [];
+      const ticketsByQueue = queueMetricsData.ticketsByQueue || [];
       
       // Processar dados recebidos
       const newData = {
-        messagesCount: overviewData.totalMessages || 0,
-        avgResponseTime: formatResponseTime(overviewData.averageFirstResponseTime || 0),
-        clientsCount: overviewData.newContacts || 0,
-        // Calcular tendências com base nos dados reais, quando disponíveis
-        messagesTrend: calculateTrend(overviewData.messageTrend),
-        responseTimeTrend: calculateTrend(overviewData.responseTrend),
-        clientsTrend: calculateTrend(overviewData.clientTrend),
-        messagesByDay: formatMessagesByDay(overviewData.messagesByDay || []),
+        messagesCount,
+        avgResponseTime: formatResponseTime(avgResponseTime),
+        clientsCount,
+        // Limitar os valores de tendência para evitar percentuais extremos
+        messagesTrend: limitTrendValue(messagesTrend),
+        responseTimeTrend: limitTrendValue(responseTimeTrend),
+        clientsTrend: limitTrendValue(clientsTrend),
+        messagesByDay: formatMessagesByDay(messagesByDay),
         messagesByUser: formatMessagesByUser(ticketsByUser),
         comparativeData: formatComparativeData(ticketsByQueue),
         prospectionData: prospectionResponse.data || []
@@ -135,9 +156,12 @@ const useDashboardData = () => {
     return `${mins}m ${secs.toString().padStart(2, '0')}s`;
   };
 
-  const calculateTrend = (trendValue) => {
-    // Se a tendência estiver disponível na API, use-a; caso contrário, retorne 0
-    return trendValue !== undefined ? trendValue : 0;
+  // Limitar valores de tendência para evitar percentuais extremos
+  const limitTrendValue = (trendValue, maxLimit = 200) => {
+    if (trendValue === undefined || trendValue === null) return 0;
+    if (trendValue > maxLimit) return maxLimit;
+    if (trendValue < -maxLimit) return -maxLimit;
+    return trendValue;
   };
 
   const formatMessagesByDay = (data) => {

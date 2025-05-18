@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useContext, useCallback } from 'react';
 import { Box, Container, Typography, Grid, Paper, Select, MenuItem, FormControl, Button, IconButton, Tooltip } from '@mui/material';
 import { styled } from '@mui/material/styles';
 import { CalendarToday, FileDownload, Settings as SettingsIcon } from '@mui/icons-material';
@@ -144,7 +144,8 @@ const Dashboard = () => {
     queues,
     dashboardData,
     getDateRangeDisplay,
-    dashboardSettings
+    dashboardSettings,
+    loadDashboardData
   } = useDashboardContext();
   
   // Estado para controlar a abertura do modal de configurações
@@ -365,7 +366,10 @@ const Dashboard = () => {
                     </Typography>
                     <ComponentVisibilityControl componentKey="prospectionTable" />
                   </ChartHeader>
-                  <ProspectionTable data={dashboardData.prospectionData} />
+                  <ProspectionTable 
+                    data={dashboardData.prospectionData} 
+                    compareMode={true}  // Ativar modo de comparação
+                  />
                 </ChartsPaper>
               </Grid>
             )}

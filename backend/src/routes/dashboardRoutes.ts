@@ -1,4 +1,3 @@
-// src/routes/dashboardRoutes.ts
 import express from "express";
 import isAuth from "../middleware/isAuth";
 import isAdmin from "../middleware/isAdmin";
@@ -37,7 +36,14 @@ dashboardRoutes.get(
   dashboardController.getAgentProspection
 );
 
-// Novas rotas para configurações do dashboard
+// Nova rota para comparação de usuário entre setores
+dashboardRoutes.get(
+  "/dashboard/user-queues-comparison",
+  isAuth,
+  dashboardController.getUserQueuesComparison
+);
+
+// Rotas para configurações do dashboard
 dashboardRoutes.get(
   "/dashboard/settings",
   isAuth,

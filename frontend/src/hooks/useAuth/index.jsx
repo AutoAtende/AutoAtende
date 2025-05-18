@@ -5,6 +5,7 @@ import { i18n } from "../../translate/i18n";
 import api from "../../services/api";
 import FacebookPixelService from "../../services/facebookPixel";
 import { SocketContext } from "../../context/Socket/SocketContext";
+import { usePublicSettings } from "../../context/PublicSettingsContext";
 import moment from "moment";
 
 let refreshTokenPromise = null;
@@ -14,6 +15,9 @@ const useAuth = () => {
   const [isAuth, setIsAuth] = useState(false);
   const [loading, setLoading] = useState(true);
   const [user, setUser] = useState({});
+  
+  // Usar o hook usePublicSettings para carregar configurações públicas
+  const { publicSettings, loadPublicSettings } = usePublicSettings();
 
   const socketManager = useContext(SocketContext);
 
@@ -70,6 +74,10 @@ const useAuth = () => {
           
           setUser({});
           setIsAuth(false);
+          
+          // Carregar configurações públicas após logout para a tela de login
+          loadPublicSettings(true);
+          
           window.location.href = "/login";
           throw err;
         }
@@ -92,6 +100,10 @@ const useAuth = () => {
         
         setUser({});
         setIsAuth(false);
+        
+        // Carregar configurações públicas após erro de autenticação
+        loadPublicSettings(true);
+        
         window.location.href = "/login";
       }
       return Promise.reject(error);
@@ -130,6 +142,10 @@ const useAuth = () => {
       
       setUser({});
       setIsAuth(false);
+      
+      // Carregar configurações públicas após falha no refresh token
+      loadPublicSettings(true);
+      
       throw err;
     }
   }
@@ -142,6 +158,8 @@ const useAuth = () => {
           await refreshToken();
         } catch (err) {
           console.error("Erro ao renovar token:", err);
+          // Carregar configurações públicas caso o token seja inválido
+          loadPublicSettings(true);
         }
       } else {
         // Se não estiver autenticado, verifique se há lastCompanyId
@@ -153,10 +171,13 @@ const useAuth = () => {
           // Se não houver lastCompanyId, usar empresa padrão (1)
           localStorage.setItem("companyId", "1");
         }
+        
+        // Garantir que configurações públicas sejam carregadas para rotas públicas
+        loadPublicSettings();
       }
       setLoading(false);
     })();
-  }, []);
+  }, [loadPublicSettings]);
 
   useEffect(() => {
     let isMounted = true;
@@ -213,6 +234,10 @@ const useAuth = () => {
             localStorage.clear();
             // Restaurar lastCompanyId após limpar localStorage para manter a referência
             localStorage.setItem("companyId", localStorage.getItem("lastCompanyId") || "1");
+            
+            // Carregar configurações públicas após logout forçado
+            loadPublicSettings(true);
+            
             window.location.reload();
           }, 1000);
         }
@@ -233,7 +258,7 @@ const useAuth = () => {
       console.error('Erro ao configurar socket para autenticação:', error);
       return () => {};
     }
-  }, [socketManager]);
+  }, [socketManager, loadPublicSettings]);
 
   const handleLogin = async (userData) => {
     setLoading(true);
@@ -259,12 +284,12 @@ const useAuth = () => {
       setUser(user);
       setIsAuth(true);
   
-      // Verificar e inicializar o Facebook Pixel
+      // Verificar e inicializar o Facebook Pixel usando as configurações
       try {
-        const { data: settings } = await api.get('/settings');
-        const enableMetaPixel = settings.find(s => s.key === 'enableMetaPixel')?.value === 'enabled';
+        const enableMetaPixel = publicSettings.enableMetaPixel === 'enabled';
         
         if (enableMetaPixel) {
+          // Verificar se company tem as configurações do Pixel
           const metaPixelId = company.settings?.find(s => s.key === 'metaPixelId')?.value;
           
           if (metaPixelId) {
@@ -304,18 +329,23 @@ const useAuth = () => {
   
         toast.success(i18n.t("auth.toasts.success"));
   
-        // Redirecionamento baseado no perfil
-        if (profile === "user") {
-          history.push("/tickets");
-        } else if (profile === "admin" || user.super) {
-          history.push("/dashboard");
-        } else {
-          history.push("/tickets");
-        }
+        // Usar setTimeout para garantir que o estado foi atualizado antes de redirecionar
+        setTimeout(() => {
+          // Redirecionamento baseado no perfil
+          if (profile === "user") {
+            history.push("/tickets");
+          } else if (profile === "admin" || user.super) {
+            history.push("/dashboard");
+          } else {
+            history.push("/tickets");
+          }
+        }, 100);
   
       } else {
         toast.error(`Sua assinatura venceu em ${vencimento}. Entre em contato com o Suporte.`);
-        history.push("/plans");
+        setTimeout(() => {
+          history.push("/plans");
+        }, 100);
       }
   
     } catch (err) {
@@ -325,6 +355,16 @@ const useAuth = () => {
       setUser({});
       localStorage.clear();
       api.defaults.headers.Authorization = undefined;
+      
+      // Restaurar configurações públicas para a página de login após falha no login
+      const lastCompanyId = localStorage.getItem("lastCompanyId");
+      if (lastCompanyId) {
+        localStorage.setItem("companyId", lastCompanyId);
+      } else {
+        localStorage.setItem("companyId", "1");
+      }
+      
+      loadPublicSettings(true);
     } finally {
       setLoading(false);
     }
@@ -356,9 +396,16 @@ const useAuth = () => {
       }
       
       api.defaults.headers.Authorization = undefined;
-      window.location.href = "/login";
+      
+      // Carregar configurações públicas para a página de login
+      loadPublicSettings(true);
+      
+      // Usar navegação programática em vez de recarregar a página
+      history.push("/login");
     } catch (err) {
       toast.error("Erro ao fazer logout");
+      // Tentar redirecionar para login mesmo em caso de erro
+      history.push("/login");
     } finally {
       setLoading(false);
     }

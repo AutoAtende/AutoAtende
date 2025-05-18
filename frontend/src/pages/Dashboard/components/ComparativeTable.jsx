@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useContext } from 'react';
 import {
   Table,
   TableBody,
@@ -12,6 +12,7 @@ import {
   Box
 } from '@mui/material';
 import { styled } from '@mui/material/styles';
+import { ArrowUpward, ArrowDownward } from '@mui/icons-material';
 
 // Styled Components
 const StyledTableCell = styled(TableCell)(({ theme }) => ({
@@ -44,6 +45,14 @@ const SelectorsContainer = styled(Box)(({ theme }) => ({
 
 const VariationCell = styled(StyledTableCell)(({ theme, isPositive }) => ({
   color: isPositive ? theme.palette.success.main : theme.palette.error.main,
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'flex-end',
+}));
+
+const PercentageCell = styled(StyledTableCell)(({ theme }) => ({
+  color: theme.palette.info.main,
+  fontWeight: 500,
 }));
 
 const ComparativeTable = ({ data }) => {
@@ -66,13 +75,25 @@ const ComparativeTable = ({ data }) => {
       const queue2Data = data.find(item => item.id === queue2);
       
       if (queue1Data && queue2Data) {
-        // Calcular variações percentuais
+        // Calcular variações percentuais e percentuais em relação ao total
+        const totalMessages = queue1Data.messages + queue2Data.messages;
+        const messagesPercentage1 = calculatePercentage(queue1Data.messages, totalMessages);
+        const messagesPercentage2 = calculatePercentage(queue2Data.messages, totalMessages);
         const messagesVariation = calculateVariation(queue1Data.messages, queue2Data.messages);
+        
         const avgTimeArr = convertTimeToMinutes(queue1Data.avgTime, queue2Data.avgTime);
         const timeVariation = calculateVariation(avgTimeArr[1], avgTimeArr[0]); // Invertido pois menor é melhor
+        
+        const totalClients = queue1Data.clients + queue2Data.clients;
+        const clientsPercentage1 = calculatePercentage(queue1Data.clients, totalClients);
+        const clientsPercentage2 = calculatePercentage(queue2Data.clients, totalClients);
         const clientsVariation = calculateVariation(queue1Data.clients, queue2Data.clients);
+        
         const responseRateArr = convertPercentToNumber(queue1Data.responseRate, queue2Data.responseRate);
+        const ratePercentage1 = responseRateArr[0];
+        const ratePercentage2 = responseRateArr[1];
         const rateVariation = calculateVariation(responseRateArr[0], responseRateArr[1]);
+        
         const firstContactArr = convertTimeToMinutes(queue1Data.firstContact, queue2Data.firstContact);
         const firstContactVariation = calculateVariation(firstContactArr[1], firstContactArr[0]); // Invertido pois menor é melhor
         
@@ -80,32 +101,47 @@ const ComparativeTable = ({ data }) => {
           {
             metric: 'Mensagens',
             value1: queue1Data.messages,
+            percentage1: messagesPercentage1,
             value2: queue2Data.messages,
-            variation: messagesVariation
+            percentage2: messagesPercentage2,
+            variation: messagesVariation,
+            invertedMetric: false
           },
           {
             metric: 'Tempo médio',
             value1: queue1Data.avgTime,
+            percentage1: null, // Não faz sentido calcular percentual para tempos
             value2: queue2Data.avgTime,
-            variation: timeVariation
+            percentage2: null,
+            variation: timeVariation,
+            invertedMetric: true
           },
           {
             metric: 'Clientes',
             value1: queue1Data.clients,
+            percentage1: clientsPercentage1,
             value2: queue2Data.clients,
-            variation: clientsVariation
+            percentage2: clientsPercentage2,
+            variation: clientsVariation,
+            invertedMetric: false
           },
           {
             metric: 'Taxa de resposta',
             value1: queue1Data.responseRate,
+            percentage1: ratePercentage1,
             value2: queue2Data.responseRate,
-            variation: rateVariation
+            percentage2: ratePercentage2,
+            variation: rateVariation,
+            invertedMetric: false
           },
           {
             metric: 'Primeiro contato',
             value1: queue1Data.firstContact,
+            percentage1: null, // Não faz sentido calcular percentual para tempos
             value2: queue2Data.firstContact,
-            variation: firstContactVariation
+            percentage2: null,
+            variation: firstContactVariation,
+            invertedMetric: true
           }
         ]);
       }
@@ -115,7 +151,14 @@ const ComparativeTable = ({ data }) => {
   // Funções auxiliares
   const calculateVariation = (value1, value2) => {
     if (value1 === 0 || value2 === 0) return 0;
-    return Math.round(((value1 - value2) / value2) * 100);
+    // Limitar a variação para um máximo de 200% para evitar valores extremos
+    const variation = Math.round(((value1 - value2) / value2) * 100);
+    return Math.max(Math.min(variation, 200), -200);
+  };
+
+  const calculatePercentage = (value, total) => {
+    if (total === 0) return 0;
+    return Math.round((value / total) * 100);
   };
 
   const convertTimeToMinutes = (time1, time2) => {
@@ -135,6 +178,27 @@ const ComparativeTable = ({ data }) => {
     };
     
     return [convertPercent(percent1), convertPercent(percent2)];
+  };
+
+  const renderVariationWithIcon = (variation, isInverted) => {
+    // Determinar se a variação é positiva (considerando métricas invertidas)
+    const isPositive = isInverted ? variation < 0 : variation > 0;
+    
+    return (
+      <VariationCell align="right" isPositive={isPositive}>
+        {variation > 0 ? (
+          <>
+            <ArrowUpward fontSize="small" sx={{ mr: 0.5 }} />
+            {`${variation}%`}
+          </>
+        ) : (
+          <>
+            <ArrowDownward fontSize="small" sx={{ mr: 0.5 }} />
+            {`${Math.abs(variation)}%`}
+          </>
+        )}
+      </VariationCell>
+    );
   };
 
   return (
@@ -182,7 +246,13 @@ const ComparativeTable = ({ data }) => {
                 {queue1 && data ? data.find(item => item.id === queue1)?.name : ''}
               </StyledTableHeadCell>
               <StyledTableHeadCell align="right">
+                % {queue1 && data ? data.find(item => item.id === queue1)?.name : ''}
+              </StyledTableHeadCell>
+              <StyledTableHeadCell align="right">
                 {queue2 && data ? data.find(item => item.id === queue2)?.name : ''}
+              </StyledTableHeadCell>
+              <StyledTableHeadCell align="right">
+                % {queue2 && data ? data.find(item => item.id === queue2)?.name : ''}
               </StyledTableHeadCell>
               <StyledTableHeadCell align="right">Variação</StyledTableHeadCell>
             </TableRow>
@@ -194,13 +264,14 @@ const ComparativeTable = ({ data }) => {
                   {row.metric}
                 </StyledTableCell>
                 <StyledTableCell align="right">{row.value1}</StyledTableCell>
+                <PercentageCell align="right">
+                  {row.percentage1 !== null ? `${row.percentage1}%` : '-'}
+                </PercentageCell>
                 <StyledTableCell align="right">{row.value2}</StyledTableCell>
-                <VariationCell 
-                  align="right" 
-                  isPositive={row.variation > 0 && row.metric !== 'Tempo médio' && row.metric !== 'Primeiro contato'}
-                >
-                  {row.variation > 0 ? `+${row.variation}%` : `${row.variation}%`}
-                </VariationCell>
+                <PercentageCell align="right">
+                  {row.percentage2 !== null ? `${row.percentage2}%` : '-'}
+                </PercentageCell>
+                {renderVariationWithIcon(row.variation, row.invertedMetric)}
               </StyledTableRow>
             ))}
           </TableBody>

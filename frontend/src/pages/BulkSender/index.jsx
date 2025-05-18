@@ -1,4 +1,3 @@
-// src/pages/BulkSender/index.jsx - Versão Refatorada
 import React, { useState, useEffect, useReducer, useCallback, useContext } from "react";
 import { useTheme } from "@mui/material/styles";
 import { toast } from "../../helpers/toast";
@@ -345,6 +344,7 @@ const BulkSender = () => {
     }
   ];
 
+  // Determinar se deve mostrar o campo de busca para a tab atual
   const showSearch = tabValue === 0 || tabValue === 1 || tabValue === 4;
 
   return (

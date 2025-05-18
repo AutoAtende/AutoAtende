@@ -141,41 +141,15 @@ const TicketDetailsModal = ({
 }) => {
   const theme = useTheme();
   const fullScreen = useMediaQuery(theme.breakpoints.down('sm'));
-  const { getCachedSetting } = useSettings();
+  const { settings } = useSettings();
   
-  const [enableQueueWhenCloseTicket, setEnableQueueWhenCloseTicket] = useState(false);
-  const [enableTagsWhenCloseTicket, setEnableTagsWhenCloseTicket] = useState(false);
-  const [enableReasonWhenCloseTicket, setEnableReasonWhenCloseTicket] = useState(false);
+  const enableQueueWhenCloseTicket = settings?.enableQueueWhenCloseTicket;
+  const enableTagsWhenCloseTicket = settings?.enableTagsWhenCloseTicket;
+  const enableReasonWhenCloseTicket = settings?.enableReasonWhenCloseTicket;
   const [reasonModalOpen, setReasonModalOpen] = useState(false);
   const [queueModalOpen, setQueueModalOpen] = useState(false);
   const [tagModalOpen, setTagModalOpen] = useState(false);
-  
-  // Buscar configurações ao montar o componente
-  React.useEffect(() => {
-    const fetchSettings = async () => {
-      try {
-        const enableQueueSetting = await getCachedSetting("enableQueueWhenCloseTicket");
-        if (enableQueueSetting) {
-            setEnableQueueWhenCloseTicket(enableQueueSetting.value === "enabled");
-        }
-
-        const enableTagsSetting = await getCachedSetting("enableTagsWhenCloseTicket");
-        if (enableTagsSetting) {
-            setEnableTagsWhenCloseTicket(enableTagsSetting.value === "enabled");
-        }
-        
-        const enableReasonSetting = await getCachedSetting("enableReasonWhenCloseTicket");
-        if (enableReasonSetting) {
-            setEnableReasonWhenCloseTicket(enableReasonSetting.value === "enabled");
-        }
-      } catch (error) {
-        console.error("Erro ao buscar configurações:", error);
-      }
-    };
     
-    fetchSettings();
-  }, [getCachedSetting]);
-  
   // Funções para o fechamento de ticket
   const handleCloseTicketWithModal = async () => {
     // Verificar qual configuração está ativa e abrir o modal correspondente

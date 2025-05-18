@@ -91,6 +91,29 @@ interface AgentProspectionData {
   performance: string;
 }
 
+interface UserQueueComparison {
+  user: {
+    id: number;
+    name: string;
+  };
+  queue1: {
+    id: number;
+    name: string;
+    clients: number;
+    messages: number;
+  };
+  queue2: {
+    id: number;
+    name: string;
+    clients: number;
+    messages: number;
+  };
+  totals: {
+    clients: number;
+    messages: number;
+  };
+}
+
 class DashboardService {
   private getDateRange(startDate?: Date, endDate?: Date): TimeRange {
     const now = new Date();
@@ -116,26 +139,27 @@ class DashboardService {
 
   // Calcular tendência comparando o período atual com o período anterior
   private async calculateTrend(
-    companyId: number, 
-    metric: string, 
-    currentStartDate: Date, 
+    companyId: number,
+    metric: string,
+    currentStartDate: Date,
     currentEndDate: Date,
-    defaultValue: number = 0
+    defaultValue: number = 0,
+    maxTrendPercentage: number = 200 // Limitar tendência a 200% (tanto positiva quanto negativa)
   ): Promise<number> {
     try {
       // Duração do período atual em milissegundos
       const periodDuration = currentEndDate.getTime() - currentStartDate.getTime();
-      
+
       // Calcular datas para o período anterior (mesmo tamanho)
       const previousEndDate = new Date(currentStartDate);
       previousEndDate.setMilliseconds(-1); // Um milissegundo antes do início do período atual
-      
+
       const previousStartDate = new Date(previousEndDate);
       previousStartDate.setTime(previousEndDate.getTime() - periodDuration);
-      
+
       let currentValue = 0;
       let previousValue = 0;
-      
+
       // Selecionar a métrica apropriada para calcular a tendência
       switch (metric) {
         case 'messages':
@@ -147,7 +171,7 @@ class DashboardService {
               }
             }
           });
-          
+
           previousValue = await Message.count({
             where: {
               companyId,
@@ -157,65 +181,84 @@ class DashboardService {
             }
           });
           break;
-          
+
         case 'responseTime':
-          const currentTimeResult = await sequelize.query(`
-            SELECT AVG(EXTRACT(EPOCH FROM (m."createdAt" - t."createdAt")) / 60) as "avgTime"
-            FROM "Messages" m
-            INNER JOIN "Tickets" t ON t.id = m."ticketId"
-            WHERE m."companyId" = :companyId
-            AND m."fromMe" = true
-            AND m."createdAt" BETWEEN :startDate AND :endDate
-            AND t."createdAt" BETWEEN :startDate AND :endDate
-            AND m.id = (
-              SELECT MIN(m2.id)
-              FROM "Messages" m2
-              WHERE m2."ticketId" = t.id
-              AND m2."fromMe" = true
-            )
-          `, {
-            replacements: {
-              companyId,
-              startDate: currentStartDate,
-              endDate: currentEndDate
-            },
-            type: QueryTypes.SELECT,
-            plain: true
-          }) as any;
-          
-          const previousTimeResult = await sequelize.query(`
-            SELECT AVG(EXTRACT(EPOCH FROM (m."createdAt" - t."createdAt")) / 60) as "avgTime"
-            FROM "Messages" m
-            INNER JOIN "Tickets" t ON t.id = m."ticketId"
-            WHERE m."companyId" = :companyId
-            AND m."fromMe" = true
-            AND m."createdAt" BETWEEN :startDate AND :endDate
-            AND t."createdAt" BETWEEN :startDate AND :endDate
-            AND m.id = (
-              SELECT MIN(m2.id)
-              FROM "Messages" m2
-              WHERE m2."ticketId" = t.id
-              AND m2."fromMe" = true
-            )
-          `, {
-            replacements: {
-              companyId,
-              startDate: previousStartDate,
-              endDate: previousEndDate
-            },
-            type: QueryTypes.SELECT,
-            plain: true
-          }) as any;
-          
+// Para o período atual
+const currentTimeResult = await sequelize.query(`
+  SELECT AVG(
+    CASE 
+      WHEN EXTRACT(EPOCH FROM (m."createdAt" - t."createdAt")) / 60 > 1440 
+      THEN 1440 
+      ELSE EXTRACT(EPOCH FROM (m."createdAt" - t."createdAt")) / 60 
+    END
+  ) as "avgTime"
+  FROM "Messages" m
+  INNER JOIN "Tickets" t ON t.id = m."ticketId"
+  WHERE m."companyId" = :companyId
+  AND m."fromMe" = true
+  AND m."createdAt" BETWEEN :startDate AND :endDate
+  AND t."createdAt" BETWEEN :startDate AND :endDate
+  AND m.id = (
+    SELECT MIN(m2.id)
+    FROM "Messages" m2
+    WHERE m2."ticketId" = t.id
+    AND m2."fromMe" = true
+  )
+  AND (m."createdAt" - t."createdAt") > interval '1 second'
+  AND (m."createdAt" - t."createdAt") < interval '24 hours'
+`, {
+  replacements: {
+    companyId,
+    startDate: currentStartDate,
+    endDate: currentEndDate
+  },
+  type: QueryTypes.SELECT,
+  plain: true
+}) as any;
+
+// Para o período anterior
+const previousTimeResult = await sequelize.query(`
+  SELECT AVG(
+    CASE 
+      WHEN EXTRACT(EPOCH FROM (m."createdAt" - t."createdAt")) / 60 > 1440 
+      THEN 1440 
+      ELSE EXTRACT(EPOCH FROM (m."createdAt" - t."createdAt")) / 60 
+    END
+  ) as "avgTime"
+  FROM "Messages" m
+  INNER JOIN "Tickets" t ON t.id = m."ticketId"
+  WHERE m."companyId" = :companyId
+  AND m."fromMe" = true
+  AND m."createdAt" BETWEEN :startDate AND :endDate
+  AND t."createdAt" BETWEEN :startDate AND :endDate
+  AND m.id = (
+    SELECT MIN(m2.id)
+    FROM "Messages" m2
+    WHERE m2."ticketId" = t.id
+    AND m2."fromMe" = true
+  )
+  AND (m."createdAt" - t."createdAt") > interval '1 second'
+  AND (m."createdAt" - t."createdAt") < interval '24 hours'
+`, {
+  replacements: {
+    companyId,
+    startDate: previousStartDate,
+    endDate: previousEndDate
+  },
+  type: QueryTypes.SELECT,
+  plain: true
+}) as any;
+
           currentValue = currentTimeResult?.avgTime ? parseFloat(currentTimeResult.avgTime) : 0;
           previousValue = previousTimeResult?.avgTime ? parseFloat(previousTimeResult.avgTime) : 0;
-          
+
           // Para tempo de resposta, um valor menor é melhor, então invertemos a lógica
           if (previousValue > 0 && currentValue > 0) {
-            return Math.round(((previousValue - currentValue) / previousValue) * 100);
+            const trend = Math.round(((previousValue - currentValue) / previousValue) * 100);
+            return Math.max(Math.min(trend, maxTrendPercentage), -maxTrendPercentage);
           }
           return defaultValue;
-          
+
         case 'clients':
           currentValue = await Contact.count({
             where: {
@@ -225,7 +268,7 @@ class DashboardService {
               }
             }
           });
-          
+
           previousValue = await Contact.count({
             where: {
               companyId,
@@ -235,18 +278,19 @@ class DashboardService {
             }
           });
           break;
-          
+
         default:
           return defaultValue;
       }
-      
-      // Calcular a variação percentual
+
+      // Calcular a variação percentual com limitação
       if (previousValue > 0) {
-        return Math.round(((currentValue - previousValue) / previousValue) * 100);
+        const trend = Math.round(((currentValue - previousValue) / previousValue) * 100);
+        return Math.max(Math.min(trend, maxTrendPercentage), -maxTrendPercentage);
       }
-      
+
       return defaultValue;
-      
+
     } catch (error) {
       logger.error("Erro ao calcular tendência", { error, metric });
       return defaultValue;
@@ -255,7 +299,7 @@ class DashboardService {
 
   public async getOverviewMetrics(companyId: number, startDate?: Date, endDate?: Date): Promise<OverviewResponse> {
     const dateCondition = this.buildDateCondition(startDate, endDate);
-    
+
     logger.info("DashboardService.getOverviewMetrics - Iniciando consulta", {
       companyId,
       dateCondition
@@ -273,31 +317,40 @@ class DashboardService {
       });
 
       // Tempo médio de primeira resposta
-      const avgFirstResponseResult = await sequelize.query<{ avgTime: string | null }>(`
-        SELECT AVG(EXTRACT(EPOCH FROM (m."createdAt" - t."createdAt")) / 60) as "avgTime"
-        FROM "Messages" m
-        INNER JOIN "Tickets" t ON t.id = m."ticketId"
-        WHERE m."companyId" = :companyId
-        AND m."fromMe" = true
-        AND m."createdAt" BETWEEN :startDate AND :endDate
-        AND t."createdAt" BETWEEN :startDate AND :endDate
-        AND m.id = (
-          SELECT MIN(m2.id)
-          FROM "Messages" m2
-          WHERE m2."ticketId" = t.id
-          AND m2."fromMe" = true
-        )
-      `, {
-        replacements: {
-          companyId,
-          startDate: start,
-          endDate: end
-        },
-        type: QueryTypes.SELECT,
-        plain: true
-      });
+// Tempo médio de primeira resposta
+const avgFirstResponseResult = await sequelize.query<{ avgTime: string | null }>(`
+  SELECT AVG(
+    CASE 
+      WHEN EXTRACT(EPOCH FROM (m."createdAt" - t."createdAt")) / 60 > 1440 
+      THEN 1440 
+      ELSE EXTRACT(EPOCH FROM (m."createdAt" - t."createdAt")) / 60 
+    END
+  ) as "avgTime"
+  FROM "Messages" m
+  INNER JOIN "Tickets" t ON t.id = m."ticketId"
+  WHERE m."companyId" = :companyId
+  AND m."fromMe" = true
+  AND m."createdAt" BETWEEN :startDate AND :endDate
+  AND t."createdAt" BETWEEN :startDate AND :endDate
+  AND m.id = (
+    SELECT MIN(m2.id)
+    FROM "Messages" m2
+    WHERE m2."ticketId" = t.id
+    AND m2."fromMe" = true
+  )
+  AND (m."createdAt" - t."createdAt") > interval '1 second'
+  AND (m."createdAt" - t."createdAt") < interval '24 hours'
+`, {
+  replacements: {
+    companyId,
+    startDate: start,
+    endDate: end
+  },
+  type: QueryTypes.SELECT,
+  plain: true
+});
 
-      const averageFirstResponseTime = avgFirstResponseResult?.avgTime ? 
+      const averageFirstResponseTime = avgFirstResponseResult?.avgTime ?
         parseFloat(avgFirstResponseResult.avgTime) : 0;
 
       // Novos contatos no período
@@ -308,26 +361,32 @@ class DashboardService {
         }
       });
 
-      // Calcular tendências
+      // Calcular tendências (com limitação)
       const messageTrend = await this.calculateTrend(
-        companyId, 
-        'messages', 
-        start, 
-        end
+        companyId,
+        'messages',
+        start,
+        end,
+        0,  // valor padrão
+        200 // limitação de porcentagem
       );
 
       const responseTrend = await this.calculateTrend(
-        companyId, 
-        'responseTime', 
-        start, 
-        end
+        companyId,
+        'responseTime',
+        start,
+        end,
+        0,
+        200
       );
 
       const clientTrend = await this.calculateTrend(
-        companyId, 
-        'clients', 
-        start, 
-        end
+        companyId,
+        'clients',
+        start,
+        end,
+        0,
+        200
       );
 
       // Mensagens por dia
@@ -362,9 +421,9 @@ class DashboardService {
         messagesByDay: formattedMessagesByDay
       };
 
-      logger.info("Visão geral formatada com sucesso", { 
-        totalMessages, 
-        averageFirstResponseTime, 
+      logger.info("Visão geral formatada com sucesso", {
+        totalMessages,
+        averageFirstResponseTime,
         newContacts,
         messageTrend,
         responseTrend,
@@ -379,13 +438,13 @@ class DashboardService {
   }
 
   public async getQueuesMetrics(
-    companyId: number, 
-    startDate?: Date, 
-    endDate?: Date, 
+    companyId: number,
+    startDate?: Date,
+    endDate?: Date,
     queueId?: number
   ): Promise<QueuesMetricsResponse> {
     const dateCondition = this.buildDateCondition(startDate, endDate);
-    
+
     logger.info("DashboardService.getQueuesMetrics - Iniciando consulta", {
       companyId,
       dateCondition,
@@ -420,10 +479,10 @@ class DashboardService {
         group: ['queueId', 'queue.id', 'queue.name', 'queue.color'],
         raw: true,
         nest: true
-      }) as unknown as Array<{ 
-        queueId: number; 
-        count: string; 
-        queue: { name: string; color: string } 
+      }) as unknown as Array<{
+        queueId: number;
+        count: string;
+        queue: { name: string; color: string }
       }>;
 
       // Tickets por atendente
@@ -449,10 +508,10 @@ class DashboardService {
         group: ['userId', 'user.id', 'user.name'],
         raw: true,
         nest: true
-      }) as unknown as Array<{ 
-        userId: number; 
-        count: string; 
-        user: { name: string } 
+      }) as unknown as Array<{
+        userId: number;
+        count: string;
+        user: { name: string }
       }>;
 
       // Tempo médio de resolução por fila
@@ -577,7 +636,7 @@ class DashboardService {
         const resolutionTime = queueResolutionTimes.find(item => item.queueId === queueId);
         const responseRate = responseRateByQueue.find(item => item.queueId === queueId);
         const firstContact = firstContactByQueue.find(item => item.queueId === queueId);
-        
+
         return {
           queueId,
           queueName: queue.queue?.name || "Sem fila",
@@ -629,7 +688,7 @@ class DashboardService {
 
       // Buscar métricas para a fila 1
       const queue1Metrics = await this.getQueueDetailedMetrics(companyId, queue1Id);
-      
+
       // Buscar métricas para a fila 2
       const queue2Metrics = await this.getQueueDetailedMetrics(companyId, queue2Id);
 
@@ -649,7 +708,7 @@ class DashboardService {
       const endDate = new Date();
       const startDate = new Date();
       startDate.setDate(endDate.getDate() - 30);
-      
+
       // Buscar dados da fila
       const queue = await Queue.findOne({
         where: {
@@ -657,11 +716,11 @@ class DashboardService {
           companyId
         }
       });
-      
+
       if (!queue) {
         throw new AppError(`Fila ${queueId} não encontrada`, 404);
       }
-      
+
       // Total de mensagens
       const messagesCount = await Message.count({
         include: [{
@@ -679,23 +738,31 @@ class DashboardService {
           }
         }
       });
-      
+
       // Tempo médio de resposta
       const avgTimeResult = await sequelize.query(`
-        SELECT AVG(EXTRACT(EPOCH FROM (m."createdAt" - t."createdAt")) / 60) as "avgTime"
-        FROM "Messages" m
-        INNER JOIN "Tickets" t ON t.id = m."ticketId"
-        WHERE t."companyId" = :companyId
-        AND t."queueId" = :queueId
-        AND m."fromMe" = true
-        AND m."createdAt" BETWEEN :startDate AND :endDate
-        AND m.id = (
-          SELECT MIN(m2.id)
-          FROM "Messages" m2
-          WHERE m2."ticketId" = t.id
-          AND m2."fromMe" = true
-        )
-      `, {
+  SELECT AVG(
+    CASE 
+      WHEN EXTRACT(EPOCH FROM (m."createdAt" - t."createdAt")) / 60 > 1440 
+      THEN 1440 
+      ELSE EXTRACT(EPOCH FROM (m."createdAt" - t."createdAt")) / 60 
+    END
+  ) as "avgTime"
+  FROM "Messages" m
+  INNER JOIN "Tickets" t ON t.id = m."ticketId"
+  WHERE t."companyId" = :companyId
+  AND t."queueId" = :queueId
+  AND m."fromMe" = true
+  AND m."createdAt" BETWEEN :startDate AND :endDate
+  AND m.id = (
+    SELECT MIN(m2.id)
+    FROM "Messages" m2
+    WHERE m2."ticketId" = t.id
+    AND m2."fromMe" = true
+  )
+  AND (m."createdAt" - t."createdAt") > interval '1 second'
+  AND (m."createdAt" - t."createdAt") < interval '24 hours'
+`, {
         replacements: {
           companyId,
           queueId,
@@ -705,7 +772,7 @@ class DashboardService {
         type: QueryTypes.SELECT,
         plain: true
       }) as any;
-      
+
       // Clientes únicos
       const clientsCount = await Ticket.count({
         where: {
@@ -718,7 +785,7 @@ class DashboardService {
         distinct: true,
         col: 'contactId'
       });
-      
+
       // Taxa de resposta
       const responseRateResult = await sequelize.query(`
         SELECT 
@@ -739,7 +806,7 @@ class DashboardService {
         type: QueryTypes.SELECT,
         plain: true
       }) as any;
-      
+
       // Tempo de primeiro contato
       const firstContactTimeResult = await sequelize.query(`
         SELECT AVG(EXTRACT(EPOCH FROM (m."createdAt" - t."createdAt")) / 60) as "firstContactTime"
@@ -765,7 +832,7 @@ class DashboardService {
         type: QueryTypes.SELECT,
         plain: true
       }) as any;
-      
+
       // Formatar resultados
       return {
         id: queueId,
@@ -792,7 +859,7 @@ class DashboardService {
       // Definir filtro de data baseado no período selecionado
       let startDate: Date;
       const endDate = new Date();
-      
+
       switch (period) {
         case 'semana':
           startDate = new Date();
@@ -812,7 +879,7 @@ class DashboardService {
           startDate.setHours(0, 0, 0, 0);
           break;
       }
-      
+
       // Buscar usuários ativos
       const users = await User.findAll({
         where: {
@@ -820,13 +887,13 @@ class DashboardService {
         },
         attributes: ['id', 'name']
       });
-      
+
       // Calcular métricas para cada usuário
       const prospectionData = await Promise.all(
         users.map(async (user) => {
           // Contar novos contatos
           const clientsResult = await sequelize.query(`
-            SELECT COUNT(DISTINCT c.id) as count
+SELECT COUNT(DISTINCT c.id) as count
             FROM "Contacts" c
             INNER JOIN "Tickets" t ON t."contactId" = c.id
             WHERE c."companyId" = :companyId
@@ -842,9 +909,9 @@ class DashboardService {
             type: QueryTypes.SELECT,
             plain: true
           }) as any;
-          
+
           const clients = clientsResult ? parseInt(clientsResult.count) : 0;
-          
+
           // Contar mensagens enviadas
           const messagesResult = await sequelize.query(`
             SELECT COUNT(m.id) as count
@@ -864,9 +931,9 @@ class DashboardService {
             type: QueryTypes.SELECT,
             plain: true
           }) as any;
-          
+
           const messages = messagesResult ? parseInt(messagesResult.count) : 0;
-          
+
           // Determinar desempenho com base em limiares ajustáveis
           let performance = 'Médio';
           if (clients > 10 || messages > 100) {
@@ -874,7 +941,7 @@ class DashboardService {
           } else if (clients < 5 || messages < 50) {
             performance = 'Baixo';
           }
-          
+
           return {
             id: user.id,
             name: user.name,
@@ -884,12 +951,156 @@ class DashboardService {
           };
         })
       );
-      
+
       // Ordenar por número de clientes (decrescente)
       return prospectionData.sort((a, b) => b.clients - a.clients);
     } catch (error) {
       logger.error("Erro em getAgentProspection", { error });
       throw new AppError("Erro ao obter dados de prospecção por agente", 500);
+    }
+  }
+
+  // Novo método para comparar desempenho de um usuário em dois setores diferentes
+  public async getUserQueuesComparison(
+    companyId: number,
+    userId: number,
+    queue1Id: number,
+    queue2Id: number,
+    startDate?: Date,
+    endDate?: Date
+  ): Promise<UserQueueComparison> {
+    logger.info("DashboardService.getUserQueuesComparison - Iniciando comparação", {
+      companyId,
+      userId,
+      queue1Id,
+      queue2Id
+    });
+
+    try {
+      // Verificar se as filas existem e pertencem à empresa
+      const queues = await Queue.findAll({
+        where: {
+          companyId,
+          id: { [Op.in]: [queue1Id, queue2Id] }
+        }
+      });
+
+      if (queues.length !== 2) {
+        throw new AppError("Uma ou ambas as filas não foram encontradas", 404);
+      }
+
+      // Verificar se o usuário existe e pertence à empresa
+      const user = await User.findOne({
+        where: {
+          id: userId,
+          companyId
+        }
+      });
+
+      if (!user) {
+        throw new AppError("Usuário não encontrado", 404);
+      }
+
+      // Definir período padrão se não fornecido
+      const { startDate: start, endDate: end } = this.getDateRange(startDate, endDate);
+
+      // Buscar dados do usuário na fila 1
+      const queue1Data = await this.getUserQueueMetrics(companyId, userId, queue1Id, start, end);
+
+      // Buscar dados do usuário na fila 2
+      const queue2Data = await this.getUserQueueMetrics(companyId, userId, queue2Id, start, end);
+
+      // Calcular totais
+      const totalClients = queue1Data.clients + queue2Data.clients;
+      const totalMessages = queue1Data.messages + queue2Data.messages;
+
+      return {
+        user: {
+          id: userId,
+          name: user.name
+        },
+        queue1: {
+          id: queue1Id,
+          name: queues.find(q => q.id === queue1Id)?.name || "Desconhecido",
+          clients: queue1Data.clients,
+          messages: queue1Data.messages
+        },
+        queue2: {
+          id: queue2Id,
+          name: queues.find(q => q.id === queue2Id)?.name || "Desconhecido",
+          clients: queue2Data.clients,
+          messages: queue2Data.messages
+        },
+        totals: {
+          clients: totalClients,
+          messages: totalMessages
+        }
+      };
+    } catch (error) {
+      logger.error("Erro em getUserQueuesComparison", { error });
+      throw new AppError("Erro ao obter comparativo do usuário entre filas", 500);
+    }
+  }
+
+  // Método auxiliar para buscar métricas de um usuário em uma fila específica
+  private async getUserQueueMetrics(
+    companyId: number,
+    userId: number,
+    queueId: number,
+    startDate: Date,
+    endDate: Date
+  ): Promise<{ clients: number; messages: number }> {
+    try {
+      // Contar clientes únicos atendidos pelo usuário na fila
+      const clientsResult = await sequelize.query(`
+        SELECT COUNT(DISTINCT t."contactId") as count
+        FROM "Tickets" t
+        WHERE t."companyId" = :companyId
+        AND t."userId" = :userId
+        AND t."queueId" = :queueId
+        AND t."createdAt" BETWEEN :startDate AND :endDate
+      `, {
+        replacements: {
+          companyId,
+          userId,
+          queueId,
+          startDate,
+          endDate
+        },
+        type: QueryTypes.SELECT,
+        plain: true
+      }) as any;
+
+      const clients = clientsResult ? parseInt(clientsResult.count) : 0;
+
+      // Contar mensagens enviadas pelo usuário na fila
+      const messagesResult = await sequelize.query(`
+        SELECT COUNT(m.id) as count
+        FROM "Messages" m
+        INNER JOIN "Tickets" t ON t.id = m."ticketId"
+        WHERE m."companyId" = :companyId
+        AND m."createdAt" BETWEEN :startDate AND :endDate
+        AND m."fromMe" = true
+        AND t."userId" = :userId
+        AND t."queueId" = :queueId
+      `, {
+        replacements: {
+          companyId,
+          userId,
+          queueId,
+          startDate,
+          endDate
+        },
+        type: QueryTypes.SELECT,
+        plain: true
+      }) as any;
+
+      const messages = messagesResult ? parseInt(messagesResult.count) : 0;
+
+      return { clients, messages };
+    } catch (error) {
+      logger.error("Erro em getUserQueueMetrics", { error });
+      throw error;
     }
   }
 }

@@ -63,17 +63,20 @@ class ExcelExportService {
       { 
         Métrica: 'Mensagens Enviadas', 
         Valor: dashboardData.messagesCount,
-        Período: 'Total no período'
+        Período: 'Total no período',
+        Tendência: `${dashboardData.messagesTrend}%`
       },
       { 
         Métrica: 'Tempo Médio de Resposta', 
         Valor: dashboardData.avgResponseTime,
-        Período: 'Após primeira mensagem do cliente'
+        Período: 'Após primeira mensagem do cliente',
+        Tendência: `${dashboardData.responseTimeTrend}%`
       },
       { 
         Métrica: 'Clientes Interagidos', 
         Valor: dashboardData.clientsCount,
-        Período: 'No período selecionado'
+        Período: 'No período selecionado',
+        Tendência: `${dashboardData.clientsTrend}%`
       }
     ];
 
@@ -105,11 +108,51 @@ class ExcelExportService {
         const existingRow = acc.find(row => row.Métrica === metric);
         if (existingRow) {
           existingRow[queue.name] = value;
+          
+          // Calcular percentuais para métricas aplicáveis
+          if (metric === 'Mensagens' || metric === 'Clientes') {
+            const allValues = dashboardData.comparativeData.map(q => {
+              if (metric === 'Mensagens') return q.messages;
+              if (metric === 'Clientes') return q.clients;
+              return 0;
+            });
+            
+            const total = allValues.reduce((sum, val) => sum + val, 0);
+            
+            if (total > 0) {
+              existingRow[`${queue.name} %`] = `${Math.round((value / total) * 100)}%`;
+            } else {
+              existingRow[`${queue.name} %`] = '0%';
+            }
+          } else {
+            existingRow[`${queue.name} %`] = '-';
+          }
         } else {
-          acc.push({
+          const newRow = {
             Métrica: metric,
             [queue.name]: value
-          });
+          };
+          
+          // Calcular percentuais para métricas aplicáveis
+          if (metric === 'Mensagens' || metric === 'Clientes') {
+            const allValues = dashboardData.comparativeData.map(q => {
+              if (metric === 'Mensagens') return q.messages;
+              if (metric === 'Clientes') return q.clients;
+              return 0;
+            });
+            
+            const total = allValues.reduce((sum, val) => sum + val, 0);
+            
+            if (total > 0) {
+              newRow[`${queue.name} %`] = `${Math.round((value / total) * 100)}%`;
+            } else {
+              newRow[`${queue.name} %`] = '0%';
+            }
+          } else {
+            newRow[`${queue.name} %`] = '-';
+          }
+          
+          acc.push(newRow);
         }
       });
       
@@ -124,6 +167,19 @@ class ExcelExportService {
       Desempenho: item.performance
     }));
 
+    // Certificar-se de que todas as células estão preenchidas para exportação
+    Object.keys(dashboardData.comparativeData).forEach(key => {
+      comparativeData.forEach(row => {
+        const queueName = dashboardData.comparativeData[key].name;
+        if (!row[queueName]) {
+          row[queueName] = '-';
+        }
+        if (!row[`${queueName} %`]) {
+          row[`${queueName} %`] = '-';
+        }
+      });
+    });
+
     return {
       Visão_Geral: overview,
       Mensagens_por_Dia: messagesByDay,
@@ -131,6 +187,44 @@ class ExcelExportService {
       Comparativo_Setores: comparativeData,
       Prospecção_por_Agente: prospectionData
     };
+  }
+
+  /**
+   * Exporta dados de comparação de usuário entre setores
+   * @param {Object} comparisonData - Dados da comparação
+   * @param {string} filename - Nome do arquivo (sem extensão)
+   */
+  static exportUserQueueComparison(comparisonData, filename = 'comparativo-usuario-setores') {
+    try {
+      if (!comparisonData) return false;
+      
+      // Preparar dados para exportação
+      const data = [
+        { 
+          Usuário: comparisonData.user.name,
+          Categoria: 'Contatos',
+          Total: comparisonData.totals.clients,
+          [comparisonData.queue1.name]: comparisonData.queue1.clients,
+          [`${comparisonData.queue1.name} %`]: `${Math.round((comparisonData.queue1.clients / comparisonData.totals.clients) * 100)}%`,
+          [comparisonData.queue2.name]: comparisonData.queue2.clients,
+          [`${comparisonData.queue2.name} %`]: `${Math.round((comparisonData.queue2.clients / comparisonData.totals.clients) * 100)}%`
+        },
+        { 
+          Usuário: comparisonData.user.name,
+          Categoria: 'Mensagens',
+          Total: comparisonData.totals.messages,
+          [comparisonData.queue1.name]: comparisonData.queue1.messages,
+          [`${comparisonData.queue1.name} %`]: `${Math.round((comparisonData.queue1.messages / comparisonData.totals.messages) * 100)}%`,
+          [comparisonData.queue2.name]: comparisonData.queue2.messages,
+          [`${comparisonData.queue2.name} %`]: `${Math.round((comparisonData.queue2.messages / comparisonData.totals.messages) * 100)}%`
+        }
+      ];
+      
+      return this.exportToExcel(data, filename, 'Comparativo de Usuário');
+    } catch (error) {
+      console.error('Erro ao exportar comparativo de usuário:', error);
+      return false;
+    }
   }
 }
 

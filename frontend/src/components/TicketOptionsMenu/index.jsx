@@ -30,11 +30,13 @@ const TicketOptionsMenu = ({ ticket, menuOpen, handleClose, anchorEl }) => {
     const [reasonModalOpen, setReasonModalOpen] = useState(false);
     const [queueModalOpen, setQueueModalOpen] = useState(false);
     const [tagModalOpen, setTagModalOpen] = useState(false);
-    const [enableQueueWhenCloseTicket, setEnableQueueWhenCloseTicket] = useState(false);
-    const [enableTagsWhenCloseTicket, setEnableTagsWhenCloseTicket] = useState(false);
-    const [enableReasonWhenCloseTicket, setEnableReasonWhenCloseTicket] = useState(false);
+
     const [loading, setLoading] = useState(false);
-    const { getCachedSetting } = useSettings();
+    const { settings } = useSettings();
+    
+    const enableQueueWhenCloseTicket = settings?.enableQueueWhenCloseTicket;
+    const enableTagsWhenCloseTicket = settings?.enableTagsWhenCloseTicket;
+    const enableReasonWhenCloseTicket = settings?.enableReasonWhenCloseTicket;
 
 	const { setMakeRequest, setOpenTabTicket, setMakeRequestTagTotalTicketPending, setMakeRequestTicketList } = useContext(GlobalContext);
 
@@ -44,32 +46,6 @@ const TicketOptionsMenu = ({ ticket, menuOpen, handleClose, anchorEl }) => {
 		};
 	}, []);
     
-    // Adicionar useEffect para buscar as configurações de fechamento de ticket
-    useEffect(() => {
-        const fetchSettings = async () => {
-            try {
-                const enableQueueSetting = await getCachedSetting("enableQueueWhenCloseTicket");
-                if (enableQueueSetting) {
-                    setEnableQueueWhenCloseTicket(enableQueueSetting.value === "enabled");
-                }
-
-                const enableTagsSetting = await getCachedSetting("enableTagsWhenCloseTicket");
-                if (enableTagsSetting) {
-                    setEnableTagsWhenCloseTicket(enableTagsSetting.value === "enabled");
-                }
-                
-                const enableReasonSetting = await getCachedSetting("enableReasonWhenCloseTicket");
-                if (enableReasonSetting) {
-                    setEnableReasonWhenCloseTicket(enableReasonSetting.value === "enabled");
-                }
-            } catch (error) {
-                console.error("Erro ao buscar configurações:", error);
-            }
-        };
-
-        fetchSettings();
-    }, []);
-
 	const handleDeleteTicket = async () => {
 		try {
 			await api.delete(`/tickets/${ticket.id}`);

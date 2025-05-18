@@ -11,6 +11,7 @@ interface Data {
   scheduledAt: string;
   companyId: number;
   contactListId: number;
+  tagListId: number[] | number;
   message1?: string;
   message2?: string;
   message3?: string;
@@ -25,7 +26,8 @@ interface Data {
   userId?: number;        
   queueId?: number;       
   statusTicket?: string;  
-  openTicket?: string;    
+  openTicket?: string; 
+  originalTagListIds?: number[];   
 }
 
 const UpdateService = async (data: Data): Promise<Campaign> => {

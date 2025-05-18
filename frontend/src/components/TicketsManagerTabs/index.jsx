@@ -243,7 +243,7 @@ const TicketsManagerTabs = () => {
     const searchInputRef = useRef();
     const { user } = useContext(AuthContext);
     const { profile, allTicket } = user;
-    const { getCachedSetting } = useSettings();
+    const { settings } = useSettings();
     const [showGroupTab, setShowGroupTab] = useState(false);
     const [activeSubTab, setActiveSubTab] = useState("private");
 
@@ -284,12 +284,12 @@ const TicketsManagerTabs = () => {
         }
 
         // Configura a exibição da aba de grupo baseada nas configurações
-        const checkMsgIsGroupSetting = await getCachedSetting("CheckMsgIsGroup");
+        const checkMsgIsGroupSetting = settings?.CheckMsgIsGroup;
         if (checkMsgIsGroupSetting) {
             setShowGroupTab(checkMsgIsGroupSetting.value === "disabled");
         }
 
-        const enableReasonWhenCloseTicket = await getCachedSetting('enableReasonWhenCloseTicket')
+        const enableReasonWhenCloseTicket = settings?.enableReasonWhenCloseTicket
         if (enableReasonWhenCloseTicket?.value === 'enabled') {
             setIsShowButtonCloseAll(false)
         } else {

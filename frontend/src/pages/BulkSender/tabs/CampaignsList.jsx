@@ -31,6 +31,7 @@ import {
   CancelOutlined as CancelOutlinedIcon,
   AccessTime as AccessTimeIcon,
   Campaign as CampaignIcon,
+  ContentCopy as ContentCopyIcon,
 } from "@mui/icons-material";
 
 // Componentes
@@ -121,6 +122,7 @@ const CampaignsList = ({
   loading = false,
   onEdit,
   onDelete,
+  onDuplicate,
   onAction,
   datetimeToClient = defaultDateFormatter, // Definindo um valor padrão
   hasMore,
@@ -289,6 +291,16 @@ const CampaignsList = ({
                           </IconButton>
                         </Tooltip>
                       )}
+
+                      <Tooltip title={i18n.t("campaigns.buttons.duplicate") || "Duplicar"}>
+                        <IconButton
+                          size="small"
+                          onClick={() => onDuplicate && onDuplicate(campaign)}
+                          color="primary"
+                        >
+                          <ContentCopyIcon />
+                        </IconButton>
+                      </Tooltip>
 
                       <Tooltip title={i18n.t("campaigns.buttons.edit")}>
                         <IconButton

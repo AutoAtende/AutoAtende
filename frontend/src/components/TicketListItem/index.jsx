@@ -391,13 +391,15 @@ const TicketListItem = ({ ticket, handleClose, setTabOpen }) => {
     const { profile, spy } = user;
     const [lastInteractionLabel, setLastInteractionLabel] = useState('');
     const intervalRef = useRef(null);
-    const [displayContactInfo, setDisplayContactInfo] = useState('disabled');
-    const [enableReasonWhenCloseTicket, setEnableReasonWhenCloseTicket] = useState(false);
-    const [queueWhenClosingTicket, setQueueWhenClosingTicket] = useState(false);
-    const [tagsWhenClosingTicket, setTagsWhenClosingTicket] = useState(false);
-    const { getCachedSetting } = useSettings();
+
+    const { settings } = useSettings();
     const history = useHistory();
 
+    const displayContactInfo = settings?.displayContactInfo;
+    const enableReasonWhenCloseTicket = settings?.enableReasonWhenCloseTicket;
+    const enableQueueWhenClosingTicket = settings?.enableQueueWhenCloseTicket;
+    const enableTagsWhenClosingTicket = settings?.enableTagsWhenCloseTicket;
+    const sendGreetingAccepted = settings?.sendGreetingAccepted;
     const theme = useTheme();
     const isSmallScreen = useMediaQuery(theme.breakpoints.down('sm'));
 
@@ -421,40 +423,6 @@ const TicketListItem = ({ ticket, handleClose, setTabOpen }) => {
     const handleTagsHoverClose = () => {
         setTagsAnchorEl(null);
     };
-
-    useEffect(async () => {
-        try {
-            const displayContactInfoSetting = await getCachedSetting("displayContactInfo");
-            if (displayContactInfoSetting) {
-                setDisplayContactInfo(displayContactInfoSetting.value);
-            } else {
-                console.warn("displayContactInfo setting not found");
-            }
-
-            const enableReasonSetting = await getCachedSetting("enableReasonWhenCloseTicket");
-            if (enableReasonSetting) {
-                setEnableReasonWhenCloseTicket(enableReasonSetting.value === "true");
-            } else {
-                console.warn("enableReasonWhenCloseTicket setting not found");
-            }
-
-            const queueCloseSetting = await getCachedSetting("queueWhenClosingTicket");
-            if (queueCloseSetting) {
-                setQueueWhenClosingTicket(queueCloseSetting.value === "true");
-            } else {
-                console.warn("queueWhenClosingTicket setting not found");
-            }
-
-            const tagsCloseSetting = await getCachedSetting("tagsWhenClosingTicket");
-            if (tagsCloseSetting) {
-                setTagsWhenClosingTicket(tagsCloseSetting.value === "true");
-            } else {
-                console.warn("tagsWhenClosingTicket setting not found");
-            }
-        } catch (error) {
-            console.error("Erro ao buscar configurações:", error);
-        }
-    }, []);
 
     const closeTicket = async (reasonId = null, queueId = null, tags = []) => {
         setLoading(true);
@@ -501,9 +469,9 @@ const TicketListItem = ({ ticket, handleClose, setTabOpen }) => {
     };
 
     const handleCloseTicket = async () => {
-        if (queueWhenClosingTicket) {
+        if (enableQueueWhenClosingTicket) {
             setQueueModalOpen(true);
-        } else if (tagsWhenClosingTicket) {
+        } else if (enableTagsWhenClosingTicket) {
             setTagsSelectionModalOpen(true);
         } else if (enableReasonWhenCloseTicket) {
             setReasonModalOpen(true);
@@ -513,7 +481,7 @@ const TicketListItem = ({ ticket, handleClose, setTabOpen }) => {
     };
 
     const handleSelectQueue = async (queueId) => {
-        if (tagsWhenClosingTicket) {
+        if (enableTagsWhenClosingTicket) {
             setTagsSelectionModalOpen(true);
         } else if (enableReasonWhenCloseTicket) {
             setReasonModalOpen(true);
@@ -643,15 +611,9 @@ const TicketListItem = ({ ticket, handleClose, setTabOpen }) => {
         if (isMounted.current) {
             setLoading(false);
         }
-        let settingIndex = null
-        try {
-            const { data } = await api.get("/settings/");
-            settingIndex = data.find((s) => s.key === "sendGreetingAccepted");
-        } catch (err) {
-            toast.error(err);
-        }
+        
 
-        if (settingIndex?.value === "enabled" && !ticket?.isGroup) {
+        if (sendGreetingAccepted === "enabled" && !ticket?.isGroup) {
             handleSendMessage(ticket?.id);
         }
 

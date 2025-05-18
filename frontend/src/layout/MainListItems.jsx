@@ -936,7 +936,6 @@ const MainListItems = (props) => {
 
 
         {/* INTEGRAÇÕES como submenu - usando SubCategoryItem para alinhamento correto */}
-        {showIntegrations && (
           <MainCategoryItem
             icon={<DeviceHubOutlined />}
             primary={i18n.t("mainDrawer.listItems.integrations.menu")}
@@ -1043,7 +1042,6 @@ const MainListItems = (props) => {
               collapsed={collapsed}
             />
           </MainCategoryItem>
-        )}
 
 
         {/* ADMINISTRAÇÃO */}
