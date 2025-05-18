@@ -38,9 +38,6 @@ const ContentPaper = styled(Paper)(({ theme }) => ({
  * @param {React.ReactNode} props.children - Conteúdo da página
  * @param {number} props.elevation - Elevação do papel
  * @param {string} props.variant - Variante do papel
- * @param {string} props.view - Modo de visualização ('list', 'grid', 'calendar', 'kanban')
- * @param {Object} props.viewComponents - Componentes para cada tipo de visualização
- * @param {Object} props.viewProps - Propriedades para cada tipo de visualização
  * @returns {React.Component} Componente de conteúdo da página
  */
 const BasePageContent = ({
@@ -50,9 +47,6 @@ const BasePageContent = ({
   children,
   elevation = 0,
   variant = "outlined",
-  view = "list",
-  viewComponents = {},
-  viewProps = {},
 }) => {
   if (loading) {
     return (
@@ -73,23 +67,7 @@ const BasePageContent = ({
       </ContentWrapper>
     );
   }
-
-  // Se um componente específico para a visualização atual foi fornecido,
-  // renderiza-o com suas propriedades específicas
-  if (viewComponents[view]) {
-    const ViewComponent = viewComponents[view];
-    const props = viewProps[view] || {};
-    
-    return (
-      <ContentWrapper>
-        <ContentPaper elevation={elevation} variant={variant}>
-          <ViewComponent {...props} />
-        </ContentPaper>
-      </ContentWrapper>
-    );
-  }
   
-  // Caso contrário, renderiza o conteúdo padrão (children)
   return (
     <ContentWrapper>
       <ContentPaper elevation={elevation} variant={variant}>
@@ -113,9 +91,6 @@ BasePageContent.propTypes = {
   children: PropTypes.node,
   elevation: PropTypes.number,
   variant: PropTypes.string,
-  view: PropTypes.oneOf(['list', 'grid', 'calendar', 'kanban']),
-  viewComponents: PropTypes.objectOf(PropTypes.elementType),
-  viewProps: PropTypes.objectOf(PropTypes.object),
 };
 
 export default BasePageContent;
