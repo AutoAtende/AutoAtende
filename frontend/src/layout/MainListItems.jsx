@@ -55,7 +55,7 @@ import api from "../services/api";
 import { toast } from "../helpers/toast";
 import moment from "moment";
 import useVersion from "../hooks/useVersion";
-import useSettings from "../hooks/useSettings";
+import { useWhitelabelSettings } from "../hooks/useWhitelabelSettings";
 import ColorModeContext from "./themeContext";
 import { useActiveMenu } from "../context/ActiveMenuContext";
 import { GlobalContext } from "../context/GlobalContext";
@@ -457,21 +457,7 @@ const MainListItems = (props) => {
   const socketManager = useContext(SocketContext);
   const { makeRequestSettings, notifications, makeRequestTagTotalTicketPending } = useContext(GlobalContext);
 
-  const [settings, setSettings] = useState([]);
-  const { getAll } = useSettings();
-
-  // Carregar configurações
-  useEffect(() => {
-    const loadSettings = async () => {
-      if (window.location.pathname !== '/login' &&
-        window.location.pathname !== '/signup') {
-        const settingsData = await getAll();
-        setSettings(settingsData);
-      }
-    };
-
-    loadSettings();
-  }, [makeRequestSettings, getAll]);
+  const { settings, loading } = useWhitelabelSettings();
 
   // Carregar versão
   useEffect(() => {
@@ -572,15 +558,6 @@ const MainListItems = (props) => {
 
     return () => clearTimeout(delayDebounceFn);
   }, [makeRequestTagTotalTicketPending, notifications, user]);
-
-  // Carregar configurações
-  useEffect(() => {
-    if (window.location.pathname === "/login") return;
-
-    api.get(`/settings`).then(({ data }) => {
-      setSettings(data);
-    });
-  }, [makeRequestSettings]);
 
   // Reset de paginação
   useEffect(() => {
@@ -850,7 +827,7 @@ const MainListItems = (props) => {
                     level={1}
                     collapsed={collapsed}
                   />
-                  {settings?.find(s => s.key === 'displayBusinessInfo')?.value === 'enabled' && (
+                  {settings?.displayBusinessInfo === 'enabled' && (
                     <>
                       <ListItemLink
                         to="/employers"

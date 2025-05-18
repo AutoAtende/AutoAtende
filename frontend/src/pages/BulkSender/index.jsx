@@ -425,7 +425,7 @@ const BulkSender = () => {
         display: 'flex',
         flexDirection: 'column',
         overflow: 'hidden',
-        pb: isMobile ? 7 : 0, // Espaço para a navegação mobile
+        pb: isMobile ? 7 : 0,
       }}>
         <BaseResponsiveTabs
           tabs={tabs}

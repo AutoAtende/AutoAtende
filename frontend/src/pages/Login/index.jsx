@@ -37,7 +37,7 @@ import {
   Brightness7 as Brightness7Icon
 } from "@mui/icons-material";
 import { AuthContext } from "../../context/Auth/AuthContext";
-import useSettings from "../../hooks/useSettings";
+import { useWhitelabelSettings } from "../../hooks/useWhitelabelSettings";
 import { i18n } from "../../translate/i18n";
 import { useSpring, animated } from "@react-spring/web";
 import { toast } from "../../helpers/toast";
@@ -102,7 +102,7 @@ const BounceButton = styled(Button)(({ theme }) => ({
   },
 }));
 
-// Novo styled component para os links
+// Estilização para os links
 const StyledLink = styled(Link)(({ theme }) => ({
   color: theme.palette.primary.main,
   textDecoration: 'none',
@@ -115,7 +115,7 @@ const Login = () => {
   const theme = useTheme();
   const { colorMode } = useContext(ColorModeContext);
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
-  const { getPublicSetting } = useSettings();
+  const { settings, loading } = useWhitelabelSettings();
   const { handleLogin } = useContext(AuthContext);
   const [forgotPasswordOpen, setForgotPasswordOpen] = useState(false);
   const [resetStep, setResetStep] = useState(1);
@@ -123,18 +123,20 @@ const Login = () => {
     localStorage.getItem("rememberMe") === "true"
   );
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [loginPosition, setLoginPosition] = useState("right"); // Posição padrão
+  const [showPassword, setShowPassword] = useState(false);
+
+  // Obter configurações diretamente do objeto settings
+  const allowSignup = settings.allowSignup === "enabled";
+  const copyright = settings.copyright || "";
+  const terms = settings.terms || "";
+  const privacy = settings.privacy || "";
+  const loginPosition = settings.loginPosition || "right";
+  const loginBackground = settings.loginBackground || "";
 
   const [user, setUser] = useState({
     email: localStorage.getItem("email") || "",
     password: "",
   });
-  const [showPassword, setShowPassword] = useState(false);
-  const [allowSignup, setAllowSignup] = useState(false);
-  const [terms, setTerms] = useState("");
-  const [privacy, setPrivacy] = useState("");
-  const [copyright, setCopyright] = useState("");
-  const [loginBackground, setLoginBackground] = useState("");
 
   // Spring animations
   const formAnimation = useSpring({
@@ -148,19 +150,6 @@ const Login = () => {
     to: { opacity: 1 },
     delay: 200
   });
-
-  useEffect(() => {
-    getPublicSetting("allowSignup").then((data) => setAllowSignup(data === "enabled"));
-    getPublicSetting("copyright").then((data) => data && setCopyright(data));
-    getPublicSetting("terms").then((data) => data && setTerms(data));
-    getPublicSetting("privacy").then((data) => data && setPrivacy(data));
-    getPublicSetting("loginPosition").then((data) => data && setLoginPosition(data));
-    getPublicSetting("loginBackground").then((data) => {
-      if (data) {
-        setLoginBackground(`${process.env.REACT_APP_BACKEND_URL}/public/${data}`);
-      }
-    });
-  }, [getPublicSetting]);
 
   const handleToggleTheme = () => {
     colorMode.toggleColorMode();
@@ -300,6 +289,23 @@ const Login = () => {
         return 'flex-end';
     }
   };
+
+  // Mostrar indicador de carregamento enquanto as configurações estão sendo carregadas
+  if (loading) {
+    return (
+      <Box
+        sx={{
+          minHeight: '100vh',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          bgcolor: 'background.default'
+        }}
+      >
+        <CircularProgress />
+      </Box>
+    );
+  }
 
   return (
     <Box

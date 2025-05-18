@@ -49,7 +49,7 @@ import {
 import { useSpring, animated } from "@react-spring/web";
 import { i18n } from "../../translate/i18n";
 import { openApi } from "../../services/api";
-import useSettings from "../../hooks/useSettings";
+import { useWhitelabelSettings } from "../../hooks/useWhitelabelSettings";
 import { cpfMask, cnpjMask, cepMask } from "../../helpers/masks";
 import { removeMask } from "../../helpers/removeMask";
 import SignUpPhoneInput from "../../components/PhoneInputs/SignUpPhoneInput";
@@ -263,10 +263,9 @@ const SignUp = () => {
   const history = useHistory();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("md"));
-  const { getPublicSetting } = useSettings();
+  const { settings } = useWhitelabelSettings();
 
   const [activeStep, setActiveStep] = useState(0);
-  const [signupPosition, setSignupPosition] = useState("right"); // Posição padrão
 
   const [plans, setPlans] = useState([]);
   const { list: listPlans } = usePlans();
@@ -548,26 +547,12 @@ const SignUp = () => {
       }),
   });
 
-  const [allowSignup, setAllowSignup] = useState(false);
-  const [terms, setTerms] = useState("");
-  const [privacy, setPrivacy] = useState("");
-  const [copyright, setCopyright] = useState("");
-  const [signupBackground, setSignupBackground] = useState("");
-
-  useEffect(() => {
-    getPublicSetting("allowSignup").then((data) => setAllowSignup(data === "enabled"));
-    getPublicSetting("copyright").then((data) => data && setCopyright(data));
-    getPublicSetting("terms").then((data) => data && setTerms(data));
-    getPublicSetting("privacy").then((data) => data && setPrivacy(data));
-    getPublicSetting("signupPosition").then((data) => data && setSignupPosition(data));
-    getPublicSetting("signupBackground").then((data) => {
-      if (data) {
-        setSignupBackground(
-          `${process.env.REACT_APP_BACKEND_URL}/public/${data}`
-        );
-      }
-    });
-  }, [getPublicSetting]);
+  const allowSignup = settings.allowSignup === "enabled";
+  const copyright = settings.copyright || "";
+  const terms = settings.terms || "";
+  const privacy = settings.privacy || "";
+  const signupPosition = settings.signupPosition || "right";
+  const signupBackground = settings.signupBackground ? settings.signupBackground : "";
 
   useEffect(() => {
     const loadSettings = async () => {

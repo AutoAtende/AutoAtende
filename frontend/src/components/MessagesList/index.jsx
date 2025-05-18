@@ -43,7 +43,7 @@ import { GlobalContext } from "../../context/GlobalContext";
 import { extractContactInfo } from "../../helpers/extractContactInfoVCard";
 import { MessageNotificationUser } from "./MessageNotificationUser";
 import MessageReaction from "./MessageReaction";
-import useSettings from "../../hooks/useSettings";
+import { useWhitelabelSettings } from "../../hooks/useWhitelabelSettings";
 
 // Mutex para controlar o carregamento de mensagens
 const loadPageMutex = new Mutex();
@@ -814,7 +814,7 @@ const MessagesList = ({
   setForwardMessageModalOpen
 }) => {
   const classes = useStyles();
-  const { getCachedSetting } = useSettings();
+  const { settings } = useWhitelabelSettings();
 
   const [messagesList, dispatch] = useReducer(reducer, []);
   const [pageNumber, setPageNumber] = useState(1);
@@ -829,7 +829,6 @@ const MessagesList = ({
   const messageOptionsMenuOpen = Boolean(anchorEl);
   const currentTicketId = useRef(ticketId);
   const { selectedQueuesMessage } = useContext(QueueSelectedContext);
-  const [displayProfileImages, setDisplayProfileImages] = useState("enabled");
   const socketManager = useContext(SocketContext);
   const { setMakeRequestTagTotalTicketPending } = useContext(GlobalContext);
   const [trackingRecords, setTrackingRecords] = useState([]);
@@ -838,20 +837,7 @@ const MessagesList = ({
     message: null
   });
 
-  useEffect(() => {
-    const loadProfileImagesConfig = async () => {
-      try {
-        const setting = await getCachedSetting("displayProfileImages");
-        if (setting) {
-          setDisplayProfileImages(setting.value);
-        }
-      } catch (err) {
-        console.error("Erro ao carregar configuração de exibição de imagens de perfil:", err);
-      }
-    };
-
-    loadProfileImagesConfig();
-  }, [getCachedSetting]);
+const displayProfileImages = settings.loadProfileImages.value;
 
   useEffect(() => {
     dispatch({ type: "RESET" });

@@ -1,5 +1,6 @@
 import React, { createContext, useState, useContext, useCallback, useEffect } from "react";
 import api from "../services/api";
+import openApi from "../services/api";
 
 // Criação do contexto
 const SettingsContext = createContext({});
@@ -61,7 +62,7 @@ export const SettingsProvider = ({ children }) => {
       }
       
       // Se não encontrar no cache, busca da API
-      const { data } = await api.get(`/public-settings/${key}`);
+      const { data } = await openApi.get(`/public-settings/${key}`);
       return data;
     } catch (err) {
       console.error(`Erro ao buscar configuração pública ${key}:`, err);
@@ -116,7 +117,7 @@ export const SettingsProvider = ({ children }) => {
       const targetCompanyId = companyId || localStorage.getItem("companyId") || "1";
       
       // Buscar configurações públicas
-      const { data } = await api.get("/public-settings", { 
+      const { data } = await openApi.get("/public-settings", { 
         params: { companyId: targetCompanyId } 
       });
       

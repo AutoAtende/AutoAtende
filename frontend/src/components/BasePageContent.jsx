@@ -1,4 +1,3 @@
-// src/components/BasePageContent/index.jsx
 import React from 'react';
 import PropTypes from 'prop-types';
 import { styled } from '@mui/material/styles';
@@ -30,6 +29,17 @@ const ContentPaper = styled(Paper)(({ theme }) => ({
   borderRadius: theme.shape.borderRadius,
 }));
 
+/**
+ * Componente base para o conteúdo da página com suporte a diferentes visualizações
+ * @param {Object} props - Propriedades do componente
+ * @param {boolean} props.loading - Se o conteúdo está sendo carregado
+ * @param {boolean} props.empty - Se não há conteúdo para exibir
+ * @param {Object} props.emptyProps - Propriedades para o estado vazio
+ * @param {React.ReactNode} props.children - Conteúdo da página
+ * @param {number} props.elevation - Elevação do papel
+ * @param {string} props.variant - Variante do papel
+ * @returns {React.Component} Componente de conteúdo da página
+ */
 const BasePageContent = ({
   loading = false,
   empty = false,

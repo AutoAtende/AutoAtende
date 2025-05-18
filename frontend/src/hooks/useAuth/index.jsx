@@ -15,7 +15,7 @@ const useAuth = () => {
   const [isAuth, setIsAuth] = useState(false);
   const [loading, setLoading] = useState(true);
   const [user, setUser] = useState({});
-  
+
   // Usar o hook usePublicSettings para carregar configurações públicas
   const { publicSettings, loadPublicSettings } = usePublicSettings();
 
@@ -284,9 +284,10 @@ const useAuth = () => {
       setUser(user);
       setIsAuth(true);
   
-      // Verificar e inicializar o Facebook Pixel usando as configurações
+
       try {
         const enableMetaPixel = publicSettings.enableMetaPixel === 'enabled';
+
         
         if (enableMetaPixel) {
           // Verificar se company tem as configurações do Pixel
