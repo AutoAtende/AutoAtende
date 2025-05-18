@@ -83,7 +83,7 @@ const Ticket = () => {
     const [reasonModalOpen, setReasonModalOpen] = useState(false);
     const { setDrawerOpen } = useContext(GlobalContext);
     const socketManager = useContext(SocketContext);
-    const { getCachedSetting } = useSettings();
+    const { settings } = useSettings();
 
     useEffect(async () => {
         setLoading(true);
@@ -183,7 +183,7 @@ const Ticket = () => {
     };
 
     const handleCloseTicket = async () => {
-        const enableReasonWhenCloseTicket = await getCachedSetting('enableReasonWhenCloseTicket')
+        const enableReasonWhenCloseTicket = settings?.enableReasonWhenCloseTicket;
         if (enableReasonWhenCloseTicket?.value === 'enabled') {
             if (setReasonModalOpen) {
                 setReasonModalOpen(true);

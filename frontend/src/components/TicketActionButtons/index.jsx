@@ -121,7 +121,6 @@ const TicketActionButtons = ({
     const [contactId, setContactId] = useState(null);
     const [open, setOpen] = useState(false);
     const formRef = useRef(null);
-    const [glApiModalOpen, setGlApiModalOpen] = useState(false);
     const [openTicketMessageDialog, setOpenTicketMessageDialog] = useState(false);
     const [showSchedules, setShowSchedules] = useState(false);
     const [showTicketLogOpen, setShowTicketLogOpen] = useState(false);
@@ -129,12 +128,9 @@ const TicketActionButtons = ({
     const [ticketValue, setTicketValue] = useState(ticket.value || '');
     const [ticketSku, setTicketSku] = useState(ticket.sku || '');
     const [snackbarOpen, setSnackbarOpen] = useState(false);
-    const [enableTicketValueAndSku, setEnableTicketValueAndSku] = useState(false);
-    const [enableUPSix, setEnableUPSix] = useState(false);
-    const [enableUPSixWebphone, setEnableUPSixWebphone] = useState(false);
 
     const { getPlanCompany } = usePlans();
-    const { getCachedSetting } = useSettings();
+    const { settings } = useSettings();
     const [taskModalOpen, setTaskModalOpen] = useState(false);
     const [taskCategories, setTaskCategories] = useState([]);
     const [users, setUsers] = useState([]);
@@ -146,9 +142,13 @@ const TicketActionButtons = ({
     const [tagModalOpen, setTagModalOpen] = useState(false);
     const [selectedQueueId, setSelectedQueueId] = useState(null);
     const [selectedTags, setSelectedTags] = useState([]);
-    const [enableQueueWhenCloseTicket, setEnableQueueWhenCloseTicket] = useState(false);
-    const [enableTagsWhenCloseTicket, setEnableTagsWhenCloseTicket] = useState(false);
-    const [enableReasonWhenCloseTicket, setEnableReasonWhenCloseTicket] = useState(false);
+
+    const enableQueueWhenCloseTicket = settings?.enableQueueWhenCloseTicket;
+    const enableTagsWhenCloseTicket = settings?.enableTagsWhenCloseTicket;
+    const enableReasonWhenCloseTicket = settings?.enableReasonWhenCloseTicket;
+    const enableUPSix = settings?.enableUPSix;
+    const enableUPSixWebphone = settings?.enableUPSixWebphone;
+    const enableTicketValueAndSku = settings?.enableTicketValueAndSku;
 
     const { setMakeRequest, setOpenTabTicket, setMakeRequestTagTotalTicketPending, setMakeRequestTicketList } = useContext(GlobalContext);
 
@@ -185,44 +185,6 @@ const TicketActionButtons = ({
 
         await fetchData();
         setShowTicketLogOpen(false);
-    }, []);
-
-    useEffect(async () => {
-        const enableTicketValueAndSku = await getCachedSetting("enableTicketValueAndSku");
-        const enableUPSix = await getCachedSetting("enableUPSix");
-        const enableUPSixWebphone = await getCachedSetting("enableUPSixWebphone");
-        if (enableTicketValueAndSku) {
-            setEnableTicketValueAndSku(enableTicketValueAndSku?.value || "enabled");
-        }
-        if(enableUPSix) {
-            setEnableUPSix(enableUPSix?.value || "enabled");
-            if(enableUPSixWebphone) {
-                setEnableUPSixWebphone(enableUPSixWebphone?.value || "enabled");
-            }
-        }
-    }, []);
-
-
-    // Adicionar useEffect para buscar as configurações de fechamento de ticket
-    useEffect(async () => {
-        try {
-            const enableQueueSetting = await getCachedSetting("enableQueueWhenCloseTicket");
-            if (enableQueueSetting) {
-                setEnableQueueWhenCloseTicket(enableQueueSetting.value === "enabled");
-            }
-
-            const enableTagsSetting = await getCachedSetting("enableTagsWhenCloseTicket");
-            if (enableTagsSetting) {
-                setEnableTagsWhenCloseTicket(enableTagsSetting.value === "enabled");
-            }
-            
-            const enableReasonSetting = await getCachedSetting("enableReasonWhenCloseTicket");
-            if (enableReasonSetting) {
-                setEnableReasonWhenCloseTicket(enableReasonSetting.value === "enabled");
-            }
-        } catch (error) {
-            console.error("Erro ao buscar configurações de fechamento de ticket:", error);
-        }
     }, []);
 
     const handleOpenTicketOptionsMenu = e => {

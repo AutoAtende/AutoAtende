@@ -100,21 +100,15 @@ const CollapsibleBadge = ({ icon, label, color, variant = 'filled' }) => {
 const TicketInfo = ({ contact, ticket, onClick }) => {
     const [userName, setUserName] = useState('');
     const [contactName, setContactName] = useState('');
-    const [enableTicketValueAndSku, setEnableTicketValueAndSku] = useState(false);
-    const { getCachedSetting } = useSettings();
+ 
+    const { settings } = useSettings();
+    const enableTicketValueAndSku = settings?.enableTicketValueAndSku;
 
     useEffect(() => {
         setContactName(contact?.name || '');
         if (ticket.user && contact) setUserName(ticket.user.name);
     }, [contact, ticket.user]);
 
-    useEffect(() => {
-        const fetchSettings = async () => {
-            const setting = await getCachedSetting("enableTicketValueAndSku");
-            setEnableTicketValueAndSku(setting?.value === "enabled");
-        };
-        fetchSettings();
-    }, [getCachedSetting]);
 
     const renderBusinessInfo = () => (
         <Stack direction="row" gap={0.5} flexWrap="wrap">
