@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { QueryClient, QueryClientProvider } from "react-query";
 
 import { ptBR } from "@mui/material/locale";
@@ -28,13 +28,14 @@ import { usePublicSettings } from "./context/PublicSettingsContext";
 const queryClient = new QueryClient();
 
 // Componente para tema, separado para evitar re-renderizações desnecessárias
-const ThemedApp = ({ children }) => {
+const ThemedApp = () => {
   const [locale, setLocale] = useState();
   const prefersDarkMode = useMediaQuery("(prefers-color-scheme: dark)");
   const preferredTheme = window.localStorage.getItem("preferredTheme");
   const [mode, setMode] = useState(
     preferredTheme ? preferredTheme : prefersDarkMode ? "dark" : "light"
   );
+  const [activeWhatsapp] = useState("default");
   const [themeSettings, setThemeSettings] = useState({});
   const { isAuth, user } = useAuth();
   const { getAllPublicSetting } = useSettings();
@@ -462,7 +463,9 @@ const ThemedApp = ({ children }) => {
       <ColorModeContext.Provider value={{ colorMode }}>
         <StyledEngineProvider injectFirst>
           <ThemeProvider theme={theme}>
-            {children}
+            <ActiveWhatsappProvider value={{ activeWhatsapp }}>
+              <Routes />
+            </ActiveWhatsappProvider>
           </ThemeProvider>
         </StyledEngineProvider>
       </ColorModeContext.Provider>
@@ -475,17 +478,13 @@ const App = () => {
     <PublicSettingsProvider>
       <LoadingProvider>
         <GlobalContextProvider>
-          <ActiveWhatsappProvider value={{ activeWhatsapp: "default" }}>
-            <ModalProvider>
-              <QueryClientProvider client={queryClient}>
-                <SocketContext.Provider value={socketManager}>
-                  <ThemedApp>
-                    <Routes />
-                  </ThemedApp>
-                </SocketContext.Provider>
-              </QueryClientProvider>
-            </ModalProvider>
-          </ActiveWhatsappProvider>
+          <ModalProvider>
+            <QueryClientProvider client={queryClient}>
+              <SocketContext.Provider value={socketManager}>
+                <ThemedApp />
+              </SocketContext.Provider>
+            </QueryClientProvider>
+          </ModalProvider>
         </GlobalContextProvider>
       </LoadingProvider>
     </PublicSettingsProvider>

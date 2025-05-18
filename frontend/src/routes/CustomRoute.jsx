@@ -1,13 +1,14 @@
 import React, { useContext, useEffect } from "react";
-import { Route as RouterRoute, Redirect } from "react-router-dom";
+import { Route as RouterRoute, Redirect, useLocation } from "react-router-dom";
 import { AuthContext } from "../context/Auth/AuthContext";
 import BackdropLoading from "../components/BackdropLoading";
 import { AutoAtendeLoading } from "../components/Loading/AutoAtendeLoading";
-import { usePublicSettings } from "../context/PublicSettingsContext";
+import { usePublicSettings } from "../context/PublicSettingsProvider";
 
 const CustomRoute = ({ component: Component, isPrivate = false, ...rest }) => {
   const { isAuth, loading, user } = useContext(AuthContext);
   const { loadPublicSettings } = usePublicSettings();
+  const location = useLocation();
 
   // Efeito para carregar configurações públicas em rotas públicas
   useEffect(() => {
@@ -16,7 +17,7 @@ const CustomRoute = ({ component: Component, isPrivate = false, ...rest }) => {
       // Carregar configurações públicas (não força atualização para aproveitar o cache)
       loadPublicSettings();
     }
-  }, [isPrivate, loadPublicSettings, rest.location.pathname]);
+  }, [isPrivate, loadPublicSettings, location.pathname]);
 
   if (loading) {
     return <BackdropLoading />;
@@ -29,9 +30,9 @@ const CustomRoute = ({ component: Component, isPrivate = false, ...rest }) => {
     }
 
     // Se estiver autenticado e tentar acessar login/signup/home
-    if (isAuth && !isPrivate && ["/home", "/login", "/signup"].includes(rest.location.pathname)) {
+    if (isAuth && !isPrivate && ["/login", "/signup"].includes(location.pathname)) {
       // Redireciona baseado no perfil do usuário
-      if (user?.profile === "admin") {
+      if (user?.profile === "admin" || user?.super) {
         return "/dashboard";
       }
       return "/tickets";
@@ -47,7 +48,7 @@ const CustomRoute = ({ component: Component, isPrivate = false, ...rest }) => {
       <Redirect
         to={{
           pathname: redirectPath,
-          state: { from: rest.location }
+          state: { from: location }
         }}
       />
     );

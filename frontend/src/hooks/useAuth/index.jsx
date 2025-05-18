@@ -329,18 +329,23 @@ const useAuth = () => {
   
         toast.success(i18n.t("auth.toasts.success"));
   
-        // Redirecionamento baseado no perfil
-        if (profile === "user") {
-          history.push("/tickets");
-        } else if (profile === "admin" || user.super) {
-          history.push("/dashboard");
-        } else {
-          history.push("/tickets");
-        }
+        // Usar setTimeout para garantir que o estado foi atualizado antes de redirecionar
+        setTimeout(() => {
+          // Redirecionamento baseado no perfil
+          if (profile === "user") {
+            history.push("/tickets");
+          } else if (profile === "admin" || user.super) {
+            history.push("/dashboard");
+          } else {
+            history.push("/tickets");
+          }
+        }, 100);
   
       } else {
         toast.error(`Sua assinatura venceu em ${vencimento}. Entre em contato com o Suporte.`);
-        history.push("/plans");
+        setTimeout(() => {
+          history.push("/plans");
+        }, 100);
       }
   
     } catch (err) {
@@ -395,9 +400,12 @@ const useAuth = () => {
       // Carregar configurações públicas para a página de login
       loadPublicSettings(true);
       
-      window.location.href = "/login";
+      // Usar navegação programática em vez de recarregar a página
+      history.push("/login");
     } catch (err) {
       toast.error("Erro ao fazer logout");
+      // Tentar redirecionar para login mesmo em caso de erro
+      history.push("/login");
     } finally {
       setLoading(false);
     }
