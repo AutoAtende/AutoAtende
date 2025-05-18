@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { QueryClient, QueryClientProvider } from "react-query";
 
 import { ptBR } from "@mui/material/locale";
@@ -22,56 +22,24 @@ import { ModalProvider } from "./hooks/useModal";
 import { GlobalContextProvider } from "./context/GlobalContext";
 import { socketManager, SocketContext } from "./context/Socket/SocketContext";
 import { ActiveWhatsappProvider } from "./context/ActiveWhatsappContext";
+import { PublicSettingsProvider } from "./context/PublicSettingsProvider";
+import { usePublicSettings } from "./context/PublicSettingsProvider";
 
 const queryClient = new QueryClient();
-const CACHE_EXPIRATION_TIME = 86400000; // 24 horas em milissegundos
 
-const App = () => {
+// Componente para tema, separado para evitar re-renderizações desnecessárias
+const ThemedApp = ({ children }) => {
   const [locale, setLocale] = useState();
   const prefersDarkMode = useMediaQuery("(prefers-color-scheme: dark)");
   const preferredTheme = window.localStorage.getItem("preferredTheme");
   const [mode, setMode] = useState(
     preferredTheme ? preferredTheme : prefersDarkMode ? "dark" : "light"
   );
-  const [activeWhatsapp, setActiveWhatsapp] = useState("default");
   const [themeSettings, setThemeSettings] = useState({});
   const { isAuth, user } = useAuth();
   const { getAllPublicSetting } = useSettings();
+  const { publicSettings } = usePublicSettings();
   
-  // Função para armazenar configurações em cache
-  const cacheSettings = useCallback((companyId, settings) => {
-    try {
-      const cacheData = {
-        timestamp: new Date().getTime(),
-        settings: settings
-      };
-      localStorage.setItem(`whitelabel_settings_${companyId}`, JSON.stringify(cacheData));
-    } catch (error) {
-      console.error('Erro ao armazenar configurações no cache:', error);
-    }
-  }, []);
-
-  // Função para obter configurações do cache
-  const getSettingsFromCache = useCallback((companyId) => {
-    try {
-      const cachedData = localStorage.getItem(`whitelabel_settings_${companyId}`);
-      if (!cachedData) return null;
-      
-      const { timestamp, settings } = JSON.parse(cachedData);
-      
-      // Verificar se o cache expirou (24 horas)
-      if (new Date().getTime() - timestamp > CACHE_EXPIRATION_TIME) {
-        localStorage.removeItem(`whitelabel_settings_${companyId}`);
-        return null;
-      }
-      
-      return settings;
-    } catch (error) {
-      console.error('Erro ao recuperar configurações do cache:', error);
-      return null;
-    }
-  }, []);
-
   // Função auxiliar para aplicar as configurações ao tema
   const setSetting = useCallback((key, value) => {
     setThemeSettings(prev => ({
@@ -80,80 +48,82 @@ const App = () => {
     }));
   }, []);
 
-  // Função para processar as configurações recebidas da API
-  const processSettings = useCallback((allSettings, companyId) => {
-    if (!allSettings || !Array.isArray(allSettings)) return {};
-
-    const processedSettings = {};
-    
-    allSettings.forEach((setting) => {
-      if (!setting || !setting.key || !setting.value) return;
-
-      if (setting.key === "appName" && setting.value) {
-        document.title = setting.value;
-      }
-
-      // Processamento de URLs para imagens
-      if (setting.key && (setting.key.includes("Logo") || setting.key.includes("Background"))) {
-        processedSettings[setting.key] = 
-          process.env.REACT_APP_BACKEND_URL + "/public/" + setting.value;
-      } else if (setting.key) {
-        processedSettings[setting.key] = setting.value;
-      }
-    });
-
-    // Atualizar o cache com as configurações processadas
-    if (companyId) {
-      cacheSettings(companyId, processedSettings);
-    }
-
-    return processedSettings;
-  }, [cacheSettings]);
-
-  // Função principal para carregar as configurações
-  const loadSettings = useCallback(async () => {
-    try {
-      // Importante: Obter companyId do usuário logado ou do localStorage
-      const companyId = user?.companyId || localStorage.getItem("companyId") || "1";
-      
-      // Primeiro, tenta carregar do cache
-      const cachedSettings = getSettingsFromCache(companyId);
-      if (cachedSettings) {
-        console.log('Usando configurações em cache para empresa:', companyId);
-        setThemeSettings(cachedSettings);
-        
-        // Se tiver configuração de nome da aplicação, atualiza o título
-        if (cachedSettings.appName) {
-          document.title = cachedSettings.appName;
-        }
-      }
-      
-      // Em seguida, busca as configurações atualizadas da API especificando a empresa
-      const allSettings = await getAllPublicSetting(companyId);
-      if (allSettings) {
-        const processedSettings = processSettings(allSettings, companyId);
-        setThemeSettings(processedSettings);
-      }
-
-      // Configuração do idioma
-      const i18nlocale = localStorage.getItem("language");
-      if (i18nlocale) {
-        const browserLocale = i18nlocale.substring(0, 2) + i18nlocale.substring(3, 5);
-        if (browserLocale === "ptBR") {
-          setLocale(ptBR);
-        }
-      }
-    } catch (error) {
-      console.error("Erro ao carregar configurações:", error);
-    }
-  }, [getAllPublicSetting, getSettingsFromCache, processSettings, user]);
-
-  // Efeito para carregar as configurações ao iniciar ou quando mudar o status de autenticação ou o usuário
+  // Efeito para carregar as configurações quando usuário autenticado
   useEffect(() => {
+    const companyId = user?.companyId || localStorage.getItem("companyId") || "1";
+    let isMounted = true;
+    
+    // Apenas carregar configurações privadas quando autenticado
     if (isAuth) {
-      loadSettings();
+      getAllPublicSetting(companyId)
+        .then(allSettings => {
+          if (!isMounted) return;
+          
+          // Processar as configurações
+          if (!allSettings || !Array.isArray(allSettings)) return;
+
+          const processedSettings = {};
+          
+          allSettings.forEach((setting) => {
+            if (!setting || !setting.key || !setting.value) return;
+
+            if (setting.key === "appName" && setting.value) {
+              document.title = setting.value;
+            }
+
+            // Processamento de URLs para imagens
+            if (setting.key && (setting.key.includes("Logo") || setting.key.includes("Background"))) {
+              processedSettings[setting.key] = 
+                process.env.REACT_APP_BACKEND_URL + "/public/" + setting.value;
+            } else if (setting.key) {
+              processedSettings[setting.key] = setting.value;
+            }
+          });
+
+          setThemeSettings(prevState => ({
+            ...prevState,
+            ...processedSettings
+          }));
+        })
+        .catch(error => {
+          console.error("Erro ao carregar configurações:", error);
+        });
     }
-  }, [loadSettings, isAuth, user?.companyId]);
+    
+    return () => {
+      isMounted = false;
+    };
+  }, [isAuth, user?.companyId, getAllPublicSetting]);
+  
+  // Incorporar configurações públicas quando não autenticado
+  useEffect(() => {
+    if (!isAuth && publicSettings) {
+      // Aplicar as configurações públicas ao tema
+      setThemeSettings(prevState => ({
+        ...prevState,
+        ...publicSettings
+      }));
+      
+      // Se tiver configuração de nome da aplicação, atualiza o título
+      if (publicSettings.appName) {
+        document.title = publicSettings.appName;
+      }
+    }
+    
+    // Configuração do idioma
+    const i18nlocale = localStorage.getItem("language");
+    if (i18nlocale) {
+      const browserLocale = i18nlocale.substring(0, 2) + i18nlocale.substring(3, 5);
+      if (browserLocale === "ptBR") {
+        setLocale(ptBR);
+      }
+    }
+  }, [isAuth, publicSettings]);
+
+  // Efeito para salvar preferência de tema no localStorage
+  useEffect(() => {
+    window.localStorage.setItem("preferredTheme", mode || "light");
+  }, [mode]);
 
   // Funções para modificação do tema
   const colorMode = useMemo(
@@ -281,11 +251,6 @@ const App = () => {
     }),
     [themeSettings, setSetting]
   );
-
-  // Efeito para salvar preferência de tema no localStorage
-  useEffect(() => {
-    window.localStorage.setItem("preferredTheme", mode || "light");
-  }, [mode]);
 
   // Criação do tema
   const theme = useMemo(
@@ -494,26 +459,36 @@ const App = () => {
             : "assets/vector/favicon.svg"
         }
       />
-        <LoadingProvider>
-          <GlobalContextProvider>
-            <ActiveWhatsappProvider value={{ activeWhatsapp }}>
-              <ModalProvider>
-                <ColorModeContext.Provider value={{ colorMode }}>
-                  <StyledEngineProvider injectFirst>
-                    <ThemeProvider theme={theme}>
-                      <QueryClientProvider client={queryClient}>
-                        <SocketContext.Provider value={socketManager}>
-                          <Routes />
-                        </SocketContext.Provider>
-                      </QueryClientProvider>
-                    </ThemeProvider>
-                  </StyledEngineProvider>
-                </ColorModeContext.Provider>
-              </ModalProvider>
-            </ActiveWhatsappProvider>
-          </GlobalContextProvider>
-        </LoadingProvider>
+      <ColorModeContext.Provider value={{ colorMode }}>
+        <StyledEngineProvider injectFirst>
+          <ThemeProvider theme={theme}>
+            {children}
+          </ThemeProvider>
+        </StyledEngineProvider>
+      </ColorModeContext.Provider>
     </>
+  );
+};
+
+const App = () => {
+  return (
+    <PublicSettingsProvider>
+      <LoadingProvider>
+        <GlobalContextProvider>
+          <ActiveWhatsappProvider value={{ activeWhatsapp: "default" }}>
+            <ModalProvider>
+              <QueryClientProvider client={queryClient}>
+                <SocketContext.Provider value={socketManager}>
+                  <ThemedApp>
+                    <Routes />
+                  </ThemedApp>
+                </SocketContext.Provider>
+              </QueryClientProvider>
+            </ModalProvider>
+          </ActiveWhatsappProvider>
+        </GlobalContextProvider>
+      </LoadingProvider>
+    </PublicSettingsProvider>
   );
 };
 
