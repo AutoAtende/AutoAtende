@@ -49,6 +49,7 @@ const AnnouncementSchema = Yup.object().shape({
 const AnnouncementModal = ({ open, onClose, announcementId, reload }) => {
   const editorRef = useRef(null);
   const attachmentFile = useRef(null);
+  const formikRef = useRef(null); // Referência para o formulário Formik
 
   const initialState = {
     title: "",
@@ -236,17 +237,21 @@ const AnnouncementModal = ({ open, onClose, announcementId, reload }) => {
       disabled: isSubmitting
     });
     
-    // Botão de salvar
+    // Botão de salvar (modificado para submeter o formulário manualmente)
     actions.push({
       label: announcementId
         ? i18n.t("announcements.dialog.buttons.edit")
         : i18n.t("announcements.dialog.buttons.add"),
-      onClick: () => {}, // Formik controla o envio do formulário
+      onClick: () => {
+        // Submete o formulário Formik manualmente
+        if (formikRef.current) {
+          formikRef.current.submitForm();
+        }
+      },
       variant: "contained",
       color: "primary",
       icon: <SaveIcon />,
-      disabled: isSubmitting,
-      type: "submit"
+      disabled: isSubmitting
     });
     
     return actions;
@@ -273,6 +278,7 @@ const AnnouncementModal = ({ open, onClose, announcementId, reload }) => {
         enableReinitialize
         validationSchema={AnnouncementSchema}
         onSubmit={handleSaveAnnouncement}
+        innerRef={formikRef} // Adiciona a referência para acessar os métodos do Formik
       >
         {({ touched, errors, isSubmitting, values, setFieldValue }) => (
           <Form>
