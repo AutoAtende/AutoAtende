@@ -210,14 +210,13 @@ const BulkSender = () => {
     setCampaignModalOpen(true);
   };
 
-// Função para duplicar campanha
-const handleDuplicateCampaign = (campaign) => {
-  if (!campaign || !campaign.id) return;
-  
-  setSelectedCampaign(null);
-  setDuplicateFromId(campaign.id);
-  setCampaignModalOpen(true);
-};
+  const handleDuplicateCampaign = (campaign) => {
+    if (!campaign || !campaign.id) return;
+    
+    setSelectedCampaign(null);
+    setDuplicateFromId(campaign.id);
+    setCampaignModalOpen(true);
+  };
 
   const handleOpenContactListModal = (contactList = null) => {
     setSelectedContactList(contactList);
