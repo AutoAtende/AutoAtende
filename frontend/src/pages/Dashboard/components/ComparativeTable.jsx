@@ -13,8 +13,7 @@ import {
 } from '@mui/material';
 import { styled } from '@mui/material/styles';
 import { ArrowUpward, ArrowDownward } from '@mui/icons-material';
-import { useDashboardContext } from '../context/DashboardContext';
-import AuthContext from '../../context/AuthContext';
+import { AuthContext } from '../../../context/AuthContext';
 
 // Styled Components
 const StyledTableCell = styled(TableCell)(({ theme }) => ({
