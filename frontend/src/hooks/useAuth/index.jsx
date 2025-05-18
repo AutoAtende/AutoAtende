@@ -5,6 +5,7 @@ import { i18n } from "../../translate/i18n";
 import api from "../../services/api";
 import FacebookPixelService from "../../services/facebookPixel";
 import { SocketContext } from "../../context/Socket/SocketContext";
+import { useWhitelabelSettings } from "../../hooks/useWhitelabelSettings";
 import moment from "moment";
 
 let refreshTokenPromise = null;
@@ -14,6 +15,9 @@ const useAuth = () => {
   const [isAuth, setIsAuth] = useState(false);
   const [loading, setLoading] = useState(true);
   const [user, setUser] = useState({});
+  
+  // Usar o hook useWhitelabelSettings para carregar configurações com sistema de cache
+  const { settings, loadSettings } = useWhitelabelSettings();
 
   const socketManager = useContext(SocketContext);
 
@@ -259,12 +263,15 @@ const useAuth = () => {
       setUser(user);
       setIsAuth(true);
   
-      // Verificar e inicializar o Facebook Pixel
+      // Forçar uma atualização das configurações para o companyId do usuário logado
+      await loadSettings(true);
+
+      // Verificar e inicializar o Facebook Pixel usando as configurações do useWhitelabelSettings
       try {
-        const { data: settings } = await api.get('/settings');
-        const enableMetaPixel = settings.find(s => s.key === 'enableMetaPixel')?.value === 'enabled';
+        const enableMetaPixel = settings.enableMetaPixel === 'enabled';
         
         if (enableMetaPixel) {
+          // Verificar se company tem as configurações do Pixel
           const metaPixelId = company.settings?.find(s => s.key === 'metaPixelId')?.value;
           
           if (metaPixelId) {
