@@ -14,6 +14,7 @@ const useAuth = () => {
   const history = useHistory();
   const [isAuth, setIsAuth] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [user, setUser] = useState({});
   
   // Usar o hook usePublicSettings para carregar configurações públicas
   const { publicSettings, loadPublicSettings } = usePublicSettings();
