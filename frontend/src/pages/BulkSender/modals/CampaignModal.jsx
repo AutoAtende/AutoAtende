@@ -130,45 +130,55 @@ const SelectListOrTag = ({ values, errors, touched, setFieldValue, handleChange,
       </Grid>
 
       <Grid item xs={12} md={4}>
-        <FormControl
-          variant="outlined"
-          fullWidth
-        >
-          <InputLabel id="tagList-selection-label">
-            {i18n.t("campaigns.dialog.form.tagList")}
-          </InputLabel>
-          <Select
-            label={i18n.t("campaigns.dialog.form.tagList")}
-            labelId="tagList-selection-label"
-            id="tagListId"
-            name="tagListId"
-            value={values.tagListId}
-            onChange={(e) => {
-              handleChange(e);
-              // Se selecionar uma tag, limpa a seleção de lista
-              if (e.target.value) {
-                setFieldValue("contactListId", "");
-              }
-            }}
-            error={touched.tagListId && Boolean(errors.tagListId)}
-            disabled={disabled || listSelected}
-            InputLabelProps={{
-              shrink: true,
-            }}
-          >
-            <MenuItem value="">{i18n.t("campaigns.dialog.form.none")}</MenuItem>
-            {tagLists.map((tagList) => (
-              <MenuItem key={tagList.id} value={tagList.id}>
-                {tagList.name}
-              </MenuItem>
-            ))}
-          </Select>
-          {listSelected && (
-            <FormHelperText>
-              {i18n.t("campaigns.dialog.form.disabledByList")}
-            </FormHelperText>
-          )}
-        </FormControl>
+      <FormControl
+  variant="outlined"
+  fullWidth
+>
+  <InputLabel id="tagList-selection-label">
+    {i18n.t("campaigns.dialog.form.tagList")}
+  </InputLabel>
+  <Select
+    label={i18n.t("campaigns.dialog.form.tagList")}
+    labelId="tagList-selection-label"
+    id="tagListId"
+    name="tagListId"
+    value={Array.isArray(values.tagListId) ? values.tagListId : []}
+    onChange={(e) => {
+      handleChange(e);
+      // Se selecionar uma tag, limpa a seleção de lista
+      if (e.target.value && e.target.value.length > 0) {
+        setFieldValue("contactListId", "");
+      }
+    }}
+    error={touched.tagListId && Boolean(errors.tagListId)}
+    disabled={disabled || listSelected}
+    multiple
+    renderValue={(selected) => (
+      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+        {selected.map((value) => {
+          const tagName = tagLists.find(tag => tag.id === value)?.name || value;
+          return (
+            <Chip key={value} label={tagName} size="small" />
+          );
+        })}
+      </Box>
+    )}
+    InputLabelProps={{
+      shrink: true,
+    }}
+  >
+    {tagLists.map((tagList) => (
+      <MenuItem key={tagList.id} value={tagList.id}>
+        {tagList.name}
+      </MenuItem>
+    ))}
+  </Select>
+  {listSelected && (
+    <FormHelperText>
+      {i18n.t("campaigns.dialog.form.disabledByList")}
+    </FormHelperText>
+  )}
+</FormControl>
       </Grid>
     </>
   );
@@ -315,6 +325,17 @@ const CampaignModal = ({ open, onClose, campaignId, onSuccess, duplicateFromId =
               } else {
                 newCampaignData[key] = value === null ? "" : value;
               }
+              if (key === "tagListId") {
+                // Verificar se temos originalTagListIds para usar no lugar de tagListId
+                if (data.originalTagListIds && Array.isArray(data.originalTagListIds)) {
+                  newCampaignData[key] = data.originalTagListIds;
+                } else if (value !== null) {
+                  // Converter para array se for um valor único
+                  newCampaignData[key] = Array.isArray(value) ? value : [value];
+                } else {
+                  newCampaignData[key] = [];
+                }
+              }
             });
 
             // Se for duplicação, limpar alguns campos e alterar o nome
@@ -435,11 +456,11 @@ const CampaignModal = ({ open, onClose, campaignId, onSuccess, duplicateFromId =
       }
 
       // Validar se tem lista de contatos ou tag selecionada
-      if (!values.contactListId && (!values.tagListId || values.tagListId.length === 0)) {
-        toast.error(i18n.t("campaigns.validation.contactsRequired"));
-        setIsSubmitting(false);
-        return;
-      }
+if (!values.contactListId && (!values.tagListId || values.tagListId.length === 0)) {
+  toast.error(i18n.t("campaigns.validation.contactsRequired"));
+  setIsSubmitting(false);
+  return;
+}
 
       // Validar se tem pelo menos uma mensagem preenchida
       const hasMessage = [
