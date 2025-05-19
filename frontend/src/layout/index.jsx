@@ -58,7 +58,7 @@ import SatisfactionReport from "../components/SatisfactionReport";
 import FacebookPixelTracker from "../components/FacebookPixelTracker";
 import { SocketContext } from "../context/Socket/SocketContext";
 import { useDate } from "../hooks/useDate";
-import useSettings from "../hooks/useSettings";
+import useWhitelabelSettings from "../hooks/useWhitelabelSettings";
 import ColorModeContext from "../layout/themeContext";
 import { GlobalContext } from "../context/GlobalContext";
 
@@ -340,23 +340,10 @@ const LoggedInLayout = ({ children }) => {
   const [drawerOpen, setDrawerOpen] = useState(user?.defaultMenu === "open");
 
   // Estados para configuração de pesquisa de satisfação
-  const [settings, setSettings] = useState([]);
-  const [enableSatisfactionSurvey, setEnableSatisfactionSurvey] = useState(false);
-  const { getAll } = useSettings();
+  const { getAll, settings } = useWhitelabelSettings();
 
   // Carregar configurações
-  useEffect(() => {
-    const loadSettings = async () => {
-      const settingsData = await getAll();
-      setSettings(settingsData);
-      
-      // Encontrar configuração de pesquisa de satisfação
-      const satisfactionSurveySetting = settingsData.find(s => s.key === "enableSatisfactionSurvey");
-      setEnableSatisfactionSurvey(satisfactionSurveySetting?.value === "enabled");
-    };
-
-    loadSettings();
-  }, [makeRequestSettings, getAll]);
+  const enableSatisfactionSurvey = settings.enableSatisfactionSurvey;
 
   useEffect(() => {
     setDrawerOpen(user?.defaultMenu === "open");
