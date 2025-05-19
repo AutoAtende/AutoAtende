@@ -81,9 +81,9 @@ const StyledTabs = styled(Tabs)(({ theme }) => ({
 }));
 
 // Componente para campos de lista de contatos e tags
-const SelectListOrTag = ({ formik, contactLists, tagLists, disabled }) => {
-  const listSelected = !!formik.values.contactListId;
-  const tagSelected = !!formik.values.tagListId;
+const SelectListOrTag = ({ values, errors, touched, setFieldValue, handleChange, contactLists, tagLists, disabled }) => {
+  const listSelected = !!values.contactListId;
+  const tagSelected = !!values.tagListId;
 
   return (
     <>
@@ -92,39 +92,40 @@ const SelectListOrTag = ({ formik, contactLists, tagLists, disabled }) => {
           variant="outlined"
           fullWidth
         >
-          <InputLabel id="tagList-selection-label">
-            {i18n.t("campaigns.dialog.form.tagList")}
+          <InputLabel id="contactList-selection-label">
+            {i18n.t("campaigns.dialog.form.contactList")}
           </InputLabel>
-          <Field
-            as={Select}
-            label={i18n.t("campaigns.dialog.form.tagList")}
-            labelId="tagList-selection-label"
-            id="tagListId"
-            name="tagListId"
-            error={formikProps.touched.tagListId && Boolean(formikProps.errors.tagListId)}
-            disabled={!campaignEditable}
-            multiple // Adicionar suporte a múltiplas seleções
+          <Select
+            label={i18n.t("campaigns.dialog.form.contactList")}
+            labelId="contactList-selection-label"
+            id="contactListId"
+            name="contactListId"
+            value={values.contactListId}
+            onChange={(e) => {
+              handleChange(e);
+              // Se selecionar uma lista, limpa a seleção de tag
+              if (e.target.value) {
+                setFieldValue("tagListId", "");
+              }
+            }}
+            error={touched.contactListId && Boolean(errors.contactListId)}
+            disabled={disabled || tagSelected}
             InputLabelProps={{
               shrink: true,
             }}
-            renderValue={(selected) => {
-              if (selected.length === 0) {
-                return i18n.t("campaigns.dialog.form.none");
-              }
-
-              const selectedTags = tagLists
-                .filter(tag => selected.includes(tag.id))
-                .map(tag => tag.name);
-
-              return selectedTags.join(', ');
-            }}
           >
-            {tagLists.map((tagList) => (
-              <MenuItem key={tagList.id} value={tagList.id}>
-                {tagList.name}
+            <MenuItem value="">{i18n.t("campaigns.dialog.form.none")}</MenuItem>
+            {contactLists.map((contactList) => (
+              <MenuItem key={contactList.id} value={contactList.id}>
+                {contactList.name}
               </MenuItem>
             ))}
-          </Field>
+          </Select>
+          {tagSelected && (
+            <FormHelperText>
+              {i18n.t("campaigns.dialog.form.disabledByTag")}
+            </FormHelperText>
+          )}
         </FormControl>
       </Grid>
 
@@ -141,15 +142,15 @@ const SelectListOrTag = ({ formik, contactLists, tagLists, disabled }) => {
             labelId="tagList-selection-label"
             id="tagListId"
             name="tagListId"
-            value={formik.values.tagListId}
+            value={values.tagListId}
             onChange={(e) => {
-              formik.handleChange(e);
+              handleChange(e);
               // Se selecionar uma tag, limpa a seleção de lista
               if (e.target.value) {
-                formik.setFieldValue("contactListId", "");
+                setFieldValue("contactListId", "");
               }
             }}
-            error={formik.touched.tagListId && Boolean(formik.errors.tagListId)}
+            error={touched.tagListId && Boolean(errors.tagListId)}
             disabled={disabled || listSelected}
             InputLabelProps={{
               shrink: true,
@@ -425,21 +426,21 @@ const CampaignModal = ({ open, onClose, campaignId, onSuccess, duplicateFromId =
   const handleSaveCampaign = async (values) => {
     try {
       setIsSubmitting(true);
-  
+
       // Validar se tem WhatsApp selecionado
       if (!values.whatsappId) {
         toast.error(i18n.t("campaigns.validation.whatsappRequired"));
         setIsSubmitting(false);
         return;
       }
-  
+
       // Validar se tem lista de contatos ou tag selecionada
       if (!values.contactListId && (!values.tagListId || values.tagListId.length === 0)) {
         toast.error(i18n.t("campaigns.validation.contactsRequired"));
         setIsSubmitting(false);
         return;
       }
-  
+
       // Validar se tem pelo menos uma mensagem preenchida
       const hasMessage = [
         values.message1,
@@ -448,13 +449,13 @@ const CampaignModal = ({ open, onClose, campaignId, onSuccess, duplicateFromId =
         values.message4,
         values.message5
       ].some(msg => msg && msg.trim() !== '');
-  
+
       if (!hasMessage) {
         toast.error(i18n.t("campaigns.validation.messageRequired"));
         setIsSubmitting(false);
         return;
       }
-  
+
       // Formatar dados
       const dataValues = {};
       Object.entries(values).forEach(([key, value]) => {
@@ -464,12 +465,12 @@ const CampaignModal = ({ open, onClose, campaignId, onSuccess, duplicateFromId =
           dataValues[key] = value === "" ? null : value;
         }
       });
-  
+
       // Adicionar companyId
       dataValues.companyId = companyId;
-  
+
       let campaignResponse;
-  
+
       try {
         if (campaignId) {
           // Atualizar campanha existente
@@ -487,7 +488,7 @@ const CampaignModal = ({ open, onClose, campaignId, onSuccess, duplicateFromId =
         setIsSubmitting(false);
         return;
       }
-  
+
       // Restante da função permanece igual
     } catch (err) {
       console.error("Save campaign error:", err);
@@ -720,7 +721,11 @@ const CampaignModal = ({ open, onClose, campaignId, onSuccess, duplicateFromId =
 
                 {/* Contatos e Tags */}
                 <SelectListOrTag
-                  formik={formikProps}
+                  values={formikProps.values}
+                  errors={formikProps.errors}
+                  touched={formikProps.touched}
+                  setFieldValue={formikProps.setFieldValue}
+                  handleChange={formikProps.handleChange}
                   contactLists={contactLists}
                   tagLists={tagLists}
                   disabled={!campaignEditable && campaign.status !== "CANCELADA"}
