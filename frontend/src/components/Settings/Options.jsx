@@ -1,5 +1,6 @@
-import React, { useState, useEffect, useMemo, useCallback } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import PropTypes from 'prop-types';
+import { styled, useTheme } from '@mui/material/styles';
 import {
   Grid,
   Paper,
@@ -8,37 +9,23 @@ import {
   FormControlLabel,
   FormHelperText,
   Switch,
-  Button,
   TextField,
   MenuItem,
   Typography,
   Box,
-  IconButton,
   Tabs,
   Tab,
   Divider,
-  useTheme,
   useMediaQuery,
   Tooltip,
   Avatar,
   Stack,
-  Badge,
-  Chip,
-  CircularProgress
+  Chip
 } from "@mui/material";
-import { styled } from '@mui/material/styles';
 import { i18n } from "../../translate/i18n";
-import useSettings from "../../hooks/useSettings";
-import { toast } from "../../helpers/toast";
-import OnlyForSuperUser from "../../components/OnlyForSuperUser";
-import useAuth from "../../hooks/useAuth";
 import {
   Settings as SettingsIcon,
   AssessmentOutlined,
-  Save as SaveIcon,
-  Build as BuildIcon,
-  BusinessCenter as BusinessIcon,
-  Tune as TuneIcon,
   LocalOffer as TagIcon,
   Phone as PhoneIcon,
   Person as PersonIcon,
@@ -48,17 +35,29 @@ import {
   SettingsApplications as AppSettingsIcon,
   Timeline as TimelineIcon,
   CheckCircleOutline as CheckIcon,
-  FileCopy as FileCopyIcon
+  FileCopy as FileCopyIcon,
+  BusinessCenter as BusinessIcon,
+  Tune as TuneIcon,
+  Build as BuildIcon
 } from "@mui/icons-material";
-import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faCopy, faGears, faRobot, faServer, faEnvelope, faList, faFileExport, faTicketAlt, faUsers, faBuilding, faDatabase } from "@fortawesome/free-solid-svg-icons";
 import WhatsAppIcon from '@mui/icons-material/WhatsApp';
-import { generateSecureToken } from "../../helpers/generateSecureToken";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { 
+  faCopy, 
+  faGears, 
+  faRobot, 
+  faServer, 
+  faEnvelope, 
+  faList, 
+  faFileExport, 
+  faTicketAlt, 
+  faUsers, 
+  faBuilding,
+  faDatabase
+} from "@fortawesome/free-solid-svg-icons";
 import { copyToClipboard } from "../../helpers/copyToClipboard";
-import { useContext } from "react";
-import { GlobalContext } from "../../context/GlobalContext";
-import { useLoading } from "../../hooks/useLoading";
-import { useSpring, animated } from "react-spring";
+import { toast } from "../../helpers/toast";
+import OnlyForSuperUser from "../../components/OnlyForSuperUser";
 
 // Constantes
 const openAiModels = [
@@ -74,14 +73,12 @@ const openAiModels = [
 // Componentes estilizados
 const StyledPaper = styled(Paper)(({ theme }) => ({
   padding: theme.spacing(2),
-  margin: theme.spacing(0.5, 0, 0.5, 0),
+  margin: theme.spacing(1, 0),
   transition: 'all 0.3s ease-in-out',
   '&:hover': {
     boxShadow: theme.shadows[4],
   },
 }));
-
-const AnimatedSwitch = animated(Switch);
 
 const StyledTab = styled(Tab)(({ theme }) => ({
   borderRadius: 4,
@@ -89,15 +86,8 @@ const StyledTab = styled(Tab)(({ theme }) => ({
   fontWeight: 500,
 }));
 
-const SaveButton = styled(Button)(({ theme }) => ({
-  position: 'sticky',
-  top: theme.spacing(2),
-  zIndex: 1100,
-  marginBottom: theme.spacing(2),
-}));
-
 const SectionTitle = styled(Typography)(({ theme }) => ({
-  marginTop: theme.spacing(3),
+  marginTop: theme.spacing(2),
   marginBottom: theme.spacing(1),
   fontWeight: 600,
   color: theme.palette.primary.main,
@@ -107,58 +97,35 @@ const SectionTitle = styled(Typography)(({ theme }) => ({
 }));
 
 const CategoryDivider = styled(Box)(({ theme }) => ({
-  marginTop: theme.spacing(4),
+  marginTop: theme.spacing(3),
   marginBottom: theme.spacing(2),
   display: 'flex',
   alignItems: 'center',
   width: '100%',
 }));
 
-const StyledBadge = styled(Badge)(({ theme }) => ({
+const StyledBadge = styled(Avatar)(({ theme }) => ({
   '& .MuiBadge-badge': {
     backgroundColor: theme.palette.success.main,
     color: theme.palette.success.main,
     boxShadow: `0 0 0 2px ${theme.palette.background.paper}`,
-    '&::after': {
-      position: 'absolute',
-      top: 0,
-      left: 0,
-      width: '100%',
-      height: '100%',
-      borderRadius: '50%',
-      animation: 'ripple 1.2s infinite ease-in-out',
-      border: '1px solid currentColor',
-      content: '""',
-    },
-  },
-  '@keyframes ripple': {
-    '0%': {
-      transform: 'scale(.8)',
-      opacity: 1,
-    },
-    '100%': {
-      transform: 'scale(2.4)',
-      opacity: 0,
-    },
   },
 }));
 
 // Componente principal
-const Options = ({ settings, scheduleTypeChanged, enableReasonWhenCloseTicketChanged }) => {
+const Options = ({ 
+  settings, 
+  scheduleTypeChanged, 
+  enableReasonWhenCloseTicketChanged,
+  onSettingChange,
+  pendingChanges
+}) => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
-  const { update } = useSettings();
-  const { user } = useAuth();
-  const { setMakeRequestSettings } = useContext(GlobalContext);
-  const { Loading } = useLoading();
-
-  // Estados locais para armazenar configurações
-  const currentUser = user;
   const [currentTab, setCurrentTab] = useState(0);
-  const [hasChanges, setHasChanges] = useState(false);
-  const [isSaving, setIsSaving] = useState(false);
+  const [ user ] = useContext(AuthContext);
 
-  // Agrupamento dos estados em um único objeto para melhor controle
+  // Estado para armazenar configurações
   const [configState, setConfigState] = useState({
     // IA
     openAiModel: "gpt-4",
@@ -171,19 +138,18 @@ const Options = ({ settings, scheduleTypeChanged, enableReasonWhenCloseTicketCha
     quickMessages: i18n.t("optionsPage.byCompany"),
     allowSignup: "disabled",
     CheckMsgIsGroup: "disabled",
-    SendGreetingAccepted: "disabled",
-    SettingsTransfTicket: "disabled",
+    sendGreetingAccepted: "disabled",
+    settingsTransfTicket: "disabled",
     sendGreetingMessageOneQueues: "enabled",
-    apiToken: "",
     downloadLimit: "64",
     sendEmailWhenRegister: "disabled",
     sendMessageWhenRegister: "disabled",
     enableReasonWhenCloseTicket: "disabled",
     enableUseOneTicketPerConnection: "disabled",
     callSuport: "enabled",
-    trialExpiration: false,
+    trialExpiration: "3",
     displayContactInfo: "enabled",
-    enableTicketValueAndSku: false,
+    enableTicketValueAndSku: "disabled",
     sendQueuePosition: "disabled",
     settingsUserRandom: "disabled",
     displayBusinessInfo: "disabled",
@@ -212,102 +178,101 @@ const Options = ({ settings, scheduleTypeChanged, enableReasonWhenCloseTicketCha
     msgSuportType: ""
   });
 
-  // Efeito de animação para os switches
-  const switchAnimation = useSpring({
-    opacity: 1,
-    from: { opacity: 0 },
-    config: { tension: 300, friction: 20 }
-  });
-
-  // Função otimizada para carregar todas as configurações
+  // Carregar configurações iniciais
   useEffect(() => {
-    const loadSettings = () => {
-      if (!Array.isArray(settings) || settings.length === 0) return;
+    if (!Array.isArray(settings) || settings.length === 0) return;
 
-      // Criar um mapa de configurações para acesso rápido
-      const settingsMap = {};
+    // Criar um mapa de configurações para acesso rápido
+    const settingsMap = {};
+    settings.forEach(setting => {
+      if (setting && setting.key) {
+        settingsMap[setting.key] = setting.value;
+      }
+    });
 
-      settings.forEach(setting => {
-        if (setting && setting.key) {
-          settingsMap[setting.key] = setting.value;
+    // Atualizar o estado com as configurações carregadas
+    setConfigState(prevState => {
+      const newState = { ...prevState };
+
+      // Mapear todas as propriedades
+      Object.keys(newState).forEach(key => {
+        let settingKey = key;
+        
+        // Mapeamento especial para algumas chaves
+        if (key === 'openAiModel') {
+          settingKey = 'openaiModel';
+        } else if (key === 'smtpauthType') {
+          settingKey = 'smtpauth';
+        } else if (key === 'usersmtpauthType') {
+          settingKey = 'usersmtpauth';
+        } else if (key === 'clientsecretsmtpauthType') {
+          settingKey = 'clientsecretsmtpauth';
+        } else if (key === 'smtpPortType') {
+          settingKey = 'smtpport';
+        } else if (key === 'waSuportType') {
+          settingKey = 'wasuport';
+        } else if (key === 'msgSuportType') {
+          settingKey = 'msgsuport';
+        }
+        
+        if (settingsMap[settingKey] !== undefined) {
+          newState[key] = String(settingsMap[settingKey] || newState[key] || "");
         }
       });
 
-      // Atualizar o estado uma única vez com todas as configurações
-      setConfigState(prevState => {
-        const newState = { ...prevState };
-
-        // Mapear todas as propriedades chave entre o settingsMap e o estado
-        Object.keys(newState).forEach(key => {
-          // Algumas chaves precisam de mapeamento especial
-          if (key === 'openAiModel') {
-            newState[key] = settingsMap.openaiModel || newState[key] || "";
-          } else {
-            // Para a maioria das chaves, o nome é o mesmo em ambos os objetos
-            const settingKey = key;
-            if (settingsMap[settingKey] !== undefined) {
-              // Garantir que o valor seja uma string para evitar problemas com selects
-              newState[key] = String(settingsMap[settingKey] || newState[key] || "");
-            }
-          }
-        });
-
-        return newState;
-      });
-    };
-
-    loadSettings();
+      return newState;
+    });
   }, [settings]);
 
-  // Função genérica para atualizar configurações
-  const updateSetting = useCallback(async (key, value) => {
-    setHasChanges(true);
-    try {
-      // Garantir que o valor seja uma string para evitar erros no backend
-      const processedValue = value !== undefined && value !== null ? String(value) : "";
+  // Atualizar configuração local e notificar alteração
+  const handleConfigChange = (key, value, notifyBackend = true) => {
+    // Atualizar estado local
+    setConfigState(prev => ({ 
+      ...prev, 
+      [key]: value 
+    }));
 
-      await update({ key, value: processedValue });
-      toast.success(i18n.t("optionsPage.successMessage"));
-      setMakeRequestSettings(Math.random());
-      return true;
-    } catch (error) {
-      toast.error(error.message || "Erro ao salvar configuração");
-      return false;
+    // Mapear para a chave correta do backend se necessário
+    let backendKey = key;
+    if (key === 'openAiModel') {
+      backendKey = 'openaiModel';
+    } else if (key === 'smtpauthType') {
+      backendKey = 'smtpauth';
+    } else if (key === 'usersmtpauthType') {
+      backendKey = 'usersmtpauth';
+    } else if (key === 'clientsecretsmtpauthType') {
+      backendKey = 'clientsecretsmtpauth';
+    } else if (key === 'smtpPortType') {
+      backendKey = 'smtpport';
+    } else if (key === 'waSuportType') {
+      backendKey = 'wasuport';
+    } else if (key === 'msgSuportType') {
+      backendKey = 'msgsuport';
     }
-  }, [update, setMakeRequestSettings]);
 
-  // Função genérica para manipular alterações no estado de configuração
-  const handleConfigChange = useCallback((key, value, notifyBackend = true) => {
-    // Garantir que o valor seja uma string para evitar problemas em selects
-    const processedValue = value !== undefined && value !== null ? String(value) : "";
-
-    setConfigState(prev => ({ ...prev, [key]: processedValue }));
+    // Informar alteração para salvar mais tarde
+    if (notifyBackend) {
+      onSettingChange(backendKey, value);
+    }
 
     // Lidar com callbacks específicos
     if (key === 'scheduleType' && typeof scheduleTypeChanged === 'function') {
-      scheduleTypeChanged(processedValue);
+      scheduleTypeChanged(value);
     }
 
     if (key === 'enableReasonWhenCloseTicket' && typeof enableReasonWhenCloseTicketChanged === 'function') {
-      enableReasonWhenCloseTicketChanged(processedValue);
+      enableReasonWhenCloseTicketChanged(value);
     }
+  };
 
-    // Se notifyBackend for true, atualizar no backend
-    if (notifyBackend) {
-      return updateSetting(key, processedValue);
-    }
-
-    return Promise.resolve(true);
-  }, [updateSetting, scheduleTypeChanged, enableReasonWhenCloseTicketChanged]);
-
-  // Função específica para lidar com switches
-  const handleSwitchChange = useCallback((key, checked) => {
+  // Manipulador específico para switches
+  const handleSwitchChange = (key, checked) => {
     const value = checked ? "enabled" : "disabled";
-    return handleConfigChange(key, value);
-  }, [handleConfigChange]);
+    handleConfigChange(key, value);
+  };
 
   // Função para configurações mutuamente exclusivas
-  const handleMutuallyExclusiveOption = useCallback(async (enabledKey, value) => {
+  const handleMutuallyExclusiveOption = async (enabledKey, value) => {
     // Se estiver habilitando esta opção, tratar as exclusões mútuas
     if (value === "enabled") {
       const exclusiveOptions = {
@@ -321,83 +286,23 @@ const Options = ({ settings, scheduleTypeChanged, enableReasonWhenCloseTicketCha
         const optionsToDisable = exclusiveOptions[enabledKey];
 
         // Desativar as outras opções
-        const disablePromises = optionsToDisable.map(key => {
+        optionsToDisable.forEach(key => {
           if (configState[key] === "enabled") {
-            return handleConfigChange(key, "disabled");
+            handleConfigChange(key, "disabled");
           }
-          return Promise.resolve();
         });
-
-        await Promise.all(disablePromises);
+        
         toast.info(i18n.t("optionsPage.onlyOneCloseOptionActive"));
       }
     }
 
-    return handleConfigChange(enabledKey, value);
-  }, [configState, handleConfigChange]);
+    handleConfigChange(enabledKey, value);
+  };
 
-  // Função para salvar todas as alterações pendentes
-  const saveAllSettings = useCallback(async () => {
-    if (!hasChanges || isSaving) return;
-
-    try {
-      setIsSaving(true);
-      Loading.turnOn();
-
-      // Criar um array de promessas para salvar todas as configurações
-      const savePromises = Object.entries(configState).map(([key, value]) => {
-        // Para openAiModel, precisa salvar como openaiModel (sem "A" maiúsculo)
-        if (key === "openAiModel") {
-          return updateSetting("openaiModel", value);
-        }
-
-        // Para SMTP e suporte, os nomes das chaves não correspondem exatamente
-        if (key === "smtpauthType") {
-          return updateSetting("smtpauth", value);
-        }
-
-        if (key === "usersmtpauthType") {
-          return updateSetting("usersmtpauth", value);
-        }
-
-        if (key === "clientsecretsmtpauthType") {
-          return updateSetting("clientsecretsmtpauth", value);
-        }
-
-        if (key === "smtpPortType") {
-          return updateSetting("smtpport", value);
-        }
-
-        if (key === "waSuportType") {
-          return updateSetting("wasuport", value);
-        }
-
-        if (key === "msgSuportType") {
-          return updateSetting("msgsuport", value);
-        }
-
-        // Para as outras configurações, os nomes são os mesmos
-        return updateSetting(key, value);
-      });
-
-      // Executar todas as promessas
-      await Promise.all(savePromises);
-
-      toast.success(i18n.t("optionsPage.allSettingsSaved"));
-      setHasChanges(false);
-    } catch (error) {
-      console.error("Erro ao salvar configurações:", error);
-      toast.error(error?.message || "Erro ao salvar configurações");
-    } finally {
-      setIsSaving(false);
-      Loading.turnOff();
-    }
-  }, [configState, hasChanges, isSaving, Loading, updateSetting]);
-
-  // Função para lidar com mudança de tabs
-  const handleTabChange = useCallback((event, newValue) => {
+  // Manipulador de mudança de tabs
+  const handleTabChange = (event, newValue) => {
     setCurrentTab(newValue);
-  }, []);
+  };
 
   // Componente de configurações gerais
   const GeneralConfigSection = useMemo(() => () => (
@@ -408,7 +313,6 @@ const Options = ({ settings, scheduleTypeChanged, enableReasonWhenCloseTicketCha
       </SectionTitle>
 
       <OnlyForSuperUser
-        user={user}
         yes={() => (
           <>
             <StyledPaper elevation={3}>
@@ -451,8 +355,7 @@ const Options = ({ settings, scheduleTypeChanged, enableReasonWhenCloseTicketCha
                 <FormGroup>
                   <FormControlLabel
                     control={
-                      <AnimatedSwitch
-                        style={switchAnimation}
+                      <Switch
                         checked={configState.allowSignup === "enabled"}
                         name="allowSignup"
                         color="primary"
@@ -477,8 +380,7 @@ const Options = ({ settings, scheduleTypeChanged, enableReasonWhenCloseTicketCha
                 <FormGroup>
                   <FormControlLabel
                     control={
-                      <AnimatedSwitch
-                        style={switchAnimation}
+                      <Switch
                         checked={configState.sendEmailWhenRegister === "enabled"}
                         name="sendEmailWhenRegister"
                         color="primary"
@@ -503,8 +405,7 @@ const Options = ({ settings, scheduleTypeChanged, enableReasonWhenCloseTicketCha
                 <FormGroup>
                   <FormControlLabel
                     control={
-                      <AnimatedSwitch
-                        style={switchAnimation}
+                      <Switch
                         checked={configState.sendMessageWhenRegister === "enabled"}
                         name="sendMessageWhenRegister"
                         color="primary"
@@ -544,8 +445,7 @@ const Options = ({ settings, scheduleTypeChanged, enableReasonWhenCloseTicketCha
           <FormGroup>
             <FormControlLabel
               control={
-                <AnimatedSwitch
-                  style={switchAnimation}
+                <Switch
                   checked={configState.CheckMsgIsGroup === "enabled"}
                   name="CheckMsgIsGroup"
                   color="primary"
@@ -566,8 +466,7 @@ const Options = ({ settings, scheduleTypeChanged, enableReasonWhenCloseTicketCha
           <FormGroup>
             <FormControlLabel
               control={
-                <AnimatedSwitch
-                  style={switchAnimation}
+                <Switch
                   checked={configState.SendGreetingAccepted === "enabled"}
                   name="SendGreetingAccepted"
                   color="primary"
@@ -588,8 +487,7 @@ const Options = ({ settings, scheduleTypeChanged, enableReasonWhenCloseTicketCha
           <FormGroup>
             <FormControlLabel
               control={
-                <AnimatedSwitch
-                  style={switchAnimation}
+                <Switch
                   checked={configState.sendQueuePosition === "enabled"}
                   name="sendQueuePosition"
                   color="primary"
@@ -610,8 +508,7 @@ const Options = ({ settings, scheduleTypeChanged, enableReasonWhenCloseTicketCha
           <FormGroup>
             <FormControlLabel
               control={
-                <AnimatedSwitch
-                  style={switchAnimation}
+                <Switch
                   checked={configState.settingsUserRandom === "enabled"}
                   name="settingsUserRandom"
                   color="primary"
@@ -632,8 +529,7 @@ const Options = ({ settings, scheduleTypeChanged, enableReasonWhenCloseTicketCha
           <FormGroup>
             <FormControlLabel
               control={
-                <AnimatedSwitch
-                  style={switchAnimation}
+                <Switch
                   checked={configState.userRating === "enabled"}
                   name="userRating"
                   color="primary"
@@ -655,8 +551,7 @@ const Options = ({ settings, scheduleTypeChanged, enableReasonWhenCloseTicketCha
           <FormGroup>
             <FormControlLabel
               control={
-                <AnimatedSwitch
-                  style={switchAnimation}
+                <Switch
                   checked={configState.enableReasonWhenCloseTicket === "enabled"}
                   name="enableReasonWhenCloseTicket"
                   color="primary"
@@ -677,8 +572,7 @@ const Options = ({ settings, scheduleTypeChanged, enableReasonWhenCloseTicketCha
           <FormGroup>
             <FormControlLabel
               control={
-                <AnimatedSwitch
-                  style={switchAnimation}
+                <Switch
                   checked={configState.enableQueueWhenCloseTicket === "enabled"}
                   name="enableQueueWhenCloseTicket"
                   color="primary"
@@ -699,8 +593,7 @@ const Options = ({ settings, scheduleTypeChanged, enableReasonWhenCloseTicketCha
           <FormGroup>
             <FormControlLabel
               control={
-                <AnimatedSwitch
-                  style={switchAnimation}
+                <Switch
                   checked={configState.enableTagsWhenCloseTicket === "enabled"}
                   name="enableTagsWhenCloseTicket"
                   color="primary"
@@ -721,8 +614,7 @@ const Options = ({ settings, scheduleTypeChanged, enableReasonWhenCloseTicketCha
           <FormGroup>
             <FormControlLabel
               control={
-                <AnimatedSwitch
-                  style={switchAnimation}
+                <Switch
                   checked={configState.displayProfileImages === "enabled"}
                   name="displayProfileImages"
                   color="primary"
@@ -744,8 +636,7 @@ const Options = ({ settings, scheduleTypeChanged, enableReasonWhenCloseTicketCha
           <FormGroup>
             <FormControlLabel
               control={
-                <AnimatedSwitch
-                  style={switchAnimation}
+                <Switch
                   checked={configState.enableTicketValueAndSku === "enabled"}
                   name="enableTicketValueAndSku"
                   color="primary"
@@ -777,8 +668,7 @@ const Options = ({ settings, scheduleTypeChanged, enableReasonWhenCloseTicketCha
           <FormGroup>
             <FormControlLabel
               control={
-                <AnimatedSwitch
-                  style={switchAnimation}
+                <Switch
                   checked={configState.displayContactInfo === "enabled"}
                   name="displayContactInfo"
                   color="primary"
@@ -805,8 +695,7 @@ const Options = ({ settings, scheduleTypeChanged, enableReasonWhenCloseTicketCha
           <FormGroup>
             <FormControlLabel
               control={
-                <AnimatedSwitch
-                  style={switchAnimation}
+                <Switch
                   checked={configState.displayBusinessInfo === "enabled"}
                   name="displayBusinessInfo"
                   color="primary"
@@ -833,8 +722,7 @@ const Options = ({ settings, scheduleTypeChanged, enableReasonWhenCloseTicketCha
           <FormGroup>
             <FormControlLabel
               control={
-                <AnimatedSwitch
-                  style={switchAnimation}
+                <Switch
                   checked={configState.enableSaveCommonContacts === "enabled"}
                   name="enableSaveCommonContacts"
                   color="primary"
@@ -889,8 +777,7 @@ const Options = ({ settings, scheduleTypeChanged, enableReasonWhenCloseTicketCha
           <FormGroup>
             <FormControlLabel
               control={
-                <AnimatedSwitch
-                  style={switchAnimation}
+                <Switch
                   checked={configState.SettingsTransfTicket === "enabled"}
                   name="SettingsTransfTicket"
                   color="primary"
@@ -911,8 +798,7 @@ const Options = ({ settings, scheduleTypeChanged, enableReasonWhenCloseTicketCha
           <FormGroup>
             <FormControlLabel
               control={
-                <AnimatedSwitch
-                  style={switchAnimation}
+                <Switch
                   checked={configState.sendGreetingMessageOneQueues === "enabled"}
                   name="sendGreetingMessageOneQueues"
                   color="primary"
@@ -958,11 +844,9 @@ const Options = ({ settings, scheduleTypeChanged, enableReasonWhenCloseTicketCha
   ), [
     configState,
     theme,
-    switchAnimation,
     handleSwitchChange,
     handleConfigChange,
-    handleMutuallyExclusiveOption,
-    user
+    handleMutuallyExclusiveOption
   ]);
 
   // Componente de configurações de integrações
@@ -983,8 +867,7 @@ const Options = ({ settings, scheduleTypeChanged, enableReasonWhenCloseTicketCha
           <FormGroup>
             <FormControlLabel
               control={
-                <AnimatedSwitch
-                  style={switchAnimation}
+                <Switch
                   checked={configState.enableOfficialWhatsapp === "enabled"}
                   name="enableOfficialWhatsapp"
                   color="primary"
@@ -1011,8 +894,7 @@ const Options = ({ settings, scheduleTypeChanged, enableReasonWhenCloseTicketCha
           <FormGroup>
             <FormControlLabel
               control={
-                <AnimatedSwitch
-                  style={switchAnimation}
+                <Switch
                   checked={configState.enableMetaPixel === "enabled"}
                   name="enableMetaPixel"
                   color="primary"
@@ -1049,15 +931,6 @@ const Options = ({ settings, scheduleTypeChanged, enableReasonWhenCloseTicketCha
               <FormHelperText sx={{ mt: 1, mb: 2 }}>
                 {i18n.t("optionsPage.metaPixelIdHelp")}
               </FormHelperText>
-              <Button
-                onClick={() => updateSetting("metaPixelId", configState.metaPixelId)}
-                startIcon={<SaveIcon />}
-                variant="contained"
-                size="small"
-                color="primary"
-              >
-                {i18n.t("optionsPage.saveMetaPixelSettings")}
-              </Button>
             </Box>
           )}
         </Box>
@@ -1078,7 +951,7 @@ const Options = ({ settings, scheduleTypeChanged, enableReasonWhenCloseTicketCha
                   fullWidth
                   label={i18n.t("optionsPage.openaiModel")}
                   value={configState.openAiModel || "gpt-4"}
-                  onChange={(e) => handleConfigChange("openaiModel", e.target.value)}
+                  onChange={(e) => handleConfigChange("openAiModel", e.target.value)}
                   variant="outlined"
                   size="small"
                   margin="normal"
@@ -1100,8 +973,7 @@ const Options = ({ settings, scheduleTypeChanged, enableReasonWhenCloseTicketCha
             <FormGroup>
               <FormControlLabel
                 control={
-                  <AnimatedSwitch
-                    style={switchAnimation}
+                  <Switch
                     checked={configState.enableAudioTranscriptions === "enabled"}
                     name="enableAudioTranscriptions"
                     color="primary"
@@ -1136,16 +1008,13 @@ const Options = ({ settings, scheduleTypeChanged, enableReasonWhenCloseTicketCha
                         <Box>
                           {configState.openAiKey && (
                             <Tooltip title={i18n.t("optionsPage.copyApiKey") || "Copiar chave"}>
-                              <IconButton
-                                size="small"
-                                color="primary"
+                              <FileCopyIcon 
+                                sx={{ cursor: 'pointer', ml: 1 }}
                                 onClick={() => {
                                   copyToClipboard(configState.openAiKey);
                                   toast.success(i18n.t("optionsPage.apiKeyCopied") || "Chave copiada com sucesso!");
                                 }}
-                              >
-                                <FileCopyIcon />
-                              </IconButton>
+                              />
                             </Tooltip>
                           )}
                         </Box>
@@ -1157,15 +1026,6 @@ const Options = ({ settings, scheduleTypeChanged, enableReasonWhenCloseTicketCha
               <FormHelperText sx={{ mt: 1, mb: 2 }}>
                 {i18n.t("optionsPage.openAiKeyHelp") || "Informe a chave da API OpenAI para realizar a transcrição de áudio"}
               </FormHelperText>
-              <Button
-                onClick={() => updateSetting("openAiKey", configState.openAiKey)}
-                startIcon={<SaveIcon />}
-                variant="contained"
-                size="small"
-                color="primary"
-              >
-                {i18n.t("optionsPage.saveOpenAiKey") || "Salvar chave da API"}
-              </Button>
             </Box>
           )}
         </Box>
@@ -1174,22 +1034,15 @@ const Options = ({ settings, scheduleTypeChanged, enableReasonWhenCloseTicketCha
       <StyledPaper elevation={3}>
         <Box sx={{ p: 1 }}>
           <Typography variant="subtitle1" sx={{ mb: 2, fontWeight: 'medium', display: 'flex', alignItems: 'center' }}>
-            <StyledBadge
-              overlap="circular"
-              anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
-              variant="dot"
-            >
-              <Avatar sx={{ bgcolor: theme.palette.primary.main, width: 28, height: 28 }}>
-                <FontAwesomeIcon icon={faServer} size="xs" />
-              </Avatar>
+            <StyledBadge>
+              <FontAwesomeIcon icon={faServer} size="xs" />
             </StyledBadge>
             <Box ml={1}>UPSix</Box>
           </Typography>
           <FormGroup>
             <FormControlLabel
               control={
-                <AnimatedSwitch
-                  style={switchAnimation}
+                <Switch
                   checked={configState.enableUPSix === "enabled"}
                   name="enableUPSix"
                   color="primary"
@@ -1208,8 +1061,7 @@ const Options = ({ settings, scheduleTypeChanged, enableReasonWhenCloseTicketCha
               <FormGroup>
                 <FormControlLabel
                   control={
-                    <AnimatedSwitch
-                      style={switchAnimation}
+                    <Switch
                       checked={configState.enableUPSixWebphone === "enabled"}
                       name="enableUPSixWebphone"
                       color="primary"
@@ -1226,8 +1078,7 @@ const Options = ({ settings, scheduleTypeChanged, enableReasonWhenCloseTicketCha
               <FormGroup sx={{ mt: 2 }}>
                 <FormControlLabel
                   control={
-                    <AnimatedSwitch
-                      style={switchAnimation}
+                    <Switch
                       checked={configState.enableUPSixNotifications === "enabled"}
                       name="enableUPSixNotifications"
                       color="primary"
@@ -1248,10 +1099,8 @@ const Options = ({ settings, scheduleTypeChanged, enableReasonWhenCloseTicketCha
   ), [
     configState,
     theme,
-    switchAnimation,
     handleSwitchChange,
-    handleConfigChange,
-    updateSetting
+    handleConfigChange
   ]);
 
   // Componente de configurações avançadas
@@ -1306,8 +1155,7 @@ const Options = ({ settings, scheduleTypeChanged, enableReasonWhenCloseTicketCha
           <FormGroup>
             <FormControlLabel
               control={
-                <AnimatedSwitch
-                  style={switchAnimation}
+                <Switch
                   checked={configState.enableSatisfactionSurvey === "enabled"}
                   name="enableSatisfactionSurvey"
                   color="primary"
@@ -1328,8 +1176,7 @@ const Options = ({ settings, scheduleTypeChanged, enableReasonWhenCloseTicketCha
           <FormGroup>
             <FormControlLabel
               control={
-                <AnimatedSwitch
-                  style={switchAnimation}
+                <Switch
                   checked={configState.callSuport === "enabled"}
                   name="callSuport"
                   color="primary"
@@ -1352,7 +1199,6 @@ const Options = ({ settings, scheduleTypeChanged, enableReasonWhenCloseTicketCha
 
       {configState.callSuport === "enabled" && (
         <OnlyForSuperUser
-          user={user}
           yes={() => (
             <StyledPaper elevation={3}>
               <Box sx={{ p: 1 }}>
@@ -1370,10 +1216,9 @@ const Options = ({ settings, scheduleTypeChanged, enableReasonWhenCloseTicketCha
                       value={configState.waSuportType || ""}
                       onChange={(e) => {
                         if (e.target.value === "" || /^[0-9\b]+$/.test(e.target.value)) {
-                          handleConfigChange("waSuportType", e.target.value, false);
+                          handleConfigChange("waSuportType", e.target.value, true);
                         }
                       }}
-                      onBlur={() => updateSetting("wasuport", configState.waSuportType)}
                       fullWidth
                       margin="normal"
                       InputProps={{
@@ -1392,13 +1237,7 @@ const Options = ({ settings, scheduleTypeChanged, enableReasonWhenCloseTicketCha
                       label={i18n.t("optionsPage.msgsuport")}
                       size="small"
                       value={configState.msgSuportType || ""}
-                      onChange={(e) => handleConfigChange("msgSuportType", e.target.value, false)}
-                      onBlur={() => updateSetting("msgsuport", configState.msgSuportType)}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter") {
-                          e.target.blur();
-                        }
-                      }}
+                      onChange={(e) => handleConfigChange("msgSuportType", e.target.value, true)}
                       fullWidth
                       margin="normal"
                       InputProps={{
@@ -1431,8 +1270,7 @@ const Options = ({ settings, scheduleTypeChanged, enableReasonWhenCloseTicketCha
                 label={i18n.t("optionsPage.smtpServer")}
                 size="small"
                 value={configState.smtpauthType || ""}
-                onChange={(e) => handleConfigChange("smtpauthType", e.target.value, false)}
-                onBlur={() => updateSetting("smtpauth", configState.smtpauthType)}
+                onChange={(e) => handleConfigChange("smtpauthType", e.target.value, true)}
                 fullWidth
                 margin="normal"
               />
@@ -1444,8 +1282,7 @@ const Options = ({ settings, scheduleTypeChanged, enableReasonWhenCloseTicketCha
                 label={i18n.t("optionsPage.smtpUser")}
                 size="small"
                 value={configState.usersmtpauthType || ""}
-                onChange={(e) => handleConfigChange("usersmtpauthType", e.target.value, false)}
-                onBlur={() => updateSetting("usersmtpauth", configState.usersmtpauthType)}
+                onChange={(e) => handleConfigChange("usersmtpauthType", e.target.value, true)}
                 fullWidth
                 margin="normal"
               />
@@ -1458,8 +1295,7 @@ const Options = ({ settings, scheduleTypeChanged, enableReasonWhenCloseTicketCha
                 size="small"
                 type="password"
                 value={configState.clientsecretsmtpauthType || ""}
-                onChange={(e) => handleConfigChange("clientsecretsmtpauthType", e.target.value, false)}
-                onBlur={() => updateSetting("clientsecretsmtpauth", configState.clientsecretsmtpauthType)}
+                onChange={(e) => handleConfigChange("clientsecretsmtpauthType", e.target.value, true)}
                 fullWidth
                 margin="normal"
               />
@@ -1471,8 +1307,7 @@ const Options = ({ settings, scheduleTypeChanged, enableReasonWhenCloseTicketCha
                 label={i18n.t("optionsPage.smtpPort")}
                 size="small"
                 value={configState.smtpPortType || ""}
-                onChange={(e) => handleConfigChange("smtpPortType", e.target.value, false)}
-                onBlur={() => updateSetting("smtpport", configState.smtpPortType)}
+                onChange={(e) => handleConfigChange("smtpPortType", e.target.value, true)}
                 fullWidth
                 margin="normal"
               />
@@ -1487,31 +1322,12 @@ const Options = ({ settings, scheduleTypeChanged, enableReasonWhenCloseTicketCha
   ), [
     configState,
     theme,
-    switchAnimation,
     handleSwitchChange,
-    handleConfigChange,
-    updateSetting,
-    user
+    handleConfigChange
   ]);
 
   return (
     <Box sx={{ p: 1 }}>
-      <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 2 }}>
-        <SaveButton
-          variant="contained"
-          color="primary"
-          startIcon={isSaving ? null : <SaveIcon />}
-          onClick={saveAllSettings}
-          disabled={!hasChanges || isSaving}
-        >
-          {isSaving ? (
-            <CircularProgress size={24} sx={{ color: 'white' }} />
-          ) : (
-            i18n.t("optionsPage.saveAll")
-          )}
-        </SaveButton>
-      </Box>
-
       <Paper elevation={3} sx={{ mb: 3 }}>
         <Tabs
           value={currentTab}
@@ -1556,13 +1372,17 @@ Options.propTypes = {
     value: PropTypes.any
   })),
   scheduleTypeChanged: PropTypes.func,
-  enableReasonWhenCloseTicketChanged: PropTypes.func
+  enableReasonWhenCloseTicketChanged: PropTypes.func,
+  onSettingChange: PropTypes.func.isRequired,
+  pendingChanges: PropTypes.object
 };
 
 Options.defaultProps = {
   settings: [],
   scheduleTypeChanged: () => { },
-  enableReasonWhenCloseTicketChanged: () => { }
+  enableReasonWhenCloseTicketChanged: () => { },
+  pendingChanges: {}
 };
 
 export default React.memo(Options);
+        

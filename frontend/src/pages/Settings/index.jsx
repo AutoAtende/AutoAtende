@@ -1,4 +1,17 @@
 import React, { useState, useEffect, useCallback } from "react";
+import { styled } from '@mui/material/styles';
+import {
+  Box,
+  Paper,
+  Tabs,
+  Tab,
+  useMediaQuery,
+  Alert,
+  CircularProgress,
+  Button,
+  Typography,
+  Snackbar
+} from "@mui/material";
 import SettingsIcon from '@mui/icons-material/Settings';
 import ScheduleIcon from '@mui/icons-material/Schedule';
 import AssignmentIcon from '@mui/icons-material/Assignment';
@@ -6,199 +19,264 @@ import HelpIcon from '@mui/icons-material/Help';
 import LabelIcon from '@mui/icons-material/Label';
 import PaymentIcon from '@mui/icons-material/Payment';
 import ReportProblemIcon from '@mui/icons-material/ReportProblem';
+import SaveIcon from '@mui/icons-material/Save';
 
 import MainContainer from "../../components/MainContainer";
 import MainHeader from "../../components/MainHeader";
 import Title from "../../components/Title";
-import { Paper, Tabs, Tab, useMediaQuery, Box, Alert, CircularProgress } from "@mui/material";
-import makeStyles from '@mui/styles/makeStyles';
-import Reason from "../../components/Reason";
 import TabPanel from "../../components/TabPanel";
-import SpeedDialTabs from "../../components/SpeedDialTabs";
-
-import SchedulesForm from "../../components/SchedulesForm";
-import PlansManager from "../../components/PlansManager";
-import HelpsManager from "../../components/HelpsManager";
-import Options from "../../components/Settings/Options";
-import Whitelabel from "../../components/Settings/Whitelabel";
-import PaymentGateway from "../../components/Settings/PaymentGateway";
+import { AuthContext } from "../../context/Auth/AuthContext";
+import api from "../../services/api";
 import { i18n } from "../../translate/i18n";
 import { toast } from "../../helpers/toast";
 
-import useCompanies from "../../hooks/useCompanies";
-import useAuth from "../../hooks/useAuth";
-import useSettings from "../../hooks/useSettings";
-import usePlans from "../../hooks/usePlans";
+// Componentes de configurações
+import Options from "./Options";
+import SchedulesForm from "../../components/SchedulesForm";
+import PlansManager from "../../components/PlansManager";
+import HelpsManager from "../../components/HelpsManager";
+import Whitelabel from "../../components/Settings/Whitelabel";
+import PaymentGateway from "../../components/Settings/PaymentGateway";
+import Reason from "../../components/Reason";
 
-const useStyles = makeStyles((theme) => ({
-  root: {
-    flex: 1,
-    backgroundColor: theme.palette.background.paper,
-  },
-  mainPaper: {
-    ...theme.scrollbarStyles,
-    overflowY: "scroll",
-    flex: 1,
-  },
-  tab: {
-    backgroundColor: theme.palette.options,
-    borderRadius: 4,
-  },
-  paper: {
-    ...theme.scrollbarStyles,
-    overflowY: "scroll",
-    padding: theme.spacing(2),
-    display: "flex",
-    alignItems: "center",
-    width: "100%",
-  },
-  container: {
-    width: "100%",
-    maxHeight: "100%",
-  },
-  loadingContainer: {
-    display: "flex",
-    justifyContent: "center",
-    alignItems: "center",
-    padding: theme.spacing(4),
-  },
+// Componente para telas móveis
+import SpeedDialTabs from "../../components/SpeedDialTabs";
+
+// Estilos
+const StyledMainPaper = styled(Paper)(({ theme }) => ({
+  ...theme.scrollbarStyles,
+  overflowY: "scroll",
+  flex: 1,
+}));
+
+const StyledTabs = styled(Tabs)(({ theme }) => ({
+  backgroundColor: theme.palette.background.default,
+  borderRadius: 4,
+  marginBottom: theme.spacing(2)
+}));
+
+const StyledPaper = styled(Paper)(({ theme }) => ({
+  ...theme.scrollbarStyles,
+  overflowY: "scroll",
+  padding: theme.spacing(2),
+  display: "flex",
+  alignItems: "center",
+  width: "100%",
+}));
+
+const LoadingContainer = styled(Box)(({ theme }) => ({
+  display: "flex",
+  justifyContent: "center",
+  alignItems: "center",
+  padding: theme.spacing(4),
+}));
+
+const SaveAllButton = styled(Button)(({ theme }) => ({
+  position: 'fixed',
+  bottom: theme.spacing(3),
+  right: theme.spacing(3),
+  zIndex: 1100,
 }));
 
 const Settings = () => {
-  const classes = useStyles();
+  // Estados
+  const { user } = useContext(AuthContext);
   const [tab, setTab] = useState("options");
-  const [schedules, setSchedules] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [currentUser, setCurrentUser] = useState({});
+  const [initialLoading, setInitialLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [company, setCompany] = useState(null);
-
+  const [isSaving, setIsSaving] = useState(false);
+  const [pendingChanges, setPendingChanges] = useState({});
+  const [data, setData] = useState({
+    currentUser: {},
+    company: null,
+    schedules: [],
+    settings: [],
+    planConfig: {}
+  });
   const [schedulesEnabled, setSchedulesEnabled] = useState(false);
   const [reasonEnabled, setReasonEnabled] = useState("disabled");
   const [showWhiteLabel, setShowWhiteLabel] = useState(false);
+  const [openSnackbar, setOpenSnackbar] = useState(false);
+  const [snackbarMessage, setSnackbarMessage] = useState("");
 
-  const { getCurrentUserInfo } = useAuth();
-  const { find, updateSchedules } = useCompanies();
-  const { settings } = useSettings();
-  const { getPlanCompany } = usePlans();
-
+  // Hooks
   const isMobile = useMediaQuery('(max-width:600px)');
-  
-  const loadInitialData = useCallback(async () => {
+
+  // Função principal para carregar todos os dados necessários
+  const loadAllData = useCallback(async () => {
     try {
-      setLoading(true);
+      setInitialLoading(true);
       setError(null);
 
-      const companyId = localStorage.getItem("companyId");
+      const companyId = user.companyId || localStorage.getItem("companyId");
       
-      const now = new Date().getTime();
-      const cachedUserData = localStorage.getItem('cached_user_data');
-      const cachedCompanyData = localStorage.getItem('cached_company_data');
-      const cachedPlanData = localStorage.getItem('cached_plan_data');
+      // Única chamada para API que retorna todos os dados necessários
+      const { data } = await api.get(`/settings/full-configuration/${companyId}`);
       
-      let user, userFromCache = false;
-      let companyData, companyFromCache = false;
-      let planConfigs, planFromCache = false;
-      
-      if (cachedUserData) {
-        const parsedCache = JSON.parse(cachedUserData);
-        if (now - parsedCache.timestamp < 300000) {
-          user = parsedCache.data;
-          userFromCache = true;
-        }
-      }
-      
-      if (cachedCompanyData) {
-        const parsedCache = JSON.parse(cachedCompanyData);
-        if (now - parsedCache.timestamp < 300000) {
-          companyData = parsedCache.data;
-          companyFromCache = true;
-        }
-      }
-      
-      if (cachedPlanData) {
-        const parsedCache = JSON.parse(cachedPlanData);
-        if (now - parsedCache.timestamp < 300000) {
-          planConfigs = parsedCache.data;
-          planFromCache = true;
-        }
-      }
-      
-      const promises = [];
-      
-      if (!userFromCache) {
-        promises.push(getCurrentUserInfo().then(data => {
-          user = data;
-          localStorage.setItem('cached_user_data', JSON.stringify({
-            timestamp: now,
-            data
-          }));
-        }));
-      }
-      
-      if (!companyFromCache) {
-        promises.push(find(companyId).then(data => {
-          companyData = data;
-          localStorage.setItem('cached_company_data', JSON.stringify({
-            timestamp: now,
-            data
-          }));
-        }));
-      }
-      
-      if (!planFromCache) {
-        promises.push(getPlanCompany(undefined, companyId).then(data => {
-          planConfigs = data;
-          localStorage.setItem('cached_plan_data', JSON.stringify({
-            timestamp: now,
-            data
-          }));
-        }));
-      }
-      
-      if (promises.length > 0) {
-        await Promise.all(promises);
-      }
-      
-      setCurrentUser(user);
-      setCompany(companyData);
-      setSchedules(companyData.schedules);
-      setShowWhiteLabel(planConfigs.plan.whiteLabel);
+      setData({
+        currentUser: data.user,
+        company: data.company,
+        schedules: data.company?.schedules || [],
+        settings: data.settings,
+        planConfig: data.planConfig
+      });
 
-      if (Array.isArray(settings)) {
-        const scheduleTypeSetting = settings.find(s => s.key === "scheduleType");
-        const reasonSetting = settings.find(s => s.key === "enableReasonWhenCloseTicket");
-        
-        setSchedulesEnabled(scheduleTypeSetting?.value === "company");
-        setReasonEnabled(reasonSetting?.value || "disabled");
-      }
+      // Configurar estados derivados
+      const scheduleTypeSetting = data.settings.find(s => s.key === "scheduleType");
+      const reasonSetting = data.settings.find(s => s.key === "enableReasonWhenCloseTicket");
+      
+      setSchedulesEnabled(scheduleTypeSetting?.value === "company");
+      setReasonEnabled(reasonSetting?.value || "disabled");
+      setShowWhiteLabel(data.planConfig?.plan?.whiteLabel || false);
+
+      // Armazenar dados em cache local
+      storeDataInCache({
+        user: data.user,
+        company: data.company,
+        settings: data.settings,
+        planConfig: data.planConfig
+      });
+
     } catch (err) {
-      console.error("Erro ao carregar dados iniciais:", err);
+      console.error("Erro ao carregar dados da configuração:", err);
       setError(err?.message || "Ocorreu um erro ao carregar as configurações");
       toast.error("Erro ao carregar configurações");
     } finally {
+      setInitialLoading(false);
       setLoading(false);
     }
-  }, [getCurrentUserInfo, find, getPlanCompany, settings]);
+  }, []);
 
+  // Armazenar dados em cache local para otimização
+  const storeDataInCache = useCallback((dataToCache) => {
+    const now = new Date().getTime();
+    
+    if (dataToCache.user) {
+      localStorage.setItem('cached_user_data', JSON.stringify({
+        timestamp: now,
+        data: dataToCache.user
+      }));
+    }
+    
+    if (dataToCache.company) {
+      localStorage.setItem('cached_company_data', JSON.stringify({
+        timestamp: now,
+        data: dataToCache.company
+      }));
+    }
+    
+    if (dataToCache.planConfig) {
+      localStorage.setItem('cached_plan_data', JSON.stringify({
+        timestamp: now,
+        data: dataToCache.planConfig
+      }));
+    }
+  }, []);
+
+  // Carregar dados ao iniciar o componente
   useEffect(() => {
-    loadInitialData();
-  }, [loadInitialData]);
+    loadAllData();
+  }, [loadAllData]);
 
+  // Manipuladores
   const handleTabChange = (event, newValue) => {
     setTab(newValue);
   };
 
+  const handleScheduleTypeChanged = (value) => {
+    setSchedulesEnabled(value === "company");
+    setPendingChanges({
+      ...pendingChanges,
+      scheduleType: value
+    });
+  };
+
+  const handleEnableReasonWhenCloseTicketChanged = (value) => {
+    setReasonEnabled(value || "disabled");
+    setPendingChanges({
+      ...pendingChanges,
+      enableReasonWhenCloseTicket: value
+    });
+  };
+
+  // Adicionar configuração às alterações pendentes
+  const handleSettingChange = useCallback((key, value) => {
+    setPendingChanges(prev => ({
+      ...prev,
+      [key]: value
+    }));
+    
+    // Mostra indicador visual de alterações pendentes
+    setSnackbarMessage("Alterações pendentes. Clique em Salvar para aplicar.");
+    setOpenSnackbar(true);
+  }, []);
+
+  // Salvar todas as alterações pendentes
+  const handleSaveAllChanges = useCallback(async () => {
+    if (Object.keys(pendingChanges).length === 0) {
+      toast.info("Não há alterações para salvar");
+      return;
+    }
+
+    try {
+      setIsSaving(true);
+      
+      // Agrupar todas as alterações para enviar em uma única requisição
+      const settingsToUpdate = Object.entries(pendingChanges).map(([key, value]) => ({
+        key,
+        value: value.toString()
+      }));
+      
+      await api.post("/settings/batch-update", {
+        settings: settingsToUpdate
+      });
+      
+      // Atualizar configurações locais
+      setData(prevData => ({
+        ...prevData,
+        settings: prevData.settings.map(setting => {
+          if (pendingChanges[setting.key] !== undefined) {
+            return {
+              ...setting, 
+              value: pendingChanges[setting.key].toString()
+            };
+          }
+          return setting;
+        })
+      }));
+      
+      // Limpar alterações pendentes
+      setPendingChanges({});
+      
+      toast.success(i18n.t("settings.saveSuccess"));
+      setOpenSnackbar(false);
+    } catch (err) {
+      console.error("Erro ao salvar configurações:", err);
+      toast.error(i18n.t("settings.saveError"));
+    } finally {
+      setIsSaving(false);
+    }
+  }, [pendingChanges]);
+
+  // Manipulador para envio de horários
   const handleSubmitSchedules = async (data) => {
     setLoading(true);
     try {
-      setSchedules(data);
+      const companyId = data?.company?.id || localStorage.getItem("companyId");
       
-      const companyId = company?.id || localStorage.getItem("companyId");
+      await api.put(`/companies/${companyId}/schedules`, { 
+        schedules: data 
+      });
       
-      await updateSchedules({ id: companyId, schedules: data });
+      setData(prevData => ({
+        ...prevData,
+        schedules: data
+      }));
+      
       toast.success("Horários atualizados com sucesso.");
       
+      // Atualizar cache
       const cachedCompanyData = localStorage.getItem('cached_company_data');
       if (cachedCompanyData) {
         const parsedCache = JSON.parse(cachedCompanyData);
@@ -212,32 +290,28 @@ const Settings = () => {
     }
   };
 
-  const handleScheduleTypeChanged = (value) => {
-    setSchedulesEnabled(value === "company");
-  };
-
-  const handleEnableReasonWhenCloseTicketChanged = (value) => {
-    setReasonEnabled(value || "disabled");
-  };
-
+  // Montar ações para SpeedDial em modo mobile
   const actions = [
     { icon: <SettingsIcon />, name: i18n.t("settings.tabs.params"), value: "options" },
     { icon: <ScheduleIcon />, name: i18n.t("settings.tabs.schedules"), value: "schedules", condition: schedulesEnabled },
-    { icon: <AssignmentIcon />, name: i18n.t("settings.tabs.plans"), value: "plans", condition: currentUser.super },
-    { icon: <HelpIcon />, name: i18n.t("settings.tabs.helps"), value: "helps", condition: currentUser.super },
+    { icon: <AssignmentIcon />, name: i18n.t("settings.tabs.plans"), value: "plans", condition: data.currentUser.super },
+    { icon: <HelpIcon />, name: i18n.t("settings.tabs.helps"), value: "helps", condition: data.currentUser.super },
     { icon: <LabelIcon />, name: "Whitelabel", value: "whitelabel", condition: showWhiteLabel },
-    { icon: <PaymentIcon />, name: "Pagamentos", value: "paymentGateway", condition: currentUser.super },
+    { icon: <PaymentIcon />, name: "Pagamentos", value: "paymentGateway", condition: data.currentUser.super },
     { icon: <ReportProblemIcon />, name: "Motivos de Encerramento", value: "closureReasons", condition: reasonEnabled === "enabled" },
   ].filter(action => action.condition !== false);
 
-  const isShowingContent = !loading && !error;
+  // Renderização condicional
+  const isShowingContent = !initialLoading && !error;
+  const hasPendingChanges = Object.keys(pendingChanges).length > 0;
 
   return (
-    <MainContainer className={classes.root}>
+    <MainContainer>
       <MainHeader>
         <Title>{i18n.t("settings.title")}</Title>
       </MainHeader>
-      <Paper className={classes.mainPaper} elevation={1}>
+      
+      <StyledMainPaper elevation={1}>
         {error && (
           <Alert 
             severity="error" 
@@ -246,7 +320,7 @@ const Settings = () => {
             action={
               <Box 
                 component="button" 
-                onClick={loadInitialData}
+                onClick={loadAllData}
                 sx={{ 
                   background: 'none', 
                   border: 'none', 
@@ -265,10 +339,10 @@ const Settings = () => {
           </Alert>
         )}
         
-        {loading && (
-          <Box className={classes.loadingContainer}>
+        {initialLoading && (
+          <LoadingContainer>
             <CircularProgress />
-          </Box>
+          </LoadingContainer>
         )}
         
         {isShowingContent && (
@@ -276,125 +350,159 @@ const Settings = () => {
             {isMobile ? (
               <>
                 <SpeedDialTabs actions={actions} onChange={setTab} />
-                <Paper className={classes.paper} elevation={0}>
-                  <TabPanel className={classes.container} value={tab} name="options">
+                <StyledPaper elevation={0}>
+                  <TabPanel className="container" value={tab} name="options">
                     <Options 
-                      settings={settings}
+                      settings={data.settings}
                       scheduleTypeChanged={handleScheduleTypeChanged}
                       enableReasonWhenCloseTicketChanged={handleEnableReasonWhenCloseTicketChanged}
+                      onSettingChange={handleSettingChange}
+                      pendingChanges={pendingChanges}
                     />
                   </TabPanel>
                   
-                  <TabPanel className={classes.container} value={tab} name="schedules">
+                  <TabPanel className="container" value={tab} name="schedules">
                     {schedulesEnabled && (
                       <SchedulesForm
                         loading={loading}
                         onSubmit={handleSubmitSchedules}
-                        initialValues={schedules}
+                        initialValues={data.schedules}
                       />
                     )}
                   </TabPanel>
 
-                  <TabPanel className={classes.container} value={tab} name="plans">
-                    {currentUser.super && <PlansManager />}
+                  <TabPanel className="container" value={tab} name="plans">
+                    {data.currentUser.super && <PlansManager />}
                   </TabPanel>
                   
-                  <TabPanel className={classes.container} value={tab} name="helps">
-                    {currentUser.super && <HelpsManager />}
+                  <TabPanel className="container" value={tab} name="helps">
+                    {data.currentUser.super && <HelpsManager />}
                   </TabPanel>
                   
-                  <TabPanel className={classes.container} value={tab} name="paymentGateway">
-                    {currentUser.super && <PaymentGateway settings={settings} />}
+                  <TabPanel className="container" value={tab} name="paymentGateway">
+                    {data.currentUser.super && <PaymentGateway settings={data.settings} />}
                   </TabPanel>
 
-                  <TabPanel className={classes.container} value={tab} name="whitelabel">
-                    {showWhiteLabel && <Whitelabel settings={settings} />}
+                  <TabPanel className="container" value={tab} name="whitelabel">
+                    {showWhiteLabel && <Whitelabel settings={data.settings} />}
                   </TabPanel>
 
-                  <TabPanel className={classes.container} value={tab} name="closureReasons">
+                  <TabPanel className="container" value={tab} name="closureReasons">
                     {reasonEnabled === "enabled" && <Reason />}
                   </TabPanel>
-                </Paper>
+                </StyledPaper>
               </>
             ) : (
               <>
-                <Tabs
+                <StyledTabs
                   value={tab}
                   onChange={handleTabChange}
                   indicatorColor="primary"
                   textColor="primary"
                   variant="scrollable"
                   scrollButtons="auto"
-                  className={classes.tab}
                   allowScrollButtonsMobile
                 >
                   <Tab label={i18n.t("settings.tabs.params")} value="options" />
                   {schedulesEnabled && (
                     <Tab label={i18n.t("settings.tabs.schedules")} value="schedules" />
                   )}
-                  {currentUser.super && (
+                  {data.currentUser.super && (
                     <Tab label={i18n.t("settings.tabs.plans")} value="plans" />
                   )}
-                  {currentUser.super && (
+                  {data.currentUser.super && (
                     <Tab label={i18n.t("settings.tabs.helps")} value="helps" />
                   )}
                   {showWhiteLabel && (
                     <Tab label="Whitelabel" value="whitelabel" />
                   )}
-                  {currentUser.super && (
+                  {data.currentUser.super && (
                     <Tab label="Pagamentos" value="paymentGateway" />
                   )}
                   {reasonEnabled === "enabled" && (
                     <Tab label="Motivos de Encerramento" value="closureReasons" />
                   )}
-                </Tabs>
+                </StyledTabs>
                 
-                <Paper className={classes.paper} elevation={0}>
-                  <TabPanel className={classes.container} value={tab} name="options">
+                <StyledPaper elevation={0}>
+                  <TabPanel className="container" value={tab} name="options">
                     <Options 
-                      settings={settings}
+                      settings={data.settings}
                       scheduleTypeChanged={handleScheduleTypeChanged}
                       enableReasonWhenCloseTicketChanged={handleEnableReasonWhenCloseTicketChanged}
+                      onSettingChange={handleSettingChange}
+                      pendingChanges={pendingChanges}
                     />
                   </TabPanel>
                   
-                  <TabPanel className={classes.container} value={tab} name="schedules">
+                  <TabPanel className="container" value={tab} name="schedules">
                     {schedulesEnabled && (
                       <SchedulesForm
                         loading={loading}
                         onSubmit={handleSubmitSchedules}
-                        initialValues={schedules}
-                        companyId={companyId}
+                        initialValues={data.schedules}
+                        companyId={data.company?.id}
                         labelSaveButton={i18n.t("settings.saveButton")}
                       />
                     )}
                   </TabPanel>
 
-                  <TabPanel className={classes.container} value={tab} name="plans">
-                    {currentUser.super && <PlansManager />}
+                  <TabPanel className="container" value={tab} name="plans">
+                    {data.currentUser.super && <PlansManager />}
                   </TabPanel>
                   
-                  <TabPanel className={classes.container} value={tab} name="helps">
-                    {currentUser.super && <HelpsManager />}
+                  <TabPanel className="container" value={tab} name="helps">
+                    {data.currentUser.super && <HelpsManager />}
                   </TabPanel>
                   
-                  <TabPanel className={classes.container} value={tab} name="paymentGateway">
-                    {currentUser.super && <PaymentGateway settings={settings} />}
+                  <TabPanel className="container" value={tab} name="paymentGateway">
+                    {data.currentUser.super && <PaymentGateway settings={data.settings} />}
                   </TabPanel>
 
-                  <TabPanel className={classes.container} value={tab} name="whitelabel">
-                    {showWhiteLabel && <Whitelabel settings={settings} />}
+                  <TabPanel className="container" value={tab} name="whitelabel">
+                    {showWhiteLabel && <Whitelabel settings={data.settings} />}
                   </TabPanel>
 
-                  <TabPanel className={classes.container} value={tab} name="closureReasons">
+                  <TabPanel className="container" value={tab} name="closureReasons">
                     {reasonEnabled === "enabled" && <Reason />}
                   </TabPanel>
-                </Paper>
+                </StyledPaper>
               </>
             )}
+            
+            {/* Botão para salvar alterações pendentes */}
+            {hasPendingChanges && (
+              <SaveAllButton
+                variant="contained"
+                color="primary"
+                startIcon={isSaving ? <CircularProgress size={20} sx={{ color: 'white' }} /> : <SaveIcon />}
+                onClick={handleSaveAllChanges}
+                disabled={isSaving}
+              >
+                {i18n.t("settings.saveAll")}
+              </SaveAllButton>
+            )}
+            
+            {/* Notificação de alterações pendentes */}
+            <Snackbar
+              open={openSnackbar && hasPendingChanges}
+              autoHideDuration={6000}
+              onClose={() => setOpenSnackbar(false)}
+              message={snackbarMessage}
+              action={
+                <Button 
+                  color="secondary" 
+                  size="small" 
+                  onClick={handleSaveAllChanges}
+                  disabled={isSaving}
+                >
+                  Salvar
+                </Button>
+              }
+            />
           </>
         )}
-      </Paper>
+      </StyledMainPaper>
     </MainContainer>
   );
 };
