@@ -461,6 +461,13 @@ export default class CampaignJob {
         if (campaign.fileListId) {
           await this.sendCampaignFiles(wbot, campaign, chatId);
         }
+
+        if (campaign.mediaPath) {
+          await this.sendCampaignMedia(wbot, campaign, chatId, body);
+        } else {
+          body = formatBody(body, contact);
+          await wbot.sendMessage(chatId, { text: body });
+        }
   
         // Correção na parte de integração com tickets
         if (campaign.openTicket === "enabled") {
@@ -500,7 +507,7 @@ export default class CampaignJob {
             
             // Enviar a mensagem
             if (campaign.mediaPath) {
-              const publicFolder = process.env.BACKEND_PUBLIC_PATH || path.resolve(__dirname, "..", "..", "public");
+              const publicFolder = process.env.BACKEND_PUBLIC_PATH;
               const filePath = path.join(publicFolder, `company${campaign.companyId}`, campaign.mediaPath);
   
               const options = await getMessageOptions(

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useContext } from "react";
 import { styled } from '@mui/material/styles';
 import {
   Box,
@@ -31,7 +31,7 @@ import { i18n } from "../../translate/i18n";
 import { toast } from "../../helpers/toast";
 
 // Componentes de configurações
-import Options from "./Options";
+import Options from "../../components/Settings/Options";
 import SchedulesForm from "../../components/SchedulesForm";
 import PlansManager from "../../components/PlansManager";
 import HelpsManager from "../../components/HelpsManager";
