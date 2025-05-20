@@ -13,6 +13,7 @@ import {
   MenuItem,
   Typography,
   Box,
+  IconButton,
   Tabs,
   Tab,
   Divider,
@@ -37,16 +38,22 @@ import {
   Save as SaveIcon,
   Build as BuildIcon,
   BusinessCenter as BusinessIcon,
+  Tune as TuneIcon,
+  LocalOffer as TagIcon,
   Phone as PhoneIcon,
   Person as PersonIcon,
   Email as EmailIcon,
   Message as MessageIcon,
   Support as SupportIcon,
+  SettingsApplications as AppSettingsIcon,
+  Timeline as TimelineIcon,
+  CheckCircleOutline as CheckIcon,
   FileCopy as FileCopyIcon
 } from "@mui/icons-material";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faCopy, faGears, faRobot, faServer, faEnvelope, faFileExport, faTicketAlt, faUsers, faBuilding } from "@fortawesome/free-solid-svg-icons";
+import { faCopy, faGears, faRobot, faServer, faEnvelope, faList, faFileExport, faTicketAlt, faUsers, faBuilding, faDatabase } from "@fortawesome/free-solid-svg-icons";
 import WhatsAppIcon from '@mui/icons-material/WhatsApp';
+import { generateSecureToken } from "../../helpers/generateSecureToken";
 import { copyToClipboard } from "../../helpers/copyToClipboard";
 import { useContext } from "react";
 import { GlobalContext } from "../../context/GlobalContext";
@@ -136,7 +143,7 @@ const StyledBadge = styled(Badge)(({ theme }) => ({
   },
 }));
 
-// Componente principal otimizado
+// Componente principal
 const Options = ({ settings, scheduleTypeChanged, enableReasonWhenCloseTicketChanged }) => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
@@ -145,7 +152,8 @@ const Options = ({ settings, scheduleTypeChanged, enableReasonWhenCloseTicketCha
   const { setMakeRequestSettings } = useContext(GlobalContext);
   const { Loading } = useLoading();
 
-  // Tabs e mudanças de configuração
+  // Estados locais para armazenar configurações
+  const currentUser = user;
   const [currentTab, setCurrentTab] = useState(0);
   const [hasChanges, setHasChanges] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -217,27 +225,29 @@ const Options = ({ settings, scheduleTypeChanged, enableReasonWhenCloseTicketCha
       if (!Array.isArray(settings) || settings.length === 0) return;
 
       // Criar um mapa de configurações para acesso rápido
-      const settingsMap = settings.reduce((acc, setting) => {
+      const settingsMap = {};
+
+      settings.forEach(setting => {
         if (setting && setting.key) {
-          acc[setting.key] = setting.value;
+          settingsMap[setting.key] = setting.value;
         }
-        return acc;
-      }, {});
+      });
 
       // Atualizar o estado uma única vez com todas as configurações
       setConfigState(prevState => {
         const newState = { ...prevState };
 
         // Mapear todas as propriedades chave entre o settingsMap e o estado
-        Object.entries(newState).forEach(([key, currentValue]) => {
+        Object.keys(newState).forEach(key => {
           // Algumas chaves precisam de mapeamento especial
           if (key === 'openAiModel') {
-            newState[key] = settingsMap.openaiModel || currentValue;
+            newState[key] = settingsMap.openaiModel || newState[key] || "";
           } else {
             // Para a maioria das chaves, o nome é o mesmo em ambos os objetos
             const settingKey = key;
             if (settingsMap[settingKey] !== undefined) {
-              newState[key] = settingsMap[settingKey];
+              // Garantir que o valor seja uma string para evitar problemas com selects
+              newState[key] = String(settingsMap[settingKey] || newState[key] || "");
             }
           }
         });
@@ -253,7 +263,10 @@ const Options = ({ settings, scheduleTypeChanged, enableReasonWhenCloseTicketCha
   const updateSetting = useCallback(async (key, value) => {
     setHasChanges(true);
     try {
-      await update({ key, value });
+      // Garantir que o valor seja uma string para evitar erros no backend
+      const processedValue = value !== undefined && value !== null ? String(value) : "";
+
+      await update({ key, value: processedValue });
       toast.success(i18n.t("optionsPage.successMessage"));
       setMakeRequestSettings(Math.random());
       return true;
@@ -265,28 +278,27 @@ const Options = ({ settings, scheduleTypeChanged, enableReasonWhenCloseTicketCha
 
   // Função genérica para manipular alterações no estado de configuração
   const handleConfigChange = useCallback((key, value, notifyBackend = true) => {
-    // Garante que o valor será tratado como string para os campos select
-    const processedValue = value !== null && value !== undefined ? String(value) : '';
-    
+    // Garantir que o valor seja uma string para evitar problemas em selects
+    const processedValue = value !== undefined && value !== null ? String(value) : "";
+
     setConfigState(prev => ({ ...prev, [key]: processedValue }));
-    
+
     // Lidar com callbacks específicos
     if (key === 'scheduleType' && typeof scheduleTypeChanged === 'function') {
       scheduleTypeChanged(processedValue);
     }
-    
+
     if (key === 'enableReasonWhenCloseTicket' && typeof enableReasonWhenCloseTicketChanged === 'function') {
       enableReasonWhenCloseTicketChanged(processedValue);
     }
-    
+
     // Se notifyBackend for true, atualizar no backend
     if (notifyBackend) {
       return updateSetting(key, processedValue);
     }
-    
+
     return Promise.resolve(true);
   }, [updateSetting, scheduleTypeChanged, enableReasonWhenCloseTicketChanged]);
-  
 
   // Função específica para lidar com switches
   const handleSwitchChange = useCallback((key, checked) => {
@@ -303,11 +315,11 @@ const Options = ({ settings, scheduleTypeChanged, enableReasonWhenCloseTicketCha
         enableTagsWhenCloseTicket: ["enableQueueWhenCloseTicket", "enableReasonWhenCloseTicket"],
         enableReasonWhenCloseTicket: ["enableQueueWhenCloseTicket", "enableTagsWhenCloseTicket"]
       };
-      
+
       // Se a opção tem exclusões
       if (exclusiveOptions[enabledKey]) {
         const optionsToDisable = exclusiveOptions[enabledKey];
-        
+
         // Desativar as outras opções
         const disablePromises = optionsToDisable.map(key => {
           if (configState[key] === "enabled") {
@@ -315,31 +327,72 @@ const Options = ({ settings, scheduleTypeChanged, enableReasonWhenCloseTicketCha
           }
           return Promise.resolve();
         });
-        
+
         await Promise.all(disablePromises);
         toast.info(i18n.t("optionsPage.onlyOneCloseOptionActive"));
       }
     }
-    
+
     return handleConfigChange(enabledKey, value);
   }, [configState, handleConfigChange]);
 
   // Função para salvar todas as alterações pendentes
   const saveAllSettings = useCallback(async () => {
+    if (!hasChanges || isSaving) return;
+
     try {
       setIsSaving(true);
       Loading.turnOn();
-      
-      // Implementação real pode salvar apenas as configurações modificadas
+
+      // Criar um array de promessas para salvar todas as configurações
+      const savePromises = Object.entries(configState).map(([key, value]) => {
+        // Para openAiModel, precisa salvar como openaiModel (sem "A" maiúsculo)
+        if (key === "openAiModel") {
+          return updateSetting("openaiModel", value);
+        }
+
+        // Para SMTP e suporte, os nomes das chaves não correspondem exatamente
+        if (key === "smtpauthType") {
+          return updateSetting("smtpauth", value);
+        }
+
+        if (key === "usersmtpauthType") {
+          return updateSetting("usersmtpauth", value);
+        }
+
+        if (key === "clientsecretsmtpauthType") {
+          return updateSetting("clientsecretsmtpauth", value);
+        }
+
+        if (key === "smtpPortType") {
+          return updateSetting("smtpport", value);
+        }
+
+        if (key === "waSuportType") {
+          return updateSetting("wasuport", value);
+        }
+
+        if (key === "msgSuportType") {
+          return updateSetting("msgsuport", value);
+        }
+
+        // Para as outras configurações, os nomes são os mesmos
+        return updateSetting(key, value);
+      });
+
+      // Executar todas as promessas
+      await Promise.all(savePromises);
+
       toast.success(i18n.t("optionsPage.allSettingsSaved"));
       setHasChanges(false);
     } catch (error) {
-      toast.error(error.message || "Erro ao salvar configurações");
+      console.error("Erro ao salvar configurações:", error);
+      toast.error(error?.message || "Erro ao salvar configurações");
     } finally {
       setIsSaving(false);
       Loading.turnOff();
     }
-  }, [Loading]);
+  }, [configState, hasChanges, isSaving, Loading, updateSetting]);
 
   // Função para lidar com mudança de tabs
   const handleTabChange = useCallback((event, newValue) => {
@@ -366,7 +419,7 @@ const Options = ({ settings, scheduleTypeChanged, enableReasonWhenCloseTicketCha
                       <TextField
                         select
                         label={i18n.t("optionsPage.trialExpiration")}
-                        value={configState.trialExpiration}
+                        value={configState.trialExpiration || "3"}
                         size="small"
                         onChange={(e) => handleConfigChange("trialExpiration", e.target.value)}
                         variant="outlined"
@@ -806,7 +859,7 @@ const Options = ({ settings, scheduleTypeChanged, enableReasonWhenCloseTicketCha
                   select
                   fullWidth
                   label={i18n.t("optionsPage.expedient")}
-                  value={configState.scheduleType}
+                  value={configState.scheduleType || "disabled"}
                   size="small"
                   onChange={(e) => handleConfigChange("scheduleType", e.target.value)}
                   variant="outlined"
@@ -884,7 +937,7 @@ const Options = ({ settings, scheduleTypeChanged, enableReasonWhenCloseTicketCha
                   select
                   fullWidth
                   label={i18n.t("optionsPage.speedMessage")}
-                  value={configState.quickMessages}
+                  value={configState.quickMessages || "company"}
                   size="small"
                   onChange={(e) => handleConfigChange("quickMessages", e.target.value)}
                   variant="outlined"
@@ -903,11 +956,11 @@ const Options = ({ settings, scheduleTypeChanged, enableReasonWhenCloseTicketCha
       </StyledPaper>
     </>
   ), [
-    configState, 
-    theme, 
-    switchAnimation, 
-    handleSwitchChange, 
-    handleConfigChange, 
+    configState,
+    theme,
+    switchAnimation,
+    handleSwitchChange,
+    handleConfigChange,
     handleMutuallyExclusiveOption,
     user
   ]);
@@ -987,7 +1040,7 @@ const Options = ({ settings, scheduleTypeChanged, enableReasonWhenCloseTicketCha
                     label={i18n.t("optionsPage.metaPixelId")}
                     variant="outlined"
                     fullWidth
-                    value={configState.metaPixelId}
+                    value={configState.metaPixelId || ""}
                     onChange={(e) => handleConfigChange("metaPixelId", e.target.value, false)}
                     size="small"
                   />
@@ -1020,29 +1073,29 @@ const Options = ({ settings, scheduleTypeChanged, enableReasonWhenCloseTicketCha
           <Grid container spacing={2}>
             <Grid item xs={12} sm={6} md={4}>
               <FormControl fullWidth>
-              <TextField
-  select
-  fullWidth
-  label={i18n.t("optionsPage.openaiModel")}
-  value={configState.openAiModel || ""}
-  onChange={(e) => handleConfigChange("openaiModel", e.target.value)}
-  variant="outlined"
-  size="small"
-  margin="normal"
->
-  {openAiModels.map((model) => (
-    <MenuItem key={model.value} value={model.value}>
-      {model.label}
-    </MenuItem>
-  ))}
-</TextField>
+                <TextField
+                  select
+                  fullWidth
+                  label={i18n.t("optionsPage.openaiModel")}
+                  value={configState.openAiModel || "gpt-4"}
+                  onChange={(e) => handleConfigChange("openaiModel", e.target.value)}
+                  variant="outlined"
+                  size="small"
+                  margin="normal"
+                >
+                  {openAiModels.map((model) => (
+                    <MenuItem key={model.value} value={model.value}>
+                      {model.label}
+                    </MenuItem>
+                  ))}
+                </TextField>
                 <FormHelperText>
                   {i18n.t("optionsPage.openaiModelHelp")}
                 </FormHelperText>
               </FormControl>
             </Grid>
           </Grid>
-          
+
           <Box sx={{ mt: 2 }}>
             <FormGroup>
               <FormControlLabel
@@ -1074,7 +1127,7 @@ const Options = ({ settings, scheduleTypeChanged, enableReasonWhenCloseTicketCha
                     label={i18n.t("optionsPage.openAiKey") || "Chave da API OpenAI"}
                     variant="outlined"
                     fullWidth
-                    value={configState.openAiKey}
+                    value={configState.openAiKey || ""}
                     onChange={(e) => handleConfigChange("openAiKey", e.target.value, false)}
                     size="small"
                     type="password"
@@ -1193,11 +1246,12 @@ const Options = ({ settings, scheduleTypeChanged, enableReasonWhenCloseTicketCha
       </StyledPaper>
     </>
   ), [
-    configState, 
-    theme, 
-    switchAnimation, 
-    handleSwitchChange, 
-    handleConfigChange, updateSetting
+    configState,
+    theme,
+    switchAnimation,
+    handleSwitchChange,
+    handleConfigChange,
+    updateSetting
   ]);
 
   // Componente de configurações avançadas
@@ -1220,7 +1274,7 @@ const Options = ({ settings, scheduleTypeChanged, enableReasonWhenCloseTicketCha
                 <TextField
                   select
                   label={i18n.t("optionsPage.downloadLimit")}
-                  value={configState.downloadLimit}
+                  value={configState.downloadLimit || "64"}
                   onChange={(e) => handleConfigChange("downloadLimit", e.target.value)}
                   variant="outlined"
                   size="small"
@@ -1313,7 +1367,7 @@ const Options = ({ settings, scheduleTypeChanged, enableReasonWhenCloseTicketCha
                       name="wasuport"
                       label={i18n.t("optionsPage.wasuport")}
                       size="small"
-                      value={configState.waSuportType}
+                      value={configState.waSuportType || ""}
                       onChange={(e) => {
                         if (e.target.value === "" || /^[0-9\b]+$/.test(e.target.value)) {
                           handleConfigChange("waSuportType", e.target.value, false);
@@ -1337,7 +1391,7 @@ const Options = ({ settings, scheduleTypeChanged, enableReasonWhenCloseTicketCha
                       name="msgsuporte"
                       label={i18n.t("optionsPage.msgsuport")}
                       size="small"
-                      value={configState.msgSuportType}
+                      value={configState.msgSuportType || ""}
                       onChange={(e) => handleConfigChange("msgSuportType", e.target.value, false)}
                       onBlur={() => updateSetting("msgsuport", configState.msgSuportType)}
                       onKeyDown={(e) => {
@@ -1376,7 +1430,7 @@ const Options = ({ settings, scheduleTypeChanged, enableReasonWhenCloseTicketCha
                 name="smtpauth"
                 label={i18n.t("optionsPage.smtpServer")}
                 size="small"
-                value={configState.smtpauthType}
+                value={configState.smtpauthType || ""}
                 onChange={(e) => handleConfigChange("smtpauthType", e.target.value, false)}
                 onBlur={() => updateSetting("smtpauth", configState.smtpauthType)}
                 fullWidth
@@ -1389,7 +1443,7 @@ const Options = ({ settings, scheduleTypeChanged, enableReasonWhenCloseTicketCha
                 name="usersmtpauth"
                 label={i18n.t("optionsPage.smtpUser")}
                 size="small"
-                value={configState.usersmtpauthType}
+                value={configState.usersmtpauthType || ""}
                 onChange={(e) => handleConfigChange("usersmtpauthType", e.target.value, false)}
                 onBlur={() => updateSetting("usersmtpauth", configState.usersmtpauthType)}
                 fullWidth
@@ -1403,7 +1457,7 @@ const Options = ({ settings, scheduleTypeChanged, enableReasonWhenCloseTicketCha
                 label={i18n.t("optionsPage.smtpPassword")}
                 size="small"
                 type="password"
-                value={configState.clientsecretsmtpauthType}
+                value={configState.clientsecretsmtpauthType || ""}
                 onChange={(e) => handleConfigChange("clientsecretsmtpauthType", e.target.value, false)}
                 onBlur={() => updateSetting("clientsecretsmtpauth", configState.clientsecretsmtpauthType)}
                 fullWidth
@@ -1416,7 +1470,7 @@ const Options = ({ settings, scheduleTypeChanged, enableReasonWhenCloseTicketCha
                 name="smtpport"
                 label={i18n.t("optionsPage.smtpPort")}
                 size="small"
-                value={configState.smtpPortType}
+                value={configState.smtpPortType || ""}
                 onChange={(e) => handleConfigChange("smtpPortType", e.target.value, false)}
                 onBlur={() => updateSetting("smtpport", configState.smtpPortType)}
                 fullWidth
@@ -1431,10 +1485,10 @@ const Options = ({ settings, scheduleTypeChanged, enableReasonWhenCloseTicketCha
       </StyledPaper>
     </>
   ), [
-    configState, 
-    theme, 
-    switchAnimation, 
-    handleSwitchChange, 
+    configState,
+    theme,
+    switchAnimation,
+    handleSwitchChange,
     handleConfigChange,
     updateSetting,
     user
@@ -1446,7 +1500,7 @@ const Options = ({ settings, scheduleTypeChanged, enableReasonWhenCloseTicketCha
         <SaveButton
           variant="contained"
           color="primary"
-          startIcon={<SaveIcon />}
+          startIcon={isSaving ? null : <SaveIcon />}
           onClick={saveAllSettings}
           disabled={!hasChanges || isSaving}
         >

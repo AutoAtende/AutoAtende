@@ -3,7 +3,7 @@ import { useTheme } from '@mui/material/styles';
 
 import {
   FormControl,
-  Grid, 
+  Grid,
   InputLabel,
   MenuItem,
   Select,
@@ -26,12 +26,12 @@ import {
   Chip
 } from "@mui/material";
 import { ChromePicker } from "react-color";
-import { 
-  AttachFile, 
-  Delete, 
-  Save, 
-  Settings, 
-  Palette, 
+import {
+  AttachFile,
+  Delete,
+  Save,
+  Settings,
+  Palette,
   Image,
   ColorLens,
   Refresh,
@@ -107,21 +107,21 @@ const colorLabels = {
 // Agrupamentos de cores para uma melhor organização visual
 const colorGroups = {
   "Cores do Tema": [
-    "primaryColorLight", 
-    "secondaryColorLight", 
-    "primaryColorDark", 
+    "primaryColorLight",
+    "secondaryColorLight",
+    "primaryColorDark",
     "secondaryColorDark"
   ],
   "Cores dos Ícones": [
-    "iconColorLight", 
+    "iconColorLight",
     "iconColorDark"
   ],
   "Cores do Chat": [
-    "chatlistLight", 
-    "chatlistDark", 
-    "boxLeftLight", 
-    "boxLeftDark", 
-    "boxRightLight", 
+    "chatlistLight",
+    "chatlistDark",
+    "boxLeftLight",
+    "boxLeftDark",
+    "boxRightLight",
     "boxRightDark"
   ]
 };
@@ -147,20 +147,20 @@ const imageLabels = {
 function Whitelabel({ settings }) {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
-  
+
   // Estados e hooks
   const { colorMode } = useContext(ColorModeContext);
   const { user } = useContext(AuthContext);
   const { update } = useSettings();
   const { Loading } = useLoading();
-  
+
   const [selectedTab, setSelectedTab] = useState(0);
   const [settingsLoaded, setSettingsLoaded] = useState({});
   const [selectedColorKey, setSelectedColorKey] = useState(themeColors[0]);
   const [selectedColorValue, setSelectedColorValue] = useState("");
   const [colorPickerAnchorEl, setColorPickerAnchorEl] = useState(null);
 
-  
+
   // Estados para os formulários que devem ser salvos apenas quando explicitamente solicitado
   const [generalForm, setGeneralForm] = useState({
     appName: "",
@@ -170,14 +170,14 @@ function Whitelabel({ settings }) {
     loginPosition: "right",
     signupPosition: "right"
   });
-  
+
   // Estado para indicar se há alterações não salvas
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState({
     general: false,
     colors: false,
     logos: false
   });
-  
+
   // Estado para controlar loading por seção
   const [loadingStates, setLoadingStates] = useState({
     general: false,
@@ -214,7 +214,7 @@ function Whitelabel({ settings }) {
       });
     };
   }, []);
-  
+
   const updateSettingsLoaded = useCallback((key, value) => {
     if (isMounted.current) {
       setSettingsLoaded(prev => ({ ...prev, [key]: value }));
@@ -234,24 +234,24 @@ function Whitelabel({ settings }) {
       if (settingsLoaded[key] === value) {
         if (section) {
           setHasUnsavedChanges(prev => ({
-            ...prev, 
+            ...prev,
             [section]: false
           }));
         }
         return;
       }
-      
+
       try {
         if (section) {
           setLoadingForSection(section, true);
         }
-        
+
         await update({ key, value, companyId: user.companyId });
-        
+
         if (isMounted.current) {
           // Atualizar o estado localmente em uma única operação
           setSettingsLoaded(prev => ({ ...prev, [key]: value }));
-          
+
           // Atualizar o tema apenas para a chave específica
           if (themeColors.includes(key)) {
             updateThemeColorValues(key, value);
@@ -260,19 +260,19 @@ function Whitelabel({ settings }) {
               setterFunction(value);
             }
           }
-          
+
           // Atualizar o cache no localStorage
           updateSettingsCache(key, value);
-          
+
           // Resetar flag de alterações não salvas para esta seção
           if (section) {
             setHasUnsavedChanges(prev => ({
-              ...prev, 
+              ...prev,
               [section]: false
             }));
           }
         }
-        
+
         toast.success(i18n.t("whiteLabel.updateSuccess"));
       } catch (error) {
         console.error("Erro ao salvar configuração:", error);
@@ -283,7 +283,7 @@ function Whitelabel({ settings }) {
         }
       }
     },
-    [update, settingsLoaded, colorMode, setLoadingForSection, updateThemeColorValues, user.companyId]
+    [update, settingsLoaded, colorMode, setLoadingForSection, updateThemeColorValues, user.companyId, updateSettingsCache]
   );
 
   // Função para atualizar o cache
@@ -291,10 +291,10 @@ function Whitelabel({ settings }) {
     try {
       const companyId = user?.companyId;
       if (!companyId) return;
-      
+
       const cacheKey = `whitelabel_settings_${companyId}`;
       const cachedData = localStorage.getItem(cacheKey);
-      
+
       if (cachedData) {
         const cache = JSON.parse(cachedData);
         cache.settings[key] = value;
@@ -313,28 +313,28 @@ function Whitelabel({ settings }) {
       console.error('Erro ao atualizar cache de configurações:', error);
     }
   }, [user?.companyId]);
-  
+
   // Função para abrir o color picker
   const handleColorPickerOpen = useCallback((event, colorKey) => {
     setSelectedColorKey(colorKey);
     setSelectedColorValue(themeColorValues[colorKey] || settingsLoaded[colorKey] || '');
     setColorPickerAnchorEl(event.currentTarget);
   }, [themeColorValues, settingsLoaded]);
-  
+
   // Função para fechar o color picker
   const handleColorPickerClose = useCallback(() => {
     setColorPickerAnchorEl(null);
   }, []);
-  
+
   // Função para alterar cor no color picker
   const handleColorChange = useCallback((color) => {
     if (!color) return;
     const newColor = color.hex;
     setSelectedColorValue(newColor);
     // Marca que há alterações não salvas
-    setHasUnsavedChanges(prev => ({...prev, colors: true}));
+    setHasUnsavedChanges(prev => ({ ...prev, colors: true }));
   }, []);
-  
+
   // Função para salvar a cor selecionada
   const saveSelectedColor = useCallback(() => {
     if (selectedColorKey && selectedColorValue) {
@@ -345,25 +345,27 @@ function Whitelabel({ settings }) {
       } catch (error) {
         console.error("Erro ao salvar cor:", error);
         toast.error("Não foi possível salvar a cor. Por favor, tente novamente.");
+        // Garantir que o popover feche mesmo em caso de erro
         handleColorPickerClose();
       }
     }
   }, [selectedColorKey, selectedColorValue, handleSaveSetting, handleColorPickerClose, updateThemeColorValues]);
-  
-  
+
+
+
   // Função para salvar todas as cores de uma vez
   const saveAllThemeColors = useCallback(async () => {
     try {
       setLoadingForSection('colors', true);
-      
+
       // Cria um array de promises para todas as operações de salvamento
-      const savePromises = Object.entries(themeColorValues).map(([key, value]) => 
+      const savePromises = Object.entries(themeColorValues).map(([key, value]) =>
         handleSaveSetting(key, value, null)
       );
-      
+
       await Promise.all(savePromises);
-      
-      setHasUnsavedChanges(prev => ({...prev, colors: false}));
+
+      setHasUnsavedChanges(prev => ({ ...prev, colors: false }));
       toast.success(i18n.t("whiteLabel.updateSuccess"));
     } catch (error) {
       console.error("Erro ao salvar todas as cores:", error);
@@ -390,21 +392,21 @@ function Whitelabel({ settings }) {
       boxRightLight: "#dcf8c6",
       boxRightDark: "#056162"
     };
-    
+
     try {
       setLoadingForSection('colors', true);
-      
+
       // Atualiza os estados locais primeiro
       setThemeColorValues(defaultColors);
-      
+
       // Cria um array de promises para todas as operações de salvamento
-      const savePromises = Object.entries(defaultColors).map(([key, value]) => 
+      const savePromises = Object.entries(defaultColors).map(([key, value]) =>
         handleSaveSetting(key, value, null)
       );
-      
+
       await Promise.all(savePromises);
-      
-      setHasUnsavedChanges(prev => ({...prev, colors: false}));
+
+      setHasUnsavedChanges(prev => ({ ...prev, colors: false }));
       toast.success(i18n.t("whiteLabel.resetSuccess"));
     } catch (error) {
       console.error("Erro ao restaurar cores padrão:", error);
@@ -414,31 +416,31 @@ function Whitelabel({ settings }) {
     }
   }, [handleSaveSetting, setLoadingForSection]);
 
-// Primeira correção: Defina a função getImageDefaultByImageKey antes de qualquer função que a utilize
-const getImageDefaultByImageKey = (imageKey) => {
-  if (imageKey === "appLogoLight") return logotipoImage;
-  if (imageKey === "appLogoDark") return logotipoImage;
-  if (imageKey === "appLogoFavicon") return faviconImage;
-  if (imageKey === "appLogoPWAIcon") return pwaImage;
-  if (imageKey === "loginBackground") return login_signup;
-  if (imageKey === "signupBackground") return login_signup;
-  return null;
-};
+  // Primeira correção: Defina a função getImageDefaultByImageKey antes de qualquer função que a utilize
+  const getImageDefaultByImageKey = (imageKey) => {
+    if (imageKey === "appLogoLight") return logotipoImage;
+    if (imageKey === "appLogoDark") return logotipoImage;
+    if (imageKey === "appLogoFavicon") return faviconImage;
+    if (imageKey === "appLogoPWAIcon") return pwaImage;
+    if (imageKey === "loginBackground") return login_signup;
+    if (imageKey === "signupBackground") return login_signup;
+    return null;
+  };
 
-// Segunda correção: Em seguida, modifique getImagePath para usar a função já definida
-const getImagePath = (imageKey, imagePath, companyId) => {
-  // Verificar se o caminho já é uma URL completa
-  if (!imagePath) {
-    return getImageDefaultByImageKey(imageKey);
-  }
-  
-  if (imagePath.startsWith('http://') || imagePath.startsWith('https://')) {
-    return imagePath;
-  }
+  // Segunda correção: Em seguida, modifique getImagePath para usar a função já definida
+  const getImagePath = (imageKey, imagePath, companyId) => {
+    // Verificar se o caminho já é uma URL completa
+    if (!imagePath) {
+      return getImageDefaultByImageKey(imageKey);
+    }
 
-  // Construir URL específica para a empresa
-  return `${process.env.REACT_APP_BACKEND_URL}/public/${imagePath}`;
-};
+    if (imagePath.startsWith('http://') || imagePath.startsWith('https://')) {
+      return imagePath;
+    }
+
+    // Construir URL específica para a empresa
+    return `${process.env.REACT_APP_BACKEND_URL}/public/${imagePath}`;
+  };
 
   // Função otimizada para fazer upload de imagens de fundo
   const uploadBackground = useCallback(
@@ -453,16 +455,20 @@ const getImagePath = (imageKey, imagePath, companyId) => {
 
       try {
         setLoadingForSection('logos', true);
+
+        // Importante: Aqui apenas anexamos o tipo sem declarar novamente formData
         formData.append("typeArch", "background");
+
         const response = await api.post("/settings/background", formData);
         const backgroundUrl = response.data;
-        
+
         if (isMounted.current) {
           updateSettingsLoaded(`${page}Background`, backgroundUrl);
           await handleSaveSetting(`${page}Background`, backgroundUrl);
           toast.success(i18n.t("whiteLabel.backgroundUpdateSuccess"));
         }
       } catch (err) {
+        console.error("Erro ao fazer upload da imagem de fundo:", err);
         if (isMounted.current) {
           toast.error(i18n.t("whiteLabel.backgroundUploadError"));
         }
@@ -479,13 +485,15 @@ const getImagePath = (imageKey, imagePath, companyId) => {
   const deleteBackground = useCallback(
     async (filename, imageKey) => {
       if (!filename) return;
-      
-      filename = removePathName(filename);
+
       try {
         setLoadingForSection('logos', true);
-        formData.append("typeArch", "background");
-        await api.delete(`/settings/backgrounds/${filename}?companyId=${user.companyId}`);
-        
+
+        // Remover caminho do nome do arquivo
+        const filenameOnly = removePathName(filename);
+
+        await api.delete(`/settings/backgrounds/${filenameOnly}?companyId=${user.companyId}`);
+
         if (isMounted.current) {
           if (imageKey === "loginBackground") {
             updateSettingsLoaded("loginBackground", "");
@@ -498,6 +506,7 @@ const getImagePath = (imageKey, imagePath, companyId) => {
           toast.success(i18n.t("whitelabel.success.backgroundUpdated"));
         }
       } catch (err) {
+        console.error("Erro ao excluir imagem de fundo:", err);
         if (isMounted.current) {
           toast.error(i18n.t("whitelabel.success.backgroundDeleteError"));
         }
@@ -510,6 +519,7 @@ const getImagePath = (imageKey, imagePath, companyId) => {
     [updateSettingsLoaded, handleSaveSetting, setLoadingForSection, user.companyId]
   );
 
+
   const handleTabChange = useCallback((event, newValue) => {
     setSelectedTab(newValue);
   }, []);
@@ -518,39 +528,39 @@ const getImagePath = (imageKey, imagePath, companyId) => {
   const uploadLogo = useCallback(
     async (e, mode) => {
       if (!e.target.files || e.target.files.length === 0) return;
-  
+
       const file = e.target.files[0];
       const formData = new FormData();
       formData.append("file", file);
       formData.append("mode", mode);
       formData.append("companyId", user.companyId.toString());
       formData.append("typeArch", "logo");
-  
+
       try {
         setLoadingForSection('logos', true);
         const response = await api.post("/settings/logo", formData);
         const logoUrl = response.data;
-  
+
         if (isMounted.current) {
           updateSettingsLoaded(mode, logoUrl);
-  
+
           // Construir URL completa
           const fullUrl = `${process.env.REACT_APP_BACKEND_URL}/public/${logoUrl}`;
-  
+
           // Atualizar ColorMode
           const setterFunction = colorMode[`set${capitalizeFirstLetter(mode)}`];
           if (typeof setterFunction === "function") {
             setterFunction(fullUrl);
           }
-  
+
           // Salvar configuração
           await handleSaveSetting(mode, logoUrl);
-  
+
           toast.success(i18n.t("whitelabel.success.logoUpdated"));
         }
       } catch (err) {
+        console.error("Erro no upload de logo:", err);
         if (isMounted.current) {
-          console.error("Erro no upload:", err);
           toast.error(i18n.t("whitelabel.error.logoUploadFailed"));
         }
       } finally {
@@ -561,19 +571,20 @@ const getImagePath = (imageKey, imagePath, companyId) => {
     },
     [colorMode, handleSaveSetting, updateSettingsLoaded, setLoadingForSection, user.companyId]
   );
-  
+
+
   // Implementação de função auxiliar para aplicar configurações ao tema de uma vez
   const applySettingsToTheme = useCallback((settings, companyId) => {
     if (!settings || !colorMode) return;
 
     // Criar uma cópia das cores do tema para o estado
     const themeColorsCopy = {};
-    
+
     // Aplica as cores ao tema
     themeColors.forEach((colorKey) => {
       const colorValue = settings[colorKey];
       themeColorsCopy[colorKey] = colorValue || '';
-      
+
       if (colorValue && colorMode) {
         const setterFunction = colorMode[`set${capitalizeFirstLetter(colorKey)}`];
         if (typeof setterFunction === 'function') {
@@ -604,7 +615,7 @@ const getImagePath = (imageKey, imagePath, companyId) => {
   // Carregar configurações otimizado
   const fetchUserAndInitializeSettings = useCallback(async () => {
     if (settingsInitialized.current || !isMounted.current) return;
-    
+
     try {
       Loading.turnOn();
 
@@ -622,7 +633,7 @@ const getImagePath = (imageKey, imagePath, companyId) => {
         if (isMounted.current) {
           // Atualiza todos os estados em uma única operação
           setSettingsLoaded(mergedSettings);
-          
+
           // Inicializa os formulários com os valores carregados
           setGeneralForm({
             appName: mergedSettings.appName || '',
@@ -635,12 +646,13 @@ const getImagePath = (imageKey, imagePath, companyId) => {
 
           // Aplicar as configurações ao tema apenas uma vez
           applySettingsToTheme(mergedSettings, user?.companyId);
-          
+
           // Marcar como inicializado
           settingsInitialized.current = true;
         }
       }
     } catch (error) {
+      console.error("Erro ao inicializar configurações:", error);
       if (isMounted.current) {
         toast.error(error.message || "Erro ao carregar configurações");
       }
@@ -651,6 +663,7 @@ const getImagePath = (imageKey, imagePath, companyId) => {
     }
   }, [settings, Loading, applySettingsToTheme, user]);
 
+
   // useEffect corrigido para evitar loops
   useEffect(() => {
     fetchUserAndInitializeSettings();
@@ -659,31 +672,31 @@ const getImagePath = (imageKey, imagePath, companyId) => {
   // Funções para o formulário geral
   const handleGeneralFormChange = useCallback((e) => {
     const { name, value } = e.target;
-    
+
     // Atualiza o estado do formulário
     setGeneralForm(prev => ({
       ...prev,
       [name]: value
     }));
-    
+
     // Marca que há alterações não salvas
-    setHasUnsavedChanges(prev => ({...prev, general: true}));
+    setHasUnsavedChanges(prev => ({ ...prev, general: true }));
   }, []);
-  
+
   // Função para salvar configurações gerais
   const saveGeneralSettings = useCallback(() => {
     setLoadingForSection('general', true);
-    
+
     Promise.all([
       handleSaveSetting('appName', generalForm.appName, 'general'),
       handleSaveSetting('copyright', generalForm.copyright, 'general'),
       handleSaveSetting('privacy', generalForm.privacy, 'general'),
       handleSaveSetting('terms', generalForm.terms, 'general'),
       handleSaveSetting('loginPosition', generalForm.loginPosition, 'general'),
-      handleSaveSetting('signupPosition', generalForm.signupPosition, 'general') 
+      handleSaveSetting('signupPosition', generalForm.signupPosition, 'general')
     ])
       .then(() => {
-        setHasUnsavedChanges(prev => ({...prev, general: false}));
+        setHasUnsavedChanges(prev => ({ ...prev, general: false }));
         toast.success(i18n.t("whiteLabel.updateSuccess"));
       })
       .catch((error) => {
@@ -694,7 +707,7 @@ const getImagePath = (imageKey, imagePath, companyId) => {
         setLoadingForSection('general', false);
       });
   }, [generalForm, handleSaveSetting, setLoadingForSection]);
-  
+
   // Componentes otimizados com useMemo
   const renderGeneralSettings = useMemo(
     () => (
@@ -727,7 +740,7 @@ const getImagePath = (imageKey, imagePath, companyId) => {
                 />
               </FormControl>
             </Grid>
-            
+
             {/* Novas opções de posicionamento dos formulários */}
             <Grid item xs={12} md={6}>
               <FormControl fullWidth>
@@ -765,7 +778,7 @@ const getImagePath = (imageKey, imagePath, companyId) => {
                 </Select>
               </FormControl>
             </Grid>
-            
+
             <Grid item xs={12} md={6}>
               <FormControl fullWidth>
                 <TextField
@@ -814,7 +827,7 @@ const getImagePath = (imageKey, imagePath, companyId) => {
       </Card>
     ),
     [
-      generalForm, 
+      generalForm,
       loadingStates.general,
       hasUnsavedChanges.general,
       handleGeneralFormChange,
@@ -832,12 +845,12 @@ const getImagePath = (imageKey, imagePath, companyId) => {
               <Typography variant="h6">
                 Personalização de Cores do Tema
               </Typography>
-              
+
               <Stack direction="row" spacing={1}>
                 <Tooltip title="Restaurar cores padrão">
-                  <Button 
-                    variant="outlined" 
-                    color="secondary" 
+                  <Button
+                    variant="outlined"
+                    color="secondary"
                     startIcon={<Refresh />}
                     onClick={resetToDefaultColors}
                     disabled={loadingStates.colors}
@@ -846,7 +859,7 @@ const getImagePath = (imageKey, imagePath, companyId) => {
                     {isMobile ? "" : "Restaurar Padrões"}
                   </Button>
                 </Tooltip>
-                
+
                 <Button
                   variant="contained"
                   color="primary"
@@ -859,13 +872,13 @@ const getImagePath = (imageKey, imagePath, companyId) => {
                 </Button>
               </Stack>
             </Box>
-            
+
             {loadingStates.colors && (
               <Box sx={{ display: 'flex', justifyContent: 'center', my: 2 }}>
                 <CircularProgress size={24} />
               </Box>
             )}
-            
+
             {/* Layout em grupos para melhor visualização */}
             {Object.entries(colorGroups).map(([groupName, colorKeys]) => (
               <Box key={groupName} sx={{ mb: 3 }}>
@@ -873,7 +886,7 @@ const getImagePath = (imageKey, imagePath, companyId) => {
                   {groupName}
                 </Typography>
                 <Divider sx={{ mb: 2 }} />
-                
+
                 <Grid container spacing={2}>
                   {colorKeys.map((colorKey) => (
                     <Grid item xs={6} sm={4} md={3} key={colorKey}>
@@ -908,7 +921,7 @@ const getImagePath = (imageKey, imagePath, companyId) => {
                         >
                           {colorLabels[colorKey]}
                         </Typography>
-                        
+
                         <Box
                           sx={{
                             width: '100%',
@@ -926,13 +939,13 @@ const getImagePath = (imageKey, imagePath, companyId) => {
                           }}
                           onClick={(e) => handleColorPickerOpen(e, colorKey)}
                         />
-                        
-                        <Chip 
-                          label={themeColorValues[colorKey] || settingsLoaded[colorKey] || 'Não definido'} 
+
+                        <Chip
+                          label={themeColorValues[colorKey] || settingsLoaded[colorKey] || 'Não definido'}
                           size="small"
-                          sx={{ 
-                            width: '100%', 
-                            fontSize: '0.7rem', 
+                          sx={{
+                            width: '100%',
+                            fontSize: '0.7rem',
                             height: 24,
                             '& .MuiChip-label': {
                               overflow: 'hidden',
@@ -948,7 +961,7 @@ const getImagePath = (imageKey, imagePath, companyId) => {
             ))}
           </CardContent>
         </Card>
-        
+
         {/* Color Picker Popover */}
         <Popover
           open={Boolean(colorPickerAnchorEl)}
@@ -988,16 +1001,16 @@ const getImagePath = (imageKey, imagePath, companyId) => {
               }}
             />
             <Box sx={{ mt: 2, display: 'flex', justifyContent: 'space-between' }}>
-              <Button 
-                variant="outlined" 
-                size="small" 
+              <Button
+                variant="outlined"
+                size="small"
                 onClick={handleColorPickerClose}
               >
                 Cancelar
               </Button>
-              <Button 
-                variant="contained" 
-                size="small" 
+              <Button
+                variant="contained"
+                size="small"
                 onClick={saveSelectedColor}
                 disabled={!selectedColorValue}
               >
@@ -1039,7 +1052,7 @@ const getImagePath = (imageKey, imagePath, companyId) => {
               const imagePath = settingsLoaded[imageKey]
                 ? `${process.env.REACT_APP_BACKEND_URL}/public/${settingsLoaded[imageKey]}`
                 : getImageDefaultByImageKey(imageKey);
-                
+
               return (
                 <Grid item xs={12} sm={6} md={4} key={imageKey}>
                   <Card elevation={1} sx={{ height: '100%' }}>
@@ -1170,29 +1183,29 @@ const getImagePath = (imageKey, imagePath, companyId) => {
           allowScrollButtonsMobile
           sx={{ borderBottom: 1, borderColor: 'divider' }}
         >
-          <Tab 
-            icon={<Settings />} 
+          <Tab
+            icon={<Settings />}
             label={!isMobile ? "Configurações Gerais" : ""}
             iconPosition="start"
-            sx={{ 
+            sx={{
               minHeight: 48,
               ...(isMobile ? {} : { py: 1.5 })
             }}
           />
-          <Tab 
-            icon={<Palette />} 
+          <Tab
+            icon={<Palette />}
             label={!isMobile ? "Cores" : ""}
             iconPosition="start"
-            sx={{ 
+            sx={{
               minHeight: 48,
               ...(isMobile ? {} : { py: 1.5 })
             }}
           />
-          <Tab 
-            icon={<Image />} 
+          <Tab
+            icon={<Image />}
             label={!isMobile ? "Logos e Imagens" : ""}
             iconPosition="start"
-            sx={{ 
+            sx={{
               minHeight: 48,
               ...(isMobile ? {} : { py: 1.5 })
             }}
