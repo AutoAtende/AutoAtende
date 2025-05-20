@@ -16,7 +16,7 @@ settingRoutes.get("/public-settings", SettingController.publicIndex);
 settingRoutes.get("/menu-config", isAuth, SettingController.getMenuConfig);
 
 // Rotas autenticadas
-settingRoutes.get("/settings", isAuth, SettingController.index);
+settingRoutes.get("/settings/:companyId", isAuth, SettingController.index);
 settingRoutes.get("/settingsregister", isAuth, isAdmin, SettingController.getSettingRegister);
 settingRoutes.put("/settings/:settingKey", isAuth, isAdmin, SettingController.update);
 settingRoutes.put("/menu-config", isAuth, isAdmin, SettingController.updateMenuConfig);

@@ -28,7 +28,7 @@ export const index = async (req: Request, res: Response): Promise<Response> => {
   const userCompanyId = req.user.companyId;
   const companyId = parseInt(req.params.companyId);
 
-if(userCompanyId !== companyId && !isSuper){
+if(userCompanyId !== companyId){
   throw new AppError("ERR_NO_PERMISSION", 403);
 }
 
