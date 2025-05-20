@@ -10,7 +10,7 @@ import ReportProblemIcon from '@mui/icons-material/ReportProblem';
 import MainContainer from "../../components/MainContainer";
 import MainHeader from "../../components/MainHeader";
 import Title from "../../components/Title";
-import { Paper, Tabs, Tab, useMediaQuery, Box, Alert } from "@mui/material";
+import { Paper, Tabs, Tab, useMediaQuery, Box, Alert, CircularProgress } from "@mui/material";
 import makeStyles from '@mui/styles/makeStyles';
 import Reason from "../../components/Reason";
 import TabPanel from "../../components/TabPanel";
@@ -56,21 +56,22 @@ const useStyles = makeStyles((theme) => ({
     width: "100%",
     maxHeight: "100%",
   },
-  control: {
-    padding: theme.spacing(1),
+  loadingContainer: {
+    display: "flex",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: theme.spacing(4),
   },
-  textfield: {
-    width: "100%",
-  }
 }));
 
 const Settings = () => {
   const classes = useStyles();
   const [tab, setTab] = useState("options");
   const [schedules, setSchedules] = useState([]);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [currentUser, setCurrentUser] = useState({});
   const [error, setError] = useState(null);
+  const [company, setCompany] = useState(null);
 
   // Configurações
   const [schedulesEnabled, setSchedulesEnabled] = useState(false);
@@ -84,8 +85,8 @@ const Settings = () => {
   const { getPlanCompany } = usePlans();
 
   const isMobile = useMediaQuery('(max-width:600px)');
-
-  // Função para carregar dados iniciais
+  
+  // Função para carregar dados iniciais com cache em localStorage para evitar requisições repetidas
   const loadInitialData = useCallback(async () => {
     try {
       setLoading(true);
@@ -93,17 +94,83 @@ const Settings = () => {
 
       const companyId = localStorage.getItem("companyId");
       
-      // Carregar usuário atual
-      const user = await getCurrentUserInfo();
-      setCurrentUser(user);
+      // Verificar se temos dados em cache no localStorage para reduzir chamadas API
+      const now = new Date().getTime();
+      const cachedUserData = localStorage.getItem('cached_user_data');
+      const cachedCompanyData = localStorage.getItem('cached_company_data');
+      const cachedPlanData = localStorage.getItem('cached_plan_data');
       
-      // Buscar company e plano
-      const [company, planConfigs] = await Promise.all([
-        find(companyId),
-        getPlanCompany(undefined, companyId)
-      ]);
-
-      setSchedules(company.schedules);
+      let user, userFromCache = false;
+      let companyData, companyFromCache = false;
+      let planConfigs, planFromCache = false;
+      
+      // Usar dados em cache se estiverem disponíveis e tiverem menos de 5 minutos
+      if (cachedUserData) {
+        const parsedCache = JSON.parse(cachedUserData);
+        if (now - parsedCache.timestamp < 300000) { // 5 minutos
+          user = parsedCache.data;
+          userFromCache = true;
+        }
+      }
+      
+      if (cachedCompanyData) {
+        const parsedCache = JSON.parse(cachedCompanyData);
+        if (now - parsedCache.timestamp < 300000) { // 5 minutos
+          companyData = parsedCache.data;
+          companyFromCache = true;
+        }
+      }
+      
+      if (cachedPlanData) {
+        const parsedCache = JSON.parse(cachedPlanData);
+        if (now - parsedCache.timestamp < 300000) { // 5 minutos
+          planConfigs = parsedCache.data;
+          planFromCache = true;
+        }
+      }
+      
+      // Buscar dados que não estão em cache
+      const promises = [];
+      
+      if (!userFromCache) {
+        promises.push(getCurrentUserInfo().then(data => {
+          user = data;
+          localStorage.setItem('cached_user_data', JSON.stringify({
+            timestamp: now,
+            data
+          }));
+        }));
+      }
+      
+      if (!companyFromCache) {
+        promises.push(find(companyId).then(data => {
+          companyData = data;
+          localStorage.setItem('cached_company_data', JSON.stringify({
+            timestamp: now,
+            data
+          }));
+        }));
+      }
+      
+      if (!planFromCache) {
+        promises.push(getPlanCompany(undefined, companyId).then(data => {
+          planConfigs = data;
+          localStorage.setItem('cached_plan_data', JSON.stringify({
+            timestamp: now,
+            data
+          }));
+        }));
+      }
+      
+      // Esperar todas as chamadas API se completarem
+      if (promises.length > 0) {
+        await Promise.all(promises);
+      }
+      
+      // Processar os dados obtidos
+      setCurrentUser(user);
+      setCompany(companyData);
+      setSchedules(companyData.schedules);
       setShowWhiteLabel(planConfigs.plan.whiteLabel);
 
       // Extrair configurações necessárias do settings já disponível no hook
@@ -138,13 +205,25 @@ const Settings = () => {
     setLoading(true);
     try {
       setSchedules(data);
-      const companyId = localStorage.getItem("companyId");
+      
+      // Se temos company em cache, use o ID dele
+      const companyId = company?.id || localStorage.getItem("companyId");
+      
       await updateSchedules({ id: companyId, schedules: data });
       toast.success("Horários atualizados com sucesso.");
+      
+      // Atualizar o cache
+      const cachedCompanyData = localStorage.getItem('cached_company_data');
+      if (cachedCompanyData) {
+        const parsedCache = JSON.parse(cachedCompanyData);
+        parsedCache.data.schedules = data;
+        localStorage.setItem('cached_company_data', JSON.stringify(parsedCache));
+      }
     } catch (e) {
-      toast.error(e);
+      toast.error(e?.message || "Erro ao atualizar horários");
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   const handleScheduleTypeChanged = (value) => {
@@ -166,56 +245,8 @@ const Settings = () => {
     { icon: <ReportProblemIcon />, name: "Motivos de Encerramento", value: "closureReasons", condition: reasonEnabled === "enabled" },
   ].filter(action => action.condition !== false);
 
-  // Renderizar os painéis de abas
-  const renderTabPanels = () => (
-    <Paper className={classes.paper} elevation={0}>
-      <TabPanel className={classes.container} value={tab} name="options">
-        <Options 
-          settings={settings}
-          scheduleTypeChanged={handleScheduleTypeChanged}
-          enableReasonWhenCloseTicketChanged={handleEnableReasonWhenCloseTicketChanged}
-        />
-      </TabPanel>
-      
-      {schedulesEnabled && (
-        <TabPanel className={classes.container} value={tab} name="schedules">
-          <SchedulesForm
-            loading={loading}
-            onSubmit={handleSubmitSchedules}
-            initialValues={schedules}
-          />
-        </TabPanel>
-      )}
-
-      {currentUser.super && (
-        <>
-          <TabPanel className={classes.container} value={tab} name="plans">
-            <PlansManager />
-          </TabPanel>
-          
-          <TabPanel className={classes.container} value={tab} name="helps">
-            <HelpsManager />
-          </TabPanel>
-          
-          <TabPanel className={classes.container} value={tab} name="paymentGateway">
-            <PaymentGateway settings={settings} />
-          </TabPanel>
-        </>
-      )}
-
-      {showWhiteLabel && (
-        <TabPanel className={classes.container} value={tab} name="whitelabel">
-          <Whitelabel settings={settings} />
-        </TabPanel>
-      )}
-
-      {reasonEnabled === "enabled" && (
-        <TabPanel className={classes.container} value={tab} name="closureReasons">
-          <Reason />
-        </TabPanel>
-      )}
-    </Paper>
-  );
+  // Determinar se está exibindo algum conteúdo
+  const isShowingContent = !loading && !error;
 
   return (
     <MainContainer className={classes.root}>
@@ -250,44 +281,147 @@ const Settings = () => {
           </Alert>
         )}
         
-        {isMobile ? (
+        {loading && (
+          <Box className={classes.loadingContainer}>
+            <CircularProgress />
+          </Box>
+        )}
+        
+        {isShowingContent && (
           <>
-            <SpeedDialTabs actions={actions} onChange={setTab} />
-            {renderTabPanels()}
-          </>
-        ) : (
-          <>
-            <Tabs
-              value={tab}
-              onChange={handleTabChange}
-              indicatorColor="primary"
-              textColor="primary"
-              variant="scrollable"
-              scrollButtons="auto"
-              className={classes.tab}
-              allowScrollButtonsMobile
-            >
-              <Tab label={i18n.t("settings.tabs.params")} value="options" />
-              {schedulesEnabled && (
-                <Tab label={i18n.t("settings.tabs.schedules")} value="schedules" />
-              )}
-              {currentUser.super && (
-                <Tab label={i18n.t("settings.tabs.plans")} value="plans" />
-              )}
-              {currentUser.super && (
-                <Tab label={i18n.t("settings.tabs.helps")} value="helps" />
-              )}
-              {showWhiteLabel && (
-                <Tab label="Whitelabel" value="whitelabel" />
-              )}
-              {currentUser.super && (
-                <Tab label="Pagamentos" value="paymentGateway" />
-              )}
-              {reasonEnabled === "enabled" && (
-                <Tab label="Motivos de Encerramento" value="closureReasons" />
-              )}
-            </Tabs>
-            {renderTabPanels()}
+            {isMobile ? (
+              <>
+                <SpeedDialTabs actions={actions} onChange={setTab} />
+                <Paper className={classes.paper} elevation={0}>
+                  <TabPanel className={classes.container} value={tab} name="options">
+                    <Options 
+                      settings={settings}
+                      scheduleTypeChanged={handleScheduleTypeChanged}
+                      enableReasonWhenCloseTicketChanged={handleEnableReasonWhenCloseTicketChanged}
+                    />
+                  </TabPanel>
+                  
+                  {schedulesEnabled && (
+                    <TabPanel className={classes.container} value={tab} name="schedules">
+                      <SchedulesForm
+                        loading={loading}
+                        onSubmit={handleSubmitSchedules}
+                        initialValues={schedules}
+                      />
+                    </TabPanel>
+                  )}
+
+                  {currentUser.super && (
+                    <>
+                      <TabPanel className={classes.container} value={tab} name="plans">
+                        <PlansManager />
+                      </TabPanel>
+                      
+                      <TabPanel className={classes.container} value={tab} name="helps">
+                        <HelpsManager />
+                      </TabPanel>
+                      
+                      <TabPanel className={classes.container} value={tab} name="paymentGateway">
+                        <PaymentGateway settings={settings} />
+                      </TabPanel>
+                    </>
+                  )}
+
+                  {showWhiteLabel && (
+                    <TabPanel className={classes.container} value={tab} name="whitelabel">
+                      <Whitelabel settings={settings} />
+                    </TabPanel>
+                  )}
+
+                  {reasonEnabled === "enabled" && (
+                    <TabPanel className={classes.container} value={tab} name="closureReasons">
+                      <Reason />
+                    </TabPanel>
+                  )}
+                </Paper>
+              </>
+            ) : (
+              <>
+                <Tabs
+                  value={tab}
+                  onChange={handleTabChange}
+                  indicatorColor="primary"
+                  textColor="primary"
+                  variant="scrollable"
+                  scrollButtons="auto"
+                  className={classes.tab}
+                  allowScrollButtonsMobile
+                >
+                  <Tab label={i18n.t("settings.tabs.params")} value="options" />
+                  {schedulesEnabled && (
+                    <Tab label={i18n.t("settings.tabs.schedules")} value="schedules" />
+                  )}
+                  {currentUser.super && (
+                    <Tab label={i18n.t("settings.tabs.plans")} value="plans" />
+                  )}
+                  {currentUser.super && (
+                    <Tab label={i18n.t("settings.tabs.helps")} value="helps" />
+                  )}
+                  {showWhiteLabel && (
+                    <Tab label="Whitelabel" value="whitelabel" />
+                  )}
+                  {currentUser.super && (
+                    <Tab label="Pagamentos" value="paymentGateway" />
+                  )}
+                  {reasonEnabled === "enabled" && (
+                    <Tab label="Motivos de Encerramento" value="closureReasons" />
+                  )}
+                </Tabs>
+                
+                <Paper className={classes.paper} elevation={0}>
+                  <TabPanel className={classes.container} value={tab} name="options">
+                    <Options 
+                      settings={settings}
+                      scheduleTypeChanged={handleScheduleTypeChanged}
+                      enableReasonWhenCloseTicketChanged={handleEnableReasonWhenCloseTicketChanged}
+                    />
+                  </TabPanel>
+                  
+                  {schedulesEnabled && (
+                    <TabPanel className={classes.container} value={tab} name="schedules">
+                      <SchedulesForm
+                        loading={loading}
+                        onSubmit={handleSubmitSchedules}
+                        initialValues={schedules}
+                      />
+                    </TabPanel>
+                  )}
+
+                  {currentUser.super && (
+                    <>
+                      <TabPanel className={classes.container} value={tab} name="plans">
+                        <PlansManager />
+                      </TabPanel>
+                      
+                      <TabPanel className={classes.container} value={tab} name="helps">
+                        <HelpsManager />
+                      </TabPanel>
+                      
+                      <TabPanel className={classes.container} value={tab} name="paymentGateway">
+                        <PaymentGateway settings={settings} />
+                      </TabPanel>
+                    </>
+                  )}
+
+                  {showWhiteLabel && (
+                    <TabPanel className={classes.container} value={tab} name="whitelabel">
+                      <Whitelabel settings={settings} />
+                    </TabPanel>
+                  )}
+
+                  {reasonEnabled === "enabled" && (
+                    <TabPanel className={classes.container} value={tab} name="closureReasons">
+                      <Reason />
+                    </TabPanel>
+                  )}
+                </Paper>
+              </>
+            )}
           </>
         )}
       </Paper>

@@ -232,6 +232,12 @@ function Whitelabel({ settings }) {
     async (key, value, section = null) => {
       // Evitar requisições desnecessárias se o valor não mudou
       if (settingsLoaded[key] === value) {
+        if (section) {
+          setHasUnsavedChanges(prev => ({
+            ...prev, 
+            [section]: false
+          }));
+        }
         return;
       }
       
@@ -332,11 +338,18 @@ function Whitelabel({ settings }) {
   // Função para salvar a cor selecionada
   const saveSelectedColor = useCallback(() => {
     if (selectedColorKey && selectedColorValue) {
-      updateThemeColorValues(selectedColorKey, selectedColorValue);
-      handleSaveSetting(selectedColorKey, selectedColorValue, 'colors');
-      handleColorPickerClose();
+      try {
+        updateThemeColorValues(selectedColorKey, selectedColorValue);
+        handleSaveSetting(selectedColorKey, selectedColorValue, 'colors');
+        handleColorPickerClose();
+      } catch (error) {
+        console.error("Erro ao salvar cor:", error);
+        toast.error("Não foi possível salvar a cor. Por favor, tente novamente.");
+        handleColorPickerClose();
+      }
     }
   }, [selectedColorKey, selectedColorValue, handleSaveSetting, handleColorPickerClose, updateThemeColorValues]);
+  
   
   // Função para salvar todas as cores de uma vez
   const saveAllThemeColors = useCallback(async () => {

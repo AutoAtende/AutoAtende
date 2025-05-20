@@ -265,24 +265,28 @@ const Options = ({ settings, scheduleTypeChanged, enableReasonWhenCloseTicketCha
 
   // Função genérica para manipular alterações no estado de configuração
   const handleConfigChange = useCallback((key, value, notifyBackend = true) => {
-    setConfigState(prev => ({ ...prev, [key]: value }));
+    // Garante que o valor será tratado como string para os campos select
+    const processedValue = value !== null && value !== undefined ? String(value) : '';
+    
+    setConfigState(prev => ({ ...prev, [key]: processedValue }));
     
     // Lidar com callbacks específicos
     if (key === 'scheduleType' && typeof scheduleTypeChanged === 'function') {
-      scheduleTypeChanged(value);
+      scheduleTypeChanged(processedValue);
     }
     
     if (key === 'enableReasonWhenCloseTicket' && typeof enableReasonWhenCloseTicketChanged === 'function') {
-      enableReasonWhenCloseTicketChanged(value);
+      enableReasonWhenCloseTicketChanged(processedValue);
     }
     
     // Se notifyBackend for true, atualizar no backend
     if (notifyBackend) {
-      return updateSetting(key, value);
+      return updateSetting(key, processedValue);
     }
     
     return Promise.resolve(true);
   }, [updateSetting, scheduleTypeChanged, enableReasonWhenCloseTicketChanged]);
+  
 
   // Função específica para lidar com switches
   const handleSwitchChange = useCallback((key, checked) => {
@@ -1016,22 +1020,22 @@ const Options = ({ settings, scheduleTypeChanged, enableReasonWhenCloseTicketCha
           <Grid container spacing={2}>
             <Grid item xs={12} sm={6} md={4}>
               <FormControl fullWidth>
-                <TextField
-                  select
-                  fullWidth
-                  label={i18n.t("optionsPage.openaiModel")}
-                  value={configState.openAiModel}
-                  onChange={(e) => handleConfigChange("openaiModel", e.target.value)}
-                  variant="outlined"
-                  size="small"
-                  margin="normal"
-                >
-                  {openAiModels.map((model) => (
-                    <MenuItem key={model.value} value={model.value}>
-                      {model.label}
-                    </MenuItem>
-                  ))}
-                </TextField>
+              <TextField
+  select
+  fullWidth
+  label={i18n.t("optionsPage.openaiModel")}
+  value={configState.openAiModel || ""}
+  onChange={(e) => handleConfigChange("openaiModel", e.target.value)}
+  variant="outlined"
+  size="small"
+  margin="normal"
+>
+  {openAiModels.map((model) => (
+    <MenuItem key={model.value} value={model.value}>
+      {model.label}
+    </MenuItem>
+  ))}
+</TextField>
                 <FormHelperText>
                   {i18n.t("optionsPage.openaiModelHelp")}
                 </FormHelperText>
