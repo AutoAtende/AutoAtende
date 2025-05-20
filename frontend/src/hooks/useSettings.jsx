@@ -1,5 +1,4 @@
 import React, { createContext, useState, useContext, useCallback, useEffect } from "react";
-import { AuthContext } from "../context/Auth/AuthContext";
 import api, { openApi } from "../services/api";
 
 // Criação do contexto
@@ -9,7 +8,6 @@ const SettingsContext = createContext({});
 const CACHE_EXPIRATION_TIME = 86400000; // 24 horas em milissegundos
 
 export const SettingsProvider = ({ children }) => {
-  const { user } = useContext(AuthContext);
   // Estado principal para armazenar as configurações como array (compatível com código existente)
   const [settings, setSettings] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -79,7 +77,7 @@ export const SettingsProvider = ({ children }) => {
       setLoading(true);
       
       // Usar companyId do parâmetro ou padrão
-      const targetCompanyId = companyId || localStorage.getItem("companyId") || user.companyId ||"1";
+      const targetCompanyId = companyId || localStorage.getItem("companyId") || "1";
       
       // Verificar cache primeiro
       const cachedSettings = getSettingsFromCache(targetCompanyId);

@@ -372,24 +372,36 @@ export default class CampaignJob {
   public async handleDispatchCampaign(job) {
     try {
       const { campaignShippingId, campaignId } = job.data;
-  
+
+
+
       const campaign = await this.getCachedCampaign(campaignId);
       if (!campaign) {
         logger.error(`Campaign ${campaignId} not found in handleDispatchCampaign`);
         return { success: false, reason: 'CAMPAIGN_NOT_FOUND' };
       }
-      
+
       if (campaign.status === "CANCELADA") {
         logger.info(`Campaign ${campaignId} is canceled. Skipping dispatch.`);
         return { success: false, reason: 'CAMPAIGN_CANCELED' };
       }
-  
+
       const wppId = campaign.whatsappId || campaign.company?.whatsapps?.find(w => w.isDefault)?.id;
       if (!wppId) {
         logger.error(`No WhatsApp connection found for campaign ${campaignId}`);
         return { success: false, reason: 'NO_WHATSAPP_CONNECTION' };
       }
-  
+
+      console.log(`[LOG DETALHADO] INÍCIO handleDispatchCampaign - campaignId: ${campaignId}, campaignShippingId: ${campaignShippingId}`);
+      console.log(`[LOG DETALHADO] Detalhes da campanha:`, JSON.stringify({
+        id: campaign.id,
+        hasFileList: !!campaign.fileListId,
+        fileListId: campaign.fileListId || 'não definido',
+        whatsappId: campaign.whatsappId,
+        openTicket: campaign.openTicket,
+        hasMedia: !!campaign.mediaPath
+      }));
+
       let wbot;
       try {
         wbot = await getWbot(wppId);
@@ -397,24 +409,24 @@ export default class CampaignJob {
         logger.error(`Error getting WhatsApp connection ${wppId} for campaign ${campaignId}:`, wbotError);
         return { success: false, reason: 'WHATSAPP_CONNECTION_ERROR' };
       }
-      
+
       if (!wbot) {
         logger.error(`Unable to get WhatsApp connection ${wppId} for campaign ${campaignId}`);
         return { success: false, reason: 'WHATSAPP_CONNECTION_NOT_AVAILABLE' };
       }
-  
+
       const campaignShipping = await CampaignShipping.findByPk(campaignShippingId, {
         include: [{ model: ContactListItem, as: "contact" }]
       });
-  
+
       if (!campaignShipping) {
         logger.error(`Campaign shipping ${campaignShippingId} not found`);
         return { success: false, reason: 'SHIPPING_NOT_FOUND' };
       }
-  
+
       const normalizedNumber = campaignShipping.number.replace(/\D/g, "");
       const chatId = `${normalizedNumber}@s.whatsapp.net`;
-      
+
       try {
         // Verificar primeiro se o número existe e é válido
         const [result] = await wbot.onWhatsApp(campaignShipping.number);
@@ -426,19 +438,19 @@ export default class CampaignJob {
           });
           return { success: false, reason: 'NUMBER_NOT_ON_WHATSAPP' };
         }
-        
+
         let body = campaignShipping.message?.trim();
-        
+
         if (campaign.confirmation && campaignShipping.confirmation === null) {
           body = campaignShipping.confirmationMessage?.trim();
         }
-  
+
         if (!body) {
           logger.warn(`Empty message body for campaign shipping ${campaignShippingId}`);
           await campaignShipping.update({ deliveredAt: moment() });
           return { success: false, reason: 'EMPTY_MESSAGE' };
         }
-  
+
         // Criar ou obter contato no sistema
         const [contact] = await Contact.findOrCreate({
           where: {
@@ -454,21 +466,34 @@ export default class CampaignJob {
             whatsappId: wppId
           }
         });
-        
+
         // Enviar presença de digitação para tornar a interação mais natural
         await SendPresenceStatus(wbot, chatId, 0, 20000);
-  
-        if (campaign.fileListId) {
-          await this.sendCampaignFiles(wbot, campaign, chatId);
-        }
 
+        console.log(`[LOG DETALHADO] Verificando fileListId: ${campaign.fileListId}`);
+        if (campaign.fileListId) {
+          console.log(`[LOG DETALHADO] Enviando arquivos da lista ID=${campaign.fileListId}`);
+          await this.sendCampaignFiles(wbot, campaign, chatId);
+          console.log(`[LOG DETALHADO] Arquivos da lista enviados com sucesso`);
+        }
+        
+        console.log(`[LOG DETALHADO] Verificando mediaPath: ${campaign.mediaPath}`);
         if (campaign.mediaPath) {
+          console.log(`[LOG DETALHADO] Enviando mídia da campanha`);
           await this.sendCampaignMedia(wbot, campaign, chatId, body);
+          console.log(`[LOG DETALHADO] Mídia da campanha enviada com sucesso`);
         } else {
+          console.log(`[LOG DETALHADO] Enviando apenas mensagem de texto`);
           body = formatBody(body, contact);
           await wbot.sendMessage(chatId, { text: body });
+          console.log(`[LOG DETALHADO] Mensagem de texto enviada com sucesso`);
+          
+          if (campaign.confirmation && campaignShipping.confirmation === null) {
+            console.log(`[LOG DETALHADO] Atualizando confirmationRequestedAt`);
+            await campaignShipping.update({ confirmationRequestedAt: moment() });
+          }
         }
-  
+
         // Correção na parte de integração com tickets
         if (campaign.openTicket === "enabled") {
           try {
@@ -481,7 +506,7 @@ export default class CampaignJob {
                 status: { [Op.in]: ["open", "pending"] }
               }
             });
-            
+
             if (ticket) {
               // Se o ticket já existe, atualizá-lo usando UpdateTicketService
               await UpdateTicketService({
@@ -504,33 +529,33 @@ export default class CampaignJob {
                 companyId: campaign.companyId
               });
             }
-            
+
             // Enviar a mensagem
             if (campaign.mediaPath) {
               const publicFolder = process.env.BACKEND_PUBLIC_PATH;
               const filePath = path.join(publicFolder, `company${campaign.companyId}`, campaign.mediaPath);
-  
+
               const options = await getMessageOptions(
                 campaign.mediaName,
                 filePath,
                 body,
                 Number(campaign.companyId)
               );
-  
+
               if (Object.keys(options).length) {
                 if (options.mimetype === "audio/mp4") {
                   const sentMessage = await wbot.sendMessage(chatId, {
                     text: body
                   });
-                  
+
                   // Registrar a mensagem usando verifyMessage
                   if (ticket) {
                     await verifyMessage(sentMessage, ticket, contact);
                   }
                 }
-                
+
                 const sentMediaMessage = await wbot.sendMessage(chatId, { ...options });
-                
+
                 // Registrar a mensagem de mídia
                 if (ticket) {
                   await verifyMessage(sentMediaMessage, ticket, contact);
@@ -540,13 +565,13 @@ export default class CampaignJob {
               const sentMessage = await wbot.sendMessage(chatId, {
                 text: body
               });
-              
+
               // Registrar a mensagem usando verifyMessage
               if (ticket) {
                 await verifyMessage(sentMessage, ticket, contact);
               }
             }
-            
+
             // Notificar sobre a atualização do ticket
             const io = getIO();
             io.to(`company-${campaign.companyId}-mainchannel`)
@@ -562,14 +587,14 @@ export default class CampaignJob {
           if (campaign.mediaPath) {
             const publicFolder = process.env.BACKEND_PUBLIC_PATH || path.resolve(__dirname, "..", "..", "public");
             const filePath = path.join(publicFolder, `company${campaign.companyId}`, campaign.mediaPath);
-  
+
             const options = await getMessageOptions(
               campaign.mediaName,
               filePath,
               body,
               Number(campaign.companyId)
             );
-  
+
             if (Object.keys(options).length) {
               if (options.mimetype === "audio/mp4") {
                 await wbot.sendMessage(chatId, {
@@ -584,69 +609,112 @@ export default class CampaignJob {
             });
           }
         }
-  
+
         // Atualizar o status do envio
         if (campaign.confirmation && campaignShipping.confirmation === null) {
           await campaignShipping.update({ confirmationRequestedAt: moment() });
         } else {
           await campaignShipping.update({ deliveredAt: moment() });
         }
-  
+
         await this.verifyAndFinalizeCampaign(campaign);
-        
+
         logger.info(`Message sent successfully to ${chatId} for campaign ${campaignId}`);
         return { success: true };
       } catch (error) {
         logger.error(`Error sending campaign message to ${chatId}:`, error);
-        
+
         // Registrar falha, mas não retentar para evitar bloqueio do WhatsApp
         await campaignShipping.update({
           deliveredAt: moment()
         });
-        
-        return { 
-          success: false, 
-          reason: 'MESSAGE_SEND_ERROR', 
-          error: error.message 
+
+        return {
+          success: false,
+          reason: 'MESSAGE_SEND_ERROR',
+          error: error.message
         };
       }
     } catch (err) {
       logger.error(`Campaign Dispatch Error:`, err);
-      return { 
-        success: false, 
-        reason: 'UNEXPECTED_ERROR', 
-        error: err.message 
+      return {
+        success: false,
+        reason: 'UNEXPECTED_ERROR',
+        error: err.message
       };
     }
   }
 
   private async sendCampaignFiles(wbot: any, campaign: any, chatId: string) {
-    const publicFolder = path.resolve(process.env.BACKEND_PUBLIC_PATH, `company${campaign.companyId}`);
+    console.log(`[LOG DETALHADO] INÍCIO sendCampaignFiles - campaignId: ${campaign.id}, fileListId: ${campaign.fileListId}`);
+    
+    const publicFolder = path.resolve(process.env.BACKEND_PUBLIC_PATH || path.resolve(__dirname, "..", "..", "public"), `company${campaign.companyId}`);
+    console.log(`[LOG DETALHADO] Pasta pública: ${publicFolder}`);
+    
     try {
+      console.log(`[LOG DETALHADO] Buscando arquivos da campanha ${campaign.id}, fileListId: ${campaign.fileListId}`);
       const files = await ShowFileService(campaign.fileListId, campaign.companyId);
+      console.log(`[LOG DETALHADO] Arquivos encontrados:`, JSON.stringify(files));
+      
+      if (!files || !files.options || !files.options.length) {
+        console.log(`[LOG DETALHADO] Nenhum arquivo encontrado para fileListId: ${campaign.fileListId}`);
+        return;
+      }
+      
       const folder = path.resolve(publicFolder, "fileList", String(files.id));
-
+      console.log(`[LOG DETALHADO] Pasta dos arquivos: ${folder}`);
+      
       for (const file of files.options) {
         try {
+          console.log(`[LOG DETALHADO] Processando arquivo: ${file.name}`);
+          const filePath = path.resolve(folder, file.path);
+          console.log(`[LOG DETALHADO] Caminho completo: ${filePath}`);
+          
+          // Verificar existência do arquivo
+          try {
+            const fs = require('fs');
+            console.log(`[LOG DETALHADO] Verificando existência do arquivo: ${filePath}`);
+            if (!fs.existsSync(filePath)) {
+              console.log(`[LOG DETALHADO] ERRO: Arquivo não existe: ${filePath}`);
+              continue;
+            }
+            console.log(`[LOG DETALHADO] Arquivo existe`);
+          } catch (fsError) {
+            console.log(`[LOG DETALHADO] Erro ao verificar arquivo:`, fsError);
+          }
+          
+          console.log(`[LOG DETALHADO] Gerando opções para envio do arquivo`);
           const options = await getMessageOptions(
             file.path,
             path.resolve(folder, file.path),
             file.name,
             campaign.companyId
           );
+          console.log(`[LOG DETALHADO] Opções geradas:`, JSON.stringify({
+            type: options.type,
+            mimetype: options.mimetype
+          }));
+          
+          console.log(`[LOG DETALHADO] Enviando arquivo para ${chatId}`);
           await wbot.sendMessage(chatId, { ...options });
+          console.log(`[LOG DETALHADO] Arquivo enviado com sucesso`);
+          
           await new Promise(resolve => setTimeout(resolve, 1000));
+          console.log(`[LOG DETALHADO] Aguardou 1 segundo antes do próximo envio`);
         } catch (error) {
-          logger.error(`Error sending campaign file ${file.name}:`, error);
+          console.log(`[LOG DETALHADO] Erro ao enviar arquivo ${file.name}:`, error);
         }
       }
+      console.log(`[LOG DETALHADO] FIM sendCampaignFiles - Todos os arquivos processados`);
     } catch (error) {
-      logger.error(`Error processing campaign files:`, error);
-      throw error;
+      console.log(`[LOG DETALHADO] ERRO GERAL em sendCampaignFiles:`, error);
+      throw error; // Manter o lançamento do erro como estava no código original
     }
   }
-
+  
+  // 2. Função sendCampaignMedia corrigida
   private async sendCampaignMedia(wbot: any, campaign: any, chatId: string, body: string) {
+    console.log(`[LOG DETALHADO] INÍCIO sendCampaignMedia - campaignId: ${campaign.id}, mediaPath: ${campaign.mediaPath}`);
     try {
       const filePath = path.resolve(
         __dirname,
@@ -656,20 +724,44 @@ export default class CampaignJob {
         `company${campaign.companyId}`,
         campaign.mediaPath
       );
-
+      console.log(`[LOG DETALHADO] Caminho da mídia: ${filePath}`);
+      
+      // Verificar existência do arquivo
+      try {
+        const fs = require('fs');
+        console.log(`[LOG DETALHADO] Verificando existência do arquivo: ${filePath}`);
+        if (!fs.existsSync(filePath)) {
+          console.log(`[LOG DETALHADO] ERRO: Arquivo de mídia não existe: ${filePath}`);
+          return;
+        }
+        console.log(`[LOG DETALHADO] Arquivo de mídia existe`);
+      } catch (fsError) {
+        console.log(`[LOG DETALHADO] Erro ao verificar arquivo:`, fsError);
+      }
+  
+      console.log(`[LOG DETALHADO] Gerando opções para envio da mídia`);
       const options = await getMessageOptions(
         campaign.mediaName,
         filePath,
         body,
         campaign.companyId
       );
-
+      console.log(`[LOG DETALHADO] Opções geradas:`, JSON.stringify({
+        type: options.type,
+        mimetype: options.mimetype
+      }));
+  
       if (Object.keys(options).length) {
+        console.log(`[LOG DETALHADO] Enviando mídia para ${chatId}`);
         await wbot.sendMessage(chatId, { ...options });
+        console.log(`[LOG DETALHADO] Mídia enviada com sucesso`);
+        return true;
+      } else {
+        console.log(`[LOG DETALHADO] Nenhuma opção válida gerada para a mídia`);
       }
     } catch (error) {
-      logger.error(`Error sending campaign media:`, error);
-      throw error;
+      console.log(`[LOG DETALHADO] ERRO em sendCampaignMedia:`, error);
+      throw error; // Manter o lançamento do erro como estava no código original
     }
   }
 
