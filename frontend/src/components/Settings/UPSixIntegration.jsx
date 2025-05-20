@@ -1,15 +1,55 @@
-import React from 'react';
-import { Paper, FormGroup, FormControlLabel, Switch, FormHelperText, Grid } from '@mui/material';
+import React, { useMemo } from 'react';
+import { Paper, FormGroup, FormControlLabel, Switch, FormHelperText, Grid, Typography, Box, Divider, useTheme, Avatar, Tooltip } from '@mui/material';
+import { styled } from '@mui/material/styles';
+import InfoIcon from '@mui/icons-material/Info';
+import PhoneIcon from '@mui/icons-material/Phone';
+import NotificationsIcon from '@mui/icons-material/Notifications';
 import { makeStyles } from '@mui/styles';
+import { i18n } from "../../translate/i18n";
+import { useSpring, animated } from "react-spring";
 
 const useStyles = makeStyles((theme) => ({
   paper: {
     padding: theme.spacing(2),
     marginBottom: theme.spacing(2),
+    transition: 'all 0.3s ease',
+    '&:hover': {
+      boxShadow: theme.shadows[8]
+    }
   },
   formHelperText: {
-    color: 'gray',
+    color: theme.palette.text.secondary,
     marginTop: theme.spacing(1),
+    fontSize: '0.875rem'
+  },
+  divider: {
+    margin: theme.spacing(2, 0)
+  },
+  titleContainer: {
+    display: 'flex',
+    alignItems: 'center',
+    marginBottom: theme.spacing(2)
+  },
+  title: {
+    fontWeight: 600,
+    marginLeft: theme.spacing(1)
+  },
+  subOption: {
+    marginLeft: theme.spacing(3),
+    marginTop: theme.spacing(1)
+  }
+}));
+
+const AnimatedSwitch = animated(Switch);
+
+const StyledBadge = styled(Avatar)(({ theme }) => ({
+  backgroundColor: theme.palette.primary.main,
+  width: 36,
+  height: 36,
+  '& .MuiBadge-badge': {
+    backgroundColor: theme.palette.success.main,
+    color: theme.palette.success.main,
+    boxShadow: `0 0 0 2px ${theme.palette.background.paper}`,
   }
 }));
 
@@ -22,24 +62,62 @@ const UPSixIntegration = ({
   onEnableUPSixNotifications
 }) => {
   const classes = useStyles();
+  const theme = useTheme();
+  
+  // Animação para os switches
+  const switchAnimation = useSpring({
+    opacity: 1,
+    from: { opacity: 0 },
+    config: { tension: 300, friction: 20 }
+  });
+
+  // Textos informativos
+  const helperTexts = useMemo(() => ({
+    main: i18n.t("integrations.upsix.mainHelperText") || 
+      "Ativa ou desativa a integração com o serviço de telefonia UPSix, permitindo recursos de webphone e gravações.",
+    webphone: i18n.t("integrations.upsix.webphoneHelperText") || 
+      "Habilita o webphone UPSix diretamente na interface de atendimento, permitindo realizar e receber chamadas.",
+    notifications: i18n.t("integrations.upsix.notificationsHelperText") || 
+      "Envia notificações automáticas para administradores e supervisores quando novas gravações são realizadas."
+  }), []);
+
+  // Rótulos
+  const labels = useMemo(() => ({
+    main: i18n.t("integrations.upsix.mainLabel") || "Habilitar integração com UPSix",
+    webphone: i18n.t("integrations.upsix.webphoneLabel") || "Ativar telefonia na tela de atendimento",
+    notifications: i18n.t("integrations.upsix.notificationsLabel") || "Ativar notificações de gravações para admin/supervisor"
+  }), []);
 
   return (
     <Paper elevation={3} className={classes.paper} variant="outlined">
+      <Box className={classes.titleContainer}>
+        <StyledBadge>
+          <PhoneIcon fontSize="small" sx={{ color: 'white' }} />
+        </StyledBadge>
+        <Typography variant="h6" className={classes.title}>
+          UPSix Integração
+        </Typography>
+        <Tooltip title="A integração com o UPSix permite adicionar funcionalidades de telefonia ao sistema, incluindo chamadas, transferências e gravações.">
+          <InfoIcon fontSize="small" sx={{ ml: 1, color: theme.palette.info.main }} />
+        </Tooltip>
+      </Box>
+
       <Grid container spacing={2}>
         <Grid item xs={12}>
           <FormGroup>
             <FormControlLabel
               control={
-                <Switch
+                <AnimatedSwitch
+                  style={switchAnimation}
                   checked={enableUPSix === "enabled"}
                   color="primary"
                   onChange={(e) => onEnableUPSix(e.target.checked ? "enabled" : "disabled")}
                 />
               }
-              label="Habilitar integração com UPSix"
+              label={labels.main}
             />
             <FormHelperText className={classes.formHelperText}>
-              Ativa ou desativa a integração com o serviço de telefonia UPSix, permitindo recursos de webphone e gravações.
+              {helperTexts.main}
             </FormHelperText>
           </FormGroup>
         </Grid>
@@ -47,37 +125,56 @@ const UPSixIntegration = ({
         {enableUPSix === "enabled" && (
           <>
             <Grid item xs={12}>
+              <Divider className={classes.divider} />
+              <Typography variant="subtitle2" sx={{ mb: 1 }}>
+                Configurações da integração
+              </Typography>
+            </Grid>
+
+            <Grid item xs={12} className={classes.subOption}>
               <FormGroup>
                 <FormControlLabel
                   control={
-                    <Switch
+                    <AnimatedSwitch
+                      style={switchAnimation}
                       checked={enableUPSixWebphone === "enabled"}
                       color="primary"
                       onChange={(e) => onEnableUPSixWebphone(e.target.checked ? "enabled" : "disabled")}
                     />
                   }
-                  label="Ativar telefonia na tela de atendimento"
+                  label={
+                    <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                      <PhoneIcon fontSize="small" sx={{ mr: 1, color: theme.palette.primary.main }} />
+                      {labels.webphone}
+                    </Box>
+                  }
                 />
                 <FormHelperText className={classes.formHelperText}>
-                  Habilita o webphone UPSix diretamente na interface de atendimento, permitindo realizar e receber chamadas.
+                  {helperTexts.webphone}
                 </FormHelperText>
               </FormGroup>
             </Grid>
 
-            <Grid item xs={12}>
+            <Grid item xs={12} className={classes.subOption}>
               <FormGroup>
                 <FormControlLabel
                   control={
-                    <Switch
+                    <AnimatedSwitch
+                      style={switchAnimation}
                       checked={enableUPSixNotifications === "enabled"}
                       color="primary"
                       onChange={(e) => onEnableUPSixNotifications(e.target.checked ? "enabled" : "disabled")}
                     />
                   }
-                  label="Ativar notificações de gravações para admin/supervisor"
+                  label={
+                    <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                      <NotificationsIcon fontSize="small" sx={{ mr: 1, color: theme.palette.primary.main }} />
+                      {labels.notifications}
+                    </Box>
+                  }
                 />
                 <FormHelperText className={classes.formHelperText}>
-                  Envia notificações automáticas para administradores e supervisores quando novas gravações são realizadas.
+                  {helperTexts.notifications}
                 </FormHelperText>
               </FormGroup>
             </Grid>
@@ -88,4 +185,4 @@ const UPSixIntegration = ({
   );
 };
 
-export default UPSixIntegration;
+export default React.memo(UPSixIntegration);
