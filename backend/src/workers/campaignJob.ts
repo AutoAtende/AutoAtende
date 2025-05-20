@@ -5,6 +5,7 @@ import { Op } from "sequelize";
 import moment from "moment";
 import Ticket from "../models/Ticket";
 import Message from "../models/Message";
+import Contact from "../models/Contact";
 import ContactList from "../models/ContactList";
 import ContactListItem from "../models/ContactListItem";
 import Whatsapp from "../models/Whatsapp";
@@ -21,6 +22,9 @@ import formatBody from "../helpers/Mustache";
 import CreateOrUpdateContactService from "../services/ContactServices/CreateOrUpdateContactService";
 import path from "path";
 import { getBullConfig } from "../config/redis";
+import UpdateTicketService from "../services/TicketServices/UpdateTicketService";
+import { verifyMessage } from "../services/WbotServices/MessageListener/Verifiers/VerifyMessage";
+
 
 interface ProcessCampaignData {
   id: number;
@@ -368,24 +372,24 @@ export default class CampaignJob {
   public async handleDispatchCampaign(job) {
     try {
       const { campaignShippingId, campaignId } = job.data;
-
+  
       const campaign = await this.getCachedCampaign(campaignId);
       if (!campaign) {
         logger.error(`Campaign ${campaignId} not found in handleDispatchCampaign`);
         return { success: false, reason: 'CAMPAIGN_NOT_FOUND' };
       }
-
+      
       if (campaign.status === "CANCELADA") {
         logger.info(`Campaign ${campaignId} is canceled. Skipping dispatch.`);
         return { success: false, reason: 'CAMPAIGN_CANCELED' };
       }
-
+  
       const wppId = campaign.whatsappId || campaign.company?.whatsapps?.find(w => w.isDefault)?.id;
       if (!wppId) {
         logger.error(`No WhatsApp connection found for campaign ${campaignId}`);
         return { success: false, reason: 'NO_WHATSAPP_CONNECTION' };
       }
-
+  
       let wbot;
       try {
         wbot = await getWbot(wppId);
@@ -393,24 +397,24 @@ export default class CampaignJob {
         logger.error(`Error getting WhatsApp connection ${wppId} for campaign ${campaignId}:`, wbotError);
         return { success: false, reason: 'WHATSAPP_CONNECTION_ERROR' };
       }
-
+      
       if (!wbot) {
         logger.error(`Unable to get WhatsApp connection ${wppId} for campaign ${campaignId}`);
         return { success: false, reason: 'WHATSAPP_CONNECTION_NOT_AVAILABLE' };
       }
-
+  
       const campaignShipping = await CampaignShipping.findByPk(campaignShippingId, {
         include: [{ model: ContactListItem, as: "contact" }]
       });
-
+  
       if (!campaignShipping) {
         logger.error(`Campaign shipping ${campaignShippingId} not found`);
         return { success: false, reason: 'SHIPPING_NOT_FOUND' };
       }
-
+  
       const normalizedNumber = campaignShipping.number.replace(/\D/g, "");
       const chatId = `${normalizedNumber}@s.whatsapp.net`;
-
+      
       try {
         // Verificar primeiro se o número existe e é válido
         const [result] = await wbot.onWhatsApp(campaignShipping.number);
@@ -422,122 +426,189 @@ export default class CampaignJob {
           });
           return { success: false, reason: 'NUMBER_NOT_ON_WHATSAPP' };
         }
-
+        
         let body = campaignShipping.message?.trim();
-
-        // adicionar aqui uma mensagem que vem do contato
-
+        
         if (campaign.confirmation && campaignShipping.confirmation === null) {
           body = campaignShipping.confirmationMessage?.trim();
         }
-
+  
         if (!body) {
           logger.warn(`Empty message body for campaign shipping ${campaignShippingId}`);
           await campaignShipping.update({ deliveredAt: moment() });
           return { success: false, reason: 'EMPTY_MESSAGE' };
         }
-
-        const contactData = {
-          name: campaignShipping.contact.name,
-          number: campaignShipping.contact.number,
-          isGroup: false,
-          companyId: campaign.companyId
-        };
-
-        const contact = await CreateOrUpdateContactService(contactData, wbot, null);
-
+  
+        // Criar ou obter contato no sistema
+        const [contact] = await Contact.findOrCreate({
+          where: {
+            number: campaignShipping.number,
+            companyId: campaign.companyId
+          },
+          defaults: {
+            name: campaignShipping.contact.name,
+            number: campaignShipping.number,
+            email: campaignShipping.contact.email || "",
+            isGroup: false,
+            companyId: campaign.companyId,
+            whatsappId: wppId
+          }
+        });
+        
         // Enviar presença de digitação para tornar a interação mais natural
         await SendPresenceStatus(wbot, chatId, 0, 20000);
-
+  
         if (campaign.fileListId) {
           await this.sendCampaignFiles(wbot, campaign, chatId);
         }
-
-        if (campaign.mediaPath) {
-          await this.sendCampaignMedia(wbot, campaign, chatId, body);
-        } else {
-          body = formatBody(body, contact);
-          await wbot.sendMessage(chatId, { text: body });
-
-          if (campaign.confirmation && campaignShipping.confirmation === null) {
-            await campaignShipping.update({ confirmationRequestedAt: moment() });
-          }
-        }
-
+  
+        // Correção na parte de integração com tickets
         if (campaign.openTicket === "enabled") {
           try {
             // Verificar se já existe um ticket para este contato
-            const existingTicket = await Ticket.findOne({
+            let ticket = await Ticket.findOne({
               where: {
-                contactId: campaignShipping.contactId,
+                contactId: contact.id,
                 companyId: campaign.companyId,
+                whatsappId: wppId,
                 status: { [Op.in]: ["open", "pending"] }
               }
             });
-
-            if (!existingTicket) {
-              // Criar um novo ticket
-              const contact = await ContactListItem.findByPk(campaignShipping.contactId);
-
-              if (contact) {
-                const newTicket = await Ticket.create({
-                  contactId: contact.id,
+            
+            if (ticket) {
+              // Se o ticket já existe, atualizá-lo usando UpdateTicketService
+              await UpdateTicketService({
+                ticketData: {
                   status: campaign.statusTicket || "pending",
-                  whatsappId: campaign.whatsappId,
                   userId: campaign.userId,
-                  queueId: campaign.queueId,
-                  companyId: campaign.companyId
-                });
-
-                // Registrar a mensagem da campanha como parte do ticket
-                await Message.create({
-                  ticketId: newTicket.id,
-                  body: campaignShipping.message,
-                  contactId: contact.id,
-                  fromMe: true,
-                  read: true,
-                  companyId: campaign.companyId
-                });
-
-                // Notificar sobre o novo ticket
-                const io = getIO();
-                io.to(`company-${campaign.companyId}-mainchannel`)
-                  .emit(`company-${campaign.companyId}-ticket`, {
-                    action: 'create',
-                    ticket: newTicket
+                  queueId: campaign.queueId
+                },
+                ticketId: ticket.id,
+                companyId: campaign.companyId
+              });
+            } else {
+              // Se o ticket não existe, criar um novo
+              ticket = await Ticket.create({
+                contactId: contact.id,
+                status: campaign.statusTicket || "pending",
+                whatsappId: wppId,
+                userId: campaign.userId,
+                queueId: campaign.queueId,
+                companyId: campaign.companyId
+              });
+            }
+            
+            // Enviar a mensagem
+            if (campaign.mediaPath) {
+              const publicFolder = process.env.BACKEND_PUBLIC_PATH || path.resolve(__dirname, "..", "..", "public");
+              const filePath = path.join(publicFolder, `company${campaign.companyId}`, campaign.mediaPath);
+  
+              const options = await getMessageOptions(
+                campaign.mediaName,
+                filePath,
+                body,
+                Number(campaign.companyId)
+              );
+  
+              if (Object.keys(options).length) {
+                if (options.mimetype === "audio/mp4") {
+                  const sentMessage = await wbot.sendMessage(chatId, {
+                    text: body
                   });
+                  
+                  // Registrar a mensagem usando verifyMessage
+                  if (ticket) {
+                    await verifyMessage(sentMessage, ticket, contact);
+                  }
+                }
+                
+                const sentMediaMessage = await wbot.sendMessage(chatId, { ...options });
+                
+                // Registrar a mensagem de mídia
+                if (ticket) {
+                  await verifyMessage(sentMediaMessage, ticket, contact);
+                }
+              }
+            } else {
+              const sentMessage = await wbot.sendMessage(chatId, {
+                text: body
+              });
+              
+              // Registrar a mensagem usando verifyMessage
+              if (ticket) {
+                await verifyMessage(sentMessage, ticket, contact);
               }
             }
+            
+            // Notificar sobre a atualização do ticket
+            const io = getIO();
+            io.to(`company-${campaign.companyId}-mainchannel`)
+              .emit(`company-${campaign.companyId}-ticket`, {
+                action: 'update',
+                ticket
+              });
           } catch (ticketError) {
-            logger.error(`Error creating ticket from campaign ${campaign.id}:`, ticketError);
+            logger.error(`Error handling ticket from campaign ${campaign.id}:`, ticketError);
+          }
+        } else {
+          // Envio normal sem integração com tickets
+          if (campaign.mediaPath) {
+            const publicFolder = process.env.BACKEND_PUBLIC_PATH || path.resolve(__dirname, "..", "..", "public");
+            const filePath = path.join(publicFolder, `company${campaign.companyId}`, campaign.mediaPath);
+  
+            const options = await getMessageOptions(
+              campaign.mediaName,
+              filePath,
+              body,
+              Number(campaign.companyId)
+            );
+  
+            if (Object.keys(options).length) {
+              if (options.mimetype === "audio/mp4") {
+                await wbot.sendMessage(chatId, {
+                  text: body
+                });
+              }
+              await wbot.sendMessage(chatId, { ...options });
+            }
+          } else {
+            await wbot.sendMessage(chatId, {
+              text: body
+            });
           }
         }
-
-        await campaignShipping.update({ deliveredAt: moment() });
+  
+        // Atualizar o status do envio
+        if (campaign.confirmation && campaignShipping.confirmation === null) {
+          await campaignShipping.update({ confirmationRequestedAt: moment() });
+        } else {
+          await campaignShipping.update({ deliveredAt: moment() });
+        }
+  
         await this.verifyAndFinalizeCampaign(campaign);
-
+        
         logger.info(`Message sent successfully to ${chatId} for campaign ${campaignId}`);
         return { success: true };
       } catch (error) {
         logger.error(`Error sending campaign message to ${chatId}:`, error);
-
+        
         // Registrar falha, mas não retentar para evitar bloqueio do WhatsApp
         await campaignShipping.update({
           deliveredAt: moment()
         });
-
-        return {
-          success: false,
-          reason: 'MESSAGE_SEND_ERROR',
-          error: error.message
+        
+        return { 
+          success: false, 
+          reason: 'MESSAGE_SEND_ERROR', 
+          error: error.message 
         };
       }
     } catch (err) {
       logger.error(`Campaign Dispatch Error:`, err);
-      return {
-        success: false,
-        reason: 'UNEXPECTED_ERROR',
-        error: err.message
+      return { 
+        success: false, 
+        reason: 'UNEXPECTED_ERROR', 
+        error: err.message 
       };
     }
   }

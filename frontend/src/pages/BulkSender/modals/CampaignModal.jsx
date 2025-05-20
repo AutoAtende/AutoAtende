@@ -146,10 +146,10 @@ const SelectListOrTag = ({ values, errors, touched, setFieldValue, handleChange,
             onChange={(e) => {
               // Remover duplicatas do array de tags
               const uniqueTags = Array.from(new Set(e.target.value));
-              
+
               // Atualizar o valor no formulário
               setFieldValue("tagListId", uniqueTags);
-              
+
               // Se selecionar uma tag, limpa a seleção de lista
               if (uniqueTags.length > 0) {
                 setFieldValue("contactListId", "");
@@ -458,24 +458,24 @@ const CampaignModal = ({ open, onClose, campaignId, onSuccess, duplicateFromId =
   const handleSaveCampaign = async (values) => {
     try {
       setIsSubmitting(true);
-  
+
       // Validar se tem WhatsApp selecionado
       if (!values.whatsappId) {
         toast.error(i18n.t("campaigns.validation.whatsappRequired"));
         setIsSubmitting(false);
         return;
       }
-  
+
       const hasContactList = !!values.contactListId;
       const hasTags = Array.isArray(values.tagListId) && values.tagListId.length > 0;
-      
+
       // Verificar se pelo menos uma das opções está selecionada: lista de contatos ou tags
       if (!hasContactList && !hasTags) {
         toast.error(i18n.t("campaigns.validation.contactsRequired"));
         setIsSubmitting(false);
         return;
       }
-  
+
       // Validar se tem pelo menos uma mensagem preenchida
       const hasMessage = [
         values.message1,
@@ -484,13 +484,13 @@ const CampaignModal = ({ open, onClose, campaignId, onSuccess, duplicateFromId =
         values.message4,
         values.message5
       ].some(msg => msg && msg.trim() !== '');
-  
+
       if (!hasMessage) {
         toast.error(i18n.t("campaigns.validation.messageRequired"));
         setIsSubmitting(false);
         return;
       }
-  
+
       // Formatar dados
       const dataValues = {};
       Object.entries(values).forEach(([key, value]) => {
@@ -500,17 +500,17 @@ const CampaignModal = ({ open, onClose, campaignId, onSuccess, duplicateFromId =
           dataValues[key] = value === "" ? null : value;
         }
       });
-  
+
       // Garantir que tagListId seja enviado corretamente
       if (!hasTags) {
         dataValues.tagListId = null;
       }
-  
+
       // Adicionar companyId
       dataValues.companyId = companyId;
-  
+
       let campaignResponse;
-  
+
       try {
         if (campaignId) {
           // Atualizar campanha existente
@@ -521,7 +521,7 @@ const CampaignModal = ({ open, onClose, campaignId, onSuccess, duplicateFromId =
           const { data } = await api.post("/campaigns", dataValues);
           campaignResponse = data;
         }
-  
+
         // Lidar com anexo/mídia
         if (attachment != null && campaignResponse.id) {
           try {
@@ -534,13 +534,13 @@ const CampaignModal = ({ open, onClose, campaignId, onSuccess, duplicateFromId =
             // Continuar mesmo com erro no upload da mídia
           }
         }
-  
+
         toast.success(i18n.t("campaigns.toasts.success"));
-  
+
         if (onSuccess) {
           onSuccess();
         }
-  
+
         handleClose();
       } catch (error) {
         console.error("API Error:", error);
@@ -884,7 +884,7 @@ const CampaignModal = ({ open, onClose, campaignId, onSuccess, duplicateFromId =
                     variant="outlined"
                     fullWidth
                   >
-<InputLabel id="openTicket-selection-label">
+                    <InputLabel id="openTicket-selection-label">
                       {i18n.t("campaigns.dialog.form.openTicket")}
                     </InputLabel>
                     <Field
@@ -950,10 +950,7 @@ const CampaignModal = ({ open, onClose, campaignId, onSuccess, duplicateFromId =
                 </Grid>
 
                 <Grid item xs={12} md={6}>
-                  <FormControl
-                    variant="outlined"
-                    fullWidth
-                  >
+                  <FormControl variant="outlined" fullWidth>
                     <InputLabel id="fileList-selection-label">
                       {i18n.t("campaigns.dialog.form.fileList")}
                     </InputLabel>
@@ -963,7 +960,6 @@ const CampaignModal = ({ open, onClose, campaignId, onSuccess, duplicateFromId =
                       labelId="fileList-selection-label"
                       id="fileListId"
                       name="fileListId"
-                      disabled={!campaignEditable}
                       InputLabelProps={{
                         shrink: true,
                       }}
