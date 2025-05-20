@@ -49,7 +49,7 @@ import {
 import { useSpring, animated } from "@react-spring/web";
 import { i18n } from "../../translate/i18n";
 import { openApi } from "../../services/api";
-import { useWhitelabelSettings } from "../../hooks/useWhitelabelSettings";
+import { usePublicSettings } from "../../context/PublicSettingsContext";
 import { cpfMask, cnpjMask, cepMask } from "../../helpers/masks";
 import { removeMask } from "../../helpers/removeMask";
 import SignUpPhoneInput from "../../components/PhoneInputs/SignUpPhoneInput";
@@ -263,7 +263,7 @@ const SignUp = () => {
   const history = useHistory();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("md"));
-  const { settings } = useWhitelabelSettings();
+  const { publicSettings } = usePublicSettings();
 
   const [activeStep, setActiveStep] = useState(0);
 
@@ -547,12 +547,12 @@ const SignUp = () => {
       }),
   });
 
-  const allowSignup = settings.allowSignup === "enabled";
-  const copyright = settings.copyright || "";
-  const terms = settings.terms || "";
-  const privacy = settings.privacy || "";
-  const signupPosition = settings.signupPosition || "right";
-  const signupBackground = settings.signupBackground ? settings.signupBackground : "";
+  const allowSignup = publicSettings.allowSignup === "enabled";
+  const copyright = publicSettings.copyright || "";
+  const terms = publicSettings.terms || "";
+  const privacy = publicSettings.privacy || "";
+  const signupPosition = publicSettings.signupPosition || "right";
+  const signupBackground = publicSettings.signupBackground ? publicSettings.signupBackground : "";
 
   useEffect(() => {
     const loadSettings = async () => {

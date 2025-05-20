@@ -116,7 +116,8 @@ const Login = () => {
   const { colorMode } = useContext(ColorModeContext);
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const { 
-    publicSettings
+    publicSettings,
+    publicSettingsLoading
   } = usePublicSettings();
   const { handleLogin } = useContext(AuthContext);
   const [forgotPasswordOpen, setForgotPasswordOpen] = useState(false);
@@ -293,7 +294,7 @@ const Login = () => {
   };
 
   // Mostrar indicador de carregamento enquanto as configurações estão sendo carregadas
-  if (loading) {
+  if (publicSettingsLoading) {
     return (
       <Box
         sx={{
