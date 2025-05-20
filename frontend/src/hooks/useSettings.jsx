@@ -1,7 +1,6 @@
 import React, { createContext, useState, useContext, useCallback, useEffect } from "react";
-import AuthContext from "../context/Auth/AuthContext";
-import api from "../services/api";
-import openApi from "../services/api";
+import { AuthContext } from "../context/Auth/AuthContext";
+import api, { openApi } from "../services/api";
 
 // Criação do contexto
 const SettingsContext = createContext({});
