@@ -3,7 +3,10 @@ import path from "path";
 import fs from "fs";
 import { getIO } from "../libs/socket";
 import AppError from "../errors/AppError";
-
+import User from "../models/User";
+import Company from "../models/Company";
+import Plan from "../models/Plan";
+import Setting from "../models/Setting";
 import UpdateSettingService from "../services/SettingServices/UpdateSettingService";
 import ListSettingsService from "../services/SettingServices/ListSettingsService";
 import ListSettingByValueService from "../services/SettingServices/ListSettingByValueService";
@@ -342,5 +345,90 @@ export const storePrivateFile = async (req: Request, res: Response): Promise<Res
       throw error;
     }
     throw new AppError("ERR_STORE_PRIVATE_FILE", 500);
+  }
+};
+
+// Rota para atualizar múltiplas configurações de uma vez
+export const batchUpdateSettings = async (req: Request, res: Response): Promise<Response> => {
+  const { settings } = req.body;
+  const { companyId } = req.user;
+  
+  if (!Array.isArray(settings) || settings.length === 0) {
+    return res.status(400).json({
+      error: "Formato inválido",
+      message: "É necessário fornecer um array de configurações para atualizar"
+    });
+  }
+  
+  try {
+    // Criar array de promessas para todas as atualizações
+    const updatePromises = settings.map(setting => 
+      UpdateSettingService({
+        key: setting.key,
+        value: setting.value,
+        companyId
+      })
+    );
+    
+    // Executar todas as atualizações em paralelo
+    const results = await Promise.all(updatePromises);
+    
+    return res.status(200).json({
+      success: true,
+      message: "Configurações atualizadas com sucesso",
+      count: results.length
+    });
+  } catch (error) {
+    console.error("Erro ao atualizar configurações em lote:", error);
+    return res.status(500).json({
+      error: "Erro interno do servidor",
+      message: "Não foi possível atualizar as configurações"
+    });
+  }
+};
+
+/**
+ * Obtém todas as configurações necessárias para a página de Settings em uma única chamada
+ * Reduz múltiplas chamadas separadas para cada tipo de configuração
+ */
+export const getFullConfiguration = async (req, Request, res: Response): Promise<Response> => {
+  const { companyId } = req.params;
+  const userId = req.user.id;
+  
+  try {
+    // Buscar todas as informações em paralelo para otimizar performance
+    const [
+      user,
+      company,
+      settings
+    ] = await Promise.all([
+      User.findByPk(userId), // Informações do usuário
+      Company.findByPk(companyId, {
+        include: [{ model: Plan, as: "plan" }]
+      }), // Dados da empresa e plano
+      Setting.findAll({ where: { companyId } }), // Todas as configurações
+    ]);
+
+    if (!user || !company) {
+      return res.status(404).json({ 
+        error: "Dados não encontrados",
+        message: "Não foi possível encontrar informações do usuário ou empresa"
+      });
+    }
+
+    const planConfig = company.plan;
+
+    return res.status(200).json({
+      user,
+      company,
+      settings,
+      planConfig
+    });
+  } catch (error) {
+    console.error("Erro ao obter configuração completa:", error);
+    return res.status(500).json({
+      error: "Erro interno do servidor",
+      message: "Não foi possível carregar as configurações"
+    });
   }
 };

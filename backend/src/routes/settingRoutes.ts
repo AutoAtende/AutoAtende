@@ -13,6 +13,8 @@ settingRoutes.get("/public-settings/:settingKey", SettingController.publicShow);
 settingRoutes.get("/public-settings/c/:companyId", SettingController.publicIndex);
 
 // Rotas autenticadas
+settingRoutes.get("/settings/full-configuration/:companyId", isAuth, SettingController.getFullConfiguration);
+settingRoutes.post("/settings/batch-update", isAuth, isAdmin, SettingController.batchUpdateSettings);
 settingRoutes.get("/settings/c/:companyId", isAuth, SettingController.index);
 settingRoutes.get("/settingsregister", isAuth, isSuper, SettingController.getSettingRegister);
 settingRoutes.put("/settings/c/:companyId/k/:settingKey", isAuth, isAdmin, SettingController.update);
