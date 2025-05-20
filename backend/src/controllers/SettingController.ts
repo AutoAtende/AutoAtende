@@ -24,7 +24,6 @@ import {
 import { logger } from "../utils/logger";
 
 export const index = async (req: Request, res: Response): Promise<Response> => {
-  const isSuper = req.user.isSuper;
   const userCompanyId = req.user.companyId;
   const companyId = parseInt(req.params.companyId);
 
@@ -33,13 +32,12 @@ if(userCompanyId !== companyId){
 }
 
   try {
-    const settings = await ListSettingsService(isSuper, companyId);
+    const settings = await ListSettingsService(companyId);
     return res.status(200).json(settings);
   } catch (error) {
     logger.error({
       message: "Erro ao listar configurações",
       companyId,
-      isSuper,
       error
     });
     if (error instanceof AppError) {
