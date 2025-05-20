@@ -100,7 +100,7 @@ const SelectListOrTag = ({ values, errors, touched, setFieldValue, handleChange,
             labelId="contactList-selection-label"
             id="contactListId"
             name="contactListId"
-            value={values.contactListId}
+            value={values.contactListId || ""}
             onChange={(e) => {
               handleChange(e);
               // Se selecionar uma lista, limpa a seleção de tag
@@ -466,11 +466,10 @@ const CampaignModal = ({ open, onClose, campaignId, onSuccess, duplicateFromId =
         return;
       }
   
-      // Validação corrigida para verificar se pelo menos uma opção está selecionada
-      // Verificamos se tem uma lista de contatos OU pelo menos uma tag selecionada
       const hasContactList = !!values.contactListId;
       const hasTags = Array.isArray(values.tagListId) && values.tagListId.length > 0;
       
+      // Verificar se pelo menos uma das opções está selecionada: lista de contatos ou tags
       if (!hasContactList && !hasTags) {
         toast.error(i18n.t("campaigns.validation.contactsRequired"));
         setIsSubmitting(false);
@@ -501,6 +500,11 @@ const CampaignModal = ({ open, onClose, campaignId, onSuccess, duplicateFromId =
           dataValues[key] = value === "" ? null : value;
         }
       });
+  
+      // Garantir que tagListId seja enviado corretamente
+      if (!hasTags) {
+        dataValues.tagListId = null;
+      }
   
       // Adicionar companyId
       dataValues.companyId = companyId;

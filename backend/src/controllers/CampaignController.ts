@@ -185,6 +185,7 @@ async function createContactListFromTags(tagIds: number[], campaignName: string,
   }
 }
 
+// Correção na função store do controlador de campanhas
 export const store = async (req: Request, res: Response): Promise<Response> => {
   const { companyId } = req.user;
   const data = req.body as StoreData;
@@ -200,7 +201,14 @@ export const store = async (req: Request, res: Response): Promise<Response> => {
     throw new AppError(err.message);
   }
 
-  // Verificar se tagListId é um array ou um valor único
+  // Verificar se foi fornecido pelo menos um dos critérios: tagListId ou contactListId
+  if (!data.tagListId && !data.contactListId) {
+    return res.status(400).json({ 
+      error: 'É necessário selecionar uma lista de contatos ou tags' 
+    });
+  }
+
+  // Caso tenha tagListId, processar com tags
   if (data.tagListId) {
     // Garantir que tagListId seja um array de valores válidos
     let tagIds = Array.isArray(data.tagListId) ? data.tagListId : [data.tagListId];
@@ -253,30 +261,43 @@ export const store = async (req: Request, res: Response): Promise<Response> => {
         error: 'Nenhuma tag válida foi selecionada'
       });
     }
-  } else if (data.contactListId) {
-    // Processar usando a lista de contatos selecionada
-    const record = await CreateService({
-      ...data,
-      companyId
-    });
+  } 
+  // Caso contrário, processar usando a lista de contatos selecionada
+  else {
+    // Verificar se a lista de contatos existe
+    if (!data.contactListId) {
+      return res.status(400).json({ 
+        error: 'É necessário selecionar uma lista de contatos válida' 
+      });
+    }
 
-    // Emitir evento via socket
-    const io = getIO();
-    io.to(`company-${companyId}-mainchannel`)
-      .emit(`company-${companyId}-campaign`, {
-        action: "create",
-        record
+    try {
+      const record = await CreateService({
+        ...data,
+        companyId,
+        originalTagListIds: null // Garantir que não haja conflito com tags
       });
 
-    return res.status(200).json(record);
-  } else {
-    // Nem tag nem lista de contatos fornecida
-    return res.status(400).json({ 
-      error: 'É necessário selecionar uma lista de contatos ou tags' 
-    });
+      // Emitir evento via socket
+      const io = getIO();
+      io.to(`company-${companyId}-mainchannel`)
+        .emit(`company-${companyId}-campaign`, {
+          action: "create",
+          record
+        });
+
+      return res.status(200).json(record);
+    } catch (error) {
+      logger.error('Erro ao criar campanha com lista de contatos:', error);
+      return res.status(500).json({ 
+        error: 'Erro ao criar campanha com a lista de contatos selecionada',
+        message: error.message
+      });
+    }
   }
 };
 
+// Correção na função update do controlador de campanhas
 export const update = async (
   req: Request,
   res: Response
@@ -297,7 +318,14 @@ export const update = async (
 
   const { id } = req.params;
 
-  // Verificar se há tags selecionadas
+  // Verificar se foi fornecido pelo menos um dos critérios: tagListId ou contactListId
+  if (!data.tagListId && !data.contactListId) {
+    return res.status(400).json({ 
+      error: 'É necessário selecionar uma lista de contatos ou tags' 
+    });
+  }
+
+  // Caso tenha tagListId, processar com tags
   if (data.tagListId) {
     // Garantir que tagListId seja um array de valores válidos
     let tagIds = Array.isArray(data.tagListId) ? data.tagListId : [data.tagListId];
@@ -345,8 +373,16 @@ export const update = async (
         error: 'Nenhuma tag válida foi selecionada'
       });
     }
-  } else if (data.contactListId) {
-    // Caso tenha lista de contatos, atualização normal
+  } 
+  // Caso contrário, processar com lista de contatos
+  else {
+    // Verificar se a lista de contatos existe
+    if (!data.contactListId) {
+      return res.status(400).json({ 
+        error: 'É necessário selecionar uma lista de contatos válida' 
+      });
+    }
+
     try {
       const record = await UpdateService({
         ...data,
@@ -369,11 +405,6 @@ export const update = async (
         message: error.message
       });
     }
-  } else {
-    // Nem tag nem lista de contatos fornecida
-    return res.status(400).json({ 
-      error: 'É necessário selecionar uma lista de contatos ou tags' 
-    });
   }
 };
 
