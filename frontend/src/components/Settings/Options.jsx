@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from "react";
+import React, { useState } from "react";
 import PropTypes from 'prop-types';
 import {
   Grid,
@@ -25,8 +25,7 @@ import {
   Avatar,
   Stack,
   Badge,
-  Chip,
-  CircularProgress
+  Chip
 } from "@mui/material";
 import { styled } from '@mui/material/styles';
 import { i18n } from "../../translate/i18n";
@@ -56,6 +55,7 @@ import {
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faCopy, faGears, faRobot, faServer, faEnvelope, faList, faFileExport, faTicketAlt, faUsers, faBuilding, faDatabase } from "@fortawesome/free-solid-svg-icons";
 import WhatsAppIcon from '@mui/icons-material/WhatsApp';
+import { generateSecureToken } from "../../helpers/generateSecureToken";
 import { copyToClipboard } from "../../helpers/copyToClipboard";
 import { useContext } from "react";
 import { GlobalContext } from "../../context/GlobalContext";
@@ -154,71 +154,62 @@ const Options = ({ settings, scheduleTypeChanged, enableReasonWhenCloseTicketCha
   const { setMakeRequestSettings } = useContext(GlobalContext);
   const { Loading } = useLoading();
 
-  // Estado consolidado para todas as configurações
-  const [configs, setConfigs] = useState({
-    // Configurações da IA
-    openAiModel: "gpt-4",
-    enableAudioTranscriptions: "disabled",
-    openAiKey: "",
-
-    // Configurações gerais
-    userRating: "disabled",
-    scheduleType: "disabled",
-    quickMessages: i18n.t("optionsPage.byCompany"),
-    allowSignup: "disabled",
-    CheckMsgIsGroup: "disabled",
-    SendGreetingAccepted: "disabled",
-    SettingsTransfTicket: "disabled",
-    sendGreetingMessageOneQueues: "enabled",
-    apiToken: "",
-    downloadLimit: "64",
-    sendEmailWhenRegister: "disabled",
-    sendMessageWhenRegister: "disabled",
-    enableReasonWhenCloseTicket: "disabled",
-    enableUseOneTicketPerConnection: "disabled",
-    callSuport: "enabled",
-    trialExpiration: false,
-    displayContactInfo: "enabled",
-    enableTicketValueAndSku: false,
-    sendQueuePosition: "disabled",
-    settingsUserRandom: "disabled",
-    displayBusinessInfo: "disabled",
-    enableSaveCommonContacts: "disabled",
-    displayProfileImages: "enabled",
-    enableQueueWhenCloseTicket: "disabled",
-    enableTagsWhenCloseTicket: "disabled",
-    enableSatisfactionSurvey: "disabled",
-
-    // Integrações
-    enableUPSix: "disabled",
-    enableUPSixWebphone: "disabled",
-    enableUPSixNotifications: "disabled",
-    enableOfficialWhatsapp: "disabled",
-    enableMetaPixel: "disabled",
-    metaPixelId: '',
-
-    // SMTP
-    smtpauthType: "",
-    usersmtpauthType: "",
-    clientsecretsmtpauthType: "",
-    smtpPortType: "",
-
-    // Suporte
-    waSuportType: "",
-    msgSuportType: ""
-  });
-
-  // Estados de UI
+  // Estados locais para armazenar configurações
+  const currentUser = user;
   const [currentTab, setCurrentTab] = useState(0);
   const [hasChanges, setHasChanges] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const [loadingSections, setLoadingSections] = useState({
-    general: false,
-    integrations: false,
-    advanced: false,
-    openai: false,
-    meta: false
-  });
+
+  // Configurações da IA
+  const [openAiModel, setOpenAiModel] = useState("gpt-4");
+  const [enableAudioTranscriptions, setEnableAudioTranscriptions] = useState("disabled");
+  const [openAiKey, setOpenAiKey] = useState("");
+
+  // Configurações gerais
+  const [userRating, setUserRating] = useState("disabled");
+  const [scheduleType, setScheduleType] = useState("disabled");
+  const [quickMessages, setQuickMessages] = useState(i18n.t("optionsPage.byCompany"));
+  const [allowSignup, setAllowSignup] = useState("disabled");
+  const [CheckMsgIsGroup, setCheckMsgIsGroup] = useState("disabled");
+  const [SendGreetingAccepted, setSendGreetingAccepted] = useState("disabled");
+  const [SettingsTransfTicket, setSettingsTransfTicket] = useState("disabled");
+  const [sendGreetingMessageOneQueues, setSendGreetingMessageOneQueues] = useState("enabled");
+  const [apiToken, setApiToken] = useState("");
+  const [downloadLimit, setDownloadLimit] = useState("64");
+  const [sendEmailWhenRegister, setSendEmailWhenRegister] = useState("disabled");
+  const [sendMessageWhenRegister, setSendMessageWhenRegister] = useState("disabled");
+  const [enableReasonWhenCloseTicket, setEnableReasonWhenCloseTicket] = useState("disabled");
+  const [enableUseOneTicketPerConnection, setEnableUseOneTicketPerConnection] = useState("disabled");
+  const [callSuport, setCallSuport] = useState("enabled");
+  const [trialExpiration, setTrialExpiration] = useState(false);
+  const [displayContactInfo, setDisplayContactInfo] = useState("enabled");
+  const [enableTicketValueAndSku, setEnableTicketValueAndSku] = useState(false);
+  const [sendQueuePosition, setSendQueuePosition] = useState("disabled");
+  const [settingsUserRandom, setSettingsUserRandom] = useState("disabled");
+  const [displayBusinessInfo, setDisplayBusinessInfo] = useState("disabled");
+  const [enableSaveCommonContacts, setEnableSaveCommonContacts] = useState("disabled");
+  const [displayProfileImages, setDisplayProfileImages] = useState("enabled");
+  const [enableQueueWhenCloseTicket, setEnableQueueWhenCloseTicket] = useState("disabled");
+  const [enableTagsWhenCloseTicket, setEnableTagsWhenCloseTicket] = useState("disabled");
+  const [enableSatisfactionSurvey, setEnableSatisfactionSurvey] = useState("disabled");
+
+  
+  // Integrações
+  const [enableUPSix, setEnableUPSix] = useState("disabled");
+  const [enableUPSixWebphone, setEnableUPSixWebphone] = useState("disabled");
+  const [enableUPSixNotifications, setEnableUPSixNotifications] = useState("disabled");
+  const [enableOfficialWhatsapp, setEnableOfficialWhatsapp] = useState("disabled");
+  const [enableMetaPixel, setEnableMetaPixel] = useState("disabled");
+  const [metaPixelId, setMetaPixelId] = useState('');
+
+  // SMTP
+  const [smtpauthType, setUrlSmtpauthType] = useState("");
+  const [usersmtpauthType, setUserSmtpauthType] = useState("");
+  const [clientsecretsmtpauthType, setClientSecrectSmtpauthType] = useState("");
+  const [smtpPortType, setSmtpPortType] = useState("");
+
+  // Suporte
+  const [waSuportType, setWaSuportType] = useState("");
+  const [msgSuportType, setMsgSuportType] = useState("");
 
   // Efeito de animação para os switches
   const switchAnimation = useSpring({
@@ -227,193 +218,492 @@ const Options = ({ settings, scheduleTypeChanged, enableReasonWhenCloseTicketCha
     config: { tension: 300, friction: 20 }
   });
 
-  // Utilidade para atualizar um campo específico de configuração
-  const setConfigField = useCallback((field, value) => {
-    setConfigs(prev => ({
-      ...prev,
-      [field]: value
-    }));
-    setHasChanges(true);
-  }, []);
-
-  // Utilitário para atualizar seções de loading
-  const setLoadingSection = useCallback((section, isLoading) => {
-    setLoadingSections(prev => ({
-      ...prev,
-      [section]: isLoading
-    }));
-  }, []);
-
-  // Função para atualizar configuração no servidor
-  const updateSetting = useCallback(async (key, value) => {
-    try {
-      await update({ key, value });
-      setMakeRequestSettings(Math.random());
-      return true;
-    } catch (error) {
-      console.error(`Erro ao atualizar configuração ${key}:`, error);
-      toast.error(i18n.t("optionsPage.errorMessage"));
-      return false;
-    }
-  }, [update, setMakeRequestSettings]);
-
   // Carregar configurações quando o componente for montado
-  useEffect(() => {
-    const loadSettings = () => {
-      if (!Array.isArray(settings) || settings.length === 0) return;
+  React.useEffect(() => {
+    if (settings) {
+      const loadSettings = () => {
+        // Configurações da IA
+        const openaiModelSetting = settings.openaiModel;
+        if (openaiModelSetting) setOpenAiModel(openaiModelSetting || "gpt-4");
 
-      const newConfigs = { ...configs };
-      let updated = false;
+        // Integrações
+        loadIntegrationSettings();
 
-      settings.forEach((setting) => {
-        if (setting.key && setting.key in newConfigs) {
-          newConfigs[setting.key] = setting.value;
-          updated = true;
-        }
-      });
+        // Configurações gerais
+        loadGeneralSettings();
+      };
 
-      if (updated) {
-        setConfigs(newConfigs);
-      }
-    };
-
-    loadSettings();
+      loadSettings();
+    }
   }, [settings]);
 
-  // Handlers genéricos para cada tipo de configuração
-  const handleSwitchChange = useCallback((field) => async (e) => {
-    const value = e.target.checked ? "enabled" : "disabled";
-    setConfigField(field, value);
+  // Função auxiliar para carregar configurações de integração
+  const loadIntegrationSettings = () => {
 
-    // Casos especiais com exclusão mútua
-    if (field === "enableReasonWhenCloseTicket" && value === "enabled") {
-      if (configs.enableQueueWhenCloseTicket === "enabled") {
-        setConfigField("enableQueueWhenCloseTicket", "disabled");
-        await updateSetting("enableQueueWhenCloseTicket", "disabled");
-      }
-      if (configs.enableTagsWhenCloseTicket === "enabled") {
-        setConfigField("enableTagsWhenCloseTicket", "disabled");
-        await updateSetting("enableTagsWhenCloseTicket", "disabled");
-      }
-      toast.info(i18n.t("optionsPage.onlyOneCloseOptionActive"));
-    } else if (field === "enableQueueWhenCloseTicket" && value === "enabled") {
-      if (configs.enableReasonWhenCloseTicket === "enabled") {
-        setConfigField("enableReasonWhenCloseTicket", "disabled");
-        await updateSetting("enableReasonWhenCloseTicket", "disabled");
-        if (typeof enableReasonWhenCloseTicketChanged === "function") {
-          enableReasonWhenCloseTicketChanged("disabled");
-        }
-      }
-      if (configs.enableTagsWhenCloseTicket === "enabled") {
-        setConfigField("enableTagsWhenCloseTicket", "disabled");
-        await updateSetting("enableTagsWhenCloseTicket", "disabled");
-      }
-      toast.info(i18n.t("optionsPage.onlyOneCloseOptionActive"));
-    } else if (field === "enableTagsWhenCloseTicket" && value === "enabled") {
-      if (configs.enableReasonWhenCloseTicket === "enabled") {
-        setConfigField("enableReasonWhenCloseTicket", "disabled");
-        await updateSetting("enableReasonWhenCloseTicket", "disabled");
-        if (typeof enableReasonWhenCloseTicketChanged === "function") {
-          enableReasonWhenCloseTicketChanged("disabled");
-        }
-      }
-      if (configs.enableQueueWhenCloseTicket === "enabled") {
-        setConfigField("enableQueueWhenCloseTicket", "disabled");
-        await updateSetting("enableQueueWhenCloseTicket", "disabled");
-      }
-      toast.info(i18n.t("optionsPage.onlyOneCloseOptionActive"));
+    const enableQueueWhenCloseTicket = settings.enableQueueWhenCloseTicket;
+    if (enableQueueWhenCloseTicket) setEnableQueueWhenCloseTicket(enableQueueWhenCloseTicket || "disabled");
+
+    const enableTagsWhenCloseTicket = settings.enableTagsWhenCloseTicket;
+    if (enableTagsWhenCloseTicket) setEnableTagsWhenCloseTicket(enableTagsWhenCloseTicket || "disabled");
+
+    const enableSatisfactionSurveySetting = settings.enableSatisfactionSurvey;
+    if (enableSatisfactionSurveySetting) setEnableSatisfactionSurvey(enableSatisfactionSurveySetting || "disabled");
+
+    const enableAudioTranscriptionsSetting = settings.enableAudioTranscriptions;
+if (enableAudioTranscriptionsSetting) setEnableAudioTranscriptions(enableAudioTranscriptionsSetting || "disabled");
+
+const openAiKeySetting = settings.openAiKey;
+if (openAiKeySetting) setOpenAiKey(openAiKeySetting || "");
+
+
+    const displayProfileImages = settings.displayProfileImages;
+    if (displayProfileImages) {
+      setDisplayProfileImages(displayProfileImages || "enabled");
     }
 
-    // Callback para mudanças de scheduleType
-    if (field === "scheduleType") {
-      if (typeof scheduleTypeChanged === "function") {
-        scheduleTypeChanged(value);
-      }
+    const enableMetaPixelSetting = settings.enableMetaPixel;
+    if (enableMetaPixelSetting) setEnableMetaPixel(enableMetaPixelSetting || "enabled");
+
+    const metaPixelIdSetting = settings.metaPixelId;
+    if (metaPixelIdSetting) setMetaPixelId(metaPixelIdSetting || "");
+
+    // Mover esta parte para a seção de integrações
+    const enableOfficialWhatsappSetting = settings.enableOfficialWhatsapp;
+    if (enableOfficialWhatsappSetting) setEnableOfficialWhatsapp(enableOfficialWhatsappSetting || "disabled");
+
+    // UPSix
+    const enableUPSix = settings.enableUPSix;
+    if (enableUPSix) setEnableUPSix(enableUPSix || "disabled");
+
+    const enableUPSixWebphone = settings.enableUPSixWebphone;
+    if (enableUPSixWebphone) setEnableUPSixWebphone(enableUPSixWebphone || "disabled");
+
+    const enableUPSixNotifications = settings.enableUPSixNotifications;
+    if (enableUPSixNotifications) setEnableUPSixNotifications(enableUPSixNotifications || "disabled");
+
+    // Salvar contatos comuns
+    const enableSaveCommonContactsSetting = settings.enableSaveCommonContacts;
+    if (enableSaveCommonContactsSetting) setEnableSaveCommonContacts(enableSaveCommonContactsSetting || "disabled");
+  };
+
+  // Função auxiliar para carregar configurações gerais
+  const loadGeneralSettings = () => {
+    const sendQueuePosition = settings.sendQueuePosition;
+    if (sendQueuePosition) setSendQueuePosition(sendQueuePosition || "disabled");
+
+    const settingsUserRandom = settings.settingsUserRandom;
+    if (settingsUserRandom) setSettingsUserRandom(settingsUserRandom || "disabled");
+
+    const displayBusinessInfo = settings.displayBusinessInfo;
+    if (displayBusinessInfo) setDisplayBusinessInfo(displayBusinessInfo || "disabled");
+
+
+    const enableReasonWhenCloseTicket = settings.enableReasonWhenCloseTicket;
+    if (enableReasonWhenCloseTicket) setEnableReasonWhenCloseTicket(enableReasonWhenCloseTicket || "disabled");
+
+    const quickMessages = settings.quickMessages;
+    if (quickMessages) setQuickMessages(quickMessages || "individual");
+
+    const sendEmailSetting = settings.sendEmailWhenRegister;
+    if (sendEmailSetting) setSendEmailWhenRegister(sendEmailSetting || "disabled");
+
+    const sendMessageSetting = settings.sendMessageWhenRegister;
+    if (sendMessageSetting) setSendMessageWhenRegister(sendMessageSetting || "disabled");
+
+    const userRating = settings.userRating;
+    if (userRating) setUserRating(userRating || "");
+
+    const scheduleType = settings.scheduleType;
+    if (scheduleType) setScheduleType(scheduleType || "");
+
+    const CheckMsgIsGroup = settings.CheckMsgIsGroup;
+    if (CheckMsgIsGroup) setCheckMsgIsGroup(CheckMsgIsGroup || "enabled");
+
+    const downloadLimit = settings.downloadLimit;
+    if (downloadLimit) setDownloadLimit(downloadLimit || "64");
+
+    const enableTicketValueAndSku = settings.enableTicketValueAndSku;
+    if (enableTicketValueAndSku) setEnableTicketValueAndSku(enableTicketValueAndSku || "enabled");
+
+    const SendGreetingAccepted = settings.sendGreetingAccepted;
+    if (SendGreetingAccepted) setSendGreetingAccepted(SendGreetingAccepted || "");
+
+    const SettingsTransfTicket = settings.sendMsgTransfTicket;
+    if (SettingsTransfTicket) setSettingsTransfTicket(SettingsTransfTicket || "");
+
+    const allowSignup = settings.allowSignup;
+    if (allowSignup) setAllowSignup(allowSignup || "enabled");
+
+    const sendGreetingMessageOneQueues = settings.sendGreetingMessageOneQueues;
+    if (sendGreetingMessageOneQueues) setSendGreetingMessageOneQueues(sendGreetingMessageOneQueues || "");
+
+    const callSuport = settings.callSuport;
+    if (callSuport) setCallSuport(callSuport || "");
+
+    const displayContactInfo = settings.displayContactInfo;
+    if (displayContactInfo) setDisplayContactInfo(displayContactInfo || "disabled");
+
+    const trialExpiration = settings.trialExpiration;
+    if (trialExpiration) setTrialExpiration(trialExpiration || "3");
+
+    const smtpauthType = settings.smtpauth;
+    if (smtpauthType) setUrlSmtpauthType(smtpauthType || "");
+
+    const usersmtpauthType = settings.usersmtpauth;
+    if (usersmtpauthType) setUserSmtpauthType(usersmtpauthType || "");
+
+    const clientsecretsmtpauthType = settings.clientsecretsmtpauth;
+    if (clientsecretsmtpauthType) setClientSecrectSmtpauthType(clientsecretsmtpauthType || "");
+
+    const smtpPortType = settings.smtpport;
+    if (smtpPortType) setSmtpPortType(smtpPortType || "");
+
+    const waSuportType = settings.wasuport;
+    if (waSuportType) setWaSuportType(waSuportType || "");
+
+    const msgSuportType = settings.msgsuport;
+    if (msgSuportType) setMsgSuportType(msgSuportType || "");
+  };
+
+  // Função genérica para atualizar configurações
+  const updateSetting = async (key, value) => {
+    setHasChanges(true);
+    await update({ key, value });
+    toast.success(i18n.t("optionsPage.successMessage"));
+    setMakeRequestSettings(Math.random());
+  };
+
+  const handleEnableAudioTranscriptions = async (value) => {
+    setEnableAudioTranscriptions(value);
+    await updateSetting("enableAudioTranscriptions", value);
+    if (value === "enabled") {
+      toast.success(i18n.t("optionsPage.audioTranscriptionsEnabled"));
+    } else {
+      toast.success(i18n.t("optionsPage.audioTranscriptionsDisabled"));
     }
-
-    // Callback para enableReasonWhenCloseTicket
-    if (field === "enableReasonWhenCloseTicket") {
-      if (typeof enableReasonWhenCloseTicketChanged === "function") {
-        enableReasonWhenCloseTicketChanged(value);
-      }
-    }
-  }, [configs, setConfigField, updateSetting, enableReasonWhenCloseTicketChanged, scheduleTypeChanged]);
-
-  const handleSelectChange = useCallback((field) => (e) => {
-    setConfigField(field, e.target.value);
-  }, [setConfigField]);
-
-  const handleInputChange = useCallback((field) => (e) => {
-    setConfigField(field, e.target.value);
-  }, [setConfigField]);
-
-  // Handlers específicos quando necessário
-  const handleEnableAudioTranscriptions = useCallback(async (e) => {
-    const value = e.target.checked ? "enabled" : "disabled";
-    setConfigField("enableAudioTranscriptions", value);
-  }, [setConfigField]);
-
-  // Função para salvar todas as configurações de uma vez
-  const saveAllSettings = useCallback(async () => {
+  };
+  
+  const handleChangeOpenAiKey = async (value) => {
+    setOpenAiKey(value);
+    await updateSetting("openAiKey", value);
+  };
+  
+  const onHandleSaveOpenAiKey = async () => {
     try {
-      setLoading(true);
       Loading.turnOn();
-
-      // Criar array de promessas para todas as atualizações
-      const updatePromises = Object.entries(configs).map(([key, value]) =>
-        updateSetting(key, value)
-      );
-
-      await Promise.all(updatePromises);
-
-      setHasChanges(false);
-      toast.success(i18n.t("optionsPage.successMessage"));
+      await handleChangeOpenAiKey(openAiKey);
+      toast.success(i18n.t("optionsPage.openAiKeySuccess"));
     } catch (error) {
-      console.error("Erro ao salvar configurações:", error);
-      toast.error(i18n.t("optionsPage.errorMessage"));
+      toast.error(error);
     } finally {
-      setLoading(false);
       Loading.turnOff();
     }
-  }, [configs, updateSetting, Loading]);
+  };
 
-  // Salvar configuração específica de OpenAI Key
-  const onHandleSaveOpenAiKey = useCallback(async () => {
-    try {
-      setLoadingSection('openai', true);
-      const success = await updateSetting("openAiKey", configs.openAiKey);
-      if (success) {
-        toast.success(i18n.t("optionsPage.openAiKeySuccess"));
-      }
-    } catch (error) {
-      toast.error(error.message || i18n.t("optionsPage.errorMessage"));
-    } finally {
-      setLoadingSection('openai', false);
-    }
-  }, [configs.openAiKey, updateSetting, setLoadingSection]);
+  // Funções específicas para cada configuração
+  async function handleDisplayProfileImages(value) {
+    setDisplayProfileImages(value);
+    await update({
+      key: "displayProfileImages",
+      value,
+    });
+    toast.success("Configuração de exibição de imagens de perfil atualizada com sucesso.");
+    setMakeRequestSettings(Math.random());
+  }
 
-  // Salvar configuração específica de Meta Pixel ID
-  const onHandleSaveMetaPixelId = useCallback(async () => {
-    try {
-      setLoadingSection('meta', true);
-      const success = await updateSetting("metaPixelId", configs.metaPixelId);
-      if (success) {
-        toast.success(i18n.t("optionsPage.successMessage"));
-      }
-    } catch (error) {
-      toast.error(error.message || i18n.t("optionsPage.errorMessage"));
-    } finally {
-      setLoadingSection('meta', false);
+  const handleEnableSatisfactionSurvey = async (value) => {
+    setEnableSatisfactionSurvey(value);
+    await updateSetting("enableSatisfactionSurvey", value);
+    if (value === "enabled") {
+      toast.success(i18n.t("optionsPage.satisfactionSurveyEnabled"));
+    } else {
+      toast.success(i18n.t("optionsPage.satisfactionSurveyDisabled"));
     }
-  }, [configs.metaPixelId, updateSetting, setLoadingSection]);
+  };
+
+
+  const handleEnableSaveCommonContacts = async (value) => {
+    setEnableSaveCommonContacts(value);
+    await updateSetting("enableSaveCommonContacts", value);
+    if (value === "enabled") {
+      toast.success(i18n.t("optionsPage.saveContactsEnabled"));
+    } else {
+      toast.success(i18n.t("optionsPage.saveContactsDisabled"));
+    }
+  };
+
+  // No Options.jsx, modificar as funções handler para implementar exclusão mútua
+
+  const handleEnableQueueWhenCloseTicket = async (value) => {
+    setEnableQueueWhenCloseTicket(value);
+    await updateSetting("enableQueueWhenCloseTicket", value);
+
+    // Se estiver habilitando esta opção, desabilite as outras
+    if (value === "enabled") {
+      if (enableTagsWhenCloseTicket === "enabled") {
+        setEnableTagsWhenCloseTicket("disabled");
+        await updateSetting("enableTagsWhenCloseTicket", "disabled");
+      }
+      if (enableReasonWhenCloseTicket === "enabled") {
+        setEnableReasonWhenCloseTicket("disabled");
+        await updateSetting("enableReasonWhenCloseTicket", "disabled");
+        if (typeof enableReasonWhenCloseTicketChanged === "function") {
+          enableReasonWhenCloseTicketChanged("disabled");
+        }
+      }
+      toast.info(i18n.t("optionsPage.onlyOneCloseOptionActive"));
+    }
+  };
+
+  const handleEnableTagsWhenCloseTicket = async (value) => {
+    setEnableTagsWhenCloseTicket(value);
+    await updateSetting("enableTagsWhenCloseTicket", value);
+
+    // Se estiver habilitando esta opção, desabilite as outras
+    if (value === "enabled") {
+      if (enableQueueWhenCloseTicket === "enabled") {
+        setEnableQueueWhenCloseTicket("disabled");
+        await updateSetting("enableQueueWhenCloseTicket", "disabled");
+      }
+      if (enableReasonWhenCloseTicket === "enabled") {
+        setEnableReasonWhenCloseTicket("disabled");
+        await updateSetting("enableReasonWhenCloseTicket", "disabled");
+        if (typeof enableReasonWhenCloseTicketChanged === "function") {
+          enableReasonWhenCloseTicketChanged("disabled");
+        }
+      }
+      toast.info(i18n.t("optionsPage.onlyOneCloseOptionActive"));
+    }
+  };
+
+  const handleEnableReasonWhenCloseTicket = async (value) => {
+    setEnableReasonWhenCloseTicket(value);
+    await updateSetting("enableReasonWhenCloseTicket", value);
+
+    // Se estiver habilitando esta opção, desabilite as outras
+    if (value === "enabled") {
+      if (enableQueueWhenCloseTicket === "enabled") {
+        setEnableQueueWhenCloseTicket("disabled");
+        await updateSetting("enableQueueWhenCloseTicket", "disabled");
+      }
+      if (enableTagsWhenCloseTicket === "enabled") {
+        setEnableTagsWhenCloseTicket("disabled");
+        await updateSetting("enableTagsWhenCloseTicket", "disabled");
+      }
+      toast.info(i18n.t("optionsPage.onlyOneCloseOptionActive"));
+    }
+
+    if (typeof enableReasonWhenCloseTicketChanged === "function") {
+      enableReasonWhenCloseTicketChanged(value);
+    }
+  };
+
+  const handleQuickMessages = async (value) => {
+    setQuickMessages(value);
+    await updateSetting("quickMessages", value);
+  };
+
+  const handleDisplayBusinessInfo = async (value) => {
+    setDisplayBusinessInfo(value);
+    await updateSetting("displayBusinessInfo", value);
+  };
+
+  const handleEnableMetaPixel = async (value) => {
+    setEnableMetaPixel(value);
+    await updateSetting("enableMetaPixel", value);
+    if (value === "enabled") {
+      toast.success(i18n.t("optionsPage.metaPixelEnabled"));
+    } else {
+      toast.success(i18n.t("optionsPage.metaPixelDisabled"));
+    }
+  };
+
+  const handleChangeMetaPixelId = async (value) => {
+    setMetaPixelId(value);
+    await updateSetting("metaPixelId", value);
+  };
+
+  const onHandleSaveMetaPixelId = async () => {
+    try {
+      Loading.turnOn();
+      await handleChangeMetaPixelId(metaPixelId);
+      toast.success(i18n.t("optionsPage.successMessage"));
+    } catch (error) {
+      toast.error(error);
+    } finally {
+      Loading.turnOff();
+    }
+  };
+
+  const handleEnableUPSix = async (value) => {
+    setEnableUPSix(value);
+    await updateSetting("enableUPSix", value);
+    if (value === "enabled") {
+      toast.success(i18n.t("optionsPage.upsixEnabled"));
+    } else {
+      toast.success(i18n.t("optionsPage.upsixDisabled"));
+    }
+  };
+
+  const handleEnableUPSixWebphone = async (value) => {
+    setEnableUPSixWebphone(value);
+    await updateSetting("enableUPSixWebphone", value);
+  };
+
+  const handleEnableUPSixNotifications = async (value) => {
+    setEnableUPSixNotifications(value);
+    await updateSetting("enableUPSixNotifications", value);
+  };
+
+  const handleEnableOfficialWhatsapp = async (value) => {
+    setEnableOfficialWhatsapp(value);
+    await updateSetting("enableOfficialWhatsapp", value);
+    if (value === "enabled") {
+      toast.success(i18n.t("optionsPage.whatsappApiEnabled"));
+    } else {
+      toast.success(i18n.t("optionsPage.whatsappApiDisabled"));
+    }
+  };
+
+  const handleSendEmailWhenRegister = async (value) => {
+    setSendEmailWhenRegister(value);
+    await updateSetting("sendEmailWhenRegister", value);
+  };
+
+  const handleSendMessageWhenRegister = async (value) => {
+    setSendMessageWhenRegister(value);
+    await updateSetting("sendMessageWhenRegister", value);
+  };
+
+  const handleSendQueuePosition = async (value) => {
+    setSendQueuePosition(value);
+    await updateSetting("sendQueuePosition", value);
+  };
+
+  const handleSettingsUserRandom = async (value) => {
+    setSettingsUserRandom(value);
+    await updateSetting("settingsUserRandom", value);
+  };
+
+  const handleOpenAiModel = async (value) => {
+    setOpenAiModel(value);
+    await updateSetting("openaiModel", value);
+  };
+
+  const handleChangeUserRating = async (value) => {
+    setUserRating(value);
+    await updateSetting("userRating", value);
+  };
+
+  const handleScheduleType = async (value) => {
+    setScheduleType(value);
+    await updateSetting("scheduleType", value);
+    if (typeof scheduleTypeChanged === "function") {
+      scheduleTypeChanged(value);
+    }
+  };
+
+  const handleAllowSignup = async (value) => {
+    setAllowSignup(value);
+    await updateSetting("allowSignup", value);
+  };
+
+  const handleGroupType = async (value) => {
+    setCheckMsgIsGroup(value);
+    await updateSetting("CheckMsgIsGroup", value);
+  };
+
+  const handleSendGreetingAccepted = async (value) => {
+    setSendGreetingAccepted(value);
+    await updateSetting("sendGreetingAccepted", value);
+  };
+
+  const handleSettingsTransfTicket = async (value) => {
+    setSettingsTransfTicket(value);
+    await updateSetting("sendMsgTransfTicket", value);
+  };
+
+  const handleChangeWaSuport = async (value) => {
+    setWaSuportType(value);
+    await updateSetting("wasuport", value);
+  };
+
+  const handleChangeMsgSuport = async (value) => {
+    setMsgSuportType(value);
+    await updateSetting("msgsuport", value);
+  };
+
+  const handleSendGreetingMessageOneQueues = async (value) => {
+    setSendGreetingMessageOneQueues(value);
+    await updateSetting("sendGreetingMessageOneQueues", value);
+  };
+
+  const handleCallSuport = async (value) => {
+    setCallSuport(value);
+    await updateSetting("callSuport", value);
+  };
+
+  const handleDisplayContactInfo = async (value) => {
+    setDisplayContactInfo(value);
+    await updateSetting("displayContactInfo", value);
+  };
+
+  const handleTrialExpiration = async (value) => {
+    setTrialExpiration(value);
+    await updateSetting("trialExpiration", value);
+  };
+
+  const handleChangeUrlSmtpauth = async (value) => {
+    setUrlSmtpauthType(value);
+    await updateSetting("smtpauth", value);
+  };
+
+  const handleChangeUserSmptauth = async (value) => {
+    setUserSmtpauthType(value);
+    await updateSetting("usersmtpauth", value);
+  };
+
+  const handleChangeClientSecrectSmtpauth = async (value) => {
+    setClientSecrectSmtpauthType(value);
+    await updateSetting("clientsecretsmtpauth", value);
+  };
+
+  const handleChangeSmtpPort = async (value) => {
+    setSmtpPortType(value);
+    await updateSetting("smtpport", value);
+  };
+
+  const handleDownloadLimit = async (value) => {
+    setDownloadLimit(value);
+    await updateSetting("downloadLimit", value);
+  };
+
+  const handleEnableTicketValueAndSku = async (value) => {
+    setEnableTicketValueAndSku(value);
+    await updateSetting("enableTicketValueAndSku", value);
+  };
+
+
+  // Função para salvar todas as configurações de uma vez
+  const saveAllSettings = async () => {
+    try {
+      Loading.turnOn();
+      toast.success(i18n.t("optionsPage.allSettingsSaved"));
+      setHasChanges(false);
+    } catch (error) {
+      toast.error(error);
+    } finally {
+      Loading.turnOff();
+    }
+  };
 
   // Handler para mudança de tabs
-  const handleTabChange = useCallback((event, newValue) => {
+  const handleTabChange = (event, newValue) => {
     setCurrentTab(newValue);
-  }, []);
+  };
 
-  // Componente de configurações gerais memoizado
-  const GeneralConfigSection = useMemo(() => (
+  // Componente de configurações gerais
+  const GeneralConfigSection = () => (
     <>
       <SectionTitle variant="h6">
         <BusinessIcon color="primary" />
@@ -421,7 +711,7 @@ const Options = ({ settings, scheduleTypeChanged, enableReasonWhenCloseTicketCha
       </SectionTitle>
 
       <OnlyForSuperUser
-        user={user}
+        user={currentUser}
         yes={() => (
           <>
             <StyledPaper elevation={3}>
@@ -432,9 +722,9 @@ const Options = ({ settings, scheduleTypeChanged, enableReasonWhenCloseTicketCha
                       <TextField
                         select
                         label={i18n.t("optionsPage.trialExpiration")}
-                        value={configs.trialExpiration || "3"}
+                        value={trialExpiration}
                         size="small"
-                        onChange={handleSelectChange("trialExpiration")}
+                        onChange={(e) => handleTrialExpiration(e.target.value)}
                         variant="outlined"
                         margin="normal"
                         InputProps={{
@@ -466,10 +756,10 @@ const Options = ({ settings, scheduleTypeChanged, enableReasonWhenCloseTicketCha
                     control={
                       <AnimatedSwitch
                         style={switchAnimation}
-                        checked={configs.allowSignup === "enabled"}
+                        checked={allowSignup === "enabled"}
                         name="allowSignup"
                         color="primary"
-                        onChange={handleSwitchChange("allowSignup")}
+                        onChange={(e) => handleAllowSignup(e.target.checked ? "enabled" : "disabled")}
                       />
                     }
                     label={
@@ -492,10 +782,10 @@ const Options = ({ settings, scheduleTypeChanged, enableReasonWhenCloseTicketCha
                     control={
                       <AnimatedSwitch
                         style={switchAnimation}
-                        checked={configs.sendEmailWhenRegister === "enabled"}
+                        checked={sendEmailWhenRegister === "enabled"}
                         name="sendEmailWhenRegister"
                         color="primary"
-                        onChange={handleSwitchChange("sendEmailWhenRegister")}
+                        onChange={(e) => handleSendEmailWhenRegister(e.target.checked ? "enabled" : "disabled")}
                       />
                     }
                     label={
@@ -518,10 +808,10 @@ const Options = ({ settings, scheduleTypeChanged, enableReasonWhenCloseTicketCha
                     control={
                       <AnimatedSwitch
                         style={switchAnimation}
-                        checked={configs.sendMessageWhenRegister === "enabled"}
+                        checked={sendMessageWhenRegister === "enabled"}
                         name="sendMessageWhenRegister"
                         color="primary"
-                        onChange={handleSwitchChange("sendMessageWhenRegister")}
+                        onChange={(e) => handleSendMessageWhenRegister(e.target.checked ? "enabled" : "disabled")}
                       />
                     }
                     label={
@@ -559,10 +849,10 @@ const Options = ({ settings, scheduleTypeChanged, enableReasonWhenCloseTicketCha
               control={
                 <AnimatedSwitch
                   style={switchAnimation}
-                  checked={configs.CheckMsgIsGroup === "enabled"}
+                  checked={CheckMsgIsGroup === "enabled"}
                   name="CheckMsgIsGroup"
                   color="primary"
-                  onChange={handleSwitchChange("CheckMsgIsGroup")}
+                  onChange={(e) => handleGroupType(e.target.checked ? "enabled" : "disabled")}
                 />
               }
               label={i18n.t("optionsPage.ignore")}
@@ -581,10 +871,10 @@ const Options = ({ settings, scheduleTypeChanged, enableReasonWhenCloseTicketCha
               control={
                 <AnimatedSwitch
                   style={switchAnimation}
-                  checked={configs.SendGreetingAccepted === "enabled"}
+                  checked={SendGreetingAccepted === "enabled"}
                   name="SendGreetingAccepted"
                   color="primary"
-                  onChange={handleSwitchChange("SendGreetingAccepted")}
+                  onChange={(e) => handleSendGreetingAccepted(e.target.checked ? "enabled" : "disabled")}
                 />
               }
               label={i18n.t("optionsPage.sendanun")}
@@ -603,10 +893,10 @@ const Options = ({ settings, scheduleTypeChanged, enableReasonWhenCloseTicketCha
               control={
                 <AnimatedSwitch
                   style={switchAnimation}
-                  checked={configs.sendQueuePosition === "enabled"}
+                  checked={sendQueuePosition === "enabled"}
                   name="sendQueuePosition"
                   color="primary"
-                  onChange={handleSwitchChange("sendQueuePosition")}
+                  onChange={(e) => handleSendQueuePosition(e.target.checked ? "enabled" : "disabled")}
                 />
               }
               label={i18n.t("optionsPage.sendQueuePosition")}
@@ -625,10 +915,10 @@ const Options = ({ settings, scheduleTypeChanged, enableReasonWhenCloseTicketCha
               control={
                 <AnimatedSwitch
                   style={switchAnimation}
-                  checked={configs.settingsUserRandom === "enabled"}
+                  checked={settingsUserRandom === "enabled"}
                   name="settingsUserRandom"
                   color="primary"
-                  onChange={handleSwitchChange("settingsUserRandom")}
+                  onChange={(e) => handleSettingsUserRandom(e.target.checked ? "enabled" : "disabled")}
                 />
               }
               label={i18n.t("optionsPage.settingsUserRandom")}
@@ -647,10 +937,10 @@ const Options = ({ settings, scheduleTypeChanged, enableReasonWhenCloseTicketCha
               control={
                 <AnimatedSwitch
                   style={switchAnimation}
-                  checked={configs.userRating === "enabled"}
+                  checked={userRating === "enabled"}
                   name="userRating"
                   color="primary"
-                  onChange={handleSwitchChange("userRating")}
+                  onChange={(e) => handleChangeUserRating(e.target.checked ? "enabled" : "disabled")}
                 />
               }
               label={i18n.t("optionsPage.calif")}
@@ -669,10 +959,10 @@ const Options = ({ settings, scheduleTypeChanged, enableReasonWhenCloseTicketCha
               control={
                 <AnimatedSwitch
                   style={switchAnimation}
-                  checked={configs.enableReasonWhenCloseTicket === "enabled"}
+                  checked={enableReasonWhenCloseTicket === "enabled"}
                   name="enableReasonWhenCloseTicket"
                   color="primary"
-                  onChange={handleSwitchChange("enableReasonWhenCloseTicket")}
+                  onChange={(e) => handleEnableReasonWhenCloseTicket(e.target.checked ? "enabled" : "disabled")}
                 />
               }
               label={i18n.t("optionsPage.enableReasonWhenCloseTicket")}
@@ -691,10 +981,10 @@ const Options = ({ settings, scheduleTypeChanged, enableReasonWhenCloseTicketCha
               control={
                 <AnimatedSwitch
                   style={switchAnimation}
-                  checked={configs.enableQueueWhenCloseTicket === "enabled"}
+                  checked={enableQueueWhenCloseTicket === "enabled"}
                   name="enableQueueWhenCloseTicket"
                   color="primary"
-                  onChange={handleSwitchChange("enableQueueWhenCloseTicket")}
+                  onChange={(e) => handleEnableQueueWhenCloseTicket(e.target.checked ? "enabled" : "disabled")}
                 />
               }
               label={i18n.t("optionsPage.enableQueueWhenCloseTicket")}
@@ -713,10 +1003,10 @@ const Options = ({ settings, scheduleTypeChanged, enableReasonWhenCloseTicketCha
               control={
                 <AnimatedSwitch
                   style={switchAnimation}
-                  checked={configs.enableTagsWhenCloseTicket === "enabled"}
+                  checked={enableTagsWhenCloseTicket === "enabled"}
                   name="enableTagsWhenCloseTicket"
                   color="primary"
-                  onChange={handleSwitchChange("enableTagsWhenCloseTicket")}
+                  onChange={(e) => handleEnableTagsWhenCloseTicket(e.target.checked ? "enabled" : "disabled")}
                 />
               }
               label={i18n.t("optionsPage.enableTagsWhenCloseTicket")}
@@ -735,10 +1025,12 @@ const Options = ({ settings, scheduleTypeChanged, enableReasonWhenCloseTicketCha
               control={
                 <AnimatedSwitch
                   style={switchAnimation}
-                  checked={configs.displayProfileImages === "enabled"}
+                  checked={displayProfileImages === "enabled"}
                   name="displayProfileImages"
                   color="primary"
-                  onChange={handleSwitchChange("displayProfileImages")}
+                  onChange={(e) =>
+                    handleDisplayProfileImages(e.target.checked ? "enabled" : "disabled")
+                  }
                 />
               }
               label={i18n.t("optionsPage.displayProfileImages")}
@@ -758,10 +1050,10 @@ const Options = ({ settings, scheduleTypeChanged, enableReasonWhenCloseTicketCha
               control={
                 <AnimatedSwitch
                   style={switchAnimation}
-                  checked={configs.enableTicketValueAndSku === "enabled"}
+                  checked={enableTicketValueAndSku === "enabled"}
                   name="enableTicketValueAndSku"
                   color="primary"
-                  onChange={handleSwitchChange("enableTicketValueAndSku")}
+                  onChange={(e) => handleEnableTicketValueAndSku(e.target.checked ? "enabled" : "disabled")}
                 />
               }
               label={i18n.t("optionsPage.showSKU")}
@@ -787,22 +1079,23 @@ const Options = ({ settings, scheduleTypeChanged, enableReasonWhenCloseTicketCha
       <StyledPaper elevation={3}>
         <Box sx={{ p: 1 }}>
           <FormGroup>
-            <FormControlLabel control={
-              <AnimatedSwitch
-                style={switchAnimation}
-                checked={configs.displayContactInfo === "enabled"}
-                name="displayContactInfo"
-                color="primary"
-                onChange={handleSwitchChange("displayContactInfo")}
-                disabled={configs.displayBusinessInfo === "enabled"}
-              />
-            }
+            <FormControlLabel
+              control={
+                <AnimatedSwitch
+                  style={switchAnimation}
+                  checked={displayContactInfo === "enabled"}
+                  name="displayContactInfo"
+                  color="primary"
+                  onChange={(e) => handleDisplayContactInfo(e.target.checked ? "enabled" : "disabled")}
+                  disabled={displayBusinessInfo === "enabled"}
+                />
+              }
               label={i18n.t("optionsPage.displayContactInfo")}
             />
           </FormGroup>
           <FormHelperText>
             {i18n.t("optionsPage.displayContactInfoHelp")}
-            {configs.displayBusinessInfo === "enabled" && (
+            {displayBusinessInfo === "enabled" && (
               <Typography color="error" variant="caption" display="block">
                 {i18n.t("optionsPage.displayContactInfoDisabled")}
               </Typography>
@@ -818,11 +1111,11 @@ const Options = ({ settings, scheduleTypeChanged, enableReasonWhenCloseTicketCha
               control={
                 <AnimatedSwitch
                   style={switchAnimation}
-                  checked={configs.displayBusinessInfo === "enabled"}
+                  checked={displayBusinessInfo === "enabled"}
                   name="displayBusinessInfo"
                   color="primary"
-                  onChange={handleSwitchChange("displayBusinessInfo")}
-                  disabled={configs.displayContactInfo === "enabled"}
+                  onChange={(e) => handleDisplayBusinessInfo(e.target.checked ? "enabled" : "disabled")}
+                  disabled={displayContactInfo === "enabled"}
                 />
               }
               label={i18n.t("optionsPage.displayBusinessInfo")}
@@ -830,7 +1123,7 @@ const Options = ({ settings, scheduleTypeChanged, enableReasonWhenCloseTicketCha
           </FormGroup>
           <FormHelperText>
             {i18n.t("optionsPage.displayBusinessInfoHelp")}
-            {configs.displayContactInfo === "enabled" && (
+            {displayContactInfo === "enabled" && (
               <Typography color="error" variant="caption" display="block">
                 {i18n.t("optionsPage.displayBusinessInfoDisabled")}
               </Typography>
@@ -846,10 +1139,10 @@ const Options = ({ settings, scheduleTypeChanged, enableReasonWhenCloseTicketCha
               control={
                 <AnimatedSwitch
                   style={switchAnimation}
-                  checked={configs.enableSaveCommonContacts === "enabled"}
+                  checked={enableSaveCommonContacts === "enabled"}
                   name="enableSaveCommonContacts"
                   color="primary"
-                  onChange={handleSwitchChange("enableSaveCommonContacts")}
+                  onChange={(e) => handleEnableSaveCommonContacts(e.target.checked ? "enabled" : "disabled")}
                 />
               }
               label={i18n.t("optionsPage.enableSaveCommonContacts")}
@@ -870,9 +1163,9 @@ const Options = ({ settings, scheduleTypeChanged, enableReasonWhenCloseTicketCha
                   select
                   fullWidth
                   label={i18n.t("optionsPage.expedient")}
-                  value={configs.scheduleType}
+                  value={scheduleType}
                   size="small"
-                  onChange={handleSelectChange("scheduleType")}
+                  onChange={(e) => handleScheduleType(e.target.value)}
                   variant="outlined"
                   margin="normal"
                 >
@@ -902,10 +1195,10 @@ const Options = ({ settings, scheduleTypeChanged, enableReasonWhenCloseTicketCha
               control={
                 <AnimatedSwitch
                   style={switchAnimation}
-                  checked={configs.SettingsTransfTicket === "enabled"}
+                  checked={SettingsTransfTicket === "enabled"}
                   name="SettingsTransfTicket"
                   color="primary"
-                  onChange={handleSwitchChange("SettingsTransfTicket")}
+                  onChange={(e) => handleSettingsTransfTicket(e.target.checked ? "enabled" : "disabled")}
                 />
               }
               label={i18n.t("optionsPage.sendagent")}
@@ -924,10 +1217,10 @@ const Options = ({ settings, scheduleTypeChanged, enableReasonWhenCloseTicketCha
               control={
                 <AnimatedSwitch
                   style={switchAnimation}
-                  checked={configs.sendGreetingMessageOneQueues === "enabled"}
+                  checked={sendGreetingMessageOneQueues === "enabled"}
                   name="sendGreetingMessageOneQueues"
                   color="primary"
-                  onChange={handleSwitchChange("sendGreetingMessageOneQueues")}
+                  onChange={(e) => handleSendGreetingMessageOneQueues(e.target.checked ? "enabled" : "disabled")}
                 />
               }
               label={i18n.t("optionsPage.greeatingOneQueue")}
@@ -948,9 +1241,9 @@ const Options = ({ settings, scheduleTypeChanged, enableReasonWhenCloseTicketCha
                   select
                   fullWidth
                   label={i18n.t("optionsPage.speedMessage")}
-                  value={configs.quickMessages}
+                  value={quickMessages}
                   size="small"
-                  onChange={handleSelectChange("quickMessages")}
+                  onChange={(e) => handleQuickMessages(e.target.value)}
                   variant="outlined"
                   margin="normal"
                 >
@@ -966,22 +1259,16 @@ const Options = ({ settings, scheduleTypeChanged, enableReasonWhenCloseTicketCha
         </Box>
       </StyledPaper>
     </>
-  ), [
-    configs,
-    theme,
-    user,
-    switchAnimation,
-    handleSwitchChange,
-    handleSelectChange
-  ]);
+  );
 
-  // Componente de configurações de integrações memoizado
-  const IntegrationsSection = useMemo(() => (
+  // Componente de configurações de integrações
+  const IntegrationsSection = () => (
     <>
       <SectionTitle variant="h6">
         <FontAwesomeIcon icon={faServer} style={{ marginRight: '8px', color: theme.palette.primary.main }} />
         {i18n.t("optionsPage.integrations")}
       </SectionTitle>
+
 
       <StyledPaper elevation={3}>
         <Box sx={{ p: 1 }}>
@@ -994,10 +1281,10 @@ const Options = ({ settings, scheduleTypeChanged, enableReasonWhenCloseTicketCha
               control={
                 <AnimatedSwitch
                   style={switchAnimation}
-                  checked={configs.enableOfficialWhatsapp === "enabled"}
+                  checked={enableOfficialWhatsapp === "enabled"}
                   name="enableOfficialWhatsapp"
                   color="primary"
-                  onChange={handleSwitchChange("enableOfficialWhatsapp")}
+                  onChange={(e) => handleEnableOfficialWhatsapp(e.target.checked ? "enabled" : "disabled")}
                 />
               }
               label={i18n.t("optionsPage.enableOfficialWhatsapp")}
@@ -1022,10 +1309,10 @@ const Options = ({ settings, scheduleTypeChanged, enableReasonWhenCloseTicketCha
               control={
                 <AnimatedSwitch
                   style={switchAnimation}
-                  checked={configs.enableMetaPixel === "enabled"}
+                  checked={enableMetaPixel === "enabled"}
                   name="enableMetaPixel"
                   color="primary"
-                  onChange={handleSwitchChange("enableMetaPixel")}
+                  onChange={(e) => handleEnableMetaPixel(e.target.checked ? "enabled" : "disabled")}
                 />
               }
               label={i18n.t("optionsPage.enableMetaPixel")}
@@ -1048,8 +1335,8 @@ const Options = ({ settings, scheduleTypeChanged, enableReasonWhenCloseTicketCha
                   label={i18n.t("optionsPage.metaPixelId")}
                   variant="outlined"
                   fullWidth
-                  value={configs.metaPixelId}
-                  onChange={handleInputChange("metaPixelId")}
+                  value={metaPixelId}
+                  onChange={(e) => setMetaPixelId(e.target.value)}
                   size="small"
                 />
               </Grid>
@@ -1063,129 +1350,120 @@ const Options = ({ settings, scheduleTypeChanged, enableReasonWhenCloseTicketCha
               variant="contained"
               size="small"
               color="primary"
-              disabled={loadingSections.meta}
             >
-              {loadingSections.meta ? (
-                <CircularProgress size={24} color="inherit" />
-              ) : (
-                i18n.t("optionsPage.saveMetaPixelSettings")
-              )}
+              {i18n.t("optionsPage.saveMetaPixelSettings")}
             </Button>
           </Box>
         </Box>
       </StyledPaper>
 
+
       <StyledPaper elevation={3}>
-        <Box sx={{ p: 1 }}>
-          <Typography variant="subtitle1" sx={{ mb: 2, fontWeight: 'medium', display: 'flex', alignItems: 'center' }}>
-            <FontAwesomeIcon icon={faRobot} style={{ marginRight: '8px', color: theme.palette.primary.main }} />
-            OpenAI
-          </Typography>
-          <Grid container spacing={2}>
-            <Grid item xs={12} sm={6} md={4}>
-              <FormControl fullWidth>
-                <TextField
-                  select
-                  fullWidth
-                  label={i18n.t("optionsPage.openaiModel")}
-                  value={configs.openAiModel}
-                  onChange={handleSelectChange("openAiModel")}
-                  variant="outlined"
-                  size="small"
-                  margin="normal"
-                >
-                  {openAiModels.map((model) => (
-                    <MenuItem key={model.value} value={model.value}>
-                      {model.label}
-                    </MenuItem>
-                  ))}
-                </TextField>
-                <FormHelperText>
-                  {i18n.t("optionsPage.openaiModelHelp")}
-                </FormHelperText>
-              </FormControl>
-            </Grid>
+  <Box sx={{ p: 1 }}>
+    <Typography variant="subtitle1" sx={{ mb: 2, fontWeight: 'medium', display: 'flex', alignItems: 'center' }}>
+      <FontAwesomeIcon icon={faRobot} style={{ marginRight: '8px', color: theme.palette.primary.main }} />
+      OpenAI
+    </Typography>
+    <Grid container spacing={2}>
+      <Grid item xs={12} sm={6} md={4}>
+        <FormControl fullWidth>
+          <TextField
+            select
+            fullWidth
+            label={i18n.t("optionsPage.openaiModel")}
+            value={openAiModel}
+            onChange={(e) => handleOpenAiModel(e.target.value)}
+            variant="outlined"
+            size="small"
+            margin="normal"
+          >
+            {openAiModels.map((model) => (
+              <MenuItem key={model.value} value={model.value}>
+                {model.label}
+              </MenuItem>
+            ))}
+          </TextField>
+          <FormHelperText>
+            {i18n.t("optionsPage.openaiModelHelp")}
+          </FormHelperText>
+        </FormControl>
+      </Grid>
+    </Grid>
+    
+    <Box sx={{ mt: 2 }}>
+      <FormGroup>
+        <FormControlLabel
+          control={
+            <AnimatedSwitch
+              style={switchAnimation}
+              checked={enableAudioTranscriptions === "enabled"}
+              name="enableAudioTranscriptions"
+              color="primary"
+              onChange={(e) => handleEnableAudioTranscriptions(e.target.checked ? "enabled" : "disabled")}
+            />
+          }
+          label={i18n.t("optionsPage.enableAudioTranscriptions") || "Ativar transcrição de áudio"}
+        />
+      </FormGroup>
+      <FormHelperText>
+        {i18n.t("optionsPage.enableAudioTranscriptionsHelp") || "Ativa a transcrição de áudio utilizando o serviço da OpenAI"}
+      </FormHelperText>
+    </Box>
+
+    {enableAudioTranscriptions === "enabled" && (
+      <Box sx={{ mt: 2, pl: 2 }}>
+        <Grid container spacing={2}>
+          <Grid item xs={12}>
+            <TextField
+              id="openAiKey"
+              name="openAiKey"
+              margin="dense"
+              label={i18n.t("optionsPage.openAiKey") || "Chave da API OpenAI"}
+              variant="outlined"
+              fullWidth
+              value={openAiKey}
+              onChange={(e) => setOpenAiKey(e.target.value)}
+              size="small"
+              type="password"
+              InputProps={{
+                endAdornment: (
+                  <Box>
+                    {openAiKey && (
+                      <Tooltip title={i18n.t("optionsPage.copyApiKey") || "Copiar chave"}>
+                        <IconButton
+                          size="small"
+                          color="primary"
+                          onClick={() => {
+                            copyToClipboard(openAiKey);
+                            toast.success(i18n.t("optionsPage.apiKeyCopied") || "Chave copiada com sucesso!");
+                          }}
+                        >
+                          <FileCopyIcon />
+                        </IconButton>
+                      </Tooltip>
+                    )}
+                  </Box>
+                ),
+              }}
+            />
           </Grid>
-
-          <Box sx={{ mt: 2 }}>
-            <FormGroup>
-              <FormControlLabel
-                control={
-                  <AnimatedSwitch
-                    style={switchAnimation}
-                    checked={configs.enableAudioTranscriptions === "enabled"}
-                    name="enableAudioTranscriptions"
-                    color="primary"
-                    onChange={handleEnableAudioTranscriptions}
-                  />
-                }
-                label={i18n.t("optionsPage.enableAudioTranscriptions") || "Ativar transcrição de áudio"}
-              />
-            </FormGroup>
-            <FormHelperText>
-              {i18n.t("optionsPage.enableAudioTranscriptionsHelp") || "Ativa a transcrição de áudio utilizando o serviço da OpenAI"}
-            </FormHelperText>
-          </Box>
-
-          {configs.enableAudioTranscriptions === "enabled" && (
-            <Box sx={{ mt: 2, pl: 2 }}>
-              <Grid container spacing={2}>
-                <Grid item xs={12}>
-                  <TextField
-                    id="openAiKey"
-                    name="openAiKey"
-                    margin="dense"
-                    label={i18n.t("optionsPage.openAiKey") || "Chave da API OpenAI"}
-                    variant="outlined"
-                    fullWidth
-                    value={configs.openAiKey}
-                    onChange={handleInputChange("openAiKey")}
-                    size="small"
-                    type="password"
-                    InputProps={{
-                      endAdornment: (
-                        <Box>
-                          {configs.openAiKey && (
-                            <Tooltip title={i18n.t("optionsPage.copyApiKey") || "Copiar chave"}>
-                              <IconButton
-                                size="small"
-                                color="primary"
-                                onClick={() => {
-                                  copyToClipboard(configs.openAiKey);
-                                  toast.success(i18n.t("optionsPage.apiKeyCopied") || "Chave copiada com sucesso!");
-                                }}
-                              >
-                                <FileCopyIcon />
-                              </IconButton>
-                            </Tooltip>
-                          )}
-                        </Box>
-                      ),
-                    }}
-                  />
-                </Grid>
-              </Grid>
-              <FormHelperText sx={{ mt: 1, mb: 2 }}>
-                {i18n.t("optionsPage.openAiKeyHelp") || "Informe a chave da API OpenAI para realizar a transcrição de áudio"}
-              </FormHelperText>
-              <Button
-                onClick={onHandleSaveOpenAiKey}
-                startIcon={<SaveIcon />}
-                variant="contained"
-                size="small"
-                color="primary"
-                disabled={loadingSections.openai}
-              >
-                {loadingSections.openai ? (
-                  <CircularProgress size={24} color="inherit" />
-                ) : (
-                  i18n.t("optionsPage.saveOpenAiKey") || "Salvar chave da API"
-                )}
-              </Button>
-            </Box>
-          )}
-        </Box>
-      </StyledPaper>
+        </Grid>
+        <FormHelperText sx={{ mt: 1, mb: 2 }}>
+          {i18n.t("optionsPage.openAiKeyHelp") || "Informe a chave da API OpenAI para realizar a transcrição de áudio"}
+        </FormHelperText>
+        <Button
+          onClick={onHandleSaveOpenAiKey}
+          startIcon={<SaveIcon />}
+          variant="contained"
+          size="small"
+          color="primary"
+        >
+          {i18n.t("optionsPage.saveOpenAiKey") || "Salvar chave da API"}
+        </Button>
+      </Box>
+    )}
+  </Box>
+</StyledPaper>
 
       <StyledPaper elevation={3}>
         <Box sx={{ p: 1 }}>
@@ -1206,10 +1484,10 @@ const Options = ({ settings, scheduleTypeChanged, enableReasonWhenCloseTicketCha
               control={
                 <AnimatedSwitch
                   style={switchAnimation}
-                  checked={configs.enableUPSix === "enabled"}
+                  checked={enableUPSix === "enabled"}
                   name="enableUPSix"
                   color="primary"
-                  onChange={handleSwitchChange("enableUPSix")}
+                  onChange={(e) => handleEnableUPSix(e.target.checked ? "enabled" : "disabled")}
                 />
               }
               label={i18n.t("optionsPage.enableUPSix")}
@@ -1219,17 +1497,17 @@ const Options = ({ settings, scheduleTypeChanged, enableReasonWhenCloseTicketCha
             {i18n.t("optionsPage.enableUPSixHelp")}
           </FormHelperText>
 
-          {configs.enableUPSix === "enabled" && (
+          {enableUPSix === "enabled" && (
             <Box sx={{ mt: 2, pl: 2 }}>
               <FormGroup>
                 <FormControlLabel
                   control={
                     <AnimatedSwitch
                       style={switchAnimation}
-                      checked={configs.enableUPSixWebphone === "enabled"}
+                      checked={enableUPSixWebphone === "enabled"}
                       name="enableUPSixWebphone"
                       color="primary"
-                      onChange={handleSwitchChange("enableUPSixWebphone")}
+                      onChange={(e) => handleEnableUPSixWebphone(e.target.checked ? "enabled" : "disabled")}
                     />
                   }
                   label={i18n.t("optionsPage.enableUPSixWebphone")}
@@ -1244,10 +1522,10 @@ const Options = ({ settings, scheduleTypeChanged, enableReasonWhenCloseTicketCha
                   control={
                     <AnimatedSwitch
                       style={switchAnimation}
-                      checked={configs.enableUPSixNotifications === "enabled"}
+                      checked={enableUPSixNotifications === "enabled"}
                       name="enableUPSixNotifications"
                       color="primary"
-                      onChange={handleSwitchChange("enableUPSixNotifications")}
+                      onChange={(e) => handleEnableUPSixNotifications(e.target.checked ? "enabled" : "disabled")}
                     />
                   }
                   label={i18n.t("optionsPage.enableUPSixNotifications")}
@@ -1261,22 +1539,10 @@ const Options = ({ settings, scheduleTypeChanged, enableReasonWhenCloseTicketCha
         </Box>
       </StyledPaper>
     </>
-  ), [
-    configs,
-    theme,
-    switchAnimation,
-    handleSwitchChange,
-    handleInputChange,
-    handleSelectChange,
-    handleEnableAudioTranscriptions,
-    onHandleSaveOpenAiKey,
-    onHandleSaveMetaPixelId,
-    loadingSections.openai,
-    loadingSections.meta
-  ]);
+  );
 
-  // Componente de configurações avançadas memoizado
-  const AdvancedSection = useMemo(() => (
+  // Componente de configurações avançadas
+  const AdvancedSection = () => (
     <>
       <SectionTitle variant="h6">
         <BuildIcon color="primary" />
@@ -1295,8 +1561,8 @@ const Options = ({ settings, scheduleTypeChanged, enableReasonWhenCloseTicketCha
                 <TextField
                   select
                   label={i18n.t("optionsPage.downloadLimit")}
-                  value={configs.downloadLimit}
-                  onChange={handleSelectChange("downloadLimit")}
+                  value={downloadLimit}
+                  onChange={(e) => handleDownloadLimit(e.target.value)}
                   variant="outlined"
                   size="small"
                   margin="normal"
@@ -1319,61 +1585,61 @@ const Options = ({ settings, scheduleTypeChanged, enableReasonWhenCloseTicketCha
       </StyledPaper>
 
       <StyledPaper elevation={3}>
-        <Box sx={{ p: 1 }}>
-          <Typography variant="subtitle1" sx={{ mb: 2, fontWeight: 'medium', display: 'flex', alignItems: 'center' }}>
-            <AssessmentOutlined sx={{ mr: 1, color: theme.palette.primary.main }} />
-            {i18n.t("optionsPage.satisfactionSurveyTitle")}
-          </Typography>
-          <FormGroup>
-            <FormControlLabel
-              control={
-                <AnimatedSwitch
-                  style={switchAnimation}
-                  checked={configs.enableSatisfactionSurvey === "enabled"}
-                  name="enableSatisfactionSurvey"
-                  color="primary"
-                  onChange={handleSwitchChange("enableSatisfactionSurvey")}
-                />
-              }
-              label={i18n.t("optionsPage.enableSatisfactionSurvey")}
-            />
-          </FormGroup>
-          <FormHelperText>
-            {i18n.t("optionsPage.enableSatisfactionSurveyHelp")}
-          </FormHelperText>
-        </Box>
-      </StyledPaper>
+  <Box sx={{ p: 1 }}>
+    <Typography variant="subtitle1" sx={{ mb: 2, fontWeight: 'medium', display: 'flex', alignItems: 'center' }}>
+      <AssessmentOutlined sx={{ mr: 1, color: theme.palette.primary.main }} />
+      {i18n.t("optionsPage.satisfactionSurveyTitle")}
+    </Typography>
+    <FormGroup>
+      <FormControlLabel
+        control={
+          <AnimatedSwitch
+            style={switchAnimation}
+            checked={enableSatisfactionSurvey === "enabled"}
+            name="enableSatisfactionSurvey"
+            color="primary"
+            onChange={(e) => handleEnableSatisfactionSurvey(e.target.checked ? "enabled" : "disabled")}
+          />
+        }
+        label={i18n.t("optionsPage.enableSatisfactionSurvey")}
+      />
+    </FormGroup>
+    <FormHelperText>
+      {i18n.t("optionsPage.enableSatisfactionSurveyHelp")}
+    </FormHelperText>
+  </Box>
+</StyledPaper>
 
-      <StyledPaper elevation={3}>
-        <Box sx={{ p: 1 }}>
-          <FormGroup>
-            <FormControlLabel
-              control={
-                <AnimatedSwitch
-                  style={switchAnimation}
-                  checked={configs.callSuport === "enabled"}
-                  name="callSuport"
-                  color="primary"
-                  onChange={handleSwitchChange("callSuport")}
-                />
-              }
-              label={
-                <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                  <SupportIcon sx={{ mr: 1, color: theme.palette.primary.main }} />
-                  {i18n.t("optionsPage.callSuport")}
-                </Box>
-              }
-            />
-          </FormGroup>
-          <FormHelperText>
-            {i18n.t("optionsPage.callSuportHelp")}
-          </FormHelperText>
-        </Box>
-      </StyledPaper>
+<StyledPaper elevation={3}>
+              <Box sx={{ p: 1 }}>
+                <FormGroup>
+                  <FormControlLabel
+                    control={
+                      <AnimatedSwitch
+                        style={switchAnimation}
+                        checked={callSuport === "enabled"}
+                        name="callSuport"
+                        color="primary"
+                        onChange={(e) => handleCallSuport(e.target.checked ? "enabled" : "disabled")}
+                      />
+                    }
+                    label={
+                      <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                        <SupportIcon sx={{ mr: 1, color: theme.palette.primary.main }} />
+                        {i18n.t("optionsPage.callSuport")}
+                      </Box>
+                    }
+                  />
+                </FormGroup>
+                <FormHelperText>
+                  {i18n.t("optionsPage.callSuportHelp")}
+                </FormHelperText>
+              </Box>
+            </StyledPaper>
 
-      {configs.callSuport === "enabled" && (
+      {callSuport === "enabled" && (
         <OnlyForSuperUser
-          user={user}
+          user={currentUser}
           yes={() => (
             <StyledPaper elevation={3}>
               <Box sx={{ p: 1 }}>
@@ -1388,8 +1654,13 @@ const Options = ({ settings, scheduleTypeChanged, enableReasonWhenCloseTicketCha
                       name="wasuport"
                       label={i18n.t("optionsPage.wasuport")}
                       size="small"
-                      value={configs.waSuportType}
-                      onChange={handleInputChange("waSuportType")}
+                      value={waSuportType}
+                      onChange={(e) => {
+                        if (e.target.value === "" || /^[0-9\b]+$/.test(e.target.value)) {
+                          setWaSuportType(e.target.value);
+                        }
+                      }}
+                      onBlur={() => handleChangeWaSuport(waSuportType)}
                       fullWidth
                       margin="normal"
                       InputProps={{
@@ -1407,8 +1678,14 @@ const Options = ({ settings, scheduleTypeChanged, enableReasonWhenCloseTicketCha
                       name="msgsuporte"
                       label={i18n.t("optionsPage.msgsuport")}
                       size="small"
-                      value={configs.msgSuportType}
-                      onChange={handleInputChange("msgSuportType")}
+                      value={msgSuportType}
+                      onChange={(e) => setMsgSuportType(e.target.value)}
+                      onBlur={() => handleChangeMsgSuport(msgSuportType)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          e.target.blur();
+                        }
+                      }}
                       fullWidth
                       margin="normal"
                       InputProps={{
@@ -1440,8 +1717,8 @@ const Options = ({ settings, scheduleTypeChanged, enableReasonWhenCloseTicketCha
                 name="smtpauth"
                 label={i18n.t("optionsPage.smtpServer")}
                 size="small"
-                value={configs.smtpauthType}
-                onChange={handleInputChange("smtpauthType")}
+                value={smtpauthType}
+                onChange={(e) => handleChangeUrlSmtpauth(e.target.value)}
                 fullWidth
                 margin="normal"
               />
@@ -1452,8 +1729,8 @@ const Options = ({ settings, scheduleTypeChanged, enableReasonWhenCloseTicketCha
                 name="usersmtpauth"
                 label={i18n.t("optionsPage.smtpUser")}
                 size="small"
-                value={configs.usersmtpauthType}
-                onChange={handleInputChange("usersmtpauthType")}
+                value={usersmtpauthType}
+                onChange={(e) => handleChangeUserSmptauth(e.target.value)}
                 fullWidth
                 margin="normal"
               />
@@ -1465,8 +1742,8 @@ const Options = ({ settings, scheduleTypeChanged, enableReasonWhenCloseTicketCha
                 label={i18n.t("optionsPage.smtpPassword")}
                 size="small"
                 type="password"
-                value={configs.clientsecretsmtpauthType}
-                onChange={handleInputChange("clientsecretsmtpauthType")}
+                value={clientsecretsmtpauthType}
+                onChange={(e) => handleChangeClientSecrectSmtpauth(e.target.value)}
                 fullWidth
                 margin="normal"
               />
@@ -1477,8 +1754,8 @@ const Options = ({ settings, scheduleTypeChanged, enableReasonWhenCloseTicketCha
                 name="smtpport"
                 label={i18n.t("optionsPage.smtpPort")}
                 size="small"
-                value={configs.smtpPortType}
-                onChange={handleInputChange("smtpPortType")}
+                value={smtpPortType}
+                onChange={(e) => handleChangeSmtpPort(e.target.value)}
                 fullWidth
                 margin="normal"
               />
@@ -1490,15 +1767,7 @@ const Options = ({ settings, scheduleTypeChanged, enableReasonWhenCloseTicketCha
         </Box>
       </StyledPaper>
     </>
-  ), [
-    configs,
-    theme,
-    user,
-    switchAnimation,
-    handleSwitchChange,
-    handleInputChange,
-    handleSelectChange
-  ]);
+  );
 
   return (
     <Box sx={{ p: 1 }}>
@@ -1506,9 +1775,9 @@ const Options = ({ settings, scheduleTypeChanged, enableReasonWhenCloseTicketCha
         <SaveButton
           variant="contained"
           color="primary"
-          startIcon={loading ? <CircularProgress size={24} color="inherit" /> : <SaveIcon />}
+          startIcon={<SaveIcon />}
           onClick={saveAllSettings}
-          disabled={!hasChanges || loading}
+          disabled={!hasChanges}
         >
           {i18n.t("optionsPage.saveAll")}
         </SaveButton>
@@ -1544,9 +1813,9 @@ const Options = ({ settings, scheduleTypeChanged, enableReasonWhenCloseTicketCha
 
       {/* Conteúdo das tabs */}
       <Box sx={{ mt: 2 }}>
-        {currentTab === 0 && GeneralConfigSection}
-        {currentTab === 1 && IntegrationsSection}
-        {currentTab === 2 && AdvancedSection}
+        {currentTab === 0 && <GeneralConfigSection />}
+        {currentTab === 1 && <IntegrationsSection />}
+        {currentTab === 2 && <AdvancedSection />}
       </Box>
     </Box>
   );
@@ -1567,5 +1836,4 @@ Options.defaultProps = {
   enableReasonWhenCloseTicketChanged: () => { }
 };
 
-// Memo para evitar renderizações desnecessárias
-export default React.memo(Options);
+export default Options;
