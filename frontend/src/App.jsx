@@ -20,7 +20,6 @@ import './pages/MessageRules';
 import { LoadingProvider } from "./hooks/useLoading";
 import { ModalProvider } from "./hooks/useModal";
 import { GlobalContextProvider } from "./context/GlobalContext";
-import { socketManager, SocketContext } from "./context/Socket/SocketContext";
 import { ActiveWhatsappProvider } from "./context/ActiveWhatsappContext";
 import { PublicSettingsProvider } from "./context/PublicSettingsContext";
 import { usePublicSettings } from "./context/PublicSettingsContext";
@@ -38,7 +37,7 @@ const ThemedApp = () => {
   const [activeWhatsapp] = useState("default");
   const [themeSettings, setThemeSettings] = useState({});
   const { isAuth, user } = useAuth();
-  const { getAllPublicSetting } = useSettings();
+  const { getAll } = useSettings();
   const { publicSettings } = usePublicSettings();
   
   // Função auxiliar para aplicar as configurações ao tema
@@ -56,7 +55,7 @@ const ThemedApp = () => {
     
     // Apenas carregar configurações privadas quando autenticado
     if (isAuth) {
-      getAllPublicSetting(companyId)
+      getAll(companyId)
         .then(allSettings => {
           if (!isMounted) return;
           
@@ -480,9 +479,7 @@ const App = () => {
         <GlobalContextProvider>
           <ModalProvider>
             <QueryClientProvider client={queryClient}>
-              <SocketContext.Provider value={socketManager}>
                 <ThemedApp />
-              </SocketContext.Provider>
             </QueryClientProvider>
           </ModalProvider>
         </GlobalContextProvider>
