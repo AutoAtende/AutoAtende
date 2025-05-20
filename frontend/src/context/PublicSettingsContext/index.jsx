@@ -90,9 +90,7 @@ export const PublicSettingsProvider = ({ children }) => {
       }
       
       // Buscar da API
-      const { data } = await openApi.get("/public-settings", { 
-        params: { companyId } 
-      });
+      const { data } = await openApi.get(`/public-settings/c/${companyId}`);
       
       // Processar e armazenar as configurações
       const processedSettings = processSettings(data);
