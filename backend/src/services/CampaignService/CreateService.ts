@@ -33,7 +33,7 @@ interface CampaignData {
 const CreateService = async (campaignData: CampaignData): Promise<Campaign> => {
   const {
     name,
-    status = "INATIVA",
+    status,
     confirmation = false,
     scheduledAt,
     companyId,
@@ -84,10 +84,15 @@ const CreateService = async (campaignData: CampaignData): Promise<Campaign> => {
     }
   }
 
+  let statusFinal;
+  if (scheduledAt != null && scheduledAt != "") {
+    statusFinal = "PROGRAMADA";
+  }
+
   // Criar campanha
   const campaign = await Campaign.create({
     name,
-    status,
+    status: statusFinal,
     confirmation,
     scheduledAt,
     companyId,

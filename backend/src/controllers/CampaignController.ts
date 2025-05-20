@@ -13,6 +13,7 @@ import ShowService from "../services/CampaignService/ShowService";
 import UpdateService from "../services/CampaignService/UpdateService";
 
 import Campaign from "../models/Campaign";
+import ContactTags from "../models/ContactTags";
 import { publicFolder } from '../config/upload';
 import { Op } from "sequelize";
 import AppError from "../errors/AppError";
@@ -94,33 +95,11 @@ async function createContactListFromTags(tagIds: number[], campaignName: string,
 
     logger.info(`Processando campanha "${campaignName}" com tags: ${validTagIds.join(', ')}`);
     
-    // Buscar todos os ticket_tags relacionados
-    const ticketTags = await TicketTag.findAll({ 
+    const contactTags = await ContactTags.findAll({ 
       where: { tagId: { [Op.in]: validTagIds } } 
     });
-    
-    if (!ticketTags || ticketTags.length === 0) {
-      logger.warn(`Nenhum ticket encontrado com as tags: ${validTagIds.join(', ')}`);
-      return null;
-    }
-    
-    // Extrair IDs únicos de tickets
-    const uniqueTicketIds = Array.from(new Set(ticketTags.map(tag => tag.ticketId)));
-    logger.info(`Encontrados ${uniqueTicketIds.length} tickets únicos com as tags selecionadas`);
-    
-    // Buscar tickets
-    const tickets = await Ticket.findAll({ 
-      where: { id: { [Op.in]: uniqueTicketIds } } 
-    });
-    
-    if (!tickets || tickets.length === 0) {
-      logger.warn(`Nenhum ticket válido encontrado para os IDs: ${uniqueTicketIds.length} tickets`);
-      return null;
-    }
-    
-    // Extrair IDs únicos de contatos
-    const uniqueContactIds = Array.from(new Set(tickets.map(ticket => ticket.contactId)));
-    logger.info(`Encontrados ${uniqueContactIds.length} contatos únicos a partir dos tickets`);
+    const uniqueContactIds = Array.from(new Set(contactTags.map(tag => tag.contactId)));
+    logger.info(`Encontrados ${uniqueContactIds.length} contatos únicos com as tags selecionadas`);
     
     // Buscar contatos
     const contacts = await Contact.findAll({ 
@@ -231,6 +210,7 @@ export const store = async (req: Request, res: Response): Promise<Response> => {
         // Salvar o array de tags original
         const campaignData = {
           ...data,
+          status: "PROGRAMADA",
           companyId,
           contactListId: contactListId,
           originalTagListIds: tagIds // Manter referência das tags usadas
