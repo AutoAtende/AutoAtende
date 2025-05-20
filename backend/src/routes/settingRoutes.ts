@@ -31,7 +31,7 @@ settingRoutes.post(
   "/settings/logo",
   isAuth,
   isAdmin,
-  uploadPublic.single("file"),
+  upload.single("file"),
   SettingController.storeLogo
 );
 

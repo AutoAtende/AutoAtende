@@ -437,8 +437,10 @@ const getImagePath = (imageKey, imagePath, companyId) => {
       formData.append("file", file);
       formData.append("page", page);
       formData.append("companyId", user.companyId.toString());
+
       try {
         setLoadingForSection('logos', true);
+        formData.append("typeArch", "background");
         const response = await api.post("/settings/background", formData);
         const backgroundUrl = response.data;
         
@@ -468,6 +470,7 @@ const getImagePath = (imageKey, imagePath, companyId) => {
       filename = removePathName(filename);
       try {
         setLoadingForSection('logos', true);
+        formData.append("typeArch", "background");
         await api.delete(`/settings/backgrounds/${filename}?companyId=${user.companyId}`);
         
         if (isMounted.current) {
@@ -508,6 +511,7 @@ const getImagePath = (imageKey, imagePath, companyId) => {
       formData.append("file", file);
       formData.append("mode", mode);
       formData.append("companyId", user.companyId.toString());
+      formData.append("typeArch", "logo");
   
       try {
         setLoadingForSection('logos', true);
@@ -544,8 +548,6 @@ const getImagePath = (imageKey, imagePath, companyId) => {
     },
     [colorMode, handleSaveSetting, updateSettingsLoaded, setLoadingForSection, user.companyId]
   );
-  
-
   
   // Implementação de função auxiliar para aplicar configurações ao tema de uma vez
   const applySettingsToTheme = useCallback((settings, companyId) => {

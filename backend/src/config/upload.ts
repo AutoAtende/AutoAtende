@@ -133,6 +133,18 @@ export default {
             case "flowBuilder":
               folder = path.resolve(companyPath, "flowBuilder");
               break;
+            case "logo":
+              folder = path.resolve(companyPath, "logo");
+              break;
+            case "logos":
+              folder = path.resolve(companyPath, "logos");
+              break;
+            case "background":
+              folder = path.resolve(companyPath, "background");
+              break;
+            case "backgrounds":
+              folder = path.resolve(companyPath, "backgrounds");
+              break;
             case "professionals":
               folder = path.resolve(companyPath, "professionals");
               break;

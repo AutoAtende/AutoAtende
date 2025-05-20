@@ -1,4 +1,3 @@
-// controllers/SettingController.ts
 import { Request, Response } from "express";
 import path from "path";
 import fs from "fs";
