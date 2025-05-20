@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   Box,
   Typography,
@@ -18,7 +18,7 @@ import {
   AccessTime as AccessTimeIcon,
   Settings as SettingsIcon,
   Info as InfoIcon,
-  Code as CodeIcon
+  Close as CloseIcon
 } from '@mui/icons-material';
 import { i18n } from "../../../translate/i18n";
 import api from '../../../services/api';
@@ -71,48 +71,47 @@ const ScheduleNodeDrawer = ({ nodeData, onChange, flowVariables }) => {
     loggedInUser.canManageSchedulesNodesData === true
   );
 
-  // Carregar grupos de horários
-  useEffect(() => {
-    const loadGroups = async () => {
-      if (loading) return;
+  // Carregar grupos de horários de forma mais controlada
+  const loadGroups = useCallback(async () => {
+    if (loading) return;
+    
+    try {
+      setLoading(true);
+      const { data } = await api.get('/horario-groups');
       
-      try {
-        setLoading(true);
-        const { data } = await api.get('/horario-groups');
-        
-        if (data && Array.isArray(data.groups)) {
-          setGroups(data.groups);
-        } else {
-          setGroups([]);
-          console.warn('Formato de dados inválido na resposta da API de grupos');
-          toast.warning('A resposta da API não contém grupos válidos');
-        }
-      } catch (error) {
-        console.error('Erro ao carregar grupos de horários:', error);
+      if (data && Array.isArray(data.groups)) {
+        setGroups(data.groups);
+      } else {
         setGroups([]);
-        const errorMessage = error.response?.data?.error || 'Não foi possível carregar a lista de grupos de horários';
-        toast.error(errorMessage);
-      } finally {
-        setLoading(false);
+        console.warn('Formato de dados inválido na resposta da API de grupos');
+        toast.warning('A resposta da API não contém grupos válidos');
       }
-    };
+    } catch (error) {
+      console.error('Erro ao carregar grupos de horários:', error);
+      setGroups([]);
+      const errorMessage = error.response?.data?.error || 'Não foi possível carregar a lista de grupos de horários';
+      toast.error(errorMessage);
+    } finally {
+      setLoading(false);
+    }
+  }, [loading]);
   
-    // Realizar carregamento apenas na montagem do componente
-    // ou quando o diálogo modal for aberto pela primeira vez
+  // Carregar dados iniciais apenas na montagem do componente
+  useEffect(() => {
     if (groups.length === 0 && !loading) {
       loadGroups();
     }
-  }, [loading]); 
+  }, []); // Sem dependências para evitar recarregamentos
 
-  // Propagar mudanças para o componente pai
+  // Propagar mudanças para o componente pai de forma controlada
   useEffect(() => {
-    if (!loading && onChange) {
+    if (onChange) {
       onChange({
         ...nodeData,
         ...formState
       });
     }
-  }, [formState, nodeData, onChange, loading]);
+  }, [formState]);
 
   // Atualizar formState quando nodeData mudar
   useEffect(() => {
@@ -193,25 +192,9 @@ const ScheduleNodeDrawer = ({ nodeData, onChange, flowVariables }) => {
   };
 
   // Callback para quando grupos são atualizados
-  const handleGroupsUpdated = async () => {
-    try {
-      setLoading(true);
-      const { data } = await api.get('/horario-groups');
-      
-      if (data && Array.isArray(data.groups)) {
-        setGroups(data.groups);
-      } else {
-        console.warn('Formato de dados inválido na resposta da API de grupos');
-        toast.warning('A resposta da API não contém grupos válidos');
-      }
-    } catch (error) {
-      console.error('Erro ao recarregar grupos:', error);
-      const errorMessage = error.response?.data?.error || 'Não foi possível recarregar a lista de grupos de horários';
-      toast.error(errorMessage);
-    } finally {
-      setLoading(false);
-    }
-  };
+  const handleGroupsUpdated = useCallback(() => {
+    loadGroups();
+  }, [loadGroups]);
 
   return (
     <Box sx={{ p: 2 }}>
@@ -334,19 +317,20 @@ const ScheduleNodeDrawer = ({ nodeData, onChange, flowVariables }) => {
       </Box>
 
       {/* Modal para gerenciamento de horários e grupos */}
-      <Dialog
-        open={managerDialogOpen}
-        onClose={handleCloseManager}
-        maxWidth="md"
-        fullWidth
-        PaperProps={{
-          sx: {
-            height: { xs: '100%', sm: 'auto' },
-            maxHeight: { xs: '100%', sm: '90vh' }
-          }
-        }}
-      >
-<Box sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+      {managerDialogOpen && (
+        <Dialog
+          open={managerDialogOpen}
+          onClose={handleCloseManager}
+          maxWidth="md"
+          fullWidth
+          PaperProps={{
+            sx: {
+              height: { xs: '100%', sm: 'auto' },
+              maxHeight: { xs: '100%', sm: '90vh' }
+            }
+          }}
+        >
+          <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
             <Box sx={{ 
               p: 2, 
               display: 'flex', 
@@ -356,7 +340,7 @@ const ScheduleNodeDrawer = ({ nodeData, onChange, flowVariables }) => {
             }}>
               <Typography variant="h6">Gerenciamento de Horários</Typography>
               <IconButton onClick={handleCloseManager}>
-                <SettingsIcon />
+                <CloseIcon />
               </IconButton>
             </Box>
             
@@ -401,8 +385,9 @@ const ScheduleNodeDrawer = ({ nodeData, onChange, flowVariables }) => {
             </Box>
           </Box>
         </Dialog>
-      </Box>
-    );
+      )}
+    </Box>
+  );
 };
 
 export default ScheduleNodeDrawer;
