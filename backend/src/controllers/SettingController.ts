@@ -220,7 +220,7 @@ export const getSettingRegister = async (req: Request, res: Response): Promise<R
   }
 
   try {
-    const settings = await ListSettingsService(isSuper, companyId);
+    const settings = await ListSettingsService(companyId);
     return res.status(200).json(settings);
   } catch (error) {
     logger.error({

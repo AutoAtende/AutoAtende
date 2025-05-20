@@ -275,7 +275,7 @@ export const store = async (req: Request, res: Response): Promise<Response> => {
       const record = await CreateService({
         ...data,
         companyId,
-        originalTagListIds: null // Garantir que não haja conflito com tags
+        tagListId: null // Garantir que não haja conflito com tags
       });
 
       // Emitir evento via socket
