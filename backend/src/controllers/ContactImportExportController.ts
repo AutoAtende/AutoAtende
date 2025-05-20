@@ -145,11 +145,13 @@ async function processImportWithMappings(
                 await EmployerPosition.findOrCreate({
                   where: {
                     employerId,
-                    positionId: position.id
+                    positionId: position.id,
+                    companyId
                   },
                   defaults: {
                     employerId,
-                    positionId: position.id
+                    positionId: position.id,
+                    companyId
                   }
                 });
               }
@@ -188,12 +190,14 @@ async function processImportWithMappings(
                   await ContactCustomField.findOrCreate({
                     where: {
                       contactId: contact.id,
-                      name: fieldName
+                      name: fieldName,
+                      companyId
                     },
                     defaults: {
                       contactId: contact.id,
                       name: fieldName,
-                      value: fieldValue
+                      value: fieldValue,
+                      companyId
                     }
                   });
                 }
