@@ -37,7 +37,7 @@ import {
   Brightness7 as Brightness7Icon
 } from "@mui/icons-material";
 import { AuthContext } from "../../context/Auth/AuthContext";
-import { useWhitelabelSettings } from "../../hooks/useWhitelabelSettings";
+import { usePublicSettings } from "../../context/PublicSettingsContext";
 import { i18n } from "../../translate/i18n";
 import { useSpring, animated } from "@react-spring/web";
 import { toast } from "../../helpers/toast";
@@ -115,7 +115,9 @@ const Login = () => {
   const theme = useTheme();
   const { colorMode } = useContext(ColorModeContext);
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
-  const { settings, loading } = useWhitelabelSettings();
+  const { 
+    publicSettings
+  } = usePublicSettings();
   const { handleLogin } = useContext(AuthContext);
   const [forgotPasswordOpen, setForgotPasswordOpen] = useState(false);
   const [resetStep, setResetStep] = useState(1);
@@ -126,12 +128,12 @@ const Login = () => {
   const [showPassword, setShowPassword] = useState(false);
 
   // Obter configurações diretamente do objeto settings
-  const allowSignup = settings.allowSignup === "enabled";
-  const copyright = settings.copyright || "";
-  const terms = settings.terms || "";
-  const privacy = settings.privacy || "";
-  const loginPosition = settings.loginPosition || "right";
-  const loginBackground = settings.loginBackground || "";
+  const allowSignup = publicSettings.allowSignup === "enabled";
+  const copyright = publicSettings.copyright || "";
+  const terms = publicSettings.terms || "";
+  const privacy = publicSettings.privacy || "";
+  const loginPosition = publicSettings.loginPosition || "right";
+  const loginBackground = publicSettings.loginBackground || "";
 
   const [user, setUser] = useState({
     email: localStorage.getItem("email") || "",
