@@ -12,9 +12,7 @@ import { publicFolder } from "../config/upload";
 import GetPublicSettingService, {
   GetAllPublicSettingsService
 } from "../services/SettingServices/GetPublicSettingService";
-import GetMenuConfigService from "../services/SettingServices/GetMenuConfigService";
 import { 
-  MenuItem,
   LogoUploadRequest,
   BackgroundUploadRequest,
   PrivateFileUploadRequest,
@@ -26,12 +24,16 @@ export const index = async (req: Request, res: Response): Promise<Response> => {
   const userCompanyId = req.user.companyId;
   const companyId = parseInt(req.params.companyId);
 
+  console.log("[SettingsController] userCompanyId: ", userCompanyId);
+  console.log("[SettingsController] companyId: ", companyId);
+
 if(userCompanyId !== companyId){
   throw new AppError("ERR_NO_PERMISSION", 403);
 }
 
   try {
     const settings = await ListSettingsService(companyId);
+    console.log("[SettingsController] settings: ", settings);
     return res.status(200).json(settings);
   } catch (error) {
     logger.error({
@@ -211,12 +213,9 @@ export const deleteBackground = async (req: Request, res: Response): Promise<Res
 };
 
 export const getSettingRegister = async (req: Request, res: Response): Promise<Response> => {
-  const isSuper = req.user.isSuper;
   const companyId = req.user.companyId;
 
-  if (!isSuper) {
-    throw new AppError("ERR_NO_PERMISSION", 403);
-  }
+  console.log("[getSettingRegister] companyId: ", companyId);
 
   try {
     const settings = await ListSettingsService(companyId);
@@ -231,25 +230,6 @@ export const getSettingRegister = async (req: Request, res: Response): Promise<R
       throw error;
     }
     throw new AppError("ERR_GET_SETTING_REGISTER", 500);
-  }
-};
-
-export const getMenuConfig = async (req: Request, res: Response): Promise<Response> => {
-  const companyId = req.user.companyId;
-
-  try {
-    const menuConfig = await GetMenuConfigService(companyId);
-    return res.status(200).json(menuConfig);
-  } catch (error) {
-    logger.error({
-      message: "Erro ao buscar configuração do menu",
-      companyId,
-      error
-    });
-    if (error instanceof AppError) {
-      throw error;
-    }
-    throw new AppError("ERR_FETCH_MENU_CONFIG", 500);
   }
 };
 
@@ -296,78 +276,8 @@ export const update = async (req: Request, res: Response): Promise<Response> => 
   }
 };
 
-export const updateMenuConfig = async (req: Request, res: Response): Promise<Response> => {
-  if (req.user.profile !== "admin") {
-    throw new AppError("ERR_NO_PERMISSION", 403);
-  }
-
-  const companyId = req.user.companyId;
-  const { menuItems } = req.body as { menuItems: MenuItem[] };
-
-  try {
-    // Validação dos dados recebidos
-    if (!Array.isArray(menuItems)) {
-      throw new AppError("ERR_INVALID_MENU_ITEMS_FORMAT", 400);
-    }
-
-    // Validação da estrutura de cada item
-    const isValidMenuItem = (item: any): item is MenuItem => {
-      return (
-        typeof item.id === "string" &&
-        typeof item.name === "string" &&
-        typeof item.enabled === "boolean" &&
-        typeof item.order === "number"
-      );
-    };
-
-    if (!menuItems.every(isValidMenuItem)) {
-      throw new AppError("ERR_INVALID_MENU_ITEM_STRUCTURE", 400);
-    }
-
-    // Garante que a ordem está correta e sem duplicatas
-    const sortedItems = menuItems
-      .sort((a, b) => a.order - b.order)
-      .map((item, index) => ({
-        ...item,
-        order: index + 1
-      }));
-
-    // Salva a configuração no banco de dados
-    const setting = await UpdateSettingService({
-      key: "menuConfig",
-      value: JSON.stringify({ items: sortedItems }),
-      companyId
-    });
-
-    // Emite evento via socket para atualização em tempo real
-    const io = getIO();
-    io.to(`company-${companyId}-mainchannel`).emit(`company-${companyId}-menu-config`, {
-      action: "update",
-      menuConfig: { items: sortedItems }
-    });
-
-    // Retorna a configuração atualizada
-    return res.status(200).json({
-      status: "success",
-      message: "Configuração do menu atualizada com sucesso",
-      data: { items: sortedItems }
-    });
-
-  } catch (error) {
-    logger.error({
-      message: "Erro ao atualizar configuração do menu",
-      companyId,
-      error
-    });
-    if (error instanceof AppError) {
-      throw error;
-    }
-    throw new AppError("ERR_UPDATING_MENU_CONFIG", 500);
-  }
-};
-
 export const publicIndex = async (req: Request, res: Response): Promise<Response> => {
-  const companyId = req.query.companyId ? parseInt(req.query.companyId as string) : undefined;
+  const companyId = req.params.companyId ? parseInt(req.params.companyId as string) : undefined;
   
   try {
     const settings = await GetAllPublicSettingsService(companyId);
@@ -384,7 +294,7 @@ export const publicIndex = async (req: Request, res: Response): Promise<Response
 
 export const publicShow = async (req: Request, res: Response): Promise<Response> => {
   const { settingKey: key } = req.params;
-  const companyId = req.query.companyId ? parseInt(req.query.companyId as string) : undefined;
+  const companyId = req.params.companyId ? parseInt(req.params.companyId as string) : undefined;
   
   try {
     const settingValue = await GetPublicSettingService({ key, companyId });

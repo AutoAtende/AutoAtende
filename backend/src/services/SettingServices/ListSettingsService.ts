@@ -1,4 +1,4 @@
-import { Op, WhereOptions } from "sequelize";
+import { WhereOptions } from "sequelize";
 import Setting from "../../models/Setting";
 import { logger } from "../../utils/logger";
 import AppError from "../../errors/AppError";
@@ -13,6 +13,8 @@ const ListSettingsService = async (
       where,
       order: [["key", "ASC"]]
     });
+
+    console.log("[ListSettingsService] settings: ", settings);
 
     return settings;
   } catch (error) {

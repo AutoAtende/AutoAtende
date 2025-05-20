@@ -1,4 +1,5 @@
 import React, { createContext, useState, useContext, useCallback, useEffect } from "react";
+import AuthContext from "../contexts/AuthContext";
 import api from "../services/api";
 import openApi from "../services/api";
 
@@ -9,6 +10,7 @@ const SettingsContext = createContext({});
 const CACHE_EXPIRATION_TIME = 86400000; // 24 horas em milissegundos
 
 export const SettingsProvider = ({ children }) => {
+  const { user } = useContext(AuthContext);
   // Estado principal para armazenar as configurações como array (compatível com código existente)
   const [settings, setSettings] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -78,7 +80,7 @@ export const SettingsProvider = ({ children }) => {
       setLoading(true);
       
       // Usar companyId do parâmetro ou padrão
-      const targetCompanyId = companyId || localStorage.getItem("companyId") || "1";
+      const targetCompanyId = companyId || localStorage.getItem("companyId") || user.companyId ||"1";
       
       // Verificar cache primeiro
       const cachedSettings = getSettingsFromCache(targetCompanyId);
@@ -115,9 +117,7 @@ export const SettingsProvider = ({ children }) => {
       const targetCompanyId = companyId || localStorage.getItem("companyId") || "1";
       
       // Buscar configurações públicas
-      const { data } = await openApi.get("/public-settings", { 
-        params: { companyId: targetCompanyId } 
-      });
+      const { data } = await openApi.get(`/public-settings/c/${targetCompanyId}`);
       
       return data;
     } catch (err) {
@@ -136,10 +136,8 @@ export const SettingsProvider = ({ children }) => {
       // Usar companyId do parâmetro ou padrão
       const targetCompanyId = companyId || localStorage.getItem("companyId") || "1";
       
-      const { data } = await api.put(`/settings/${key}`, {
+      const { data } = await api.put(`/settings/c/${targetCompanyId}/k/${key}`, {
         value
-      }, {
-        params: { companyId: targetCompanyId }
       });
       
       // Atualizar cache e estado

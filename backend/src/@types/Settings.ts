@@ -4,18 +4,7 @@ export interface BaseSetting {
     value: string;
     companyId: number;
   }
-  
-  export interface MenuItem {
-    id: string;
-    name: string;
-    enabled: boolean;
-    order: number;
-  }
-  
-  export interface MenuConfig {
-    items: MenuItem[];
-  }
-  
+
   export enum SettingScope {
     PUBLIC = 'public',
     PRIVATE = 'private',
@@ -62,9 +51,7 @@ export interface BaseSetting {
   
   // Lista de chaves seguras (acessíveis por usuários não administradores)
   export const SAFE_SETTINGS: Record<string, string> = {
-    groupsTab: "disabled",
     CheckMsgIsGroup: "disabled",
-    soundGroupNotifications: "disabled"
   };
   
   // Constantes para uso interno 
