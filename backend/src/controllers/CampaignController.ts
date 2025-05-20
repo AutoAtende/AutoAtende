@@ -164,10 +164,20 @@ async function createContactListFromTags(tagIds: number[], campaignName: string,
   }
 }
 
-// Correção na função store do controlador de campanhas
 export const store = async (req: Request, res: Response): Promise<Response> => {
   const { companyId } = req.user;
   const data = req.body as StoreData;
+
+  // Adicionar log detalhado dos dados recebidos
+  logger.info(`Dados de campanha recebidos no controlador:`, {
+    name: data.name,
+    whatsappId: data.whatsappId,
+    fileListId: data.fileListId,
+    userId: data.userId,
+    queueId: data.queueId,
+    openTicket: data.openTicket,
+    statusTicket: data.statusTicket
+  });
 
   const schema = Yup.object().shape({
     name: Yup.string().required(),
@@ -207,14 +217,29 @@ export const store = async (req: Request, res: Response): Promise<Response> => {
           });
         }
         
-        // Salvar o array de tags original
+        // CORREÇÃO: Preservar TODOS os dados do request, apenas adicionando/modificando campos específicos
         const campaignData = {
-          ...data,
+          ...data,  // Manter todos os campos originais
           status: "PROGRAMADA",
           companyId,
           contactListId: contactListId,
-          originalTagListIds: tagIds // Manter referência das tags usadas
+          originalTagListIds: tagIds, // Manter referência das tags usadas
+          // Garantir tipos corretos para campos numéricos
+          fileListId: data.fileListId ? Number(data.fileListId) : null,
+          userId: data.userId ? Number(data.userId) : null,
+          queueId: data.queueId ? Number(data.queueId) : null
         };
+        
+        // Log para verificar o objeto final
+        logger.info(`Objeto campaignData montado:`, {
+          name: campaignData.name,
+          contactListId: campaignData.contactListId,
+          fileListId: campaignData.fileListId,
+          userId: campaignData.userId,
+          queueId: campaignData.queueId,
+          openTicket: campaignData.openTicket,
+          statusTicket: campaignData.statusTicket
+        });
         
         // Criar a campanha
         const record = await CreateService(campaignData);
@@ -252,11 +277,29 @@ export const store = async (req: Request, res: Response): Promise<Response> => {
     }
 
     try {
-      const record = await CreateService({
+      // CORREÇÃO: Preservar todos os campos originais, apenas modificando tagListId
+      const campaignData = {
         ...data,
         companyId,
-        tagListId: null // Garantir que não haja conflito com tags
+        tagListId: null, // Garantir que não haja conflito com tags
+        // Garantir tipos corretos para campos numéricos
+        fileListId: data.fileListId ? Number(data.fileListId) : null,
+        userId: data.userId ? Number(data.userId) : null,
+        queueId: data.queueId ? Number(data.queueId) : null
+      };
+
+      // Log para verificar o objeto final
+      logger.info(`Objeto campaignData montado para lista de contatos:`, {
+        name: campaignData.name,
+        contactListId: campaignData.contactListId,
+        fileListId: campaignData.fileListId,
+        userId: campaignData.userId,
+        queueId: campaignData.queueId,
+        openTicket: campaignData.openTicket,
+        statusTicket: campaignData.statusTicket
       });
+
+      const record = await CreateService(campaignData);
 
       // Emitir evento via socket
       const io = getIO();
@@ -277,13 +320,20 @@ export const store = async (req: Request, res: Response): Promise<Response> => {
   }
 };
 
-// Correção na função update do controlador de campanhas
-export const update = async (
-  req: Request,
-  res: Response
-): Promise<Response> => {
+export const update = async (req: Request, res: Response): Promise<Response> => {
   const data = req.body as StoreData;
   const { companyId } = req.user;
+
+  // Adicionar log detalhado dos dados recebidos
+  logger.info(`Dados de atualização de campanha recebidos:`, {
+    name: data.name,
+    whatsappId: data.whatsappId,
+    fileListId: data.fileListId,
+    userId: data.userId,
+    queueId: data.queueId,
+    openTicket: data.openTicket,
+    statusTicket: data.statusTicket
+  });
 
   const schema = Yup.object().shape({
     name: Yup.string().required(),
@@ -324,13 +374,30 @@ export const update = async (
           });
         }
         
-        // Atualizar campanha com a nova lista e manter referência das tags
-        const record = await UpdateService({
+        // CORREÇÃO: Preservar todos os dados originais
+        const updateData = {
           ...data,
           id,
           contactListId: contactListId,
-          originalTagListIds: tagIds
+          originalTagListIds: tagIds,
+          // Garantir tipos corretos para campos numéricos
+          fileListId: data.fileListId ? Number(data.fileListId) : null,
+          userId: data.userId ? Number(data.userId) : null,
+          queueId: data.queueId ? Number(data.queueId) : null
+        };
+
+        // Log para verificar o objeto final
+        logger.info(`Objeto updateData montado para atualização:`, {
+          name: updateData.name,
+          contactListId: updateData.contactListId,
+          fileListId: updateData.fileListId,
+          userId: updateData.userId,
+          queueId: updateData.queueId,
+          openTicket: updateData.openTicket,
+          statusTicket: updateData.statusTicket
         });
+
+        const record = await UpdateService(updateData);
 
         const io = getIO();
         io.to(`company-${companyId}-mainchannel`)
@@ -364,11 +431,29 @@ export const update = async (
     }
 
     try {
-      const record = await UpdateService({
+      // CORREÇÃO: Preservar todos os dados originais
+      const updateData = {
         ...data,
         id,
-        originalTagListIds: null // Limpar tags quando usar lista de contatos
+        originalTagListIds: null, // Limpar tags quando usar lista de contatos
+        // Garantir tipos corretos para campos numéricos
+        fileListId: data.fileListId ? Number(data.fileListId) : null,
+        userId: data.userId ? Number(data.userId) : null,
+        queueId: data.queueId ? Number(data.queueId) : null
+      };
+
+      // Log para verificar o objeto final
+      logger.info(`Objeto updateData montado para atualização com lista:`, {
+        name: updateData.name,
+        contactListId: updateData.contactListId,
+        fileListId: updateData.fileListId,
+        userId: updateData.userId,
+        queueId: updateData.queueId,
+        openTicket: updateData.openTicket,
+        statusTicket: updateData.statusTicket
       });
+
+      const record = await UpdateService(updateData);
 
       const io = getIO();
       io.to(`company-${companyId}-mainchannel`)

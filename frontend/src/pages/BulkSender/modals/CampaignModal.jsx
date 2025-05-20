@@ -491,15 +491,13 @@ const CampaignModal = ({ open, onClose, campaignId, onSuccess, duplicateFromId =
         return;
       }
 
-      // Formatar dados
-      const dataValues = {};
-      Object.entries(values).forEach(([key, value]) => {
-        if (key === "scheduledAt" && value) {
-          dataValues[key] = moment(value).format("YYYY-MM-DD HH:mm:ss");
-        } else {
-          dataValues[key] = value === "" ? null : value;
-        }
-      });
+      // CORREÇÃO: Preservar TODOS os campos, sem converter vazios para null
+      const dataValues = { ...values };
+
+      // Tratar apenas casos específicos
+      if (dataValues.scheduledAt) {
+        dataValues.scheduledAt = moment(dataValues.scheduledAt).format("YYYY-MM-DD HH:mm:ss");
+      }
 
       // Garantir que tagListId seja enviado corretamente
       if (!hasTags) {
@@ -508,6 +506,19 @@ const CampaignModal = ({ open, onClose, campaignId, onSuccess, duplicateFromId =
 
       // Adicionar companyId
       dataValues.companyId = companyId;
+
+      console.log("Enviando campanha com os seguintes dados:", {
+        name: dataValues.name,
+        whatsappId: dataValues.whatsappId,
+        userId: dataValues.userId, // Verificar que usuário está sendo enviado
+        queueId: dataValues.queueId, // Verificar que setor está sendo enviado
+        fileListId: dataValues.fileListId, // Verificar que lista de arquivos está sendo enviada
+        openTicket: dataValues.openTicket, // Verificar que a configuração de ticket está sendo enviada
+        statusTicket: dataValues.statusTicket, // Verificar que o status do ticket está sendo enviado
+        contactListId: dataValues.contactListId,
+        tagListId: dataValues.tagListId,
+        // Mostrar todos os demais campos importantes
+      });
 
       let campaignResponse;
 
@@ -835,7 +846,8 @@ const CampaignModal = ({ open, onClose, campaignId, onSuccess, duplicateFromId =
                       labelId="user-selection-label"
                       id="userId"
                       name="userId"
-                      disabled={!campaignEditable}
+                      value={formikProps.values.userId || ""}
+                      onChange={formikProps.handleChange}
                       InputLabelProps={{
                         shrink: true,
                       }}
@@ -864,7 +876,8 @@ const CampaignModal = ({ open, onClose, campaignId, onSuccess, duplicateFromId =
                       labelId="queue-selection-label"
                       id="queueId"
                       name="queueId"
-                      disabled={!campaignEditable}
+                      value={formikProps.values.queueId || ""}
+                      onChange={formikProps.handleChange}
                       InputLabelProps={{
                         shrink: true,
                       }}
@@ -893,7 +906,8 @@ const CampaignModal = ({ open, onClose, campaignId, onSuccess, duplicateFromId =
                       labelId="openTicket-selection-label"
                       id="openTicket"
                       name="openTicket"
-                      disabled={!campaignEditable}
+                      value={formikProps.values.openTicket || "disabled"}
+                      onChange={formikProps.handleChange}
                       InputLabelProps={{
                         shrink: true,
                       }}
@@ -960,6 +974,8 @@ const CampaignModal = ({ open, onClose, campaignId, onSuccess, duplicateFromId =
                       labelId="fileList-selection-label"
                       id="fileListId"
                       name="fileListId"
+                      value={formikProps.values.fileListId || ""}
+                      onChange={formikProps.handleChange}
                       InputLabelProps={{
                         shrink: true,
                       }}
@@ -973,6 +989,7 @@ const CampaignModal = ({ open, onClose, campaignId, onSuccess, duplicateFromId =
                     </Field>
                   </FormControl>
                 </Grid>
+
               </Grid>
 
               {/* Abas de mensagens */}
