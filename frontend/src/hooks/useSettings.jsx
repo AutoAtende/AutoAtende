@@ -88,7 +88,7 @@ export const SettingsProvider = ({ children }) => {
       }
       
       // Buscar da API com parâmetro de companyId
-      const { data } = await api.get(`/settings/${targetCompanyId}`);
+      const { data } = await api.get(`/settings/c/${targetCompanyId}`);
       
       // Garantir que os dados estão no formato correto (array)
       const settingsArray = Array.isArray(data) ? data : [];

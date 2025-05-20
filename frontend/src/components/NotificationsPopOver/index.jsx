@@ -21,6 +21,7 @@ import CircularProgress from '@mui/material/CircularProgress';
 // Import do novo componente NotificationTicketItem
 import NotificationTicketItem from "./NotificationTicketItem";
 import { i18n } from "../../translate/i18n";
+import useSettings from "../../hooks/useSettings";
 import useTickets from "../../hooks/useTickets";
 import alertSound from "../../assets/sound.mp3";
 import { AuthContext } from "../../context/Auth/AuthContext";
@@ -104,7 +105,7 @@ const NotificationsPopOver = (props) => {
   const theme = useTheme();
   const history = useHistory();
   const { user } = useContext(AuthContext);
-
+  const { settings } = useSettings();
   const companyFolder = `company${user.companyId}`;
   const defaultLogoFavicon = `${companyFolder}/logos/favicon.svg`;
 
@@ -122,12 +123,14 @@ const NotificationsPopOver = (props) => {
   const [deletingTicketId, setDeletingTicketId] = useState(null);
   const [reasonModalOpen, setReasonModalOpen] = useState(false);
   const [closingTicketId, setClosingTicketId] = useState(null);
-  const [enableReasonWhenCloseTicket, setEnableReasonWhenCloseTicket] = useState(false);
+
+  const enableReasonWhenCloseTicket = settings.enableReasonWhenCloseTicket;
+  const sendGreetingAccepted = settings.sendGreetingAccepted;
 
   const { tickets } = useTickets({ withUnreadMessages: "true" });
   const [play] = useSound(alertSound, {volume: props.volume});
   const soundAlertRef = useRef();
-  
+
   const historyRef = useRef(history);
   
   const socketManager = useContext(SocketContext);
@@ -136,21 +139,6 @@ const NotificationsPopOver = (props) => {
   // Inicializa o serviço de notificações
   useEffect(() => {
     notificationService.initialize();
-    
-    // Verifica se a razão é obrigatória ao fechar ticket
-    const fetchSettings = async () => {
-      try {
-        const { data } = await api.get("/settings/");
-        const enableReason = data.find((s) => s.key === "enableReasonWhenCloseTicket");
-        if (enableReason) {
-          setEnableReasonWhenCloseTicket(enableReason.value === "true");
-        }
-      } catch (err) {
-        console.error("Erro ao buscar configurações:", err);
-      }
-    };
-    
-    fetchSettings();
   }, []);
 
   // Configuração do som
@@ -442,15 +430,7 @@ const NotificationsPopOver = (props) => {
       });
       
       // Enviar mensagem de saudação se configurado
-      let settingIndex = null;
-      try {
-        const { data } = await api.get("/settings/");
-        settingIndex = data.find((s) => s.key === "sendGreetingAccepted");
-      } catch (err) {
-        console.error("Erro ao buscar configurações:", err);
-      }
-      
-      if (settingIndex?.value === "enabled" && !ticket?.isGroup) {
+      if (sendGreetingAccepted === "enabled" && !ticket?.isGroup) {
         const msg = `{{ms}}*{{name}}*, meu nome é *${user?.name}* e agora vou prosseguir com seu atendimento!`;
         const message = {
           read: 1,
