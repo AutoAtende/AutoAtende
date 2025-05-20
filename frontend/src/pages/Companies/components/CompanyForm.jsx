@@ -18,6 +18,7 @@ import {
 } from '@mui/material';
 import { toast } from '../../../helpers/toast';
 import api from '../../../services/api';
+import { AuthContext } from '../../../context/Auth/AuthContext';
 // Importação do componente de telefone personalizado
 import CompanyPhoneInput from '../../../components/PhoneInputs/CompanyPhoneInput';
 
@@ -35,6 +36,7 @@ const validationSchema = Yup.object().shape({
 export default function CompanyForm({ open, onClose, initialData, onSuccess }) {
   const [loading, setLoading] = useState(false);
   const [plans, setPlans] = useState([]);
+  const { user } = useContext(AuthContext);
 
   // Carregar planos disponíveis
   useEffect(() => {

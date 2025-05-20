@@ -1357,6 +1357,8 @@ const MessageInputCustom = (props) => {
       await api.post(`/messages/typing/${ticketId}?status=${status}`);
 
       const companyId = localStorage.getItem("companyId");
+      if (!companyId) return;
+      if (!socketManager?.GetSocket) return;
       const socket = socketManager.GetSocket(companyId);
       if (socket) {
         socket.emit("typing", { ticketId, status });
@@ -1446,6 +1448,8 @@ const handleSendMessage = async () => {
 
       // Emitir evento de gravação
       const companyId = localStorage.getItem("companyId");
+      if (!companyId) return;
+      if (!socketManager?.GetSocket) return;
       const socket = socketManager.GetSocket(companyId);
       if (socket) {
         socket.emit("recording", { ticketId, status: true });
@@ -1525,6 +1529,9 @@ const handleSendMessage = async () => {
     try {
       // Notificar que parou de gravar
       const companyId = localStorage.getItem("companyId");
+      if (!companyId) return;
+      if (!socketManager?.GetSocket) return;
+      
       const socket = socketManager.GetSocket(companyId);
       if (socket) {
         socket.emit("recording", { ticketId, status: false });
@@ -1655,6 +1662,8 @@ const handleSendMessage = async () => {
     try {
       // Notificar que parou de gravar
       const companyId = localStorage.getItem("companyId");
+      if (!companyId) return;
+      if (!socketManager?.GetSocket) return;
       const socket = socketManager.GetSocket(companyId);
       if (socket) {
         socket.emit("recording", { ticketId, status: false });

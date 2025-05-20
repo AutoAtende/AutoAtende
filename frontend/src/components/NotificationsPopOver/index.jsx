@@ -171,6 +171,9 @@ const NotificationsPopOver = (props) => {
   // Configuração de WebSocket
   useEffect(() => {
     const companyId = localStorage.getItem("companyId");
+    if (!companyId) return;
+    if (!socketManager?.GetSocket) return;
+    
     const socket = socketManager.GetSocket(companyId);
     if (!socket) return;
 
@@ -229,7 +232,7 @@ const NotificationsPopOver = (props) => {
       }
     };
 
-    socketManager.onConnect(onConnectNotificationsPopover);
+    socket.on("connect", onConnectNotificationsPopover);
     socket.on(`company-${companyId}-ticket`, onCompanyTicketNotificationsPopover);
     socket.on(`company-${companyId}-appMessage`, onCompanyAppMessageNotificationsPopover);
 

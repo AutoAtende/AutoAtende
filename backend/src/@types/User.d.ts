@@ -82,6 +82,7 @@ export interface TokenPayload {
     companyId: number;
     iat: number;
     exp: number;
+    tokenVersion: number;
   }
   
   export interface RequestUser {

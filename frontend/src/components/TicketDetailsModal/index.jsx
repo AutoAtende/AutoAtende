@@ -143,9 +143,9 @@ const TicketDetailsModal = ({
   const fullScreen = useMediaQuery(theme.breakpoints.down('sm'));
   const { settings } = useSettings();
   
-  const enableQueueWhenCloseTicket = settings?.enableQueueWhenCloseTicket;
-  const enableTagsWhenCloseTicket = settings?.enableTagsWhenCloseTicket;
-  const enableReasonWhenCloseTicket = settings?.enableReasonWhenCloseTicket;
+  const enableQueueWhenCloseTicket = settings.enableQueueWhenCloseTicket;
+  const enableTagsWhenCloseTicket = settings.enableTagsWhenCloseTicket;
+  const enableReasonWhenCloseTicket = settings.enableReasonWhenCloseTicket;
   const [reasonModalOpen, setReasonModalOpen] = useState(false);
   const [queueModalOpen, setQueueModalOpen] = useState(false);
   const [tagModalOpen, setTagModalOpen] = useState(false);

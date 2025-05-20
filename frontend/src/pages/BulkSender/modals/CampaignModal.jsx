@@ -30,7 +30,7 @@ import {
   RadioGroup,
   FormHelperText,
   InputAdornment,
-  Chip
+  Chip,
 } from "@mui/material";
 
 // Icons
@@ -81,10 +81,9 @@ const StyledTabs = styled(Tabs)(({ theme }) => ({
   },
 }));
 
-// Componente para campos de lista de contatos e tags
 const SelectListOrTag = ({ values, errors, touched, setFieldValue, handleChange, contactLists, tagLists, disabled }) => {
-  const listSelected = !!values.contactListId;
-  const tagSelected = !!values.tagListId;
+  const hasContactList = !!values.contactListId;
+  const hasTags = Array.isArray(values.tagListId) && values.tagListId.length > 0;
 
   return (
     <>
@@ -106,11 +105,11 @@ const SelectListOrTag = ({ values, errors, touched, setFieldValue, handleChange,
               handleChange(e);
               // Se selecionar uma lista, limpa a seleção de tag
               if (e.target.value) {
-                setFieldValue("tagListId", "");
+                setFieldValue("tagListId", []);
               }
             }}
             error={touched.contactListId && Boolean(errors.contactListId)}
-            disabled={disabled || tagSelected}
+            disabled={disabled || hasTags} // Desabilitar apenas se tiver tags selecionadas
             InputLabelProps={{
               shrink: true,
             }}
@@ -122,7 +121,7 @@ const SelectListOrTag = ({ values, errors, touched, setFieldValue, handleChange,
               </MenuItem>
             ))}
           </Select>
-          {tagSelected && (
+          {hasTags && (
             <FormHelperText>
               {i18n.t("campaigns.dialog.form.disabledByTag")}
             </FormHelperText>
@@ -131,55 +130,68 @@ const SelectListOrTag = ({ values, errors, touched, setFieldValue, handleChange,
       </Grid>
 
       <Grid item xs={12} md={4}>
-      <FormControl
-  variant="outlined"
-  fullWidth
->
-  <InputLabel id="tagList-selection-label">
-    {i18n.t("campaigns.dialog.form.tagList")}
-  </InputLabel>
-  <Select
-    label={i18n.t("campaigns.dialog.form.tagList")}
-    labelId="tagList-selection-label"
-    id="tagListId"
-    name="tagListId"
-    value={Array.isArray(values.tagListId) ? values.tagListId : []}
-    onChange={(e) => {
-      handleChange(e);
-      // Se selecionar uma tag, limpa a seleção de lista
-      if (e.target.value && e.target.value.length > 0) {
-        setFieldValue("contactListId", "");
-      }
-    }}
-    error={touched.tagListId && Boolean(errors.tagListId)}
-    disabled={disabled || listSelected}
-    multiple
-    renderValue={(selected) => (
-      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
-        {selected.map((value) => {
-          const tagName = tagLists.find(tag => tag.id === value)?.name || value;
-          return (
-            <Chip key={value} label={tagName} size="small" />
-          );
-        })}
-      </Box>
-    )}
-    InputLabelProps={{
-      shrink: true,
-    }}
-  >
-    {tagLists.map((tagList) => (
-      <MenuItem key={tagList.id} value={tagList.id}>
-        {tagList.name}
-      </MenuItem>
-    ))}
-  </Select>
-  {listSelected && (
-    <FormHelperText>
-      {i18n.t("campaigns.dialog.form.disabledByList")}
-    </FormHelperText>
-  )}
-</FormControl>
+        <FormControl
+          variant="outlined"
+          fullWidth
+        >
+          <InputLabel id="tagList-selection-label">
+            {i18n.t("campaigns.dialog.form.tagList")}
+          </InputLabel>
+          <Select
+            label={i18n.t("campaigns.dialog.form.tagList")}
+            labelId="tagList-selection-label"
+            id="tagListId"
+            name="tagListId"
+            value={Array.isArray(values.tagListId) ? values.tagListId : []}
+            onChange={(e) => {
+              // Remover duplicatas do array de tags
+              const uniqueTags = Array.from(new Set(e.target.value));
+              
+              // Atualizar o valor no formulário
+              setFieldValue("tagListId", uniqueTags);
+              
+              // Se selecionar uma tag, limpa a seleção de lista
+              if (uniqueTags.length > 0) {
+                setFieldValue("contactListId", "");
+              }
+            }}
+            error={touched.tagListId && Boolean(errors.tagListId)}
+            disabled={disabled || hasContactList} // Desabilitar apenas se tiver uma lista de contatos selecionada
+            multiple
+            renderValue={(selected) => (
+              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                {selected.map((value) => {
+                  const tagName = tagLists.find(tag => tag.id === value)?.name || value;
+                  return (
+                    <Chip key={value} label={tagName} size="small" />
+                  );
+                })}
+              </Box>
+            )}
+            MenuProps={{
+              PaperProps: {
+                style: {
+                  maxHeight: 224,
+                  width: 250,
+                },
+              },
+            }}
+            InputLabelProps={{
+              shrink: true,
+            }}
+          >
+            {tagLists.map((tagList) => (
+              <MenuItem key={tagList.id} value={tagList.id}>
+                {tagList.name}
+              </MenuItem>
+            ))}
+          </Select>
+          {hasContactList && (
+            <FormHelperText>
+              {i18n.t("campaigns.dialog.form.disabledByList")}
+            </FormHelperText>
+          )}
+        </FormControl>
       </Grid>
     </>
   );
@@ -215,7 +227,7 @@ const initialState = {
   scheduledAt: null,
   whatsappId: "",
   contactListId: "",
-  tagListId: [],
+  tagListId: [], // Inicializado como array vazio
   fileListId: "",
   userId: "",
   queueId: "",
@@ -323,10 +335,7 @@ const CampaignModal = ({ open, onClose, campaignId, onSuccess, duplicateFromId =
             Object.entries(data).forEach(([key, value]) => {
               if (key === "scheduledAt" && value) {
                 newCampaignData[key] = moment(value).format("YYYY-MM-DDTHH:mm");
-              } else {
-                newCampaignData[key] = value === null ? "" : value;
-              }
-              if (key === "tagListId") {
+              } else if (key === "tagListId") {
                 // Verificar se temos originalTagListIds para usar no lugar de tagListId
                 if (data.originalTagListIds && Array.isArray(data.originalTagListIds)) {
                   newCampaignData[key] = data.originalTagListIds;
@@ -336,6 +345,8 @@ const CampaignModal = ({ open, onClose, campaignId, onSuccess, duplicateFromId =
                 } else {
                   newCampaignData[key] = [];
                 }
+              } else {
+                newCampaignData[key] = value === null ? "" : value;
               }
             });
 
@@ -444,25 +455,28 @@ const CampaignModal = ({ open, onClose, campaignId, onSuccess, duplicateFromId =
     }
   };
 
-
   const handleSaveCampaign = async (values) => {
     try {
       setIsSubmitting(true);
-
+  
       // Validar se tem WhatsApp selecionado
       if (!values.whatsappId) {
         toast.error(i18n.t("campaigns.validation.whatsappRequired"));
         setIsSubmitting(false);
         return;
       }
-
-      // Validar se tem lista de contatos ou tag selecionada
-if (!values.contactListId && (!values.tagListId || values.tagListId.length === 0)) {
-  toast.error(i18n.t("campaigns.validation.contactsRequired"));
-  setIsSubmitting(false);
-  return;
-}
-
+  
+      // Validação corrigida para verificar se pelo menos uma opção está selecionada
+      // Verificamos se tem uma lista de contatos OU pelo menos uma tag selecionada
+      const hasContactList = !!values.contactListId;
+      const hasTags = Array.isArray(values.tagListId) && values.tagListId.length > 0;
+      
+      if (!hasContactList && !hasTags) {
+        toast.error(i18n.t("campaigns.validation.contactsRequired"));
+        setIsSubmitting(false);
+        return;
+      }
+  
       // Validar se tem pelo menos uma mensagem preenchida
       const hasMessage = [
         values.message1,
@@ -471,13 +485,13 @@ if (!values.contactListId && (!values.tagListId || values.tagListId.length === 0
         values.message4,
         values.message5
       ].some(msg => msg && msg.trim() !== '');
-
+  
       if (!hasMessage) {
         toast.error(i18n.t("campaigns.validation.messageRequired"));
         setIsSubmitting(false);
         return;
       }
-
+  
       // Formatar dados
       const dataValues = {};
       Object.entries(values).forEach(([key, value]) => {
@@ -487,12 +501,12 @@ if (!values.contactListId && (!values.tagListId || values.tagListId.length === 0
           dataValues[key] = value === "" ? null : value;
         }
       });
-
+  
       // Adicionar companyId
       dataValues.companyId = companyId;
-
+  
       let campaignResponse;
-
+  
       try {
         if (campaignId) {
           // Atualizar campanha existente
@@ -503,15 +517,33 @@ if (!values.contactListId && (!values.tagListId || values.tagListId.length === 0
           const { data } = await api.post("/campaigns", dataValues);
           campaignResponse = data;
         }
+  
+        // Lidar com anexo/mídia
+        if (attachment != null && campaignResponse.id) {
+          try {
+            const formData = new FormData();
+            formData.append("file", attachment);
+            await api.post(`/campaigns/${campaignResponse.id}/media-upload`, formData);
+          } catch (mediaError) {
+            console.error("Media upload error:", mediaError);
+            toast.warning(i18n.t("campaigns.toasts.mediaError"));
+            // Continuar mesmo com erro no upload da mídia
+          }
+        }
+  
+        toast.success(i18n.t("campaigns.toasts.success"));
+  
+        if (onSuccess) {
+          onSuccess();
+        }
+  
+        handleClose();
       } catch (error) {
         console.error("API Error:", error);
         const errorMsg = error.response?.data?.error || i18n.t("campaigns.toasts.saveError");
         toast.error(errorMsg);
         setIsSubmitting(false);
-        return;
       }
-
-      // Restante da função permanece igual
     } catch (err) {
       console.error("Save campaign error:", err);
       toast.error(i18n.t("campaigns.toasts.saveError"));
@@ -848,7 +880,7 @@ if (!values.contactListId && (!values.tagListId || values.tagListId.length === 0
                     variant="outlined"
                     fullWidth
                   >
-                    <InputLabel id="openTicket-selection-label">
+<InputLabel id="openTicket-selection-label">
                       {i18n.t("campaigns.dialog.form.openTicket")}
                     </InputLabel>
                     <Field

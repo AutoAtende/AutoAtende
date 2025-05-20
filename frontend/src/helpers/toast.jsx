@@ -180,7 +180,7 @@ export const SnackbarContextProvider = ({ children }) => {
       }}
       TransitionComponent={Slide}
       preventDuplicate
-      autoHideDuration={5000}
+      autoHideDuration={2000}
       hideIconVariant
     >
       <SnackbarUpdater />

@@ -47,7 +47,7 @@ const TicketAdvanced = (props) => {
     const classes = useStyles();
     const {ticketId} = useParams();
     const [option, setOption] = useState(0);
-    const {currentTicket, setCurrentTicket} = useContext(TicketsContext)
+    const {currentTicket, setCurrentTicket} = useContext(TicketsContext);
 
     useEffect(() => {
         if (currentTicket.id !== null) {

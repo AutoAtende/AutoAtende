@@ -220,7 +220,6 @@ const TicketsList = (props) => {
     });
 
     const companyId = localStorage.getItem("companyId");
-    const socket = socketManager.GetSocket(companyId);
 
     useEffect(() => {
         dispatch({ type: "LOAD_TICKETS", payload: tickets });
@@ -234,6 +233,11 @@ const TicketsList = (props) => {
     const notBelongsToUserQueues = (ticket) => ticket.queueId && selectedQueueIds.indexOf(ticket.queueId) === -1 || (ticket.queueId === null && user.profile === "user");
 
     const onConnectTicketList = () => {
+        const companyId = localStorage.getItem("companyId");
+        if (!companyId) return;
+        if (!socketManager?.GetSocket) return;
+        const socket = socketManager.GetSocket(companyId);
+        if (!socket) return;
         if (status) {
             socket.emit("joinTickets", status);
         } else {
@@ -316,8 +320,14 @@ const TicketsList = (props) => {
 
     useEffect(() => {
 
+        if (!socketManager?.GetSocket) return;
+        const companyId = localStorage.getItem("companyId");
+        if (!companyId) return;
 
-        socketManager.onConnect(onConnectTicketList);
+        const socket = socketManager.GetSocket(companyId);
+        if (!socket) return;
+
+        socket.on("connect", onConnectTicketList);
 
         socket.on(`company-${companyId}-ticket`, onCompanyTicket);
         socket.on(`company-${companyId}-appMessage`, onCompanyAppMessage);

@@ -25,8 +25,13 @@ import { logger } from "../utils/logger";
 
 export const index = async (req: Request, res: Response): Promise<Response> => {
   const isSuper = req.user.isSuper;
-  const companyId = req.user.companyId;
-  
+  const userCompanyId = req.user.companyId;
+  const companyId = parseInt(req.params.companyId);
+
+if(userCompanyId !== companyId && !isSuper){
+  throw new AppError("ERR_NO_PERMISSION", 403);
+}
+
   try {
     const settings = await ListSettingsService(isSuper, companyId);
     return res.status(200).json(settings);

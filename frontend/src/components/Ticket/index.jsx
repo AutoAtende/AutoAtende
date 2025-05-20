@@ -183,8 +183,8 @@ const Ticket = () => {
     };
 
     const handleCloseTicket = async () => {
-        const enableReasonWhenCloseTicket = settings?.enableReasonWhenCloseTicket;
-        if (enableReasonWhenCloseTicket?.value === 'enabled') {
+        const enableReasonWhenCloseTicket = settings.enableReasonWhenCloseTicket;
+        if (enableReasonWhenCloseTicket === 'enabled') {
             if (setReasonModalOpen) {
                 setReasonModalOpen(true);
             }

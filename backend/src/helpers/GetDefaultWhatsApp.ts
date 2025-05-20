@@ -30,8 +30,6 @@ const GetDefaultWhatsApp = async (
     where: { isDefault: 1, companyId }
   });
 
-  console.log(32, "GetDefaultWhatsApp", defaultWhatsapp);
-
   if (defaultWhatsapp) {
     connection = defaultWhatsapp;
   } else {

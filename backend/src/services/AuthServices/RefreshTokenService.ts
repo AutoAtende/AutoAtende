@@ -26,11 +26,15 @@ export const RefreshTokenService = async (
 ): Promise<Response> => {
   try {
     const decoded = verify(token, (await getJwtConfig()).refreshSecret);
-    const { id, tokenVersion } = decoded as RefreshTokenPayload;
+    const { id, tokenVersion, companyId } = decoded as RefreshTokenPayload;
 
     const user = await ShowUserService(id);
     if (!user) { 
       throw new AppError("ERR_USER_NOT_FOUND", 404);
+    }
+
+    if (user.companyId !== companyId) {
+      throw new AppError("ERR_INVALID_COMPANY_TOKEN", 401);
     }
 
     if (user.tokenVersion !== tokenVersion) {

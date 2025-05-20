@@ -5,6 +5,7 @@ import {
   useTheme,
   useMediaQuery
 } from '@mui/material';
+import { AuthContext } from '../../context/Auth/AuthContext';
 import useSettings from "../../hooks/useSettings";
 import { toast } from '../../helpers/toast';
 import api from '../../services/api';
@@ -26,7 +27,8 @@ import CustomTable from './components/CustomTable';
 const Companies = () => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
-  const { getAll } = useSettings();
+  const { user } = useContext(AuthContext);
+  const { settings } = useSettings();
 
   // Estado principal
   const [loading, setLoading] = useState(false);
@@ -44,7 +46,7 @@ const Companies = () => {
 
   // Estados dos modais
   const [scheduleModalOpen, setScheduleModalOpen] = useState(false);
-  const [schedulesEnabled, setSchedulesEnabled] = useState(false);
+const schedulesEnabled = settings.scheduleType === "company";
   const [selectedCompany, setSelectedCompany] = useState(null);
   const [showCompanyModal, setShowCompanyModal] = useState(false);
   const [showConfirmBlock, setShowConfirmBlock] = useState(false);
@@ -57,21 +59,6 @@ const Companies = () => {
   const [anchorExport, setAnchorExport] = useState(null);
   const [filterAnchor, setFilterAnchor] = useState(null);
   const [blockAction, setBlockAction] = useState('block');
-
-  // Carregar configurações iniciais
-  useEffect(() => {
-    const loadSettings = async () => {
-      try {
-        const settingList = await getAll();
-        setSchedulesEnabled(settingList.scheduleType === "company");
-      } catch (error) {
-        console.error('Erro ao carregar configurações:', error);
-        setError('Erro ao carregar configurações do sistema');
-      }
-    };
-    
-    loadSettings();
-  }, [getAll]);
 
   // Função para carregar empresas
   const loadCompanies = useCallback(async (isFirstLoad = false) => {

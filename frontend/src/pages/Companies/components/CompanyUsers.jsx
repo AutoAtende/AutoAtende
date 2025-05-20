@@ -31,6 +31,7 @@ import { useFormik } from 'formik';
 import { format } from 'date-fns';
 import * as Yup from 'yup';
 import { toast } from '../../../helpers/toast';
+import { AuthContext } from '../../../context/Auth/AuthContext';
 import api from '../../../services/api';
 import ConfirmationModal from '../../../components/ConfirmationModal';
 
@@ -57,6 +58,7 @@ const CellContent = ({ children }) => (
 );
 
 const CompanyUsers = ({ open, onClose, companyId }) => {
+  const { user } = useContext(AuthContext);
   const [loading, setLoading] = useState(true);
   const [users, setUsers] = useState([]);
   const [showForm, setShowForm] = useState(false);
@@ -65,7 +67,7 @@ const CompanyUsers = ({ open, onClose, companyId }) => {
   const [userToDelete, setUserToDelete] = useState(null);
 
   const loadUsers = async () => {
-    if (!companyId) return;
+    if (!companyId || !user) return;
 
     setLoading(true);
     try {

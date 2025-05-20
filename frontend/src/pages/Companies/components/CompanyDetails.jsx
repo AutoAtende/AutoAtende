@@ -25,6 +25,7 @@ import {
 } from '@mui/icons-material';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { AuthContext } from '../../../context/Auth/AuthContext';
 import api from '../../../services/api';
 import { toast } from '../../../helpers/toast';
 
@@ -61,6 +62,7 @@ const UsageCard = ({ title, used = 0, total = 0, icon: Icon }) => {
 };
 
 const CompanyDetails = ({ open, onClose, companyId }) => {
+  const { user } = useContext(AuthContext);
   const [loading, setLoading] = useState(true);
   const [currentTab, setCurrentTab] = useState(0);
   const [company, setCompany] = useState(null);
@@ -68,7 +70,7 @@ const CompanyDetails = ({ open, onClose, companyId }) => {
 
   useEffect(() => {
     const loadCompanyDetails = async () => {
-      if (!companyId || !open) return;
+      if (!companyId || !open || !user) return;
       
       setLoading(true);
       setError(null);
@@ -88,7 +90,7 @@ const CompanyDetails = ({ open, onClose, companyId }) => {
     loadCompanyDetails();
   }, [companyId, open]);
 
-  if (!company && !loading) return null;
+  if (!company && !loading && !user) return null;
 
   const renderBasicInfo = () => (
     <Grid container spacing={3}>

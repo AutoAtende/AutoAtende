@@ -33,9 +33,11 @@ import {
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { toast } from '../../../helpers/toast';
+import { AuthContext } from '../../../context/Auth/AuthContext';
 import api from '../../../services/api';
 
 const CompanyInvoices = ({ open, onClose, companyId }) => {
+  const { user } = useContext(AuthContext);
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
   const [invoices, setInvoices] = useState([]);
@@ -43,7 +45,7 @@ const CompanyInvoices = ({ open, onClose, companyId }) => {
   const [rowsPerPage, setRowsPerPage] = useState(5);
 
   const loadInvoices = async () => {
-    if (!companyId) return;
+    if (!companyId || !user) return;
   
     setLoading(true);
     try {

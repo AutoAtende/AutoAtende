@@ -73,14 +73,13 @@ const Settings = () => {
   const [schedules, setSchedules] = useState([]);
   const [loading, setLoading] = useState(false);
   const [currentUser, setCurrentUser] = useState({});
-  const [settings, setSettings] = useState({});
 
   const [schedulesEnabled, setSchedulesEnabled] = useState(false);
   const [reasonEnabled, setReasonEnabled] = useState("disabled");
 
   const { getCurrentUserInfo } = useAuth();
   const { find, updateSchedules } = useCompanies();
-  const { getAll: getAllSettings } = useSettings();
+  const { settings } = useSettings();
   const { getPlanCompany } = usePlans();
   const [showWhiteLabel, setShowWhiteLabel] = useState(false);
   const { Loading } = useLoading();
@@ -94,14 +93,13 @@ const Settings = () => {
         Loading.turnOn()
         const companyId = localStorage.getItem("companyId");
         const company = await find(companyId);
-        const settingList = await getAllSettings();
+        await getAll(companyId);
         const planConfigs = await getPlanCompany(undefined, companyId);
 
         setSchedules(company.schedules);
-        setSettings(settingList);
         setShowWhiteLabel(planConfigs.plan.whiteLabel);
-        setReasonEnabled(settingList.enableReasonWhenCloseTicket?.value || "disabled");
-        setSchedulesEnabled(settingList.scheduleType === "company");
+        setReasonEnabled(settings.enableReasonWhenCloseTicket || "disabled");
+        setSchedulesEnabled(settings.scheduleType === "company");
         const user = await getCurrentUserInfo();
         setCurrentUser(user);
       } catch (e) {

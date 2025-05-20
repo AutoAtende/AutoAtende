@@ -78,27 +78,49 @@ export const index = async (req: Request, res: Response): Promise<Response> => {
 
 async function createContactListFromTags(tagIds: number[], campaignName: string, companyId: number) {
   try {
+    // Validar tagIds para evitar valores undefined ou nulos
+    if (!tagIds || !Array.isArray(tagIds) || tagIds.length === 0) {
+      logger.error("TagIds inválidos:", tagIds);
+      return null;
+    }
+
+    // Filtrar valores inválidos do array (undefined, null, não numéricos)
+    const validTagIds = tagIds.filter(id => id !== undefined && id !== null && !isNaN(Number(id)));
+    
+    if (validTagIds.length === 0) {
+      logger.error("Nenhum ID de tag válido foi fornecido:", tagIds);
+      return null;
+    }
+
+    logger.info(`Processando campanha "${campaignName}" com tags: ${validTagIds.join(', ')}`);
+    
     // Buscar todos os ticket_tags relacionados
     const ticketTags = await TicketTag.findAll({ 
-      where: { tagId: { [Op.in]: tagIds } } 
+      where: { tagId: { [Op.in]: validTagIds } } 
     });
     
     if (!ticketTags || ticketTags.length === 0) {
+      logger.warn(`Nenhum ticket encontrado com as tags: ${validTagIds.join(', ')}`);
       return null;
     }
     
     // Extrair IDs únicos de tickets
     const uniqueTicketIds = Array.from(new Set(ticketTags.map(tag => tag.ticketId)));
+    logger.info(`Encontrados ${uniqueTicketIds.length} tickets únicos com as tags selecionadas`);
     
     // Buscar tickets
     const tickets = await Ticket.findAll({ 
       where: { id: { [Op.in]: uniqueTicketIds } } 
     });
     
-    if (!tickets || tickets.length === 0) return null;
+    if (!tickets || tickets.length === 0) {
+      logger.warn(`Nenhum ticket válido encontrado para os IDs: ${uniqueTicketIds.length} tickets`);
+      return null;
+    }
     
     // Extrair IDs únicos de contatos
     const uniqueContactIds = Array.from(new Set(tickets.map(ticket => ticket.contactId)));
+    logger.info(`Encontrados ${uniqueContactIds.length} contatos únicos a partir dos tickets`);
     
     // Buscar contatos
     const contacts = await Contact.findAll({ 
@@ -108,10 +130,13 @@ async function createContactListFromTags(tagIds: number[], campaignName: string,
       } 
     });
     
-    if (!contacts || contacts.length === 0) return null;
+    if (!contacts || contacts.length === 0) {
+      logger.warn(`Nenhum contato encontrado para os ${uniqueContactIds.length} IDs de contato`);
+      return null;
+    }
     
     // Criar nome descritivo para a lista
-    const tagsStr = tagIds.length > 1 ? `${tagIds.length} TAGS` : `TAG: ${tagIds[0]}`;
+    const tagsStr = validTagIds.length > 1 ? `${validTagIds.length} TAGS` : `TAG: ${validTagIds[0]}`;
     const contactListName = `${campaignName} | ${tagsStr} - ${new Date().toISOString().replace(/[:.]/g, '-')}`;
     
     // Criar a lista de contatos
@@ -119,6 +144,8 @@ async function createContactListFromTags(tagIds: number[], campaignName: string,
       name: contactListName, 
       companyId: companyId 
     });
+    
+    logger.info(`Lista de contatos criada: ${contactListName} (ID: ${contactList.id})`);
     
     // Preparar itens para inserção em massa
     const contactListItems = [];
@@ -141,6 +168,7 @@ async function createContactListFromTags(tagIds: number[], campaignName: string,
     }
     
     if (contactListItems.length === 0) {
+      logger.warn(`Nenhum contato único encontrado para adicionar à lista ${contactList.id}`);
       await contactList.destroy();
       return null;
     }
@@ -148,8 +176,11 @@ async function createContactListFromTags(tagIds: number[], campaignName: string,
     // Criar itens da lista de contatos em massa
     await ContactListItem.bulkCreate(contactListItems);
     
+    logger.info(`Adicionados ${contactListItems.length} contatos à lista ${contactList.id}`);
+    
     return contactList.id;
   } catch (error) {
+    logger.error('Erro ao criar lista de contatos a partir de tags:', error);
     throw error;
   }
 }
@@ -170,64 +201,79 @@ export const store = async (req: Request, res: Response): Promise<Response> => {
   }
 
   // Verificar se tagListId é um array ou um valor único
-// Verificar se tagListId é um array ou um valor único
-if (data.tagListId !== null && data.tagListId !== undefined) {
-  const tagIds = Array.isArray(data.tagListId) ? data.tagListId : [data.tagListId];
-  
-  if (tagIds.length > 0) {
-    try {
-      // Criar lista de contatos a partir das tags
-      const contactListId = await createContactListFromTags(tagIds, data.name, companyId);
-      
-      if (!contactListId) {
-        return res.status(400).json({ 
-          error: 'Não foram encontrados contatos associados às tags selecionadas' 
+  if (data.tagListId) {
+    // Garantir que tagListId seja um array de valores válidos
+    let tagIds = Array.isArray(data.tagListId) ? data.tagListId : [data.tagListId];
+    
+    // Filtrar valores inválidos
+    tagIds = tagIds.filter(id => id !== undefined && id !== null && !isNaN(Number(id)));
+    
+    if (tagIds.length > 0) {
+      try {
+        // Criar lista de contatos a partir das tags
+        const contactListId = await createContactListFromTags(tagIds, data.name, companyId);
+        
+        if (!contactListId) {
+          logger.error(`Não foram encontrados contatos para as tags: ${tagIds.join(", ")}`);
+          return res.status(400).json({ 
+            error: 'Não foram encontrados contatos associados às tags selecionadas' 
+          });
+        }
+        
+        // Salvar o array de tags original
+        const campaignData = {
+          ...data,
+          companyId,
+          contactListId: contactListId,
+          originalTagListIds: tagIds // Manter referência das tags usadas
+        };
+        
+        // Criar a campanha
+        const record = await CreateService(campaignData);
+        
+        // Notificar via socket
+        const io = getIO();
+        io.to(`company-${companyId}-mainchannel`)
+          .emit(`company-${companyId}-campaign`, {
+            action: "create",
+            record
+          });
+        
+        return res.status(200).json(record);
+      } catch (error) {
+        logger.error('Erro ao processar criação de campanha com tags:', error);
+        return res.status(500).json({ 
+          error: 'Erro ao criar campanha a partir das tags selecionadas',
+          message: error.message
         });
       }
-      
-      // Salvar o array de tags original
-      const campaignData = {
-        ...data,
-        companyId,
-        contactListId: contactListId,
-        originalTagListIds: tagIds // Manter referência das tags usadas
-      };
-      
-      // Criar a campanha
-      const record = await CreateService(campaignData);
-      
-      // Notificar via socket
-      const io = getIO();
-      io.to(`company-${companyId}-mainchannel`)
-        .emit(`company-${companyId}-campaign`, {
-          action: "create",
-          record
-        });
-      
-      return res.status(200).json(record);
-    } catch (error) {
-      logger.error('Erro ao processar criação de campanha com tags:', error);
-      return res.status(500).json({ 
-        error: 'Erro ao criar campanha a partir das tags selecionadas',
-        message: error.message
+    } else {
+      // Se não há tags válidas, notificar erro
+      return res.status(400).json({ 
+        error: 'Nenhuma tag válida foi selecionada'
       });
     }
-  }
-} else { // SAI DO CHECK DE TAG
+  } else if (data.contactListId) {
+    // Processar usando a lista de contatos selecionada
     const record = await CreateService({
       ...data,
       companyId
     });
 
+    // Emitir evento via socket
     const io = getIO();
-    io
-      .to(`company-${companyId}-mainchannel`)
+    io.to(`company-${companyId}-mainchannel`)
       .emit(`company-${companyId}-campaign`, {
-      action: "create",
-      record
-    });
+        action: "create",
+        record
+      });
 
     return res.status(200).json(record);
+  } else {
+    // Nem tag nem lista de contatos fornecida
+    return res.status(400).json({ 
+      error: 'É necessário selecionar uma lista de contatos ou tags' 
+    });
   }
 };
 
@@ -251,92 +297,18 @@ export const update = async (
 
   const { id } = req.params;
 
-  // Função para criar lista de contatos a partir de tags - mesmo do método store
-  async function createContactListFromTags(tagIds: number[], campaignName: string) {
-    try {
-      // Implementação igual à função no método store para manter consistência
-      logger.info(`Iniciando criação de lista de contatos para atualização da campanha ${campaignName} usando tags: ${tagIds}`);
-      
-      const currentDate = new Date();
-      const formattedDate = currentDate.toISOString().replace(/[:.]/g, '-');
-      
-      const ticketTags = await TicketTag.findAll({ 
-        where: { tagId: { [Op.in]: tagIds } } 
-      });
-      
-      if (!ticketTags || ticketTags.length === 0) {
-        logger.warn(`Nenhum ticket encontrado com as tags: ${tagIds}`);
-        return null;
-      }
-      
-      const uniqueTicketIds = Array.from(new Set(ticketTags.map(tag => tag.ticketId)));
-      
-      const tickets = await Ticket.findAll({ 
-        where: { id: { [Op.in]: uniqueTicketIds } } 
-      });
-      
-      if (!tickets || tickets.length === 0) return null;
-      
-      const uniqueContactIds = Array.from(new Set(tickets.map(ticket => ticket.contactId)));
-      
-      const contacts = await Contact.findAll({ 
-        where: { 
-          id: { [Op.in]: uniqueContactIds },
-          companyId: companyId
-        } 
-      });
-      
-      if (!contacts || contacts.length === 0) return null;
-      
-      const tagsStr = tagIds.length > 1 ? `${tagIds.length} TAGS` : `TAG: ${tagIds[0]}`;
-      const contactListName = `${campaignName} | ${tagsStr} - ${formattedDate}`;
-      
-      const contactList = await ContactList.create({ 
-        name: contactListName, 
-        companyId: companyId 
-      });
-      
-      const contactListItems = [];
-      const processedNumbers = new Set();
-      
-      for (const contact of contacts) {
-        if (processedNumbers.has(contact.number)) continue;
-        processedNumbers.add(contact.number);
-        
-        contactListItems.push({
-          name: contact.name || "",
-          number: contact.number,
-          email: contact.email || "",
-          contactListId: contactList.id,
-          companyId,
-          isWhatsappValid: true,
-        });
-      }
-      
-      if (contactListItems.length === 0) {
-        await contactList.destroy();
-        return null;
-      }
-      
-      await ContactListItem.bulkCreate(contactListItems);
-      
-      logger.info(`Atualizada campanha: ${contactListItems.length} contatos adicionados à lista ${contactList.id}`);
-      
-      return contactList.id;
-    } catch (error) {
-      logger.error('Erro ao criar lista de contatos para atualização:', error);
-      throw error;
-    }
-  }
-
   // Verificar se há tags selecionadas
-  if (data.tagListId !== null && data.tagListId !== undefined) {
-    const tagIds = Array.isArray(data.tagListId) ? data.tagListId : [data.tagListId];
+  if (data.tagListId) {
+    // Garantir que tagListId seja um array de valores válidos
+    let tagIds = Array.isArray(data.tagListId) ? data.tagListId : [data.tagListId];
+    
+    // Filtrar valores inválidos
+    tagIds = tagIds.filter(id => id !== undefined && id !== null && !isNaN(Number(id)));
     
     if (tagIds.length > 0) {
       try {
         // Criar nova lista de contatos a partir das tags
-        const contactListId = await createContactListFromTags(tagIds, data.name);
+        const contactListId = await createContactListFromTags(tagIds, data.name, companyId);
         
         if (!contactListId) {
           return res.status(400).json({ 
@@ -367,29 +339,40 @@ export const update = async (
           message: error.message
         });
       }
+    } else {
+      // Se não há tags válidas, notificar erro
+      return res.status(400).json({ 
+        error: 'Nenhuma tag válida foi selecionada'
+      });
     }
-  }
-  
-  // Caso não tenha tags, atualização normal
-  try {
-    const record = await UpdateService({
-      ...data,
-      id
-    });
-
-    const io = getIO();
-    io.to(`company-${companyId}-mainchannel`)
-      .emit(`company-${companyId}-campaign`, {
-        action: "update",
-        record
+  } else if (data.contactListId) {
+    // Caso tenha lista de contatos, atualização normal
+    try {
+      const record = await UpdateService({
+        ...data,
+        id,
+        originalTagListIds: null // Limpar tags quando usar lista de contatos
       });
 
-    return res.status(200).json(record);
-  } catch (error) {
-    logger.error('Erro ao atualizar campanha:', error);
-    return res.status(500).json({ 
-      error: 'Erro ao atualizar campanha',
-      message: error.message
+      const io = getIO();
+      io.to(`company-${companyId}-mainchannel`)
+        .emit(`company-${companyId}-campaign`, {
+          action: "update",
+          record
+        });
+
+      return res.status(200).json(record);
+    } catch (error) {
+      logger.error('Erro ao atualizar campanha:', error);
+      return res.status(500).json({ 
+        error: 'Erro ao atualizar campanha',
+        message: error.message
+      });
+    }
+  } else {
+    // Nem tag nem lista de contatos fornecida
+    return res.status(400).json({ 
+      error: 'É necessário selecionar uma lista de contatos ou tags' 
     });
   }
 };

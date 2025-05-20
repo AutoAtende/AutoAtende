@@ -206,6 +206,9 @@ const TicketsListGroup  = (props) => {
 
   useEffect(async () => {
     const companyId = localStorage.getItem("companyId");
+    if (!companyId) return;
+    if (!socketManager?.GetSocket) return;
+    
     const socket = socketManager.GetSocket(companyId);
 
     const shouldUpdateTicket = (ticket) =>
@@ -281,7 +284,7 @@ const TicketsListGroup  = (props) => {
       }
     }
 
-    socketManager.onConnect(onConnectTicketList);
+    socket.on("connect", onConnectTicketList);
 
     socket.on(`company-${companyId}-ticket`, onCompanyTicket);
     socket.on(`company-${companyId}-appMessage`, onCompanyAppMessage);

@@ -837,7 +837,7 @@ const MessagesList = ({
     message: null
   });
 
-const displayProfileImages = settings.loadProfileImages.value;
+const displayProfileImages = settings.loadProfileImages;
 
   useEffect(() => {
     dispatch({ type: "RESET" });
@@ -881,13 +881,16 @@ const displayProfileImages = settings.loadProfileImages.value;
 
   useEffect(() => {
     const companyId = localStorage.getItem("companyId");
+    if (!companyId) return;
+    if (!socketManager?.GetSocket) return;
+
     const socket = socketManager.GetSocket(companyId);
 
     const onConnect = () => {
       socket.emit("joinChatBox", ticket?.id || ticketId);
     };
 
-    socketManager.onConnect(onConnect);
+    socket.on("connect", onConnect);
 
     // Gerenciar mensagens recebidas via socket
     const onAppMessage = (data) => {

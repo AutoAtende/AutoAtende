@@ -18,8 +18,10 @@ export default {
         let typeArch = req.body.typeArch;
         const fileId = req.body.fileId;
         const fileListId = req.params.fileListId;
+        const landingPageId = req.params.landingPageId;
         
         // Log detalhado
+        logger.info(`Iniciando upload - TypeArch: ${typeArch}, FileId: ${fileId}, FileListId: ${fileListId}, LandingPageId: ${landingPageId}`);
         logger.info(`Iniciando upload - TypeArch: ${typeArch}, FileId: ${fileId}, FileListId: ${fileListId}`);
         logger.info(`Informações do arquivo: ${file.originalname}, ${file.mimetype}`);
 
@@ -51,6 +53,38 @@ export default {
 
         // Determinar o diretório de destino
         let folder = companyPath;
+
+        // CORREÇÃO: Verificar se é um upload de Landing Page (sem 's' no typeArch)
+        if (typeArch === "landingPage" || req.path.includes("/landing-pages/") && req.path.includes("/media/upload")) {
+          // Pasta standard para landing pages
+          const landingPageDir = path.resolve(companyPath, "landingPages");
+          if (!fs.existsSync(landingPageDir)) {
+            fs.mkdirSync(landingPageDir, { recursive: true });
+            fs.chmodSync(landingPageDir, 0o777);
+            logger.info(`Diretório de landing pages criado: ${landingPageDir}`);
+          }
+          
+          // Se tiver ID da landing page, criar subdiretório específico
+          if (landingPageId) {
+            const specificLandingPageDir = path.resolve(landingPageDir, landingPageId.toString());
+            if (!fs.existsSync(specificLandingPageDir)) {
+              fs.mkdirSync(specificLandingPageDir, { recursive: true });
+              fs.chmodSync(specificLandingPageDir, 0o777);
+              logger.info(`Diretório específico da landing page criado: ${specificLandingPageDir}`);
+            }
+            folder = specificLandingPageDir;
+          } else {
+            folder = landingPageDir;
+          }
+          
+          // Para consistência em todo o sistema
+          req.body.typeArch = "landingPage";
+          req.body.fileId = landingPageId || "landingPage";
+          
+          logger.info(`Destino de upload para landing page: ${folder}`);
+          return cb(null, folder);
+        }
+        
         
         // Tratamento para uploadList
         const isFileListUpload = req.path.includes("/uploadList/");

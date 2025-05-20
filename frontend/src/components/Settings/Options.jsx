@@ -186,7 +186,6 @@ const Options = ({ settings, scheduleTypeChanged, enableReasonWhenCloseTicketCha
   const [sendQueuePosition, setSendQueuePosition] = useState("disabled");
   const [settingsUserRandom, setSettingsUserRandom] = useState("disabled");
   const [displayBusinessInfo, setDisplayBusinessInfo] = useState("disabled");
-  const [initialPage, setInitialPage] = useState("login");
   const [enableSaveCommonContacts, setEnableSaveCommonContacts] = useState("disabled");
   const [displayProfileImages, setDisplayProfileImages] = useState("enabled");
   const [enableQueueWhenCloseTicket, setEnableQueueWhenCloseTicket] = useState("disabled");
@@ -221,11 +220,11 @@ const Options = ({ settings, scheduleTypeChanged, enableReasonWhenCloseTicketCha
 
   // Carregar configurações quando o componente for montado
   React.useEffect(() => {
-    if (Array.isArray(settings) && settings.length) {
+    if (settings) {
       const loadSettings = () => {
         // Configurações da IA
-        const openaiModelSetting = settings.find((s) => s.key === "openaiModel");
-        if (openaiModelSetting) setOpenAiModel(openaiModelSetting?.value || "gpt-4");
+        const openaiModelSetting = settings.openaiModel;
+        if (openaiModelSetting) setOpenAiModel(openaiModelSetting || "gpt-4");
 
         // Integrações
         loadIntegrationSettings();
@@ -241,129 +240,129 @@ const Options = ({ settings, scheduleTypeChanged, enableReasonWhenCloseTicketCha
   // Função auxiliar para carregar configurações de integração
   const loadIntegrationSettings = () => {
 
-    const enableQueueWhenCloseTicket = settings.find(s => s.key === "enableQueueWhenCloseTicket");
-    if (enableQueueWhenCloseTicket) setEnableQueueWhenCloseTicket(enableQueueWhenCloseTicket?.value || "disabled");
+    const enableQueueWhenCloseTicket = settings.enableQueueWhenCloseTicket;
+    if (enableQueueWhenCloseTicket) setEnableQueueWhenCloseTicket(enableQueueWhenCloseTicket || "disabled");
 
-    const enableTagsWhenCloseTicket = settings.find(s => s.key === "enableTagsWhenCloseTicket");
-    if (enableTagsWhenCloseTicket) setEnableTagsWhenCloseTicket(enableTagsWhenCloseTicket?.value || "disabled");
+    const enableTagsWhenCloseTicket = settings.enableTagsWhenCloseTicket;
+    if (enableTagsWhenCloseTicket) setEnableTagsWhenCloseTicket(enableTagsWhenCloseTicket || "disabled");
 
-    const enableSatisfactionSurveySetting = settings.find((s) => s.key === "enableSatisfactionSurvey");
-    if (enableSatisfactionSurveySetting) setEnableSatisfactionSurvey(enableSatisfactionSurveySetting?.value || "disabled");
+    const enableSatisfactionSurveySetting = settings.enableSatisfactionSurvey;
+    if (enableSatisfactionSurveySetting) setEnableSatisfactionSurvey(enableSatisfactionSurveySetting || "disabled");
 
-    const enableAudioTranscriptionsSetting = settings.find((s) => s.key === "enableAudioTranscriptions");
-if (enableAudioTranscriptionsSetting) setEnableAudioTranscriptions(enableAudioTranscriptionsSetting?.value || "disabled");
+    const enableAudioTranscriptionsSetting = settings.enableAudioTranscriptions;
+if (enableAudioTranscriptionsSetting) setEnableAudioTranscriptions(enableAudioTranscriptionsSetting || "disabled");
 
-const openAiKeySetting = settings.find((s) => s.key === "openAiKey");
-if (openAiKeySetting) setOpenAiKey(openAiKeySetting?.value || "");
+const openAiKeySetting = settings.openAiKey;
+if (openAiKeySetting) setOpenAiKey(openAiKeySetting || "");
 
 
-    const displayProfileImages = settings.find((s) => s.key === "displayProfileImages");
+    const displayProfileImages = settings.displayProfileImages;
     if (displayProfileImages) {
-      setDisplayProfileImages(displayProfileImages?.value || "enabled");
+      setDisplayProfileImages(displayProfileImages || "enabled");
     }
 
-    const enableMetaPixelSetting = settings.find((s) => s.key === "enableMetaPixel");
-    if (enableMetaPixelSetting) setEnableMetaPixel(enableMetaPixelSetting?.value || "enabled");
+    const enableMetaPixelSetting = settings.enableMetaPixel;
+    if (enableMetaPixelSetting) setEnableMetaPixel(enableMetaPixelSetting || "enabled");
 
-    const metaPixelIdSetting = settings.find((s) => s.key === "metaPixelId");
-    if (metaPixelIdSetting) setMetaPixelId(metaPixelIdSetting?.value || "");
+    const metaPixelIdSetting = settings.metaPixelId;
+    if (metaPixelIdSetting) setMetaPixelId(metaPixelIdSetting || "");
 
     // Mover esta parte para a seção de integrações
-    const enableOfficialWhatsappSetting = settings.find((s) => s.key === "enableOfficialWhatsapp");
-    if (enableOfficialWhatsappSetting) setEnableOfficialWhatsapp(enableOfficialWhatsappSetting?.value || "disabled");
+    const enableOfficialWhatsappSetting = settings.enableOfficialWhatsapp;
+    if (enableOfficialWhatsappSetting) setEnableOfficialWhatsapp(enableOfficialWhatsappSetting || "disabled");
 
     // UPSix
-    const enableUPSix = settings.find((s) => s.key === "enableUPSix");
-    if (enableUPSix) setEnableUPSix(enableUPSix?.value || "disabled");
+    const enableUPSix = settings.enableUPSix;
+    if (enableUPSix) setEnableUPSix(enableUPSix || "disabled");
 
-    const enableUPSixWebphone = settings.find((s) => s.key === "enableUPSixWebphone");
-    if (enableUPSixWebphone) setEnableUPSixWebphone(enableUPSixWebphone?.value || "disabled");
+    const enableUPSixWebphone = settings.enableUPSixWebphone;
+    if (enableUPSixWebphone) setEnableUPSixWebphone(enableUPSixWebphone || "disabled");
 
-    const enableUPSixNotifications = settings.find((s) => s.key === "enableUPSixNotifications");
-    if (enableUPSixNotifications) setEnableUPSixNotifications(enableUPSixNotifications?.value || "disabled");
+    const enableUPSixNotifications = settings.enableUPSixNotifications;
+    if (enableUPSixNotifications) setEnableUPSixNotifications(enableUPSixNotifications || "disabled");
 
     // Salvar contatos comuns
-    const enableSaveCommonContactsSetting = settings.find((s) => s.key === "enableSaveCommonContacts");
-    if (enableSaveCommonContactsSetting) setEnableSaveCommonContacts(enableSaveCommonContactsSetting?.value || "disabled");
+    const enableSaveCommonContactsSetting = settings.enableSaveCommonContacts;
+    if (enableSaveCommonContactsSetting) setEnableSaveCommonContacts(enableSaveCommonContactsSetting || "disabled");
   };
 
   // Função auxiliar para carregar configurações gerais
   const loadGeneralSettings = () => {
-    const sendQueuePosition = settings.find((s) => s.key === "sendQueuePosition");
-    if (sendQueuePosition) setSendQueuePosition(sendQueuePosition?.value || "disabled");
+    const sendQueuePosition = settings.sendQueuePosition;
+    if (sendQueuePosition) setSendQueuePosition(sendQueuePosition || "disabled");
 
-    const settingsUserRandom = settings.find((s) => s.key === "settingsUserRandom");
-    if (settingsUserRandom) setSettingsUserRandom(settingsUserRandom?.value || "disabled");
+    const settingsUserRandom = settings.settingsUserRandom;
+    if (settingsUserRandom) setSettingsUserRandom(settingsUserRandom || "disabled");
 
-    const displayBusinessInfo = settings.find((s) => s.key === "displayBusinessInfo");
-    if (displayBusinessInfo) setDisplayBusinessInfo(displayBusinessInfo?.value || "disabled");
+    const displayBusinessInfo = settings.displayBusinessInfo;
+    if (displayBusinessInfo) setDisplayBusinessInfo(displayBusinessInfo || "disabled");
 
 
-    const enableReasonWhenCloseTicket = settings.find(s => s.key === "enableReasonWhenCloseTicket");
-    if (enableReasonWhenCloseTicket) setEnableReasonWhenCloseTicket(enableReasonWhenCloseTicket?.value || "disabled");
+    const enableReasonWhenCloseTicket = settings.enableReasonWhenCloseTicket;
+    if (enableReasonWhenCloseTicket) setEnableReasonWhenCloseTicket(enableReasonWhenCloseTicket || "disabled");
 
-    const quickMessages = settings.find((s) => s.key === "quickMessages");
-    if (quickMessages) setQuickMessages(quickMessages?.value || "individual");
+    const quickMessages = settings.quickMessages;
+    if (quickMessages) setQuickMessages(quickMessages || "individual");
 
-    const sendEmailSetting = settings.find(s => s.key === "sendEmailWhenRegister");
-    if (sendEmailSetting) setSendEmailWhenRegister(sendEmailSetting?.value || "disabled");
+    const sendEmailSetting = settings.sendEmailWhenRegister;
+    if (sendEmailSetting) setSendEmailWhenRegister(sendEmailSetting || "disabled");
 
-    const sendMessageSetting = settings.find(s => s.key === "sendMessageWhenRegister");
-    if (sendMessageSetting) setSendMessageWhenRegister(sendMessageSetting?.value || "disabled");
+    const sendMessageSetting = settings.sendMessageWhenRegister;
+    if (sendMessageSetting) setSendMessageWhenRegister(sendMessageSetting || "disabled");
 
-    const userRating = settings.find((s) => s.key === "userRating");
-    if (userRating) setUserRating(userRating?.value || "");
+    const userRating = settings.userRating;
+    if (userRating) setUserRating(userRating || "");
 
-    const scheduleType = settings.find((s) => s.key === "scheduleType");
-    if (scheduleType) setScheduleType(scheduleType?.value || "");
+    const scheduleType = settings.scheduleType;
+    if (scheduleType) setScheduleType(scheduleType || "");
 
-    const CheckMsgIsGroup = settings.find((s) => s.key === "CheckMsgIsGroup");
-    if (CheckMsgIsGroup) setCheckMsgIsGroup(CheckMsgIsGroup?.value || "enabled");
+    const CheckMsgIsGroup = settings.CheckMsgIsGroup;
+    if (CheckMsgIsGroup) setCheckMsgIsGroup(CheckMsgIsGroup || "enabled");
 
-    const downloadLimit = settings.find((s) => s.key === "downloadLimit");
-    if (downloadLimit) setDownloadLimit(downloadLimit?.value || "64");
+    const downloadLimit = settings.downloadLimit;
+    if (downloadLimit) setDownloadLimit(downloadLimit || "64");
 
-    const enableTicketValueAndSku = settings.find((s) => s.key === "enableTicketValueAndSku");
-    if (enableTicketValueAndSku) setEnableTicketValueAndSku(enableTicketValueAndSku?.value || "enabled");
+    const enableTicketValueAndSku = settings.enableTicketValueAndSku;
+    if (enableTicketValueAndSku) setEnableTicketValueAndSku(enableTicketValueAndSku || "enabled");
 
-    const SendGreetingAccepted = settings.find((s) => s.key === "sendGreetingAccepted");
-    if (SendGreetingAccepted) setSendGreetingAccepted(SendGreetingAccepted?.value || "");
+    const SendGreetingAccepted = settings.sendGreetingAccepted;
+    if (SendGreetingAccepted) setSendGreetingAccepted(SendGreetingAccepted || "");
 
-    const SettingsTransfTicket = settings.find((s) => s.key === "sendMsgTransfTicket");
-    if (SettingsTransfTicket) setSettingsTransfTicket(SettingsTransfTicket?.value || "");
+    const SettingsTransfTicket = settings.sendMsgTransfTicket;
+    if (SettingsTransfTicket) setSettingsTransfTicket(SettingsTransfTicket || "");
 
-    const allowSignup = settings.find((s) => s.key === "allowSignup");
-    if (allowSignup) setAllowSignup(allowSignup?.value || "enabled");
+    const allowSignup = settings.allowSignup;
+    if (allowSignup) setAllowSignup(allowSignup || "enabled");
 
-    const sendGreetingMessageOneQueues = settings.find((s) => s.key === "sendGreetingMessageOneQueues");
-    if (sendGreetingMessageOneQueues) setSendGreetingMessageOneQueues(sendGreetingMessageOneQueues?.value || "");
+    const sendGreetingMessageOneQueues = settings.sendGreetingMessageOneQueues;
+    if (sendGreetingMessageOneQueues) setSendGreetingMessageOneQueues(sendGreetingMessageOneQueues || "");
 
-    const callSuport = settings.find((s) => s.key === "callSuport");
-    if (callSuport) setCallSuport(callSuport?.value || "");
+    const callSuport = settings.callSuport;
+    if (callSuport) setCallSuport(callSuport || "");
 
-    const displayContactInfo = settings.find((s) => s.key === "displayContactInfo");
-    if (displayContactInfo) setDisplayContactInfo(displayContactInfo?.value || "disabled");
+    const displayContactInfo = settings.displayContactInfo;
+    if (displayContactInfo) setDisplayContactInfo(displayContactInfo || "disabled");
 
-    const trialExpiration = settings.find((s) => s.key === "trialExpiration");
-    if (trialExpiration) setTrialExpiration(trialExpiration?.value || "3");
+    const trialExpiration = settings.trialExpiration;
+    if (trialExpiration) setTrialExpiration(trialExpiration || "3");
 
-    const smtpauthType = settings.find((s) => s.key === "smtpauth");
-    if (smtpauthType) setUrlSmtpauthType(smtpauthType?.value || "");
+    const smtpauthType = settings.smtpauth;
+    if (smtpauthType) setUrlSmtpauthType(smtpauthType || "");
 
-    const usersmtpauthType = settings.find((s) => s.key === "usersmtpauth");
-    if (usersmtpauthType) setUserSmtpauthType(usersmtpauthType?.value || "");
+    const usersmtpauthType = settings.usersmtpauth;
+    if (usersmtpauthType) setUserSmtpauthType(usersmtpauthType || "");
 
-    const clientsecretsmtpauthType = settings.find((s) => s.key === "clientsecretsmtpauth");
-    if (clientsecretsmtpauthType) setClientSecrectSmtpauthType(clientsecretsmtpauthType?.value || "");
+    const clientsecretsmtpauthType = settings.clientsecretsmtpauth;
+    if (clientsecretsmtpauthType) setClientSecrectSmtpauthType(clientsecretsmtpauthType || "");
 
-    const smtpPortType = settings.find((s) => s.key === "smtpport");
-    if (smtpPortType) setSmtpPortType(smtpPortType?.value || "");
+    const smtpPortType = settings.smtpport;
+    if (smtpPortType) setSmtpPortType(smtpPortType || "");
 
-    const waSuportType = settings.find((s) => s.key === "wasuport");
-    if (waSuportType) setWaSuportType(waSuportType?.value || "");
+    const waSuportType = settings.wasuport;
+    if (waSuportType) setWaSuportType(waSuportType || "");
 
-    const msgSuportType = settings.find((s) => s.key === "msgsuport");
-    if (msgSuportType) setMsgSuportType(msgSuportType?.value || "");
+    const msgSuportType = settings.msgsuport;
+    if (msgSuportType) setMsgSuportType(msgSuportType || "");
   };
 
   // Função genérica para atualizar configurações

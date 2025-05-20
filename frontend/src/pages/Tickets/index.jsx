@@ -1,98 +1,97 @@
 import React from "react";
-import { useParams } from "react-router-dom";
+import {useParams} from "react-router-dom";
 import Grid from "@mui/material/Grid";
 import Paper from "@mui/material/Paper";
-import makeStyles from "@mui/styles/makeStyles";
+import { useTheme } from "@mui/material/styles"; // Importe useTheme aqui
 
-import TicketsManager from "../../components/TicketsManager";
-import Ticket from "../../components/Ticket";
+import makeStyles from '@mui/styles/makeStyles';
 
-import { i18n } from "../../translate/i18n";
+import TicketsManager from "../../components/TicketsManagerTabs/";
+import Ticket from "../../components/Ticket/";
+
+import { QueueSelectedProvider } from "../../context/QueuesSelected/QueuesSelectedContext";
+
+import {i18n} from "../../translate/i18n";
+import useSettings from "../../hooks/useSettings";
+
+
+
 const useStyles = makeStyles((theme) => ({
-  chatContainer: {
-    flex: 1,
-    // backgroundColor: "#eee",
-    padding: theme.spacing(4),
-    height: `calc(100% - 48px)`,
-    overflowY: "hidden",
-  },
+    chatContainer: {
+        flex: 1,
+        padding: theme.spacing(1),
+        height: `calc(100% - 48px)`,
+        overflowY: "hidden",
+    },
 
-  chatPapper: {
-    // backgroundColor: "red",
-    display: "flex",
-    height: "100%",
-  },
+    chatPapper: {
+        display: "flex",
+        height: "100%",
+    },
 
-  contactsWrapper: {
-    display: "flex",
-    height: "100%",
-    flexDirection: "column",
-    overflowY: "hidden",
-  },
-  messagessWrapper: {
-    display: "flex",
-    height: "100%",
-    flexDirection: "column",
-  },
-  logoImg: {
-    margin: "0 auto",
-    content:
-      "url(" +
-      (theme.appLogoLight || theme.appLogoDark
-        ? process.env.REACT_APP_BACKEND_URL +
-          "/public/" +
-          (theme.mode === "light"
-            ? theme.appLogoLight || theme.appLogoDark
-            : theme.appLogoDark || theme.appLogoLight)
-        : theme.mode === "light"
-        ? theme.appLogoLight
-        : theme.appLogoDark) +
-      ")",
-  },
-  welcomeMsg: {
-    backgroundColor: theme.palette.boxticket,
-    display: "flex",
-    justifyContent: "space-evenly",
-    alignItems: "center",
-    height: "100%",
-    textAlign: "center",
-  },
+    contactsWrapper: {
+        display: "flex",
+        height: "100%",
+        flexDirection: "column",
+        overflowY: "hidden",
+    },
+    messagesWrapper: {
+        display: "flex",
+        height: "100%",
+        flexDirection: "column",
+    },
+    welcomeMsg: {
+        backgroundColor: theme.palette.boxticket,
+        display: "flex",
+        justifyContent: "space-evenly",
+        alignItems: "center",
+        height: "100%",
+        textAlign: "center",
+    },
+
+    logoImg: {
+        margin: "0 auto",
+        width: "80%",
+        content: "url(" + (theme.mode === "light" ? theme.calculatedLogoLight() : theme.calculatedLogoDark()) + ")"
+      },
 }));
 
-const Chat = () => {
-  const classes = useStyles();
-  const { ticketId } = useParams();
+const Tickets = () => {
+    const classes = useStyles();
+    const {ticketId} = useParams();
+    const { getAllSettings } = useSettings();
+    const theme = useTheme(); // Obtenha o objeto theme usando useTheme
 
-  return (
-    <div className={classes.chatContainer}>
-      <div className={classes.chatPapper}>
-        <Grid container spacing={0}>
-          <Grid item xs={4} className={classes.contactsWrapper}>
-            <TicketsManager />
-          </Grid>
-          <Grid item xs={8} className={classes.messagessWrapper}>
-            {ticketId ? (
-              <>
-                <Ticket />
-              </>
-            ) : (
-              <Paper square variant="outlined" className={classes.welcomeMsg}>
-                <div>
-                  <center>
-                    <img
-                      style={{ margin: "0 auto", width: "70%" }}
-                      className={classes.logoImg}
-                      alt="logo"
-                    />
-                  </center>
+    return (
+        <QueueSelectedProvider>
+            <div className={classes.chatContainer}>
+                <div className={classes.chatPapper}>
+                    <Grid container spacing={0}>
+                        <Grid item xs={4} className={classes.contactsWrapper}>
+                            <TicketsManager/>
+                        </Grid>
+                        <Grid item xs={8} className={classes.messagesWrapper}>
+                            {ticketId ? (
+                                <>
+                                    <Ticket/>
+                                </>
+                            ) : (
+                                <Paper square variant="outlined" className={classes.welcomeMsg}>
+                                    <div>
+                                        <center>
+                                            <div className={"container-img"}>
+                                                <img className={classes.logoImg} />
+                                            </div>
+                                        </center>
+                                    </div>
+                                </Paper>
+                            )}
+                        </Grid>
+                    </Grid>
                 </div>
-              </Paper>
-            )}
-          </Grid>
-        </Grid>
-      </div>
-    </div>
-  );
+            </div>
+        </QueueSelectedProvider>
+    );
 };
 
-export default Chat;
+export default Tickets;

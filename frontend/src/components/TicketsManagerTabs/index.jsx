@@ -37,7 +37,7 @@ import TabPanel from "../TabPanel";
 
 import { i18n } from "../../translate/i18n";
 import { AuthContext } from "../../context/Auth/AuthContext";
-import { socketManager } from "../../context/Socket/SocketContext";
+import { SocketContext } from "../../context/Socket/SocketContext";
 import { Can } from "../Can";
 import TicketsQueueSelect from "../TicketsQueueSelect";
 import { Button, grid } from "@mui/material";
@@ -250,6 +250,7 @@ const TicketsManagerTabs = () => {
     const { setSelectedQueuesMessage } = useContext(QueueSelectedContext);
     const { tabOpen, setTabOpen, setMakeRequestTagTotalTicketPending, setMakeRequestTicketList } = useContext(GlobalContext);
 
+    const socketManager = useContext(SocketContext);
     const [openCount, setOpenCount] = useState(0);
     const [groupOpenCount, setGroupOpenCount] = useState(0);
     const [groupPendingCount, setGroupPendingCount] = useState(0);
@@ -284,13 +285,15 @@ const TicketsManagerTabs = () => {
         }
 
         // Configura a exibição da aba de grupo baseada nas configurações
-        const checkMsgIsGroupSetting = settings?.CheckMsgIsGroup;
-        if (checkMsgIsGroupSetting) {
-            setShowGroupTab(checkMsgIsGroupSetting.value === "disabled");
+        const checkMsgIsGroupSetting = settings.CheckMsgIsGroup;
+        if (checkMsgIsGroupSetting === "disabled") {
+            setShowGroupTab(false);
+        } else {
+            setShowGroupTab(true);
         }
 
-        const enableReasonWhenCloseTicket = settings?.enableReasonWhenCloseTicket
-        if (enableReasonWhenCloseTicket?.value === 'enabled') {
+        const enableReasonWhenCloseTicket = settings.enableReasonWhenCloseTicket;
+        if (enableReasonWhenCloseTicket === 'enabled') {
             setIsShowButtonCloseAll(false)
         } else {
             setIsShowButtonCloseAll(true)
@@ -304,7 +307,8 @@ const TicketsManagerTabs = () => {
     useEffect(() => {
         const companyId = localStorage.getItem("companyId");
         if (!companyId) return;
-        
+        if (!socketManager?.GetSocket) return;
+    
         const socket = socketManager.GetSocket(companyId);
         if (!socket) return;
         

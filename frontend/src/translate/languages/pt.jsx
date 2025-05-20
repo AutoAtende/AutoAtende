@@ -2320,6 +2320,7 @@ const messages = {
           connections: "Conexões",
           adminDashboard: "Visão Geral",
           flowBuilderStatistics: "Estatísticas de Fluxos",
+          landingPages: "Landing Pages",
           zabbix: "Painel Zabbix",
           businessHours: "Horários",
           api: "API",

@@ -70,6 +70,8 @@ const AuthUserService = async ({
   }
 
   try {
+    user.online = true;
+    await user.save();
     await user.incrementTokenVersion();
 
     await Company.update(

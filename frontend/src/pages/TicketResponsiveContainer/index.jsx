@@ -1,5 +1,5 @@
 import React from "react";
-import Tickets from "../TicketsCustom";
+import Tickets from "../Tickets";
 import TicketAdvanced from "../TicketsAdvanced";
 import { useTheme } from "@mui/material/styles";
 import { useMediaQuery } from "@mui/material";
