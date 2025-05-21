@@ -7,13 +7,15 @@ interface Params {
   companyId: string | number;
   whatsappId?: string | number;
   userId?: string | number;
+  transaction?: any;
 }
 
 const FindOrCreateATicketTrakingService = async ({
   ticketId,
   companyId,
   whatsappId,
-  userId
+  userId,
+  transaction
 }: Params): Promise<TicketTraking> => {
   return sequelize.transaction(async (transaction: Transaction) => {
     const ticketTraking = await TicketTraking.findOne({

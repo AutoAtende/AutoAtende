@@ -3,6 +3,8 @@ import isAuth from "../middleware/isAuth";
 import * as DatabaseController from "../controllers/DatabaseController";
 import * as FlowBuilderController from "../controllers/FlowBuilderController";
 import * as FlowMessageReceiverController from "../controllers/FlowMessageReceiverController";
+import * as InactivityNodeController from "../controllers/InactivityNodeController";
+
 import multer from 'multer';
 import uploadConfig from '../config/upload';
 
@@ -22,6 +24,18 @@ flowBuilderRoutes.post(
   },
   upload.single('media'),
   FlowBuilderController.uploadMedia
+);
+
+flowBuilderRoutes.get(
+  "/flow-builder/inactivity-node/:nodeId",
+  isAuth,
+  InactivityNodeController.show
+);
+
+flowBuilderRoutes.post(
+  "/flow-builder/inactivity-node",
+  isAuth,
+  InactivityNodeController.store
 );
 
 flowBuilderRoutes.get("/flow-builder/media/check", isAuth, FlowBuilderController.checkMedia);

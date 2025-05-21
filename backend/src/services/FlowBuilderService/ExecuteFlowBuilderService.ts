@@ -4,6 +4,7 @@ import { proto } from "baileys";
 import { Op } from "sequelize";
 import FlowBuilder from "../../models/FlowBuilder";
 import FlowBuilderExecution from "../../models/FlowBuilderExecution";
+import InactivityNode from "../../models/InactivityNode";
 import Ticket from "../../models/Ticket";
 import Contact from "../../models/Contact";
 import Company from "../../models/Company";
@@ -46,6 +47,19 @@ interface StartFlowRequest {
   initialVariables?: Record<string, any>;
   ticketId?: number;
   msg?: proto.IWebMessageInfo,
+}
+
+const updateInteractionTimestamp = async (execution: FlowBuilderExecution): Promise<void> => {
+  try {
+    await execution.update({
+      lastInteractionAt: new Date(),
+      inactivityStatus: 'active'
+    });
+    
+    logger.info(`[FLOWBUILDER] Timestamp de interação atualizado para execução ${execution.id}`);
+  } catch (error) {
+    logger.error(`[FLOWBUILDER] Erro ao atualizar timestamp de interação: ${error.message}`);
+  }
 }
 
 const ExecuteFlowBuilderService = async ({
@@ -172,6 +186,10 @@ const ExecuteFlowBuilderService = async ({
     // Atualiza a execução existente
     await execution.update({
       currentNodeId,
+      lastInteractionAt: new Date(),
+      inactivityStatus: 'active',
+      inactivityWarningsSent: 0,
+      lastWarningAt: null,
       variables: {
         ...execution.variables,
         ...initialVariables,
@@ -187,6 +205,10 @@ const ExecuteFlowBuilderService = async ({
       contactId,
       companyId,
       currentNodeId,
+      lastInteractionAt: new Date(),
+      inactivityStatus: 'active',
+      inactivityWarningsSent: 0,
+      lastWarningAt: null,
       variables: {
         ...initialVariables,
         __ticketId: ticket.id, // Armazena o ID do ticket nas variáveis
@@ -323,6 +345,10 @@ const ExecuteFlowBuilderService = async ({
             return execution;
           }
           break;
+
+          case "inactivityNode":
+            await executeInactivityNode(currentNode.data, execution, ticket, ticket.contact, whatsappIdToUse);
+            break;
 
         case "endNode":
           // Nó de fim - encerra o fluxo
@@ -677,6 +703,65 @@ const ExecuteFlowBuilderService = async ({
   }
 };
 
+const executeInactivityNode = async (
+  nodeData: any,
+  execution: FlowBuilderExecution,
+  ticket: Ticket,
+  contact: Contact,
+  whatsappId: number
+): Promise<void> => {
+  try {
+    logger.info(`[FLOWBUILDER] Executando nó de inatividade para execução ${execution.id}`);
+    
+    // Buscar configuração específica do nó no banco de dados
+    let inactivityConfig = nodeData;
+    if (nodeData.nodeId) {
+      const inactivityNode = await InactivityNode.findOne({
+        where: {
+          nodeId: nodeData.nodeId,
+          companyId: execution.companyId
+        }
+      });
+      
+      if (inactivityNode) {
+        inactivityConfig = {
+          ...nodeData,
+          timeout: inactivityNode.timeout,
+          action: inactivityNode.action,
+          warningMessage: inactivityNode.warningMessage,
+          endMessage: inactivityNode.endMessage,
+          transferQueueId: inactivityNode.transferQueueId,
+          maxWarnings: inactivityNode.maxWarnings,
+          warningInterval: inactivityNode.warningInterval
+        };
+      }
+    }
+    
+    // Atualizar a configuração de inatividade no nível da execução
+    const updatedVariables = {
+      ...execution.variables,
+      __inactivityConfig: {
+        timeout: inactivityConfig.timeout || 300,
+        action: inactivityConfig.action || 'warning',
+        warningMessage: inactivityConfig.warningMessage,
+        endMessage: inactivityConfig.endMessage,
+        transferQueueId: inactivityConfig.transferQueueId,
+        maxWarnings: inactivityConfig.maxWarnings || 2,
+        warningInterval: inactivityConfig.warningInterval || 60
+      }
+    };
+    
+    await execution.update({
+      variables: updatedVariables,
+      lastInteractionAt: new Date() // Atualizar timestamp para começar a monitorar a partir deste momento
+    });
+    
+    logger.info(`[FLOWBUILDER] Configuração de inatividade aplicada com sucesso à execução ${execution.id}`);
+  } catch (error) {
+    logger.error(`[FLOWBUILDER] Erro ao executar nó de inatividade: ${error.message}`);
+  }
+}
+
 // Função para encontrar o próximo nó com base nas condições e tipo de nó
 const findNextNodeByCondition = (
   currentNode: any,
@@ -924,6 +1009,15 @@ const findNextNodeByCondition = (
 
       return defaultDbEdge ? defaultDbEdge.target : null;
     // FIM DA NOVA IMPLEMENTAÇÃO
+
+    case "inactivityNode":
+  // O nó de inatividade apenas aplica configurações, não altera o fluxo
+      // Encontrar a primeira aresta de saída
+      const inactivityNextEdge = edges.find(
+        edge => edge.source === currentNode.id
+      );
+      
+      return inactivityNextEdge ? inactivityNextEdge.target : null;
 
     default:
       // Para outros tipos de nós, encontrar a primeira aresta de saída
