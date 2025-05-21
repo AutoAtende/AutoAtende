@@ -146,6 +146,8 @@ const Options = ({
     sendEmailWhenRegister: "disabled",
     sendMessageWhenRegister: "disabled",
     enableReasonWhenCloseTicket: "disabled",
+    enableQueueWhenCloseTicket: "disabled",
+    enableTagsWhenCloseTicket: "disabled",
     enableUseOneTicketPerConnection: "disabled",
     callSuport: "enabled",
     trialExpiration: "3",
@@ -156,8 +158,7 @@ const Options = ({
     displayBusinessInfo: "disabled",
     enableSaveCommonContacts: "disabled",
     displayProfileImages: "enabled",
-    enableQueueWhenCloseTicket: "disabled",
-    enableTagsWhenCloseTicket: "disabled",
+
     enableSatisfactionSurvey: "disabled",
 
     // Integrações
