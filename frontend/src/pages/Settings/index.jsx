@@ -42,20 +42,10 @@ import Reason from "../../components/Reason";
 // Componente para telas móveis
 import SpeedDialTabs from "../../components/SpeedDialTabs";
 
-// Função utilitária para garantir que um valor seja sempre um array
-const ensureArray = (value, defaultValue = []) => {
-  if (value === undefined || value === null) return defaultValue;
+const ensureArray = (value) => {
   if (Array.isArray(value)) return value;
-  if (typeof value === 'object' && value !== null) {
-    // Se for um objeto iterável (como um Set ou Map), converta para array
-    if (typeof value[Symbol.iterator] === 'function') {
-      return [...value];
-    }
-    // Se for um objeto simples, retorne um array vazio ou com o objeto, dependendo do caso
-    return defaultValue;
-  }
-  // Para outros tipos (string, number, boolean), retorne um array com o valor
-  return [value];
+  if (value && typeof value === 'object' && !Array.isArray(value)) return [value];
+  return [];
 };
 
 // Estilos
@@ -124,15 +114,15 @@ const Settings = () => {
     try {
       setInitialLoading(true);
       setError(null);
-  
+
       const companyId = user.companyId || localStorage.getItem("companyId");
-      
+
       const { data: apiData } = await api.get(`/settings/full-configuration/${companyId}`);
-      
+
       // Garantir que todos os arrays sejam válidos
       const safeSettings = ensureArray(apiData.settings);
       const safeSchedules = ensureArray(apiData.company?.schedules);
-      
+
       setData({
         currentUser: apiData.user || {},
         company: apiData.company || null,
@@ -140,15 +130,15 @@ const Settings = () => {
         settings: safeSettings,
         planConfig: apiData.planConfig || {}
       });
-  
+
       // Configurar estados derivados
       const scheduleTypeSetting = safeSettings.find(s => s.key === "scheduleType");
       const reasonSetting = safeSettings.find(s => s.key === "enableReasonWhenCloseTicket");
-      
+
       setSchedulesEnabled(scheduleTypeSetting?.value === "company");
       setReasonEnabled(reasonSetting?.value || "disabled");
       setShowWhiteLabel(apiData.planConfig?.whiteLabel || false);
-  
+
     } catch (err) {
       console.error("Erro ao carregar dados:", err);
       setError(err?.response?.data?.message || err.message || "Erro ao carregar configurações");
@@ -190,7 +180,7 @@ const Settings = () => {
       ...prev,
       [key]: value
     }));
-    
+
     // Mostra indicador visual de alterações pendentes
     setSnackbarMessage("Alterações pendentes. Clique em Salvar para aplicar.");
     setOpenSnackbar(true);
@@ -205,38 +195,38 @@ const Settings = () => {
 
     try {
       setIsSaving(true);
-      
+
       // Agrupar todas as alterações para enviar em uma única requisição
       const settingsToUpdate = Object.entries(pendingChanges).map(([key, value]) => ({
         key,
         value: value.toString()
       }));
-      
+
       await api.post("/settings/batch-update", {
         settings: settingsToUpdate
       });
-      
+
       // Atualizar configurações locais
       setData(prevData => {
         const updatedSettings = ensureArray(prevData.settings).map(setting => {
           if (pendingChanges[setting.key] !== undefined) {
             return {
-              ...setting, 
+              ...setting,
               value: pendingChanges[setting.key].toString()
             };
           }
           return setting;
         });
-        
+
         return {
           ...prevData,
           settings: updatedSettings
         };
       });
-      
+
       // Limpar alterações pendentes
       setPendingChanges({});
-      
+
       toast.success(i18n.t("settings.saveSuccess"));
       setOpenSnackbar(false);
     } catch (err) {
@@ -253,22 +243,22 @@ const Settings = () => {
       toast.error("Dados de horários inválidos");
       return;
     }
-    
+
     setLoading(true);
     try {
       const companyId = data?.company?.id || user.companyId || localStorage.getItem("companyId");
-      
-      await api.put(`/companies/${companyId}/schedules`, { 
-        schedules: scheduleData 
+
+      await api.put(`/companies/${companyId}/schedules`, {
+        schedules: scheduleData
       });
-      
+
       setData(prevData => ({
         ...prevData,
         schedules: scheduleData
       }));
-      
+
       toast.success("Horários atualizados com sucesso.");
-      
+
       // Atualizar cache
       try {
         const cachedCompanyDataString = localStorage.getItem('cached_company_data');
@@ -308,20 +298,20 @@ const Settings = () => {
       <MainHeader>
         <Title>{i18n.t("settings.title")}</Title>
       </MainHeader>
-      
+
       <StyledMainPaper elevation={1}>
         {error && (
-          <Alert 
-            severity="error" 
+          <Alert
+            severity="error"
             variant="filled"
             sx={{ m: 2 }}
             action={
-              <Box 
-                component="button" 
+              <Box
+                component="button"
                 onClick={loadAllData}
-                sx={{ 
-                  background: 'none', 
-                  border: 'none', 
+                sx={{
+                  background: 'none',
+                  border: 'none',
                   color: 'white',
                   textDecoration: 'underline',
                   cursor: 'pointer',
@@ -336,13 +326,13 @@ const Settings = () => {
             {error}
           </Alert>
         )}
-        
+
         {initialLoading && (
           <LoadingContainer>
             <CircularProgress />
           </LoadingContainer>
         )}
-        
+
         {isShowingContent && (
           <>
             {isMobile ? (
@@ -350,33 +340,33 @@ const Settings = () => {
                 <SpeedDialTabs actions={actions} onChange={setTab} />
                 <StyledPaper elevation={0}>
                   <TabPanel className="container" value={tab} name="options">
-                    <Options 
-                      settings={ensureArray(data.settings)} 
+                    <Options
+                      settings={ensureArray(data.settings)}
                       scheduleTypeChanged={handleScheduleTypeChanged}
                       enableReasonWhenCloseTicketChanged={handleEnableReasonWhenCloseTicketChanged}
                       onSettingChange={handleSettingChange}
                       pendingChanges={pendingChanges}
                     />
                   </TabPanel>
-                  
+
                   <TabPanel value={tab} name="schedules">
-  {schedulesEnabled && Array.isArray(data.schedules) && (
-    <SchedulesForm
-      loading={loading}
-      onSubmit={handleSubmitSchedules}
-      initialValues={data.schedules}
-    />
-  )}
-</TabPanel>
+                    {schedulesEnabled && data.schedules && Array.isArray(data.schedules) && (
+                      <SchedulesForm
+                        loading={loading}
+                        onSubmit={handleSubmitSchedules}
+                        initialValues={data.schedules}
+                      />
+                    )}
+                  </TabPanel>
 
                   <TabPanel className="container" value={tab} name="plans">
                     {data.currentUser.super && <PlansManager />}
                   </TabPanel>
-                  
+
                   <TabPanel className="container" value={tab} name="helps">
                     {data.currentUser.super && <HelpsManager />}
                   </TabPanel>
-                  
+
                   <TabPanel className="container" value={tab} name="paymentGateway">
                     {data.currentUser.super && (
                       <PaymentGateway settings={ensureArray(data.settings)} />
@@ -425,10 +415,10 @@ const Settings = () => {
                     <Tab label="Motivos de Encerramento" value="closureReasons" />
                   )}
                 </StyledTabs>
-                
+
                 <StyledPaper elevation={0}>
                   <TabPanel className="container" value={tab} name="options">
-                    <Options 
+                    <Options
                       settings={ensureArray(data.settings)}
                       scheduleTypeChanged={handleScheduleTypeChanged}
                       enableReasonWhenCloseTicketChanged={handleEnableReasonWhenCloseTicketChanged}
@@ -436,25 +426,25 @@ const Settings = () => {
                       pendingChanges={pendingChanges}
                     />
                   </TabPanel>
-                  
+
                   <TabPanel value={tab} name="schedules">
-  {schedulesEnabled && Array.isArray(data.schedules) && (
-    <SchedulesForm
-      loading={loading}
-      onSubmit={handleSubmitSchedules}
-      initialValues={data.schedules}
-    />
-  )}
-</TabPanel>
+                    {schedulesEnabled && data.schedules && Array.isArray(data.schedules) && (
+                      <SchedulesForm
+                        loading={loading}
+                        onSubmit={handleSubmitSchedules}
+                        initialValues={data.schedules}
+                      />
+                    )}
+                  </TabPanel>
 
                   <TabPanel className="container" value={tab} name="plans">
                     {data.currentUser.super && <PlansManager />}
                   </TabPanel>
-                  
+
                   <TabPanel className="container" value={tab} name="helps">
                     {data.currentUser.super && <HelpsManager />}
                   </TabPanel>
-                  
+
                   <TabPanel className="container" value={tab} name="paymentGateway">
                     {data.currentUser.super && (
                       <PaymentGateway settings={ensureArray(data.settings)} />
@@ -473,7 +463,7 @@ const Settings = () => {
                 </StyledPaper>
               </>
             )}
-            
+
             {/* Botão para salvar alterações pendentes */}
             {hasPendingChanges && (
               <SaveAllButton
@@ -486,7 +476,7 @@ const Settings = () => {
                 {i18n.t("settings.saveAll")}
               </SaveAllButton>
             )}
-            
+
             {/* Notificação de alterações pendentes */}
             <Snackbar
               open={openSnackbar && hasPendingChanges}
@@ -494,9 +484,9 @@ const Settings = () => {
               onClose={() => setOpenSnackbar(false)}
               message={snackbarMessage}
               action={
-                <Button 
-                  color="secondary" 
-                  size="small" 
+                <Button
+                  color="secondary"
+                  size="small"
                   onClick={handleSaveAllChanges}
                   disabled={isSaving}
                 >

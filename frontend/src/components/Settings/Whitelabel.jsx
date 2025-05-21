@@ -51,7 +51,7 @@ import pwaImage from "../../assets/images/PWA.jpeg";
 import login_signup from "../../assets/images/login_signup.jpeg";
 
 // Helper para remover pathname
-const removePathName = (path) => {
+export const removePathName = (path) => {
   const regex = /[^/]+\/[^/]+\/(.+)/;
   const match = path.match(regex);
   return match ? match[1] : '';

@@ -1,46 +1,60 @@
 import React, { useMemo } from 'react';
-import { Paper, FormGroup, FormControlLabel, Switch, FormHelperText, Grid, Typography, Box, Divider, useTheme, Avatar, Tooltip } from '@mui/material';
+import { 
+  Paper, 
+  FormGroup, 
+  FormControlLabel, 
+  Switch, 
+  FormHelperText, 
+  Grid, 
+  Typography, 
+  Box, 
+  Divider, 
+  useTheme, 
+  Avatar, 
+  Tooltip 
+} from '@mui/material';
 import { styled } from '@mui/material/styles';
 import InfoIcon from '@mui/icons-material/Info';
 import PhoneIcon from '@mui/icons-material/Phone';
 import NotificationsIcon from '@mui/icons-material/Notifications';
-import { makeStyles } from '@mui/styles';
 import { i18n } from "../../translate/i18n";
 import { useSpring, animated } from "react-spring";
 
-const useStyles = makeStyles((theme) => ({
-  paper: {
-    padding: theme.spacing(2),
-    marginBottom: theme.spacing(2),
-    transition: 'all 0.3s ease',
-    '&:hover': {
-      boxShadow: theme.shadows[8]
-    }
-  },
-  formHelperText: {
-    color: theme.palette.text.secondary,
-    marginTop: theme.spacing(1),
-    fontSize: '0.875rem'
-  },
-  divider: {
-    margin: theme.spacing(2, 0)
-  },
-  titleContainer: {
-    display: 'flex',
-    alignItems: 'center',
-    marginBottom: theme.spacing(2)
-  },
-  title: {
-    fontWeight: 600,
-    marginLeft: theme.spacing(1)
-  },
-  subOption: {
-    marginLeft: theme.spacing(3),
-    marginTop: theme.spacing(1)
+// Componentes estilizados usando styled API do MUI 5
+const StyledPaper = styled(Paper)(({ theme }) => ({
+  padding: theme.spacing(2),
+  marginBottom: theme.spacing(2),
+  transition: 'all 0.3s ease',
+  '&:hover': {
+    boxShadow: theme.shadows[8]
   }
 }));
 
-const AnimatedSwitch = animated(Switch);
+const StyledFormHelperText = styled(FormHelperText)(({ theme }) => ({
+  color: theme.palette.text.secondary,
+  marginTop: theme.spacing(1),
+  fontSize: '0.875rem'
+}));
+
+const StyledDivider = styled(Divider)(({ theme }) => ({
+  margin: theme.spacing(2, 0)
+}));
+
+const StyledTitleContainer = styled(Box)(({ theme }) => ({
+  display: 'flex',
+  alignItems: 'center',
+  marginBottom: theme.spacing(2)
+}));
+
+const StyledTitle = styled(Typography)(({ theme }) => ({
+  fontWeight: 600,
+  marginLeft: theme.spacing(1)
+}));
+
+const StyledSubOption = styled(Grid)(({ theme }) => ({
+  marginLeft: theme.spacing(3),
+  marginTop: theme.spacing(1)
+}));
 
 const StyledBadge = styled(Avatar)(({ theme }) => ({
   backgroundColor: theme.palette.primary.main,
@@ -53,6 +67,9 @@ const StyledBadge = styled(Avatar)(({ theme }) => ({
   }
 }));
 
+// Componente animado
+const AnimatedSwitch = animated(Switch);
+
 const UPSixIntegration = ({ 
   enableUPSix, 
   onEnableUPSix,
@@ -61,7 +78,6 @@ const UPSixIntegration = ({
   enableUPSixNotifications,
   onEnableUPSixNotifications
 }) => {
-  const classes = useStyles();
   const theme = useTheme();
   
   // Animação para os switches
@@ -89,18 +105,18 @@ const UPSixIntegration = ({
   }), []);
 
   return (
-    <Paper elevation={3} className={classes.paper} variant="outlined">
-      <Box className={classes.titleContainer}>
+    <StyledPaper elevation={3} variant="outlined">
+      <StyledTitleContainer>
         <StyledBadge>
           <PhoneIcon fontSize="small" sx={{ color: 'white' }} />
         </StyledBadge>
-        <Typography variant="h6" className={classes.title}>
+        <StyledTitle variant="h6">
           UPSix Integração
-        </Typography>
+        </StyledTitle>
         <Tooltip title="A integração com o UPSix permite adicionar funcionalidades de telefonia ao sistema, incluindo chamadas, transferências e gravações.">
           <InfoIcon fontSize="small" sx={{ ml: 1, color: theme.palette.info.main }} />
         </Tooltip>
-      </Box>
+      </StyledTitleContainer>
 
       <Grid container spacing={2}>
         <Grid item xs={12}>
@@ -116,22 +132,22 @@ const UPSixIntegration = ({
               }
               label={labels.main}
             />
-            <FormHelperText className={classes.formHelperText}>
+            <StyledFormHelperText>
               {helperTexts.main}
-            </FormHelperText>
+            </StyledFormHelperText>
           </FormGroup>
         </Grid>
 
         {enableUPSix === "enabled" && (
           <>
             <Grid item xs={12}>
-              <Divider className={classes.divider} />
+              <StyledDivider />
               <Typography variant="subtitle2" sx={{ mb: 1 }}>
                 Configurações da integração
               </Typography>
             </Grid>
 
-            <Grid item xs={12} className={classes.subOption}>
+            <StyledSubOption item xs={12}>
               <FormGroup>
                 <FormControlLabel
                   control={
@@ -149,13 +165,13 @@ const UPSixIntegration = ({
                     </Box>
                   }
                 />
-                <FormHelperText className={classes.formHelperText}>
+                <StyledFormHelperText>
                   {helperTexts.webphone}
-                </FormHelperText>
+                </StyledFormHelperText>
               </FormGroup>
-            </Grid>
+            </StyledSubOption>
 
-            <Grid item xs={12} className={classes.subOption}>
+            <StyledSubOption item xs={12}>
               <FormGroup>
                 <FormControlLabel
                   control={
@@ -173,15 +189,15 @@ const UPSixIntegration = ({
                     </Box>
                   }
                 />
-                <FormHelperText className={classes.formHelperText}>
+                <StyledFormHelperText>
                   {helperTexts.notifications}
-                </FormHelperText>
+                </StyledFormHelperText>
               </FormGroup>
-            </Grid>
+            </StyledSubOption>
           </>
         )}
       </Grid>
-    </Paper>
+    </StyledPaper>
   );
 };
 

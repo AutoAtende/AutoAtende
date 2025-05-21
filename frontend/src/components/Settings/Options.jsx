@@ -315,7 +315,7 @@ const Options = ({
   };
 
   // Componente de configurações gerais
-  const GeneralConfigSection = useMemo(() => () => (
+  const GeneralConfigSection = useMemo(() => {
     <>
       <SectionTitle variant="h6">
         <BusinessIcon color="primary" />
@@ -851,16 +851,10 @@ const Options = ({
         </Box>
       </StyledPaper>
     </>
-  ), [
-    configState,
-    theme,
-    handleSwitchChange,
-    handleConfigChange,
-    handleMutuallyExclusiveOption
-  ]);
+  }, [configState, handleConfigChange, handleMutuallyExclusiveOption, handleSwitchChange]);
 
   // Componente de configurações de integrações
-  const IntegrationsSection = useMemo(() => () => (
+  const IntegrationsSection = useMemo(() => () => {
     <>
       <SectionTitle variant="h6">
         <FontAwesomeIcon icon={faServer} style={{ marginRight: '8px', color: theme.palette.primary.main }} />
@@ -1106,7 +1100,7 @@ const Options = ({
         </Box>
       </StyledPaper>
     </>
-  ), [
+  }, [
     configState,
     theme,
     handleSwitchChange,
@@ -1114,7 +1108,7 @@ const Options = ({
   ]);
 
   // Componente de configurações avançadas
-  const AdvancedSection = useMemo(() => () => (
+  const AdvancedSection = useMemo(() => () => {
     <>
       <SectionTitle variant="h6">
         <BuildIcon color="primary" />
@@ -1329,7 +1323,7 @@ const Options = ({
         </Box>
       </StyledPaper>
     </>
-  ), [
+  }, [
     configState,
     theme,
     handleSwitchChange,
