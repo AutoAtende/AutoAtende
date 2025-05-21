@@ -391,7 +391,7 @@ export const batchUpdateSettings = async (req: Request, res: Response): Promise<
  * Obtém todas as configurações necessárias para a página de Settings em uma única chamada
  * Reduz múltiplas chamadas separadas para cada tipo de configuração
  */
-export const getFullConfiguration = async (req, Request, res: Response): Promise<Response> => {
+export const getFullConfiguration = async (req: Request, res: Response): Promise<Response> => {
   const { companyId } = req.params;
   const userId = req.user.id;
   
