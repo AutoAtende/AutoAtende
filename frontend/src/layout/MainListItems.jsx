@@ -60,6 +60,7 @@ import ColorModeContext from "./themeContext";
 import { useActiveMenu } from "../context/ActiveMenuContext";
 import { GlobalContext } from "../context/GlobalContext";
 import { getTicketsArrayByUser } from "../hooks/useTickets";
+import { useCorrectDomain } from "../hooks/useCorrectDomain";
 import usePlans from "../hooks/usePlans";
 
 // Badge padronizada
@@ -451,6 +452,8 @@ const MainListItems = (props) => {
   const [openIntegrationsSubmenu, setOpenIntegrationsSubmenu] = useState(true);
   const [invisibleTotalTicketsPending, setInvisibleTotalTicketsPending] = useState(true);
   const [totalTicketsPending, setTotalTicketsPending] = useState(0);
+
+  const isCorrectDomain = useCorrectDomain();
 
   const [openTasksCount, setOpenTasksCount] = useState(0);
 
@@ -913,112 +916,124 @@ const MainListItems = (props) => {
 
 
         {/* INTEGRAÇÕES como submenu - usando SubCategoryItem para alinhamento correto */}
-          <MainCategoryItem
-            icon={<DeviceHubOutlined />}
-            primary={i18n.t("mainDrawer.listItems.integrations.menu")}
-            open={openIntegrationsSubmenu}
-            onClick={() => handleToggleSubmenu(setOpenIntegrationsSubmenu)}
-            collapsed={collapsed}
-          >
-            {showCampaigns && (
-              <ListItemLink
-                to="/bulk-sender"
-                primary={i18n.t("mainDrawer.listItems.campaigns")}
-                icon={<Campaign />}
-                tooltip={collapsed}
-                drawerClose={drawerClose}
-                level={1}
-                collapsed={collapsed}
-              />
-            )}
-
-              <ListItemLink
-                to="/groups"
-                primary={i18n.t("mainDrawer.listItems.groups")}
-                icon={<SupervisedUserCircle />}
-                tooltip={collapsed}
-                drawerClose={drawerClose}
-                level={1}
-                collapsed={collapsed}
-              />
-
-            {showFlowBuilder && (
-              <ListItemLink
-                to="/flow-builder"
-                primary={i18n.t("mainDrawer.listItems.flowBuilder")}
-                icon={<AccountTree />}
-                tooltip={collapsed}
-                drawerClose={drawerClose}
-                level={1}
-                collapsed={collapsed}
-              />
-            )}
-
+        <MainCategoryItem
+          icon={<DeviceHubOutlined />}
+          primary={i18n.t("mainDrawer.listItems.integrations.menu")}
+          open={openIntegrationsSubmenu}
+          onClick={() => handleToggleSubmenu(setOpenIntegrationsSubmenu)}
+          collapsed={collapsed}
+        >
+          {showCampaigns && (
             <ListItemLink
-              to={"/agendamento"}
-              primary={i18n.t("mainDrawer.listItems.agendamento")}
-              icon={<EventOutlined />}
+              to="/bulk-sender"
+              primary={i18n.t("mainDrawer.listItems.campaigns")}
+              icon={<Campaign />}
               tooltip={collapsed}
               drawerClose={drawerClose}
               level={1}
               collapsed={collapsed}
             />
+          )}
 
+          {isCorrectDomain && (
             <ListItemLink
-              to={"/prompts"}
-              primary={i18n.t("mainDrawer.listItems.prompts")}
+              to="/landing-pages"
+              primary={i18n.t("mainDrawer.listItems.landingPages")}
+              icon={<WebOutlined />}
+              tooltip={collapsed}
+              drawerClose={drawerClose}
+              level={1}
+              collapsed={collapsed}
+            />
+          )}
+
+          <ListItemLink
+            to="/groups"
+            primary={i18n.t("mainDrawer.listItems.groups")}
+            icon={<SupervisedUserCircle />}
+            tooltip={collapsed}
+            drawerClose={drawerClose}
+            level={1}
+            collapsed={collapsed}
+          />
+
+          {showFlowBuilder && (
+            <ListItemLink
+              to="/flow-builder"
+              primary={i18n.t("mainDrawer.listItems.flowBuilder")}
+              icon={<AccountTree />}
+              tooltip={collapsed}
+              drawerClose={drawerClose}
+              level={1}
+              collapsed={collapsed}
+            />
+          )}
+
+          <ListItemLink
+            to={"/agendamento"}
+            primary={i18n.t("mainDrawer.listItems.agendamento")}
+            icon={<EventOutlined />}
+            tooltip={collapsed}
+            drawerClose={drawerClose}
+            level={1}
+            collapsed={collapsed}
+          />
+
+          <ListItemLink
+            to={"/prompts"}
+            primary={i18n.t("mainDrawer.listItems.prompts")}
+            icon={<AllInclusive />}
+            tooltip={collapsed}
+            drawerClose={drawerClose}
+            level={1}
+            collapsed={collapsed}
+          />
+
+          {showOpenAIAssistants && (
+            <ListItemLink
+              to={"/assistants"}
+              primary={i18n.t("mainDrawer.listItems.assistants")}
               icon={<AllInclusive />}
               tooltip={collapsed}
               drawerClose={drawerClose}
               level={1}
               collapsed={collapsed}
             />
+          )}
 
-            {showOpenAIAssistants && (
-              <ListItemLink
-                to={"/assistants"}
-                primary={i18n.t("mainDrawer.listItems.assistants")}
-                icon={<AllInclusive />}
-                tooltip={collapsed}
-                drawerClose={drawerClose}
-                level={1}
-                collapsed={collapsed}
-              />
-            )}
-
-            {showChatBotRules && (
-              <ListItemLink
-                to="/message-rules"
-                primary={i18n.t("mainDrawer.listItems.messageRules")}
-                icon={<RuleOutlined />}
-                tooltip={collapsed}
-                drawerClose={drawerClose}
-                level={1}
-                collapsed={collapsed}
-              />
-            )}
-            {showAPIOfficial && (
-              <ListItemLink
-                to="/whatsapp-templates"
-                primary={i18n.t("mainDrawer.listItems.whatsappTemplates")}
-                icon={<RateReviewOutlined />}
-                tooltip={collapsed}
-                drawerClose={drawerClose}
-                level={1}
-                collapsed={collapsed}
-              />
-            )}
-
+          {showChatBotRules && (
             <ListItemLink
-              to={"/queue-integration"}
-              primary={i18n.t("mainDrawer.listItems.queueIntegration")}
-              icon={<DeviceHubOutlined />}
+              to="/message-rules"
+              primary={i18n.t("mainDrawer.listItems.messageRules")}
+              icon={<RuleOutlined />}
               tooltip={collapsed}
               drawerClose={drawerClose}
               level={1}
               collapsed={collapsed}
             />
-          </MainCategoryItem>
+          )}
+          {showAPIOfficial && (
+            <ListItemLink
+              to="/whatsapp-templates"
+              primary={i18n.t("mainDrawer.listItems.whatsappTemplates")}
+              icon={<RateReviewOutlined />}
+              tooltip={collapsed}
+              drawerClose={drawerClose}
+              level={1}
+              collapsed={collapsed}
+            />
+          )}
+
+          <ListItemLink
+            to={"/queue-integration"}
+            primary={i18n.t("mainDrawer.listItems.queueIntegration")}
+            icon={<DeviceHubOutlined />}
+            tooltip={collapsed}
+            drawerClose={drawerClose}
+            level={1}
+            collapsed={collapsed}
+          />
+        </MainCategoryItem>
 
 
         {/* ADMINISTRAÇÃO */}
