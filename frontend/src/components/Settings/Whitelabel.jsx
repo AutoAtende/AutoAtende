@@ -1,9 +1,18 @@
-import React, { useState, useEffect, useCallback, useMemo, useContext } from "react";
+import React, { useContext, useEffect, useState, useCallback, useMemo, useRef } from "react";
+import { useMediaQuery } from "@mui/material";
+import { BrushOutlined } from "@mui/icons-material";
 import { useTheme } from '@mui/material/styles';
+import WhiteLabelHelp from "../WhitelabelHelp";
 
 import {
-  Grid,
+  FormControl,
+  Grid, 
+  InputLabel,
+  MenuItem,
+  Select,
+  TextField,
   Typography,
+  IconButton,
   Paper,
   Box,
   Tab,
@@ -12,37 +21,20 @@ import {
   CardContent,
   Popover,
   CircularProgress,
-  Button,
-  TextField,
-  MenuItem,
-  FormControl,
-  InputLabel,
-  Select,
-  Stack,
-  Divider,
-  useMediaQuery,
-  Tooltip,
-  Chip,
-  Alert,
-  IconButton
+  Button
 } from "@mui/material";
+import makeStyles from "@mui/styles/makeStyles";
 import { ChromePicker } from "react-color";
-import {
-  AttachFile,
-  Delete,
-  Save,
-  Settings,
-  Palette,
-  Image,
-  Info,
-  Refresh
-} from '@mui/icons-material';
+import { AttachFile, Delete, Save } from "@mui/icons-material";
+import { Settings, Palette, Image } from 'lucide-react';
 import { toast } from "../../helpers/toast";
-import api from "../../services/api";
-import { i18n } from "../../translate/i18n";
-import { styled } from '@mui/material/styles';
-import { AuthContext } from "../../context/Auth/AuthContext";
+import { AuthContext } from "../../context/Auth/AuthContext.jsx";
+import useSettings from "../../hooks/useSettings";
 import ColorModeContext from "../../layout/themeContext";
+import api from "../../services/api";
+import { useLoading } from "../../hooks/useLoading/";
+import { removePathName } from "./functions/removePathName";
+import { i18n } from "../../translate/i18n.jsx";
 
 // Importações de imagens
 import faviconImage from "../../assets/images/Favicon.jpeg";
@@ -50,19 +42,174 @@ import logotipoImage from "../../assets/images/Logotipo.jpeg";
 import pwaImage from "../../assets/images/PWA.jpeg";
 import login_signup from "../../assets/images/login_signup.jpeg";
 
-// Helper para remover pathname
-export const removePathName = (path) => {
-  const regex = /[^/]+\/[^/]+\/(.+)/;
-  const match = path.match(regex);
-  return match ? match[1] : '';
-};
+// Suas constantes existentes
+const defaultBackgrounLogin = "";
+const defaultBackgoundSignup = "";
 
-// Helper para capitalização
 function capitalizeFirstLetter(string) {
   return string?.charAt(0).toUpperCase() + string?.slice(1) || '';
 }
 
-// Componente TabPanel
+// Componente SplashPreview otimizado com memo
+const SplashPreview = React.memo(({ settings, theme }) => {
+  // Determinar as cores com base no tema atual
+  const isDarkMode = theme.palette.mode === 'dark';
+  
+  const backgroundColor = isDarkMode 
+    ? settings.splashBackgroundDark || '#1C2E36' 
+    : settings.splashBackgroundLight || '#ffffff';
+    
+  const textColor = isDarkMode 
+    ? settings.splashTextColorDark || '#ffffff' 
+    : settings.splashTextColorLight || '#000000';
+  
+  const appName = settings.splashAppName || "AutoAtende";
+  const slogan = settings.splashSlogan || "Sua plataforma completa de atendimento";
+  
+  return (
+    <Box
+      sx={{
+        width: "100%",
+        height: 200,
+        display: "flex",
+        flexDirection: "column",
+        justifyContent: "center",
+        alignItems: "center",
+        backgroundColor: backgroundColor,
+        color: textColor,
+        borderRadius: 1,
+        padding: 2,
+        boxShadow: "0px 4px 10px rgba(0, 0, 0, 0.1)",
+        overflow: "hidden",
+      }}
+    >
+      <CircularProgress 
+        size={40} 
+        thickness={4} 
+        sx={{ 
+          marginBottom: 2,
+          color: textColor 
+        }} 
+      />
+      
+      <Typography 
+        variant="h5" 
+        sx={{ 
+          fontWeight: "bold",
+          marginBottom: 1
+        }}
+      >
+        {appName}
+      </Typography>
+      
+      <Typography variant="body2">
+        {slogan}
+      </Typography>
+    </Box>
+  );
+});
+
+SplashPreview.displayName = 'SplashPreview';
+
+const useStyles = makeStyles((theme) => ({
+  root: {
+    flexGrow: 1,
+    padding: theme.spacing(3),
+  },
+  tabPanel: {
+    marginTop: theme.spacing(3),
+  },
+  paper: {
+    padding: theme.spacing(3),
+    height: "100%",
+  },
+  formControl: {
+    marginBottom: theme.spacing(2),
+    width: "100%",
+  },
+  colorPicker: {
+    marginTop: theme.spacing(2),
+  },
+  previewBox: {
+    marginBottom: theme.spacing(2),
+    width: "100%",
+    height: 100,
+    display: "flex",
+    justifyContent: "center",
+    alignItems: "center",
+    border: `1px solid ${theme.palette.divider}`,
+    borderRadius: theme.shape.borderRadius,
+    overflow: "hidden",
+  },
+  previewImage: {
+    maxWidth: "100%",
+    maxHeight: "100%",
+    objectFit: "contain",
+  },
+  smallPreviewImage: {
+    width: 48,
+    height: 48,
+    objectFit: "contain",
+  },
+  uploadInput: {
+    display: "none",
+  },
+  backgroundPreviewBox: {
+    marginBottom: theme.spacing(2),
+    width: "100%",
+    height: 200,
+    display: "flex",
+    justifyContent: "center",
+    alignItems: "center",
+    border: `1px solid ${theme.palette.divider}`,
+    borderRadius: theme.shape.borderRadius,
+    overflow: "hidden",
+  },
+  backgroundPreviewImage: {
+    width: "100%",
+    height: "100%",
+    objectFit: "cover",
+  },
+  colorPreview: {
+    width: 42,
+    height: 42,
+    borderRadius: theme.shape.borderRadius,
+    border: `2px solid ${theme.palette.divider}`,
+    cursor: 'pointer',
+    transition: 'all 0.3s ease',
+    '&:hover': {
+      transform: 'scale(1.05)',
+    },
+  },
+  colorPickerPopover: {
+    position: 'absolute',
+    zIndex: 2,
+    [theme.breakpoints.down('sm')]: {
+      position: 'fixed',
+      top: '50%',
+      left: '50%',
+      transform: 'translate(-50%, -50%)',
+    },
+  },
+  backdrop: {
+    position: 'fixed',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    zIndex: 1,
+  },
+  tabIcon: {
+    marginRight: theme.spacing(1),
+    [theme.breakpoints.down('sm')]: {
+      marginRight: 0,
+    },
+  },
+  saveButton: {
+    marginTop: theme.spacing(2),
+  }
+}));
+
 function TabPanel({ children, value, index, ...other }) {
   return (
     <div
@@ -76,7 +223,6 @@ function TabPanel({ children, value, index, ...other }) {
   );
 }
 
-// Constantes
 const themeColors = [
   "primaryColorLight",
   "secondaryColorLight",
@@ -107,28 +253,6 @@ const colorLabels = {
   boxRightDark: "Mensagens do Usuário Modo Escuro",
 };
 
-// Agrupamentos de cores para uma melhor organização visual
-const colorGroups = {
-  "Cores do Tema": [
-    "primaryColorLight",
-    "secondaryColorLight",
-    "primaryColorDark",
-    "secondaryColorDark"
-  ],
-  "Cores dos Ícones": [
-    "iconColorLight",
-    "iconColorDark"
-  ],
-  "Cores do Chat": [
-    "chatlistLight",
-    "chatlistDark",
-    "boxLeftLight",
-    "boxLeftDark",
-    "boxRightLight",
-    "boxRightDark"
-  ]
-};
-
 const imageFiles = [
   "appLogoLight",
   "appLogoDark",
@@ -147,174 +271,223 @@ const imageLabels = {
   signupBackground: "Imagem de fundo para tela de cadastro",
 };
 
-// Componentes estilizados
-const StyledTabs = styled(Tabs)(({ theme }) => ({
-  '& .MuiTabs-indicator': {
-    backgroundColor: theme.palette.primary.main
-  }
-}));
-
-const StyledTab = styled(Tab)(({ theme }) => ({
-  textTransform: 'none',
-  minWidth: 72,
-  fontWeight: theme.typography.fontWeightRegular,
-  marginRight: theme.spacing(2),
-  '&.Mui-selected': {
-    color: theme.palette.primary.main,
-    fontWeight: theme.typography.fontWeightMedium,
-  },
-}));
-
-const StyledCard = styled(Card)(({ theme }) => ({
-  marginBottom: theme.spacing(3),
-}));
-
-const ColorBox = styled(Box)(({ theme, color }) => ({
-  width: '100%',
-  height: 48,
-  backgroundColor: color || '#ffffff',
-  borderRadius: 4,
-  border: `1px solid ${theme.palette.divider}`,
-  cursor: 'pointer',
-  marginBottom: theme.spacing(1),
-  transition: 'transform 0.2s',
-  '&:hover': {
-    transform: 'scale(1.05)'
-  }
-}));
-
-const ImagePreviewBox = styled(Box)(({ theme }) => ({
-  marginBottom: theme.spacing(2),
-  width: "100%",
-  display: "flex",
-  justifyContent: "center",
-  alignItems: "center",
-  border: `1px solid ${theme.palette.divider}`,
-  borderRadius: 4,
-  overflow: "hidden",
-  backgroundColor: theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)'
-}));
+// Adicione esta constante para as opções de cores do Splash
+const splashColorOptions = [
+  { key: 'splashBackgroundLight', label: 'Cor de Fundo - Modo Claro' },
+  { key: 'splashBackgroundDark', label: 'Cor de Fundo - Modo Escuro' },
+  { key: 'splashTextColorLight', label: 'Cor do Texto - Modo Claro' },
+  { key: 'splashTextColorDark', label: 'Cor do Texto - Modo Escuro' }
+];
 
 function Whitelabel({ settings }) {
-  const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+  const classes = useStyles();
+  // Estados e hooks
   const { colorMode } = useContext(ColorModeContext);
   const { user } = useContext(AuthContext);
-
-  // Estados
+  const { update } = useSettings();
+  const { Loading } = useLoading();
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const [selectedTab, setSelectedTab] = useState(0);
+  const [settingsLoaded, setSettingsLoaded] = useState({});
   const [selectedColorKey, setSelectedColorKey] = useState(themeColors[0]);
   const [selectedColorValue, setSelectedColorValue] = useState("");
-  const [colorPickerAnchorEl, setColorPickerAnchorEl] = useState(null);
-  const [loading, setLoading] = useState({
-    initial: true,
-    general: false,
-    colors: false,
-    logos: false
-  });
-  const [error, setError] = useState(null);
-
-  // Estados para configurações
-  const [settingsMap, setSettingsMap] = useState({});
+  const [appName, setAppName] = useState("");
+  const [copyright, setCopyright] = useState("");
+  const [privacy, setPrivacy] = useState("");
+  const [terms, setTerms] = useState("");
+  
+  // Estados para os formulários que devem ser salvos apenas quando explicitamente solicitado
   const [generalForm, setGeneralForm] = useState({
     appName: "",
     copyright: "",
     privacy: "",
-    terms: "",
-    loginPosition: "right",
-    signupPosition: "right"
+    terms: ""
   });
-  const [themeColorValues, setThemeColorValues] = useState({});
+  
+  const [splashForm, setSplashForm] = useState({
+    splashAppName: "",
+    splashSlogan: ""
+  });
+  
+  const [selectedSplashColor, setSelectedSplashColor] = useState({
+    key: 'splashBackgroundLight',
+    value: '',
+    label: 'Cor de Fundo - Modo Claro'
+  });
+  
+  // Separação dos estados de colorPicker
+  const [themeColorPickerAnchor, setThemeColorPickerAnchor] = useState(null);
+  const [splashColorPickerAnchor, setSplashColorPickerAnchor] = useState(null);
+  
+  // Estado para indicar se há alterações não salvas
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState({
     general: false,
     colors: false,
+    splash: false,
+    logos: false
+  });
+  
+  // Estado para controlar loading por seção
+  const [loadingStates, setLoadingStates] = useState({
+    general: false,
+    colors: false,
+    splash: false,
     logos: false
   });
 
-  // Carregar configurações iniciais
+  // Referência para rastrear se o componente ainda está montado
+  const isMounted = useRef(true);
+  const settingsInitialized = useRef(false);
+
+  // Função para atualizar o estado de loading de uma seção
+  const setLoadingForSection = useCallback((section, isLoading) => {
+    if (isMounted.current) {
+      setLoadingStates(prev => ({
+        ...prev,
+        [section]: isLoading
+      }));
+    }
+  }, []);
+
+  // Limpar efeitos quando o componente for desmontado
   useEffect(() => {
-    const loadSettings = async () => {
-      try {
-        setLoading(prevState => ({ ...prevState, initial: true }));
-        setError(null);
-
-        if (!Array.isArray(settings) || settings.length === 0) {
-          setError("Não foi possível carregar as configurações");
-          return;
+    return () => {
+      isMounted.current = false;
+      // Limpar objetos URL para evitar vazamentos de memória
+      imageFiles.forEach(imageKey => {
+        if (settingsLoaded[imageKey] && settingsLoaded[imageKey].startsWith('blob:')) {
+          URL.revokeObjectURL(settingsLoaded[imageKey]);
         }
-
-        // Criar mapa de configurações
-        const newSettingsMap = {};
-        const newThemeColorValues = {};
-
-        settings.forEach(setting => {
-          if (setting && setting.key) {
-            newSettingsMap[setting.key] = setting.value;
-
-            // Processar cores do tema
-            if (themeColors.includes(setting.key)) {
-              newThemeColorValues[setting.key] = setting.value;
-            }
-          }
-        });
-
-        // Atualizar estados
-        setSettingsMap(newSettingsMap);
-        setThemeColorValues(newThemeColorValues);
-
-        // Preencher formulário geral
-        setGeneralForm({
-          appName: newSettingsMap.appName || "",
-          copyright: newSettingsMap.copyright || "",
-          privacy: newSettingsMap.privacy || "",
-          terms: newSettingsMap.terms || "",
-          loginPosition: newSettingsMap.loginPosition || "right",
-          signupPosition: newSettingsMap.signupPosition || "right"
-        });
-
-        // Aplicar configurações ao tema
-        applySettingsToTheme(newSettingsMap, newThemeColorValues);
-      } catch (err) {
-        console.error("Erro ao carregar configurações:", err);
-        setError("Erro ao carregar configurações. Por favor, tente novamente.");
-      } finally {
-        setLoading(prevState => ({ ...prevState, initial: false }));
-      }
+      });
     };
+  }, []);
+  
+  const updateSettingsLoaded = useCallback((key, value) => {
+    if (isMounted.current) {
+      setSettingsLoaded(prev => ({ ...prev, [key]: value }));
+    }
+  }, []);
 
-    loadSettings();
-  }, [settings, colorMode]);
-
-  // Aplicar configurações ao tema
-  const applySettingsToTheme = useCallback((settings, colors) => {
-    // Aplicar cores ao tema
-    Object.entries(colors).forEach(([key, value]) => {
-      if (value && colorMode) {
-        const setterFunction = colorMode[`set${capitalizeFirstLetter(key)}`];
-        if (typeof setterFunction === 'function') {
-          setterFunction(value);
-        }
+const handleSaveSetting = useCallback(
+  async (key, value, section = null) => {
+      // Evitar requisições desnecessárias se o valor não mudou
+      if (settingsLoaded[key] === value) {
+          return;
       }
-    });
-
-    // Aplicar imagens
-    imageFiles.forEach((imageKey) => {
-      if (settings[imageKey] && colorMode) {
-        const setterFunction = colorMode[`set${capitalizeFirstLetter(imageKey)}`];
-        if (typeof setterFunction === 'function') {
-          const imagePath = getImagePath(imageKey, settings[imageKey]);
-          setterFunction(imagePath);
-        }
+      
+      try {
+          if (section) {
+              setLoadingForSection(section, true);
+          }
+          
+          await update({ key, value });
+          
+          if (isMounted.current) {
+              // Atualizar o estado localmente em uma única operação
+              setSettingsLoaded(prev => ({ ...prev, [key]: value }));
+              
+              // Atualizar estados específicos se necessário
+              if (key === 'privacy') setPrivacy(value);
+              if (key === 'terms') setTerms(value);
+              if (key === 'appName') setAppName(value);
+              if (key === 'copyright') setCopyright(value);
+              
+              // Atualizar o tema apenas para a chave específica
+              if (themeColors.includes(key) || key.startsWith('splash')) {
+                  const setterFunction = colorMode[`set${capitalizeFirstLetter(key)}`];
+                  if (typeof setterFunction === 'function') {
+                      setterFunction(value);
+                  }
+              }
+              
+              // Atualizar o cache no localStorage
+              updateSettingsCache(key, value);
+              
+              // Resetar flag de alterações não salvas para esta seção
+              if (section) {
+                  setHasUnsavedChanges(prev => ({
+                      ...prev, 
+                      [section]: false
+                  }));
+              }
+          }
+          
+          toast.success(i18n.t("whiteLabel.updateSuccess"));
+      } catch (error) {
+          console.error("Erro ao salvar configuração:", error);
+          toast.error(i18n.t("whiteLabel.updateError"));
+      } finally {
+          if (section && isMounted.current) {
+              setLoadingForSection(section, false);
+          }
       }
-    });
-  }, [colorMode]);
+  },
+  [update, settingsLoaded, colorMode, setLoadingForSection]
+);
 
-  // Função para obter caminho da imagem
-  const getImagePath = useCallback((imageKey, imagePath) => {
+// Adicione esta nova função para atualizar o cache
+const updateSettingsCache = useCallback((key, value) => {
+  try {
+      const companyId = user?.companyId;
+      if (!companyId) return;
+      
+      const cacheKey = `whitelabel_settings_${companyId}`;
+      const cachedData = localStorage.getItem(cacheKey);
+      
+      if (cachedData) {
+          const cache = JSON.parse(cachedData);
+          cache.settings[key] = value;
+          cache.timestamp = new Date().getTime(); // Atualiza o timestamp
+          localStorage.setItem(cacheKey, JSON.stringify(cache));
+      } else {
+          // Se não existir cache, cria um novo com esta configuração
+          const settingsObj = { [key]: value };
+          const cacheData = {
+              timestamp: new Date().getTime(),
+              settings: settingsObj
+          };
+          localStorage.setItem(cacheKey, JSON.stringify(cacheData));
+      }
+  } catch (error) {
+      console.error('Erro ao atualizar cache de configurações:', error);
+  }
+}, [user?.companyId]);
+  
+  const handleColorChange = useCallback(
+    (color) => {
+      if (!color) return;
+      const newColor = color.hex;
+      setSelectedColorValue(newColor);
+      // Marca que há alterações não salvas
+      setHasUnsavedChanges(prev => ({...prev, colors: true}));
+    },
+    []
+  );
+  
+  // Função para salvar cores do tema
+  const saveThemeColor = useCallback(() => {
+    if (selectedColorKey && selectedColorValue) {
+      handleSaveSetting(selectedColorKey, selectedColorValue, 'colors');
+    }
+  }, [selectedColorKey, selectedColorValue, handleSaveSetting]);
+
+  const handleColorKeyChange = useCallback(
+    (event) => {
+      const newColorKey = event.target.value;
+      setSelectedColorKey(newColorKey);
+      setSelectedColorValue(settingsLoaded[newColorKey] || "");
+      setHasUnsavedChanges(prev => ({...prev, colors: false})); // Resetar alterações ao mudar a cor selecionada
+    },
+    [settingsLoaded]
+  );
+
+  const getImagePath = useCallback((imageKey, imagePath, companyId) => {
+    // Verificar se o caminho já é uma URL completa
     if (!imagePath) {
       return getImageDefaultByImageKey(imageKey);
     }
-
+    
     if (imagePath.startsWith('http://') || imagePath.startsWith('https://')) {
       return imagePath;
     }
@@ -322,7 +495,158 @@ function Whitelabel({ settings }) {
     return `${process.env.REACT_APP_BACKEND_URL}/public/${imagePath}`;
   }, []);
 
-  // Obter imagem padrão por chave
+  // Função otimizada para fazer upload de imagens de fundo
+  const uploadBackground = useCallback(
+    async (e, page) => {
+      if (!e.target.files || e.target.files.length === 0) return;
+
+      const file = e.target.files[0];
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("page", page);
+
+      try {
+        setLoadingForSection('logos', true);
+        const response = await api.post("/settings/background", formData);
+        const backgroundUrl = response.data;
+        
+        if (isMounted.current) {
+          updateSettingsLoaded(`${page}Background`, backgroundUrl);
+          await handleSaveSetting(`${page}Background`, backgroundUrl);
+          toast.success(i18n.t("whiteLabel.backgroundUpdateSuccess"));
+        }
+      } catch (err) {
+        if (isMounted.current) {
+          toast.error(i18n.t("whiteLabel.backgroundUploadError"));
+        }
+      } finally {
+        if (isMounted.current) {
+          setLoadingForSection('logos', false);
+        }
+      }
+    },
+    [handleSaveSetting, updateSettingsLoaded, setLoadingForSection]
+  );
+
+  // Função otimizada para excluir imagens de fundo
+  const deleteBackground = useCallback(
+    async (filename, imageKey) => {
+      if (!filename) return;
+      
+      filename = removePathName(filename);
+      try {
+        setLoadingForSection('logos', true);
+        await api.delete(`/settings/backgrounds/${filename}`);
+        
+        if (isMounted.current) {
+          if (imageKey === "loginBackground") {
+            updateSettingsLoaded("loginBackground", "");
+            await handleSaveSetting("loginBackground", "");
+          }
+          if (imageKey === "signupBackground") {
+            updateSettingsLoaded("signupBackground", "");
+            await handleSaveSetting("signupBackground", "");
+          }
+          toast.success(i18n.t("whitelabel.success.backgroundUpdated"));
+        }
+      } catch (err) {
+        if (isMounted.current) {
+          toast.error(i18n.t("whitelabel.success.backgroundDeleteError"));
+        }
+      } finally {
+        if (isMounted.current) {
+          setLoadingForSection('logos', false);
+        }
+      }
+    },
+    [updateSettingsLoaded, handleSaveSetting, setLoadingForSection]
+  );
+
+  const handleTabChange = useCallback((event, newValue) => {
+    setSelectedTab(newValue);
+  }, []);
+  
+  // Funções para o seletor de cores do tema
+  const handleThemeColorPickerOpen = useCallback((event, colorType) => {
+    setSelectedColorKey(colorType);
+    setSelectedColorValue(settingsLoaded[colorType] || '');
+    setThemeColorPickerAnchor(event.currentTarget);
+  }, [settingsLoaded]);
+  
+  const handleThemeColorPickerClose = useCallback(() => {
+    setThemeColorPickerAnchor(null);
+  }, []);
+  
+  // Funções para o seletor de cores do splash
+  const handleSplashColorPickerOpen = useCallback((event) => {
+    setSplashColorPickerAnchor(event.currentTarget);
+  }, []);
+  
+  const handleSplashColorPickerClose = useCallback(() => {
+    setSplashColorPickerAnchor(null);
+  }, []);
+  
+  // Função otimizada para fazer upload de logos
+  const uploadLogo = useCallback(
+    async (e, mode) => {
+      if (!e.target.files || e.target.files.length === 0) return;
+  
+      const file = e.target.files[0];
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("mode", mode);
+  
+      try {
+        setLoadingForSection('logos', true);
+        const response = await api.post("/settings/logo", formData);
+        const logoUrl = response.data;
+  
+        if (isMounted.current) {
+          updateSettingsLoaded(mode, logoUrl);
+  
+          // Construir URL completa
+          const fullUrl = `${process.env.REACT_APP_BACKEND_URL}/public/${logoUrl}`;
+  
+          // Atualizar ColorMode
+          const setterFunction = colorMode[`set${capitalizeFirstLetter(mode)}`];
+          if (typeof setterFunction === "function") {
+            setterFunction(fullUrl);
+          }
+  
+          // Salvar configuração
+          await handleSaveSetting(mode, logoUrl);
+  
+          toast.success(i18n.t("whitelabel.success.logoUpdated"));
+        }
+      } catch (err) {
+        if (isMounted.current) {
+          console.error("Erro no upload:", err);
+          toast.error(i18n.t("whitelabel.error.logoUploadFailed"));
+        }
+      } finally {
+        if (isMounted.current) {
+          setLoadingForSection('logos', false);
+        }
+      }
+    },
+    [colorMode, handleSaveSetting, updateSettingsLoaded, setLoadingForSection]
+  );
+
+  const handleSplashColorChange = useCallback((color) => {
+    if (!color) return;
+    const newColor = color.hex;
+    setSelectedSplashColor(prev => ({ ...prev, value: newColor }));
+    setHasUnsavedChanges(prev => ({...prev, splash: true}));
+  }, []);
+  
+  // Função para salvar cores do splash
+  const saveSplashColor = useCallback(() => {
+    if (selectedSplashColor.key && selectedSplashColor.value) {
+      handleSaveSetting(selectedSplashColor.key, selectedSplashColor.value, 'splash');
+    }
+  }, [selectedSplashColor, handleSaveSetting]);
+  
+  // Função auxiliar para obter imagens padrão
   const getImageDefaultByImageKey = useCallback((imageKey) => {
     if (imageKey === "appLogoLight") return logotipoImage;
     if (imageKey === "appLogoDark") return logotipoImage;
@@ -332,299 +656,220 @@ function Whitelabel({ settings }) {
     if (imageKey === "signupBackground") return login_signup;
     return null;
   }, []);
-
-  // Manipuladores
-  const handleTabChange = (event, newValue) => {
-    setSelectedTab(newValue);
-  };
-
-  const handleGeneralFormChange = (e) => {
-    const { name, value } = e.target;
-    setGeneralForm(prev => ({ ...prev, [name]: value }));
-    setHasUnsavedChanges(prev => ({ ...prev, general: true }));
-  };
-
-  const handleColorPickerOpen = (event, colorKey) => {
-    setSelectedColorKey(colorKey);
-    setSelectedColorValue(themeColorValues[colorKey] || settingsMap[colorKey] || '');
-    setColorPickerAnchorEl(event.currentTarget);
-  };
-
-  const handleColorPickerClose = () => {
-    setColorPickerAnchorEl(null);
-  };
-
-  const handleColorChange = (color) => {
-    if (!color) return;
-    const newColor = color.hex;
-    setSelectedColorValue(newColor);
-    setHasUnsavedChanges(prev => ({ ...prev, colors: true }));
-  };
-
-  // Função para salvar configuração
-  const saveSetting = async (key, value, section) => {
-    try {
-      setLoading(prev => ({ ...prev, [section]: true }));
-
-      await api.put(`/settings/${key}`, {
-        value
-      }, {
-        params: { companyId: user.companyId }
-      });
-
-      // Atualizar estado local
-      setSettingsMap(prev => ({ ...prev, [key]: value }));
-
-      // Se for cor do tema, atualizar também o estado de cores
-      if (themeColors.includes(key)) {
-        setThemeColorValues(prev => ({ ...prev, [key]: value }));
-        // Aplicar ao tema
-        const setterFunction = colorMode[`set${capitalizeFirstLetter(key)}`];
+  
+  // Implementação de função auxiliar para aplicar configurações ao tema de uma vez
+  const applySettingsToTheme = useCallback((settings, companyId) => {
+    if (!settings || !colorMode) return;
+    
+    // Aplica as cores ao tema
+    themeColors.forEach((colorKey) => {
+      const colorValue = settings[colorKey];
+      if (colorValue && colorMode) {
+        const setterFunction = colorMode[`set${capitalizeFirstLetter(colorKey)}`];
         if (typeof setterFunction === 'function') {
-          setterFunction(value);
+          setterFunction(colorValue);
         }
       }
+    });
 
-      return true;
-    } catch (error) {
-      console.error(`Erro ao salvar configuração ${key}:`, error);
-      toast.error(`Erro ao salvar ${key}`);
-      return false;
-    } finally {
-      setLoading(prev => ({ ...prev, [section]: false }));
-    }
-  };
-
-  // Salvar cor selecionada
-  const saveSelectedColor = async () => {
-    if (selectedColorKey && selectedColorValue) {
-      const success = await saveSetting(selectedColorKey, selectedColorValue, 'colors');
-      if (success) {
-        handleColorPickerClose();
-        toast.success("Cor atualizada com sucesso");
-        setHasUnsavedChanges(prev => ({ ...prev, colors: false }));
-      }
-    }
-  };
-
-  // Salvar configurações gerais
-  const saveGeneralSettings = async () => {
-    try {
-      setLoading(prev => ({ ...prev, general: true }));
-
-      const promises = [
-        saveSetting('appName', generalForm.appName, 'general'),
-        saveSetting('copyright', generalForm.copyright, 'general'),
-        saveSetting('privacy', generalForm.privacy, 'general'),
-        saveSetting('terms', generalForm.terms, 'general'),
-        saveSetting('loginPosition', generalForm.loginPosition, 'general'),
-        saveSetting('signupPosition', generalForm.signupPosition, 'general')
-      ];
-
-      await Promise.all(promises);
-      
-      toast.success("Configurações gerais atualizadas com sucesso");
-      setHasUnsavedChanges(prev => ({ ...prev, general: false }));
-    } catch (error) {
-      console.error("Erro ao salvar configurações gerais:", error);
-      toast.error("Erro ao salvar configurações gerais");
-    } finally {
-      setLoading(prev => ({ ...prev, general: false }));
-    }
-  };
-
-  // Salvar todas as cores de uma vez
-  const saveAllThemeColors = async () => {
-    try {
-      setLoading(prev => ({ ...prev, colors: true }));
-      
-      const promises = Object.entries(themeColorValues).map(([key, value]) => 
-        saveSetting(key, value, null)
-      );
-      
-      await Promise.all(promises);
-      
-      toast.success("Todas as cores atualizadas com sucesso");
-      setHasUnsavedChanges(prev => ({ ...prev, colors: false }));
-    } catch (error) {
-      console.error("Erro ao salvar todas as cores:", error);
-      toast.error("Erro ao salvar todas as cores");
-    } finally {
-      setLoading(prev => ({ ...prev, colors: false }));
-    }
-  };
-
-  // Restaurar cores padrão
-  const resetToDefaultColors = async () => {
-    try {
-      setLoading(prev => ({ ...prev, colors: true }));
-      
-      const defaultColors = {
-        primaryColorLight: "#2196f3",
-        secondaryColorLight: "#f50057",
-        primaryColorDark: "#90caf9",
-        secondaryColorDark: "#f48fb1",
-        iconColorLight: "#424242",
-        iconColorDark: "#e0e0e0",
-        chatlistLight: "#f5f5f5",
-        chatlistDark: "#303030",
-        boxLeftLight: "#e0e0e0",
-        boxLeftDark: "#424242",
-        boxRightLight: "#dcf8c6",
-        boxRightDark: "#056162"
-      };
-      
-      setThemeColorValues(defaultColors);
-      
-      const promises = Object.entries(defaultColors).map(([key, value]) => 
-        saveSetting(key, value, null)
-      );
-      
-      await Promise.all(promises);
-      
-      toast.success("Cores resetadas para os valores padrão");
-      setHasUnsavedChanges(prev => ({ ...prev, colors: false }));
-    } catch (error) {
-      console.error("Erro ao restaurar cores padrão:", error);
-      toast.error("Erro ao restaurar cores padrão");
-    } finally {
-      setLoading(prev => ({ ...prev, colors: false }));
-    }
-  };
-
-  // Upload de logo
-  const uploadLogo = async (e, mode) => {
-    if (!e.target.files || e.target.files.length === 0) return;
-
-    const file = e.target.files[0];
-    const formData = new FormData();
-    formData.append("file", file);
-    formData.append("mode", mode);
-    formData.append("companyId", user.companyId.toString());
-    formData.append("typeArch", "logo");
-
-    try {
-      setLoading(prev => ({ ...prev, logos: true }));
-      const response = await api.post("/settings/logo", formData);
-      const logoUrl = response.data;
-
-      // Atualizar estado local
-      setSettingsMap(prev => ({ ...prev, [mode]: logoUrl }));
-
-      // Construir URL completa
-      const fullUrl = `${process.env.REACT_APP_BACKEND_URL}/public/${logoUrl}`;
-
-      // Atualizar ColorMode
-      const setterFunction = colorMode[`set${capitalizeFirstLetter(mode)}`];
-      if (typeof setterFunction === "function") {
-        setterFunction(fullUrl);
-      }
-
-      // Salvar no backend
-      await saveSetting(mode, logoUrl, 'logos');
-
-      toast.success("Logo atualizado com sucesso");
-    } catch (error) {
-      console.error("Erro no upload de logo:", error);
-      toast.error("Erro ao fazer upload do logo");
-    } finally {
-      setLoading(prev => ({ ...prev, logos: false }));
-    }
-  };
-
-  // Upload de imagem de fundo
-  const uploadBackground = async (e, page) => {
-    if (!e.target.files || e.target.files.length === 0) return;
-
-    const file = e.target.files[0];
-    const formData = new FormData();
-    formData.append("file", file);
-    formData.append("page", page);
-    formData.append("companyId", user.companyId.toString());
-    formData.append("typeArch", "background");
-
-    try {
-      setLoading(prev => ({ ...prev, logos: true }));
-      const response = await api.post("/settings/background", formData);
-      const backgroundUrl = response.data;
-
-      // Atualizar estado local
-      setSettingsMap(prev => ({ ...prev, [`${page}Background`]: backgroundUrl }));
-
-      // Salvar no backend
-      await saveSetting(`${page}Background`, backgroundUrl, 'logos');
-
-      toast.success("Imagem de fundo atualizada com sucesso");
-    } catch (error) {
-      console.error("Erro ao fazer upload da imagem de fundo:", error);
-      toast.error("Erro ao fazer upload da imagem de fundo");
-    } finally {
-      setLoading(prev => ({ ...prev, logos: false }));
-    }
-  };
-
-  // Excluir imagem de fundo
-  const deleteBackground = async (filename, imageKey) => {
-    if (!filename) return;
-
-    try {
-      setLoading(prev => ({ ...prev, logos: true }));
-
-      // Remover caminho do nome do arquivo
-      const filenameOnly = removePathName(filename);
-
-      await api.delete(`/settings/backgrounds/${filenameOnly}?companyId=${user.companyId}`);
-
-      // Atualizar estado local
-      setSettingsMap(prev => ({ ...prev, [imageKey]: "" }));
-
-      // Salvar no backend
-      await saveSetting(imageKey, "", 'logos');
-
-      toast.success("Imagem de fundo removida com sucesso");
-    } catch (error) {
-      console.error("Erro ao excluir imagem de fundo:", error);
-      toast.error("Erro ao excluir imagem de fundo");
-    } finally {
-      setLoading(prev => ({ ...prev, logos: false }));
-    }
-  };
-
-  // Renderização condicional para carregamento inicial
-  if (loading.initial) {
-    return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: 300 }}>
-        <CircularProgress />
-      </Box>
-    );
-  }
-
-  // Renderização condicional para erro
-  if (error) {
-    return (
-      <Alert 
-        severity="error" 
-        sx={{ mb: 2 }}
-        action={
-          <Button color="inherit" size="small" onClick={() => window.location.reload()}>
-            Tentar Novamente
-          </Button>
+    // Aplica as configurações do splash ao tema
+    splashColorOptions.forEach((option) => {
+      const colorValue = settings[option.key];
+      if (colorValue && colorMode) {
+        const setterFunction = colorMode[`set${capitalizeFirstLetter(option.key)}`];
+        if (typeof setterFunction === 'function') {
+          setterFunction(colorValue);
         }
-      >
-        {error}
-      </Alert>
-    );
-  }
+      }
+    });
 
-  // Componentes memorizados para otimização
+    // Aplica as imagens
+    imageFiles.forEach((imageKey) => {
+      if (settings[imageKey] && colorMode) {
+        const setterFunction = colorMode[`set${capitalizeFirstLetter(imageKey)}`];
+        if (typeof setterFunction === 'function') {
+          const imagePath = getImagePath(
+            imageKey,
+            settings[imageKey],
+            companyId
+          );
+          setterFunction(imagePath);
+        }
+      }
+    });
+  }, [colorMode, getImagePath]);
 
-  // Componente de configurações gerais
-  const GeneralSettingsSection = (
-    <StyledCard>
+  // Carregar configurações otimizado
+  const fetchUserAndInitializeSettings = useCallback(async () => {
+    if (settingsInitialized.current || !isMounted.current) return;
+    
+    try {
+      Loading.turnOn();
+
+      if (Array.isArray(settings) && settings.length) {
+        const initialSettings = settings.reduce((acc, setting) => {
+          acc[setting.key] = setting.value;
+          return acc;
+        }, {});
+
+        // Configurações padrão caso não existam
+        const defaultSettings = {
+          splashBackgroundLight: '#ffffff',
+          splashBackgroundDark: '#1C2E36',
+          splashTextColorLight: '#000000',
+          splashTextColorDark: '#ffffff',
+          splashAppName: 'AutoAtende',
+          splashSlogan: 'Sua plataforma completa de atendimento'
+        };
+
+        // Mescla as configurações salvas com as padrão
+        const mergedSettings = {
+          ...defaultSettings,
+          ...initialSettings
+        };
+
+        if (isMounted.current) {
+          // Atualiza todos os estados em uma única operação
+          setSettingsLoaded(mergedSettings);
+          setSelectedColorValue(mergedSettings[themeColors[0]] || '');
+          
+          // Inicializa os formulários com os valores carregados
+          setGeneralForm({
+            appName: mergedSettings.appName || '',
+            copyright: mergedSettings.copyright || '',
+            privacy: mergedSettings.privacy || '',
+            terms: mergedSettings.terms || ''
+          });
+          
+          setSplashForm({
+            splashAppName: mergedSettings.splashAppName || '',
+            splashSlogan: mergedSettings.splashSlogan || ''
+          });
+          
+          // Mantém os estados individuais para compatibilidade
+          setAppName(mergedSettings.appName || '');
+          setCopyright(mergedSettings.copyright || '');
+          setPrivacy(mergedSettings.privacy || '');
+          setTerms(mergedSettings.terms || '');
+          
+          setSelectedSplashColor(prev => ({
+            ...prev,
+            value: mergedSettings[prev.key] || ''
+          }));
+
+          // Aplicar as configurações ao tema apenas uma vez
+          applySettingsToTheme(mergedSettings, user?.companyId);
+          
+          // Marcar como inicializado
+          settingsInitialized.current = true;
+        }
+      }
+    } catch (error) {
+      if (isMounted.current) {
+        toast.error(error);
+      }
+    } finally {
+      if (isMounted.current) {
+        Loading.turnOff();
+      }
+    }
+  }, [settings, Loading, applySettingsToTheme, user]);
+
+  // useEffect corrigido para evitar loops
+  useEffect(() => {
+    fetchUserAndInitializeSettings();
+  }, [fetchUserAndInitializeSettings]);
+
+  // Funções para o formulário geral
+  const handleGeneralFormChange = useCallback((e) => {
+    const { name, value } = e.target;
+    
+    // Atualiza o estado do formulário
+    setGeneralForm(prev => ({
+      ...prev,
+      [name]: value
+    }));
+    
+    // Atualiza também os estados individuais para compatibilidade
+    if (name === 'appName') setAppName(value);
+    if (name === 'copyright') setCopyright(value);
+    if (name === 'privacy') setPrivacy(value);
+    if (name === 'terms') setTerms(value);
+    
+    // Marca que há alterações não salvas
+    setHasUnsavedChanges(prev => ({...prev, general: true}));
+  }, []);
+  
+  // Função para salvar configurações gerais
+  const saveGeneralSettings = useCallback(() => {
+    setLoadingForSection('general', true);
+    
+    Promise.all([
+      handleSaveSetting('appName', generalForm.appName, 'general'),
+      handleSaveSetting('copyright', generalForm.copyright, 'general'),
+      handleSaveSetting('privacy', generalForm.privacy, 'general'),
+      handleSaveSetting('terms', generalForm.terms, 'general')
+    ])
+      .then(() => {
+        setHasUnsavedChanges(prev => ({...prev, general: false}));
+        toast.success(i18n.t("whiteLabel.updateSuccess"));
+      })
+      .catch((error) => {
+        console.error('Erro ao salvar configurações gerais:', error);
+        toast.error(i18n.t("whiteLabel.updateError"));
+      })
+      .finally(() => {
+        setLoadingForSection('general', false);
+      });
+  }, [generalForm, handleSaveSetting, setLoadingForSection]);
+  
+  // Funções para o formulário splash
+  const handleSplashFormChange = useCallback((e) => {
+    const { name, value } = e.target;
+    
+    // Atualiza o estado do formulário
+    setSplashForm(prev => ({
+      ...prev,
+      [name]: value
+    }));
+    
+    // Atualiza também settingsLoaded para o preview
+    updateSettingsLoaded(name, value);
+    
+    // Marca que há alterações não salvas
+    setHasUnsavedChanges(prev => ({...prev, splash: true}));
+  }, [updateSettingsLoaded]);
+  
+// Função para salvar configurações do splash
+const saveSplashSettings = useCallback(() => {
+  setLoadingForSection('splash', true);
+  
+  Promise.all([
+    handleSaveSetting('splashAppName', splashForm.splashAppName, 'splash'),
+    handleSaveSetting('splashSlogan', splashForm.splashSlogan, 'splash'),
+    saveSplashColor()
+  ])
+    .then(() => {
+      setHasUnsavedChanges(prev => ({...prev, splash: false}));
+      toast.success(i18n.t("whiteLabel.updateSuccess"));
+    })
+    .catch((error) => {
+      console.error('Erro ao salvar configurações do splash:', error);
+      toast.error(i18n.t("whiteLabel.updateError"));
+    })
+    .finally(() => {
+      setLoadingForSection('splash', false);
+    });
+}, [splashForm, handleSaveSetting, saveSplashColor, setLoadingForSection]);
+
+// Componentes otimizados com useMemo
+const renderGeneralSettings = useMemo(
+  () => (
+    <Card>
       <CardContent>
         <Grid container spacing={3}>
           <Grid item xs={12} md={6}>
-            <FormControl fullWidth>
+            <FormControl className={classes.formControl}>
               <TextField
                 label="Nome do sistema"
                 variant="outlined"
@@ -632,12 +877,11 @@ function Whitelabel({ settings }) {
                 value={generalForm.appName}
                 onChange={handleGeneralFormChange}
                 InputLabelProps={{ shrink: true }}
-                sx={{ mb: 2 }}
               />
             </FormControl>
           </Grid>
           <Grid item xs={12} md={6}>
-            <FormControl fullWidth>
+            <FormControl className={classes.formControl}>
               <TextField
                 label="Copyright"
                 variant="outlined"
@@ -645,51 +889,11 @@ function Whitelabel({ settings }) {
                 value={generalForm.copyright}
                 onChange={handleGeneralFormChange}
                 InputLabelProps={{ shrink: true }}
-                sx={{ mb: 2 }}
               />
             </FormControl>
           </Grid>
-
-          {/* Posicionamento dos formulários */}
           <Grid item xs={12} md={6}>
-            <FormControl fullWidth>
-              <InputLabel id="login-position-label">Posição do Formulário de Login</InputLabel>
-              <Select
-                labelId="login-position-label"
-                id="loginPosition"
-                name="loginPosition"
-                value={generalForm.loginPosition || 'right'}
-                onChange={handleGeneralFormChange}
-                label="Posição do Formulário de Login"
-                sx={{ mb: 2 }}
-              >
-                <MenuItem value="left">Esquerda</MenuItem>
-                <MenuItem value="center">Centro</MenuItem>
-                <MenuItem value="right">Direita</MenuItem>
-              </Select>
-            </FormControl>
-          </Grid>
-          <Grid item xs={12} md={6}>
-            <FormControl fullWidth>
-              <InputLabel id="signup-position-label">Posição do Formulário de Cadastro</InputLabel>
-              <Select
-                labelId="signup-position-label"
-                id="signupPosition"
-                name="signupPosition"
-                value={generalForm.signupPosition || 'right'}
-                onChange={handleGeneralFormChange}
-                label="Posição do Formulário de Cadastro"
-                sx={{ mb: 2 }}
-              >
-                <MenuItem value="left">Esquerda</MenuItem>
-                <MenuItem value="center">Centro</MenuItem>
-                <MenuItem value="right">Direita</MenuItem>
-              </Select>
-            </FormControl>
-          </Grid>
-
-          <Grid item xs={12} md={6}>
-            <FormControl fullWidth>
+            <FormControl className={classes.formControl}>
               <TextField
                 label="Link da Política de Privacidade"
                 variant="outlined"
@@ -697,12 +901,11 @@ function Whitelabel({ settings }) {
                 value={generalForm.privacy}
                 onChange={handleGeneralFormChange}
                 InputLabelProps={{ shrink: true }}
-                sx={{ mb: 2 }}
               />
             </FormControl>
           </Grid>
           <Grid item xs={12} md={6}>
-            <FormControl fullWidth>
+            <FormControl className={classes.formControl}>
               <TextField
                 label="Link dos Termos de uso"
                 variant="outlined"
@@ -710,395 +913,409 @@ function Whitelabel({ settings }) {
                 value={generalForm.terms}
                 onChange={handleGeneralFormChange}
                 InputLabelProps={{ shrink: true }}
-                sx={{ mb: 2 }}
               />
             </FormControl>
           </Grid>
         </Grid>
-        
-        {loading.general && (
+        {loadingStates.general && (
           <Box sx={{ display: 'flex', justifyContent: 'center', mt: 2 }}>
             <CircularProgress size={24} />
           </Box>
         )}
-        
         <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 2 }}>
           <Button
             variant="contained"
             color="primary"
-            disabled={!hasUnsavedChanges.general || loading.general}
+            disabled={!hasUnsavedChanges.general || loadingStates.general}
             onClick={saveGeneralSettings}
             startIcon={<Save />}
-            sx={{ mt: 2 }}
+            className={classes.saveButton}
           >
             Salvar Alterações
           </Button>
         </Box>
       </CardContent>
-    </StyledCard>
-  );
+    </Card>
+  ),
+  [
+    generalForm, 
+    classes.formControl,
+    classes.saveButton,
+    loadingStates.general,
+    hasUnsavedChanges.general,
+    handleGeneralFormChange,
+    saveGeneralSettings
+  ]
+);
 
-  // Componente de configurações de cores
-  const ColorSettingsSection = (
-    <StyledCard>
+const renderColorSettings = useMemo(
+  () => (
+    <Card>
       <CardContent>
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-          <Typography variant="h6">
-            Personalização de Cores do Tema
-          </Typography>
-
-          <Stack direction="row" spacing={1}>
-            <Tooltip title="Restaurar cores padrão">
-              <Button
-                variant="outlined"
-                color="secondary"
-                startIcon={<Refresh />}
-                onClick={resetToDefaultColors}
-                disabled={loading.colors}
-                size="small"
-              >
-                {isMobile ? "" : "Restaurar Padrões"}
-              </Button>
-            </Tooltip>
-
-            <Button
-              variant="contained"
-              color="primary"
-              startIcon={<Save />}
-              onClick={saveAllThemeColors}
-              disabled={!hasUnsavedChanges.colors || loading.colors}
-              size="small"
-            >
-              {isMobile ? "" : "Salvar Todas as Cores"}
-            </Button>
-          </Stack>
-        </Box>
-
-        {loading.colors && (
-          <Box sx={{ display: 'flex', justifyContent: 'center', my: 2 }}>
+        <Grid container spacing={3}>
+          <Grid item xs={12} md={4}>
+            <FormControl className={classes.formControl}>
+              <InputLabel>Escolha a cor para personalizar</InputLabel>
+              <Select value={selectedColorKey} onChange={handleColorKeyChange}>
+                {themeColors.map((colorKey) => (
+                  <MenuItem key={colorKey} value={colorKey}>
+                    {colorLabels[colorKey]}
+                  </MenuItem>
+                ))}
+                </Select>
+            </FormControl>
+          </Grid>
+          <Grid item xs={12} md={8}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+              <Box
+                className={classes.colorPreview}
+                sx={{ backgroundColor: selectedColorValue }}
+                onClick={(e) => handleThemeColorPickerOpen(e, selectedColorKey)}
+              />
+              <Typography>
+                {selectedColorValue || 'Nenhuma cor selecionada'}
+              </Typography>
+            </Box>
+            {themeColorPickerAnchor && (
+              <>
+                <Box
+                  className={classes.backdrop}
+                  onClick={handleThemeColorPickerClose}
+                />
+                <Box className={classes.colorPickerPopover}>
+                  <ChromePicker
+                    color={selectedColorValue}
+                    onChange={handleColorChange}
+                    disableAlpha
+                  />
+                </Box>
+              </>
+            )}
+          </Grid>
+        </Grid>
+        {loadingStates.colors && (
+          <Box sx={{ display: 'flex', justifyContent: 'center', mt: 2 }}>
             <CircularProgress size={24} />
           </Box>
         )}
-
-        {/* Layout em grupos para melhor visualização */}
-        {Object.entries(colorGroups).map(([groupName, colorKeys]) => (
-          <Box key={groupName} sx={{ mb: 3 }}>
-            <Typography variant="subtitle1" sx={{ fontWeight: 'bold', mb: 1 }}>
-              {groupName}
-            </Typography>
-            <Divider sx={{ mb: 2 }} />
-
-            <Grid container spacing={2}>
-              {colorKeys.map((colorKey) => (
-                <Grid item xs={6} sm={4} md={3} key={colorKey}>
-                  <Box
-                    sx={{
-                      display: 'flex',
-                      flexDirection: 'column',
-                      alignItems: 'center',
-                      p: 1,
-                      border: '1px solid',
-                      borderColor: 'divider',
-                      borderRadius: 1,
-                      height: '100%',
-                      transition: 'all 0.2s',
-                      '&:hover': {
-                        boxShadow: 2,
-                        transform: 'translateY(-2px)'
-                      }
-                    }}
-                  >
-                    <Typography
-                      variant="body2"
-                      sx={{
-                        textAlign: 'center',
-                        mb: 1,
-                        fontSize: '0.75rem',
-                        height: 32,
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center'
-                      }}
-                    >
-                      {colorLabels[colorKey]}
-                    </Typography>
-
-                    <ColorBox
-                      color={themeColorValues[colorKey] || settingsMap[colorKey] || '#ffffff'}
-                      onClick={(e) => handleColorPickerOpen(e, colorKey)}
-                    />
-
-                    <Chip
-                      label={themeColorValues[colorKey] || settingsMap[colorKey] || 'Não definido'}
-                      size="small"
-                      sx={{
-                        width: '100%',
-                        fontSize: '0.7rem',
-                        height: 24,
-                        '& .MuiChip-label': {
-                          overflow: 'hidden',
-                          textOverflow: 'ellipsis'
-                        }
-                      }}
-                    />
-                  </Box>
-                </Grid>
-              ))}
-            </Grid>
-          </Box>
-        ))}
-      </CardContent>
-
-      {/* Color Picker Popover */}
-      <Popover
-        open={Boolean(colorPickerAnchorEl)}
-        anchorEl={colorPickerAnchorEl}
-        onClose={handleColorPickerClose}
-        anchorOrigin={{
-          vertical: 'bottom',
-          horizontal: 'center',
-        }}
-        transformOrigin={{
-          vertical: 'top',
-          horizontal: 'center',
-        }}
-        sx={{
-          '& .MuiPopover-paper': {
-            p: 2,
-            boxShadow: 4
-          }
-        }}
-      >
-        <Box sx={{ width: 220 }}>
-          <Typography variant="subtitle2" gutterBottom>
-            {colorLabels[selectedColorKey]}
-          </Typography>
-          <ChromePicker
-            color={selectedColorValue}
-            onChange={handleColorChange}
-            disableAlpha
-            styles={{
-              default: {
-                picker: {
-                  width: '100%',
-                  boxShadow: 'none',
-                  fontFamily: theme.typography.fontFamily
-                }
-              }
-            }}
-          />
-          <Box sx={{ mt: 2, display: 'flex', justifyContent: 'space-between' }}>
-            <Button
-              variant="outlined"
-              size="small"
-              onClick={handleColorPickerClose}
-            >
-              Cancelar
-            </Button>
-            <Button
-              variant="contained"
-              size="small"
-              onClick={saveSelectedColor}
-              disabled={!selectedColorValue || loading.colors}
-            >
-              Aplicar
-            </Button>
-          </Box>
+        <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 2 }}>
+          <Button
+            variant="contained"
+            color="primary"
+            disabled={!hasUnsavedChanges.colors || loadingStates.colors}
+            onClick={saveThemeColor}
+            startIcon={<Save />}
+            className={classes.saveButton}
+          >
+            Salvar Alterações
+          </Button>
         </Box>
-      </Popover>
-    </StyledCard>
-  );
+      </CardContent>
+    </Card>
+  ),
+  [
+    classes,
+    selectedColorKey,
+    selectedColorValue,
+    handleColorKeyChange,
+    handleColorChange,
+    themeColorPickerAnchor,
+    loadingStates.colors,
+    hasUnsavedChanges.colors,
+    handleThemeColorPickerOpen,
+    handleThemeColorPickerClose,
+    saveThemeColor
+  ]
+);
 
-  // Componente de imagens e logos
-  const ImagesAndLogosSection = (
-    <StyledCard>
+const renderSplashSettings = useMemo(
+  () => (
+    <Card>
+      <CardContent>
+        <Grid container spacing={3}>
+          <Grid item xs={12} md={6}>
+            <FormControl className={classes.formControl}>
+              <TextField
+                label="Nome do Sistema na Tela de Carregamento"
+                variant="outlined"
+                name="splashAppName"
+                value={splashForm.splashAppName}
+                onChange={handleSplashFormChange}
+                InputLabelProps={{ shrink: true }}
+              />
+            </FormControl>
+          </Grid>
+          <Grid item xs={12} md={6}>
+            <FormControl className={classes.formControl}>
+              <TextField
+                label="Slogan na Tela de Carregamento"
+                variant="outlined"
+                name="splashSlogan"
+                value={splashForm.splashSlogan}
+                onChange={handleSplashFormChange}
+                InputLabelProps={{ shrink: true }}
+              />
+            </FormControl>
+          </Grid>
+          <Grid item xs={12} md={4}>
+            <FormControl className={classes.formControl}>
+              <InputLabel>Escolha a cor para personalizar</InputLabel>
+              <Select
+                value={selectedSplashColor.key}
+                onChange={(e) => {
+                  const option = splashColorOptions.find(opt => opt.key === e.target.value);
+                  if (option) {
+                    setSelectedSplashColor({
+                      key: e.target.value,
+                      value: settingsLoaded[e.target.value] || '',
+                      label: option.label
+                    });
+                    setHasUnsavedChanges(prev => ({...prev, splash: false})); // Resetar alterações ao mudar a cor
+                  }
+                }}
+              >
+                {splashColorOptions.map((option) => (
+                  <MenuItem key={option.key} value={option.key}>
+                  {option.label}
+                </MenuItem>
+              ))}
+              </Select>
+            </FormControl>
+          </Grid>
+          <Grid item xs={12} md={8}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+              <Box
+                className={classes.colorPreview}
+                sx={{ backgroundColor: settingsLoaded[selectedSplashColor.key] }}
+                onClick={handleSplashColorPickerOpen}
+              />
+              <Typography>
+                {settingsLoaded[selectedSplashColor.key] || 'Nenhuma cor selecionada'}
+              </Typography>
+            </Box>
+            {splashColorPickerAnchor && (
+              <>
+                <Box
+                  className={classes.backdrop}
+                  onClick={handleSplashColorPickerClose}
+                />
+                <Box className={classes.colorPickerPopover}>
+                  <ChromePicker
+                    color={settingsLoaded[selectedSplashColor.key]}
+                    onChange={handleSplashColorChange}
+                    disableAlpha
+                  />
+                </Box>
+              </>
+            )}
+          </Grid>
+        </Grid>
+        {loadingStates.splash && (
+          <Box sx={{ display: 'flex', justifyContent: 'center', mt: 2 }}>
+            <CircularProgress size={24} />
+          </Box>
+        )}
+        <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 2 }}>
+          <Button
+            variant="contained"
+            color="primary"
+            disabled={!hasUnsavedChanges.splash || loadingStates.splash}
+            onClick={saveSplashSettings}
+            startIcon={<Save />}
+            className={classes.saveButton}
+          >
+            Salvar Alterações
+          </Button>
+        </Box>
+        <Box sx={{ mt: 4 }}>
+          <Typography variant="h6" gutterBottom>
+            Preview da Tela de Carregamento
+          </Typography>
+          <SplashPreview 
+            settings={settingsLoaded}
+            theme={theme} 
+          />
+        </Box>
+      </CardContent>
+    </Card>
+  ),
+  [
+    classes,
+    splashForm,
+    settingsLoaded,
+    selectedSplashColor,
+    handleSplashColorChange,
+    handleSplashFormChange,
+    splashColorPickerAnchor,
+    theme,
+    loadingStates.splash,
+    hasUnsavedChanges.splash,
+    saveSplashSettings,
+    handleSplashColorPickerOpen,
+    handleSplashColorPickerClose
+  ]
+);
+
+// Renderização otimizada para logos e fundos
+const renderLogosAndBackgrounds = useMemo(
+  () => (
+    <Card>
       <CardContent>
         <Typography variant="h6" gutterBottom>
           Logos, Ícones e Imagens de Fundo
         </Typography>
-        
-        {loading.logos && (
-          <Box sx={{ display: 'flex', justifyContent: 'center', my: 2, mb: 3 }}>
-            <CircularProgress size={24} />
-          </Box>
-        )}
-        
         <Grid container spacing={3}>
           {imageFiles.map((imageKey) => {
-            const imagePath = settingsMap[imageKey]
-              ? `${process.env.REACT_APP_BACKEND_URL}/public/${settingsMap[imageKey]}`
+            const imagePath = settingsLoaded[imageKey]
+              ? `${process.env.REACT_APP_BACKEND_URL}/public/${settingsLoaded[imageKey]}`
               : getImageDefaultByImageKey(imageKey);
-
-            const isBackground = imageKey.includes("Background");
-            const imageHeight = isBackground ? 200 : 100;
-
+              
             return (
               <Grid item xs={12} sm={6} md={4} key={imageKey}>
-                <Card elevation={1} sx={{ height: '100%' }}>
-                  <CardContent>
-                    <Typography variant="subtitle1" gutterBottom>
-                      {imageLabels[imageKey]}
-                    </Typography>
-                    
-                    <ImagePreviewBox sx={{ height: imageHeight }}>
-                      {imagePath && (
-                        <img
-                          src={imagePath}
-                          alt={imageLabels[imageKey]}
-                          style={{
-                            maxWidth: "100%",
-                            maxHeight: "100%",
-                            width: imageKey === "appLogoFavicon" || imageKey === "appLogoPWAIcon" ? 48 : "auto",
-                            height: imageKey === "appLogoFavicon" || imageKey === "appLogoPWAIcon" ? 48 : "auto",
-                            objectFit: isBackground ? "cover" : "contain"
-                          }}
-                          onError={(e) => {
-                            e.target.onerror = null;
-                            e.target.src = getImageDefaultByImageKey(imageKey) || '';
-                          }}
-                        />
-                      )}
-                    </ImagePreviewBox>
-                    
-                    <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 1 }}>
-                      <input
-                        type="file"
-                        id={`upload-${imageKey}-button`}
-                        style={{ display: 'none' }}
-                        onChange={(e) =>
-                          isBackground
-                            ? uploadBackground(e, imageKey.replace("Background", ""))
-                            : uploadLogo(e, imageKey)
-                        }
-                        accept="image/*"
-                      />
-                      <label htmlFor={`upload-${imageKey}-button`}>
-                        <Button
-                          component="span"
-                          variant="outlined"
-                          startIcon={<AttachFile />}
-                          size="small"
-                          disabled={loading.logos}
-                        >
-                          Upload
-                        </Button>
-                      </label>
-                      
-                      {settingsMap[imageKey] && (
-                        <Button
-                          onClick={() =>
-                            isBackground
-                              ? deleteBackground(settingsMap[imageKey], imageKey)
-                              : saveSetting(imageKey, "", "logos")
-                          }
-                          color="error"
-                          variant="outlined"
-                          startIcon={<Delete />}
-                          size="small"
-                          disabled={loading.logos}
-                        >
-                          Remover
-                        </Button>
-                      )}
-                    </Box>
-                  </CardContent>
-                </Card>
+                <Typography variant="subtitle1" gutterBottom>
+                  {imageLabels[imageKey]}
+                </Typography>
+                <Box
+                  className={
+                    imageKey.includes("Background")
+                      ? classes.backgroundPreviewBox
+                      : classes.previewBox
+                  }
+                >
+                  {imagePath && (
+                    <img
+                      src={imagePath}
+                      alt={imageLabels[imageKey]}
+                      className={
+                        imageKey === "appLogoFavicon" ||
+                        imageKey === "appLogoPWAIcon"
+                          ? classes.smallPreviewImage
+                          : imageKey.includes("Background")
+                          ? classes.backgroundPreviewImage
+                          : classes.previewImage
+                      }
+                      onError={(e) => {
+                        e.target.onerror = null;
+                        e.target.src = getImageDefaultByImageKey(imageKey) || '';
+                      }}
+                    />
+                  )}
+                </Box>
+                <Box sx={{ mt: 1, display: 'flex', gap: 1 }}>
+                  <input
+                    type="file"
+                    id={`upload-${imageKey}-button`}
+                    className={classes.uploadInput}
+                    onChange={(e) =>
+                      imageKey.includes("Background")
+                        ? uploadBackground(e, imageKey.replace("Background", ""))
+                        : uploadLogo(e, imageKey)
+                    }
+                    accept="image/*"
+                  />
+                  <label htmlFor={`upload-${imageKey}-button`}>
+                    <IconButton component="span" color="primary">
+                      <AttachFile />
+                    </IconButton>
+                  </label>
+                  {settingsLoaded[imageKey] && (
+                    <IconButton
+                      onClick={() =>
+                        imageKey.includes("Background")
+                          ? deleteBackground(settingsLoaded[imageKey], imageKey)
+                          : handleSaveSetting(imageKey, "", "logos")
+                      }
+                      color="secondary"
+                    >
+                      <Delete />
+                    </IconButton>
+                  )}
+                </Box>
               </Grid>
             );
           })}
         </Grid>
+        {loadingStates.logos && (
+          <Box sx={{ display: 'flex', justifyContent: 'center', mt: 2 }}>
+            <CircularProgress size={24} />
+          </Box>
+        )}
       </CardContent>
-    </StyledCard>
-  );
+    </Card>
+  ),
+  [
+    classes,
+    settingsLoaded,
+    uploadLogo,
+    uploadBackground,
+    deleteBackground,
+    handleSaveSetting,
+    loadingStates.logos,
+    getImageDefaultByImageKey
+  ]
+);
 
-  // Componente de ajuda
-  const HelpSection = (
-    <StyledCard>
-      <CardContent>
-        <Box sx={{ display: 'flex', alignItems: 'flex-start', mb: 2 }}>
-          <Info color="primary" sx={{ mr: 1, mt: 0.3 }} />
-          <Typography variant="subtitle1" fontWeight="medium">
-            Ajuda - Personalização do Sistema
-          </Typography>
-        </Box>
-        
-        <Typography variant="body2" paragraph>
-          Esta seção permite personalizar a aparência do sistema de acordo com a identidade visual da sua empresa.
-        </Typography>
-        
-        <Typography variant="subtitle2" gutterBottom>
-          Guia rápido:
-        </Typography>
-        
-        <Box component="ul" sx={{ pl: 2 }}>
-          <Box component="li" sx={{ mb: 0.5 }}>
-            <Typography variant="body2">
-              <strong>Configurações Gerais:</strong> Altere o nome do sistema, direitos autorais e links importantes.
-            </Typography>
-          </Box>
-          <Box component="li" sx={{ mb: 0.5 }}>
-            <Typography variant="body2">
-              <strong>Cores:</strong> Personalize as cores do tema, incluindo modo claro e escuro.
-            </Typography>
-          </Box>
-          <Box component="li" sx={{ mb: 0.5 }}>
-            <Typography variant="body2">
-              <strong>Logos e Imagens:</strong> Faça upload de logotipos e imagens de fundo para personalizar o sistema.
-            </Typography>
-          </Box>
-        </Box>
-        
-        <Alert severity="info" sx={{ mt: 2 }}>
-          <Typography variant="body2">
-            Lembre-se de clicar em "Salvar" após fazer alterações em cada seção.
-          </Typography>
-        </Alert>
-      </CardContent>
-    </StyledCard>
-  );
-
-  return (
-    <Box sx={{ p: 3 }}>
-      <Paper sx={{ mb: 3 }}>
-        <StyledTabs
-          value={selectedTab}
-          onChange={handleTabChange}
-          variant={isMobile ? "scrollable" : "fullWidth"}
-          scrollButtons="auto"
-          allowScrollButtonsMobile
-        >
-          <StyledTab
-            icon={<Settings />}
-            label={!isMobile ? "Configurações Gerais" : ""}
-            iconPosition="start"
-          />
-          <StyledTab
-            icon={<Palette />}
-            label={!isMobile ? "Cores" : ""}
-            iconPosition="start"
-          />
-          <StyledTab
-            icon={<Image />}
-            label={!isMobile ? "Logos e Imagens" : ""}
-            iconPosition="start"
-          />
-        </StyledTabs>
-      </Paper>
-
-      <TabPanel value={selectedTab} index={0}>
-        {GeneralSettingsSection}
-        {HelpSection}
-      </TabPanel>
-
-      <TabPanel value={selectedTab} index={1}>
-        {ColorSettingsSection}
-      </TabPanel>
-
-      <TabPanel value={selectedTab} index={2}>
-        {ImagesAndLogosSection}
-      </TabPanel>
+// Render principal com otimizações
+return (
+  <div className={classes.root}>
+    <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 3 }}>
+      <Tabs
+        value={selectedTab}
+        onChange={handleTabChange}
+        variant={isMobile ? "scrollable" : "fullWidth"}
+        scrollButtons="auto"
+        allowScrollButtonsMobile
+      >
+        <Tab
+          icon={<Settings className={classes.tabIcon} />}
+          label={!isMobile && "Configurações Gerais"}
+          iconPosition="start"
+        />
+        <Tab
+          icon={<Palette className={classes.tabIcon} />}
+          label={!isMobile && "Cores"}
+          iconPosition="start"
+        />
+        <Tab
+          icon={<BrushOutlined className={classes.tabIcon} />}
+          label={!isMobile && "Tela de Carregamento"}
+          iconPosition="start"
+        />
+        <Tab
+          icon={<AttachFile className={classes.tabIcon} />}
+          label={!isMobile && "Logos e Imagens"}
+          iconPosition="start"
+        />
+      </Tabs>
     </Box>
-  );
+
+    <TabPanel value={selectedTab} index={0}>
+      {renderGeneralSettings}
+    </TabPanel>
+
+    <TabPanel value={selectedTab} index={1}>
+      {renderColorSettings}
+    </TabPanel>
+
+    <TabPanel value={selectedTab} index={2}>
+      {renderSplashSettings}
+    </TabPanel>
+
+    <TabPanel value={selectedTab} index={3}>
+      {renderLogosAndBackgrounds}
+    </TabPanel>
+
+    {selectedTab === 0 && (
+      <Box sx={{ mt: 3 }}>
+        <Card>
+          <CardContent>
+            <WhiteLabelHelp />
+          </CardContent>
+        </Card>
+      </Box>
+    )}
+  </div>
+);
 }
 
 export default React.memo(Whitelabel);
