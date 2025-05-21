@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useContext, useCallback } from "react";
 import PropTypes from 'prop-types';
 import { styled, useTheme } from '@mui/material/styles';
 import {
@@ -58,6 +58,7 @@ import {
 import { copyToClipboard } from "../../helpers/copyToClipboard";
 import { toast } from "../../helpers/toast";
 import OnlyForSuperUser from "../../components/OnlyForSuperUser";
+import { AuthContext } from "../../context/Auth/AuthContext";
 
 // Constantes
 const openAiModels = [
