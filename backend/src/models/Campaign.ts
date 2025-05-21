@@ -14,6 +14,7 @@ import {
 import ContactList from "./ContactList";
 import Whatsapp from "./Whatsapp";
 import CampaignShipping from "./CampaignShipping";
+import Files from "./Files";
 import Queue from "./Queue";
 import User from "./User";
 
@@ -83,6 +84,16 @@ class Campaign extends Model<Campaign> {
   @Column
   contactListId: number;
 
+  @ForeignKey(() => Files)
+  @Column
+  fileListId: number;
+
+  @BelongsTo(() => Files)
+  fileList: Files;
+
+  @HasMany(() => CampaignShipping)
+  shipping: CampaignShipping[];
+
   @ForeignKey(() => Whatsapp)
   @Column
   whatsappId: number;
@@ -115,9 +126,6 @@ class Campaign extends Model<Campaign> {
 
   @BelongsTo(() => Queue)
   queue: Queue;
-
-  @HasMany(() => CampaignShipping)
-  shipping: CampaignShipping[];
 
   @CreatedAt
   createdAt: Date;
