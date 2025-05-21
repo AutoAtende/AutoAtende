@@ -93,7 +93,7 @@ const ThemedApp = () => {
     return () => {
       isMounted = false;
     };
-  }, [isAuth, user?.companyId, getAllPublicSetting]);
+  }, [isAuth, user?.companyId, getAll]);
   
   // Incorporar configurações públicas quando não autenticado
   useEffect(() => {
