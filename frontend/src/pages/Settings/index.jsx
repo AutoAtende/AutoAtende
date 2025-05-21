@@ -104,49 +104,53 @@ const Settings = () => {
   const isMobile = useMediaQuery('(max-width:600px)');
 
   // Função principal para carregar todos os dados necessários
-  const loadAllData = useCallback(async () => {
-    try {
-      setInitialLoading(true);
-      setError(null);
+// Modificação na função loadAllData no index.jsx
+const loadAllData = useCallback(async () => {
+  try {
+    setInitialLoading(true);
+    setError(null);
 
-      const companyId = user.companyId || localStorage.getItem("companyId");
-      
-      // Única chamada para API que retorna todos os dados necessários
-      const { data } = await api.get(`/settings/full-configuration/${companyId}`);
-      
-      setData({
-        currentUser: data.user,
-        company: data.company,
-        schedules: data.company?.schedules || [],
-        settings: data.settings,
-        planConfig: data.planConfig
-      });
+    const companyId = user.companyId || localStorage.getItem("companyId");
+    
+    // Única chamada para API que retorna todos os dados necessários
+    const { data } = await api.get(`/settings/full-configuration/${companyId}`);
+    
+    // Garantir que settings seja sempre um array
+    const safeSettings = Array.isArray(data.settings) ? data.settings : [];
+    
+    setData({
+      currentUser: data.user,
+      company: data.company,
+      schedules: data.company?.schedules || [],
+      settings: safeSettings,
+      planConfig: data.planConfig
+    });
 
-      // Configurar estados derivados
-      const scheduleTypeSetting = data.settings.find(s => s.key === "scheduleType");
-      const reasonSetting = data.settings.find(s => s.key === "enableReasonWhenCloseTicket");
-      
-      setSchedulesEnabled(scheduleTypeSetting?.value === "company");
-      setReasonEnabled(reasonSetting?.value || "disabled");
-      setShowWhiteLabel(data.planConfig?.plan?.whiteLabel || false);
+    // Configurar estados derivados
+    const scheduleTypeSetting = safeSettings.find(s => s.key === "scheduleType");
+    const reasonSetting = safeSettings.find(s => s.key === "enableReasonWhenCloseTicket");
+    
+    setSchedulesEnabled(scheduleTypeSetting?.value === "company");
+    setReasonEnabled(reasonSetting?.value || "disabled");
+    setShowWhiteLabel(data.planConfig?.plan?.whiteLabel || false);
 
-      // Armazenar dados em cache local
-      storeDataInCache({
-        user: data.user,
-        company: data.company,
-        settings: data.settings,
-        planConfig: data.planConfig
-      });
+    // Armazenar dados em cache local
+    storeDataInCache({
+      user: data.user,
+      company: data.company,
+      settings: safeSettings,
+      planConfig: data.planConfig
+    });
 
-    } catch (err) {
-      console.error("Erro ao carregar dados da configuração:", err);
-      setError(err?.message || "Ocorreu um erro ao carregar as configurações");
-      toast.error("Erro ao carregar configurações");
-    } finally {
-      setInitialLoading(false);
-      setLoading(false);
-    }
-  }, []);
+  } catch (err) {
+    console.error("Erro ao carregar dados da configuração:", err);
+    setError(err?.message || "Ocorreu um erro ao carregar as configurações");
+    toast.error("Erro ao carregar configurações");
+  } finally {
+    setInitialLoading(false);
+    setLoading(false);
+  }
+}, []);
 
   // Armazenar dados em cache local para otimização
   const storeDataInCache = useCallback((dataToCache) => {

@@ -181,48 +181,56 @@ const Options = ({
 
   // Carregar configurações iniciais
   useEffect(() => {
-    if (!Array.isArray(settings) || settings.length === 0) return;
-
-    // Criar um mapa de configurações para acesso rápido
-    const settingsMap = {};
-    settings.forEach(setting => {
-      if (setting && setting.key) {
-        settingsMap[setting.key] = setting.value;
-      }
-    });
-
-    // Atualizar o estado com as configurações carregadas
-    setConfigState(prevState => {
-      const newState = { ...prevState };
-
-      // Mapear todas as propriedades
-      Object.keys(newState).forEach(key => {
-        let settingKey = key;
-        
-        // Mapeamento especial para algumas chaves
-        if (key === 'openAiModel') {
-          settingKey = 'openaiModel';
-        } else if (key === 'smtpauthType') {
-          settingKey = 'smtpauth';
-        } else if (key === 'usersmtpauthType') {
-          settingKey = 'usersmtpauth';
-        } else if (key === 'clientsecretsmtpauthType') {
-          settingKey = 'clientsecretsmtpauth';
-        } else if (key === 'smtpPortType') {
-          settingKey = 'smtpport';
-        } else if (key === 'waSuportType') {
-          settingKey = 'wasuport';
-        } else if (key === 'msgSuportType') {
-          settingKey = 'msgsuport';
-        }
-        
-        if (settingsMap[settingKey] !== undefined) {
-          newState[key] = String(settingsMap[settingKey] || newState[key] || "");
+    // Verificação robusta dos dados
+    if (!settings || !Array.isArray(settings) || settings.length === 0) {
+      console.warn("Settings não é um array válido:", settings);
+      return;
+    }
+  
+    try {
+      // Criar um mapa de configurações para acesso rápido
+      const settingsMap = {};
+      settings.forEach(setting => {
+        if (setting && setting.key) {
+          settingsMap[setting.key] = setting.value;
         }
       });
-
-      return newState;
-    });
+  
+      // Atualizar o estado com as configurações carregadas
+      setConfigState(prevState => {
+        const newState = { ...prevState };
+  
+        // Mapear todas as propriedades
+        Object.keys(newState).forEach(key => {
+          let settingKey = key;
+          
+          // Mapeamento especial para algumas chaves
+          if (key === 'openAiModel') {
+            settingKey = 'openaiModel';
+          } else if (key === 'smtpauthType') {
+            settingKey = 'smtpauth';
+          } else if (key === 'usersmtpauthType') {
+            settingKey = 'usersmtpauth';
+          } else if (key === 'clientsecretsmtpauthType') {
+            settingKey = 'clientsecretsmtpauth';
+          } else if (key === 'smtpPortType') {
+            settingKey = 'smtpport';
+          } else if (key === 'waSuportType') {
+            settingKey = 'wasuport';
+          } else if (key === 'msgSuportType') {
+            settingKey = 'msgsuport';
+          }
+          
+          if (settingsMap[settingKey] !== undefined) {
+            newState[key] = String(settingsMap[settingKey] || newState[key] || "");
+          }
+        });
+  
+        return newState;
+      });
+    } catch (error) {
+      console.error("Erro ao processar configurações:", error);
+    }
   }, [settings]);
 
   // Atualizar configuração local e notificar alteração
