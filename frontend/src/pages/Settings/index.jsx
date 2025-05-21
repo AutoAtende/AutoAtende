@@ -42,6 +42,12 @@ import Reason from "../../components/Reason";
 // Componente para telas móveis
 import SpeedDialTabs from "../../components/SpeedDialTabs";
 
+// Função utilitária para garantir que um valor seja sempre um array
+const ensureArray = (value, defaultValue = []) => {
+  if (!value) return defaultValue;
+  return Array.isArray(value) ? value : defaultValue;
+};
+
 // Estilos
 const StyledMainPaper = styled(Paper)(({ theme }) => ({
   ...theme.scrollbarStyles,
@@ -104,77 +110,90 @@ const Settings = () => {
   const isMobile = useMediaQuery('(max-width:600px)');
 
   // Função principal para carregar todos os dados necessários
-// Modificação na função loadAllData no index.jsx
-const loadAllData = useCallback(async () => {
-  try {
-    setInitialLoading(true);
-    setError(null);
+  const loadAllData = useCallback(async () => {
+    try {
+      setInitialLoading(true);
+      setError(null);
 
-    const companyId = user.companyId || localStorage.getItem("companyId");
-    
-    // Única chamada para API que retorna todos os dados necessários
-    const { data } = await api.get(`/settings/full-configuration/${companyId}`);
-    
-    // Garantir que settings seja sempre um array
-    const safeSettings = Array.isArray(data.settings) ? data.settings : [];
-    
-    setData({
-      currentUser: data.user,
-      company: data.company,
-      schedules: data.company?.schedules || [],
-      settings: safeSettings,
-      planConfig: data.planConfig
-    });
+      const companyId = user.companyId || localStorage.getItem("companyId");
+      
+      // Única chamada para API que retorna todos os dados necessários
+      const { data } = await api.get(`/settings/full-configuration/${companyId}`);
+      
+      // Garantir que todos os arrays sejam seguros
+      const safeSettings = ensureArray(data.settings);
+      const safeSchedules = ensureArray(data.company?.schedules);
+      
+      setData({
+        currentUser: data.user || {},
+        company: data.company || null,
+        schedules: safeSchedules,
+        settings: safeSettings,
+        planConfig: data.planConfig || {}
+      });
 
-    // Configurar estados derivados
-    const scheduleTypeSetting = safeSettings.find(s => s.key === "scheduleType");
-    const reasonSetting = safeSettings.find(s => s.key === "enableReasonWhenCloseTicket");
-    
-    setSchedulesEnabled(scheduleTypeSetting?.value === "company");
-    setReasonEnabled(reasonSetting?.value || "disabled");
-    setShowWhiteLabel(data.planConfig?.plan?.whiteLabel || false);
+      // Configurar estados derivados
+      const scheduleTypeSetting = safeSettings.find(s => s.key === "scheduleType");
+      const reasonSetting = safeSettings.find(s => s.key === "enableReasonWhenCloseTicket");
+      
+      setSchedulesEnabled(scheduleTypeSetting?.value === "company");
+      setReasonEnabled(reasonSetting?.value || "disabled");
+      setShowWhiteLabel(data.planConfig?.plan?.whiteLabel || false);
 
-    // Armazenar dados em cache local
-    storeDataInCache({
-      user: data.user,
-      company: data.company,
-      settings: safeSettings,
-      planConfig: data.planConfig
-    });
+      // Armazenar dados em cache local
+      storeDataInCache({
+        user: data.user || {},
+        company: data.company || null,
+        settings: safeSettings,
+        planConfig: data.planConfig || {}
+      });
 
-  } catch (err) {
-    console.error("Erro ao carregar dados da configuração:", err);
-    setError(err?.message || "Ocorreu um erro ao carregar as configurações");
-    toast.error("Erro ao carregar configurações");
-  } finally {
-    setInitialLoading(false);
-    setLoading(false);
-  }
-}, []);
+    } catch (err) {
+      console.error("Erro ao carregar dados da configuração:", err);
+      setError(err?.message || "Ocorreu um erro ao carregar as configurações");
+      toast.error("Erro ao carregar configurações");
+      
+      // Definir valores padrão caso ocorra erro
+      setData({
+        currentUser: {},
+        company: null,
+        schedules: [],
+        settings: [],
+        planConfig: {}
+      });
+    } finally {
+      setInitialLoading(false);
+      setLoading(false);
+    }
+  }, [user]);
 
   // Armazenar dados em cache local para otimização
   const storeDataInCache = useCallback((dataToCache) => {
-    const now = new Date().getTime();
-    
-    if (dataToCache.user) {
-      localStorage.setItem('cached_user_data', JSON.stringify({
-        timestamp: now,
-        data: dataToCache.user
-      }));
-    }
-    
-    if (dataToCache.company) {
-      localStorage.setItem('cached_company_data', JSON.stringify({
-        timestamp: now,
-        data: dataToCache.company
-      }));
-    }
-    
-    if (dataToCache.planConfig) {
-      localStorage.setItem('cached_plan_data', JSON.stringify({
-        timestamp: now,
-        data: dataToCache.planConfig
-      }));
+    try {
+      const now = new Date().getTime();
+      
+      if (dataToCache.user) {
+        localStorage.setItem('cached_user_data', JSON.stringify({
+          timestamp: now,
+          data: dataToCache.user
+        }));
+      }
+      
+      if (dataToCache.company) {
+        localStorage.setItem('cached_company_data', JSON.stringify({
+          timestamp: now,
+          data: dataToCache.company
+        }));
+      }
+      
+      if (dataToCache.planConfig) {
+        localStorage.setItem('cached_plan_data', JSON.stringify({
+          timestamp: now,
+          data: dataToCache.planConfig
+        }));
+      }
+    } catch (error) {
+      console.error("Erro ao armazenar dados em cache:", error);
     }
   }, []);
 
@@ -237,9 +256,8 @@ const loadAllData = useCallback(async () => {
       });
       
       // Atualizar configurações locais
-      setData(prevData => ({
-        ...prevData,
-        settings: prevData.settings.map(setting => {
+      setData(prevData => {
+        const updatedSettings = ensureArray(prevData.settings).map(setting => {
           if (pendingChanges[setting.key] !== undefined) {
             return {
               ...setting, 
@@ -247,8 +265,13 @@ const loadAllData = useCallback(async () => {
             };
           }
           return setting;
-        })
-      }));
+        });
+        
+        return {
+          ...prevData,
+          settings: updatedSettings
+        };
+      });
       
       // Limpar alterações pendentes
       setPendingChanges({});
@@ -264,30 +287,40 @@ const loadAllData = useCallback(async () => {
   }, [pendingChanges]);
 
   // Manipulador para envio de horários
-  const handleSubmitSchedules = async (data) => {
+  const handleSubmitSchedules = async (scheduleData) => {
+    if (!scheduleData) {
+      toast.error("Dados de horários inválidos");
+      return;
+    }
+    
     setLoading(true);
     try {
-      const companyId = data?.company?.id || localStorage.getItem("companyId");
+      const companyId = data?.company?.id || user.companyId || localStorage.getItem("companyId");
       
       await api.put(`/companies/${companyId}/schedules`, { 
-        schedules: data 
+        schedules: scheduleData 
       });
       
       setData(prevData => ({
         ...prevData,
-        schedules: data
+        schedules: scheduleData
       }));
       
       toast.success("Horários atualizados com sucesso.");
       
       // Atualizar cache
-      const cachedCompanyData = localStorage.getItem('cached_company_data');
-      if (cachedCompanyData) {
-        const parsedCache = JSON.parse(cachedCompanyData);
-        parsedCache.data.schedules = data;
-        localStorage.setItem('cached_company_data', JSON.stringify(parsedCache));
+      try {
+        const cachedCompanyDataString = localStorage.getItem('cached_company_data');
+        if (cachedCompanyDataString) {
+          const parsedCache = JSON.parse(cachedCompanyDataString);
+          parsedCache.data.schedules = scheduleData;
+          localStorage.setItem('cached_company_data', JSON.stringify(parsedCache));
+        }
+      } catch (cacheError) {
+        console.error("Erro ao atualizar cache de horários:", cacheError);
       }
     } catch (e) {
+      console.error("Erro ao atualizar horários:", e);
       toast.error(e?.message || "Erro ao atualizar horários");
     } finally {
       setLoading(false);
@@ -357,7 +390,7 @@ const loadAllData = useCallback(async () => {
                 <StyledPaper elevation={0}>
                   <TabPanel className="container" value={tab} name="options">
                     <Options 
-                      settings={data.settings}
+                      settings={ensureArray(data.settings)} 
                       scheduleTypeChanged={handleScheduleTypeChanged}
                       enableReasonWhenCloseTicketChanged={handleEnableReasonWhenCloseTicketChanged}
                       onSettingChange={handleSettingChange}
@@ -370,7 +403,7 @@ const loadAllData = useCallback(async () => {
                       <SchedulesForm
                         loading={loading}
                         onSubmit={handleSubmitSchedules}
-                        initialValues={data.schedules}
+                        initialValues={ensureArray(data.schedules)}
                       />
                     )}
                   </TabPanel>
@@ -384,11 +417,15 @@ const loadAllData = useCallback(async () => {
                   </TabPanel>
                   
                   <TabPanel className="container" value={tab} name="paymentGateway">
-                    {data.currentUser.super && <PaymentGateway settings={data.settings} />}
+                    {data.currentUser.super && (
+                      <PaymentGateway settings={ensureArray(data.settings)} />
+                    )}
                   </TabPanel>
 
                   <TabPanel className="container" value={tab} name="whitelabel">
-                    {showWhiteLabel && <Whitelabel settings={data.settings} />}
+                    {showWhiteLabel && (
+                      <Whitelabel settings={ensureArray(data.settings)} />
+                    )}
                   </TabPanel>
 
                   <TabPanel className="container" value={tab} name="closureReasons">
@@ -431,7 +468,7 @@ const loadAllData = useCallback(async () => {
                 <StyledPaper elevation={0}>
                   <TabPanel className="container" value={tab} name="options">
                     <Options 
-                      settings={data.settings}
+                      settings={ensureArray(data.settings)}
                       scheduleTypeChanged={handleScheduleTypeChanged}
                       enableReasonWhenCloseTicketChanged={handleEnableReasonWhenCloseTicketChanged}
                       onSettingChange={handleSettingChange}
@@ -444,7 +481,7 @@ const loadAllData = useCallback(async () => {
                       <SchedulesForm
                         loading={loading}
                         onSubmit={handleSubmitSchedules}
-                        initialValues={data.schedules}
+                        initialValues={ensureArray(data.schedules)}
                         companyId={data.company?.id}
                         labelSaveButton={i18n.t("settings.saveButton")}
                       />
@@ -460,11 +497,15 @@ const loadAllData = useCallback(async () => {
                   </TabPanel>
                   
                   <TabPanel className="container" value={tab} name="paymentGateway">
-                    {data.currentUser.super && <PaymentGateway settings={data.settings} />}
+                    {data.currentUser.super && (
+                      <PaymentGateway settings={ensureArray(data.settings)} />
+                    )}
                   </TabPanel>
 
                   <TabPanel className="container" value={tab} name="whitelabel">
-                    {showWhiteLabel && <Whitelabel settings={data.settings} />}
+                    {showWhiteLabel && (
+                      <Whitelabel settings={ensureArray(data.settings)} />
+                    )}
                   </TabPanel>
 
                   <TabPanel className="container" value={tab} name="closureReasons">
