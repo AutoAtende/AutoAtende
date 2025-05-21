@@ -10,6 +10,8 @@ import { AutoAtendeLoading } from "../components/Loading/AutoAtendeLoading";
 import { ModalGlobalComponent } from "../components/Modal";
 import { MessageNotificationProvider } from "../context/MessageNotification";
 import { DashboardProvider } from "../pages/Dashboard/context/DashboardContext";
+import LandingPageEditor from "../pages/LandingPages/Editor";
+import PublicLandingPage from '../pages/LandingPages/Public';
 import useSettings from "../hooks/useSettings";
 
 import ErrorBoundary from "../components/ErrorBoundary";
@@ -98,6 +100,7 @@ const Routes = () => {
               <TicketsContextProvider>
                 <Suspense fallback={<PageLoadingFallback />}>
                   <Switch>
+                    <CustomRoute exact path="/l/:companyId/:slug" component={PublicLandingPage} />
                     <CustomRoute exact path="/" component={Login} />
                     <CustomRoute exact path="/login" component={Login} />
                     <CustomRoute exact path="/signup" component={Signup} />
@@ -107,7 +110,12 @@ const Routes = () => {
                         <DashboardProvider>
                           <CustomRoute exact path="/dashboard" component={Dashboard} isPrivate />
                         </DashboardProvider>
-                        
+                        <CustomRoute
+                          exact
+                          path="/landing-pages/edit/:id"
+                          component={LandingPageEditor}
+                          isPrivate
+                        />
                         <CustomRoute
                           exact
                           path="/tickets/:ticketId?"
