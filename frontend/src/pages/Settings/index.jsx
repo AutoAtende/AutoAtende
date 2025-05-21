@@ -42,6 +42,7 @@ import Reason from "../../components/Reason";
 // Componente para telas móveis
 import SpeedDialTabs from "../../components/SpeedDialTabs";
 
+// Função para garantir que o valor seja um array válido
 const ensureArray = (value) => {
   if (Array.isArray(value)) return value;
   if (value && typeof value === 'object' && !Array.isArray(value)) return [value];
