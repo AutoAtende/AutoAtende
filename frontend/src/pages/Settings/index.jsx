@@ -44,8 +44,18 @@ import SpeedDialTabs from "../../components/SpeedDialTabs";
 
 // Função utilitária para garantir que um valor seja sempre um array
 const ensureArray = (value, defaultValue = []) => {
-  if (!value) return defaultValue;
-  return Array.isArray(value) ? value : defaultValue;
+  if (value === undefined || value === null) return defaultValue;
+  if (Array.isArray(value)) return value;
+  if (typeof value === 'object' && value !== null) {
+    // Se for um objeto iterável (como um Set ou Map), converta para array
+    if (typeof value[Symbol.iterator] === 'function') {
+      return [...value];
+    }
+    // Se for um objeto simples, retorne um array vazio ou com o objeto, dependendo do caso
+    return defaultValue;
+  }
+  // Para outros tipos (string, number, boolean), retorne um array com o valor
+  return [value];
 };
 
 // Estilos
@@ -96,8 +106,8 @@ const Settings = () => {
   const [data, setData] = useState({
     currentUser: {},
     company: null,
-    schedules: [],
-    settings: [],
+    schedules: [], // Garantir que comece como array
+    settings: [],  // Garantir que comece como array
     planConfig: {}
   });
   const [schedulesEnabled, setSchedulesEnabled] = useState(false);
@@ -114,88 +124,39 @@ const Settings = () => {
     try {
       setInitialLoading(true);
       setError(null);
-
+  
       const companyId = user.companyId || localStorage.getItem("companyId");
       
-      // Única chamada para API que retorna todos os dados necessários
-      const { data } = await api.get(`/settings/full-configuration/${companyId}`);
+      const { data: apiData } = await api.get(`/settings/full-configuration/${companyId}`);
       
-      // Garantir que todos os arrays sejam seguros
-      const safeSettings = ensureArray(data.settings);
-      const safeSchedules = ensureArray(data.company?.schedules);
+      // Garantir que todos os arrays sejam válidos
+      const safeSettings = ensureArray(apiData.settings);
+      const safeSchedules = ensureArray(apiData.company?.schedules);
       
       setData({
-        currentUser: data.user || {},
-        company: data.company || null,
+        currentUser: apiData.user || {},
+        company: apiData.company || null,
         schedules: safeSchedules,
         settings: safeSettings,
-        planConfig: data.planConfig || {}
+        planConfig: apiData.planConfig || {}
       });
-
+  
       // Configurar estados derivados
       const scheduleTypeSetting = safeSettings.find(s => s.key === "scheduleType");
       const reasonSetting = safeSettings.find(s => s.key === "enableReasonWhenCloseTicket");
       
       setSchedulesEnabled(scheduleTypeSetting?.value === "company");
       setReasonEnabled(reasonSetting?.value || "disabled");
-      setShowWhiteLabel(data.planConfig?.plan?.whiteLabel || false);
-
-      // Armazenar dados em cache local
-      storeDataInCache({
-        user: data.user || {},
-        company: data.company || null,
-        settings: safeSettings,
-        planConfig: data.planConfig || {}
-      });
-
+      setShowWhiteLabel(apiData.planConfig?.whiteLabel || false);
+  
     } catch (err) {
-      console.error("Erro ao carregar dados da configuração:", err);
-      setError(err?.message || "Ocorreu um erro ao carregar as configurações");
-      toast.error("Erro ao carregar configurações");
-      
-      // Definir valores padrão caso ocorra erro
-      setData({
-        currentUser: {},
-        company: null,
-        schedules: [],
-        settings: [],
-        planConfig: {}
-      });
+      console.error("Erro ao carregar dados:", err);
+      setError(err?.response?.data?.message || err.message || "Erro ao carregar configurações");
     } finally {
       setInitialLoading(false);
       setLoading(false);
     }
   }, [user]);
-
-  // Armazenar dados em cache local para otimização
-  const storeDataInCache = useCallback((dataToCache) => {
-    try {
-      const now = new Date().getTime();
-      
-      if (dataToCache.user) {
-        localStorage.setItem('cached_user_data', JSON.stringify({
-          timestamp: now,
-          data: dataToCache.user
-        }));
-      }
-      
-      if (dataToCache.company) {
-        localStorage.setItem('cached_company_data', JSON.stringify({
-          timestamp: now,
-          data: dataToCache.company
-        }));
-      }
-      
-      if (dataToCache.planConfig) {
-        localStorage.setItem('cached_plan_data', JSON.stringify({
-          timestamp: now,
-          data: dataToCache.planConfig
-        }));
-      }
-    } catch (error) {
-      console.error("Erro ao armazenar dados em cache:", error);
-    }
-  }, []);
 
   // Carregar dados ao iniciar o componente
   useEffect(() => {
@@ -330,13 +291,13 @@ const Settings = () => {
   // Montar ações para SpeedDial em modo mobile
   const actions = [
     { icon: <SettingsIcon />, name: i18n.t("settings.tabs.params"), value: "options" },
-    { icon: <ScheduleIcon />, name: i18n.t("settings.tabs.schedules"), value: "schedules", condition: schedulesEnabled },
-    { icon: <AssignmentIcon />, name: i18n.t("settings.tabs.plans"), value: "plans", condition: data.currentUser.super },
-    { icon: <HelpIcon />, name: i18n.t("settings.tabs.helps"), value: "helps", condition: data.currentUser.super },
-    { icon: <LabelIcon />, name: "Whitelabel", value: "whitelabel", condition: showWhiteLabel },
-    { icon: <PaymentIcon />, name: "Pagamentos", value: "paymentGateway", condition: data.currentUser.super },
-    { icon: <ReportProblemIcon />, name: "Motivos de Encerramento", value: "closureReasons", condition: reasonEnabled === "enabled" },
-  ].filter(action => action.condition !== false);
+    schedulesEnabled && { icon: <ScheduleIcon />, name: i18n.t("settings.tabs.schedules"), value: "schedules" },
+    data.currentUser.super && { icon: <AssignmentIcon />, name: i18n.t("settings.tabs.plans"), value: "plans" },
+    data.currentUser.super && { icon: <HelpIcon />, name: i18n.t("settings.tabs.helps"), value: "helps" },
+    showWhiteLabel && { icon: <LabelIcon />, name: "Whitelabel", value: "whitelabel" },
+    data.currentUser.super && { icon: <PaymentIcon />, name: "Pagamentos", value: "paymentGateway" },
+    reasonEnabled === "enabled" && { icon: <ReportProblemIcon />, name: "Motivos de Encerramento", value: "closureReasons" },
+  ].filter(Boolean); // Remove valores falsy (false, undefined, etc)
 
   // Renderização condicional
   const isShowingContent = !initialLoading && !error;
@@ -398,15 +359,15 @@ const Settings = () => {
                     />
                   </TabPanel>
                   
-                  <TabPanel className="container" value={tab} name="schedules">
-                    {schedulesEnabled && (
-                      <SchedulesForm
-                        loading={loading}
-                        onSubmit={handleSubmitSchedules}
-                        initialValues={ensureArray(data.schedules)}
-                      />
-                    )}
-                  </TabPanel>
+                  <TabPanel value={tab} name="schedules">
+  {schedulesEnabled && Array.isArray(data.schedules) && (
+    <SchedulesForm
+      loading={loading}
+      onSubmit={handleSubmitSchedules}
+      initialValues={data.schedules}
+    />
+  )}
+</TabPanel>
 
                   <TabPanel className="container" value={tab} name="plans">
                     {data.currentUser.super && <PlansManager />}
@@ -476,17 +437,15 @@ const Settings = () => {
                     />
                   </TabPanel>
                   
-                  <TabPanel className="container" value={tab} name="schedules">
-                    {schedulesEnabled && (
-                      <SchedulesForm
-                        loading={loading}
-                        onSubmit={handleSubmitSchedules}
-                        initialValues={ensureArray(data.schedules)}
-                        companyId={data.company?.id}
-                        labelSaveButton={i18n.t("settings.saveButton")}
-                      />
-                    )}
-                  </TabPanel>
+                  <TabPanel value={tab} name="schedules">
+  {schedulesEnabled && Array.isArray(data.schedules) && (
+    <SchedulesForm
+      loading={loading}
+      onSubmit={handleSubmitSchedules}
+      initialValues={data.schedules}
+    />
+  )}
+</TabPanel>
 
                   <TabPanel className="container" value={tab} name="plans">
                     {data.currentUser.super && <PlansManager />}
