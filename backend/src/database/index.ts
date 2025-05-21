@@ -95,6 +95,10 @@ import VoiceConfig from "../models/VoiceConfig";
 import AppointmentNode from "../models/AppointmentNode";
 import InternalMessageNode from "../models/InternalMessageNode";
 import DashboardSettings from "../models/DashboardSettings";
+import DynamicForm from "../models/DynamicForm";
+import FormSubmission from "../models/FormSubmission";
+import LandingPage from "../models/LandingPage";
+import LandingPageMedia from "../models/LandingPageMedia";
 import * as dbConfig from "../config/database";
 const sequelize = new Sequelize(dbConfig as any);
 
@@ -194,7 +198,11 @@ const models = [
   VoiceConfig,
   AppointmentNode,
   InternalMessageNode,
-  DashboardSettings
+  DashboardSettings,
+  DynamicForm,
+  FormSubmission,
+  LandingPage,
+  LandingPageMedia
 ];
 
 sequelize.addModels(models);
