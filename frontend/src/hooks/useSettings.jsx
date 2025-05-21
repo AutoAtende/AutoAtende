@@ -1,6 +1,4 @@
 import React, { createContext, useState, useContext, useCallback, useEffect } from "react";
-import { AuthContext } from "../context/Auth/AuthContext";
-
 import api, { openApi } from "../services/api";
 
 // Criação do contexto
@@ -10,7 +8,7 @@ const SettingsContext = createContext({});
 const CACHE_EXPIRATION_TIME = 86400000; // 24 horas em milissegundos
 
 export const SettingsProvider = ({ children }) => {
-  const { isAuth } = useContext(AuthContext);
+  
   // Estado principal para armazenar as configurações como array (compatível com código existente)
   const [settings, setSettings] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -88,7 +86,7 @@ export const SettingsProvider = ({ children }) => {
         setSettings(cachedSettings);
         return cachedSettings;
       }
-      if(isAuth) {
+
       // Buscar da API com parâmetro de companyId
       const { data } = await api.get(`/settings/c/${targetCompanyId}`);
       
@@ -100,11 +98,6 @@ export const SettingsProvider = ({ children }) => {
       setSettings(settingsArray);
       
       return settingsArray;
-      } else {
-        const { data } = await openApi.get(`/public-settings/c/${targetCompanyId}`);
-        return data;
-      }
-
 
     } catch (err) {
       console.error("Erro ao buscar configurações:", err);
@@ -200,16 +193,6 @@ export const SettingsProvider = ({ children }) => {
     });
     return data;
   };
-
-  // Pré-carregar configurações quando o contexto for montado
-  useEffect(() => {
-    const companyId = localStorage.getItem("companyId");
-    if (companyId) {
-      getAll(companyId).catch(error => {
-        console.error("Erro ao carregar configurações iniciais:", error);
-      });
-    }
-  }, [getAll]);
 
   return (
     <SettingsContext.Provider
