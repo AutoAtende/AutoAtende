@@ -33,11 +33,13 @@ import {
   Timer as TimerIcon
 } from '@mui/icons-material';
 import { i18n } from '../../../translate/i18n';
+import { AuthContext } from '../../../context/Auth/AuthContext';
 import api from '../../../services/api';
 import { toast } from '../../../helpers/toast';
 import { VariablesReferencePanel } from './VariablesReferencePanel';
 
 const InactivityNodeDrawer = ({ nodeData, onChange, flowVariables }) => {
+  const { user } = useContext(AuthContext);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [queues, setQueues] = useState([]);
@@ -71,6 +73,7 @@ const InactivityNodeDrawer = ({ nodeData, onChange, flowVariables }) => {
       } catch (error) {
         console.error("Erro ao carregar filas:", error);
         setError("Não foi possível carregar as filas disponíveis.");
+        toast.error("Erro ao carregar filas");
       } finally {
         setLoading(false);
       }
