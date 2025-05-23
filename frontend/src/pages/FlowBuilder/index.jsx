@@ -72,7 +72,9 @@ import {
   AutoAwesome as AutoAwesomeIcon,
   AccessTime as AccessTimeIcon,
   Event as EventIcon,
-  Comment as CommentIcon
+  Comment as CommentIcon,
+  HourglassEmpty as InactivityIcon,
+  Settings as SettingsIcon
 } from '@mui/icons-material';
 import api from '../../services/api';
 import { toast } from '../../helpers/toast';
@@ -98,6 +100,7 @@ import ApiNode from './components/nodes/ApiNode';
 import MenuNode from './components/nodes/MenuNode';
 import QueueNode from './components/nodes/QueueNode';
 import DatabaseNode from './components/nodes/DatabaseNode';
+import InactivityNode from './components/nodes/InactivityNode';
 import CustomEdge from './components/CustomEdge';
 import NodeDrawer from './components/NodeDrawer';
 import FlowPreviewModal from './components/FlowPreviewModal';
@@ -137,7 +140,8 @@ const nodeTypes = {
   databaseNode: DatabaseNode,
   scheduleNode: ScheduleNode,
   appointmentNode: AppointmentNode,
-  internalMessageNode: InternalMessageNode
+  internalMessageNode: InternalMessageNode,
+  inactivityNode: InactivityNode
 };
 
 // Definição de tipos de arestas disponíveis
@@ -331,8 +335,6 @@ const NodeToolbar = ({
   );
 };
 
-
-
 const FlowBuilder = () => {
   const { user } = useContext(AuthContext);
   const companyId = localStorage.getItem("companyId");
@@ -391,7 +393,7 @@ const FlowBuilder = () => {
   const flowMenuAnchorRef = useRef(null);
   const integrationMenuAnchorRef = useRef(null);
 
-  // Estados para controle da interface
+  // Estados para controle da interface  
   const [loading, setLoading] = useState(true);
   const [saveDialogOpen, setSaveDialogOpen] = useState(false);
   const [flowName, setFlowName] = useState('');
@@ -500,6 +502,14 @@ const FlowBuilder = () => {
       description: 'Sistema de agendamento de compromissos',
       icon: <EventIcon fontSize="small" />,
       color: customTheme.palette.success?.main || '#10b981',
+      category: 'integration'
+    },
+    {
+      type: 'inactivityNode',
+      label: 'Detecção de Inatividade',
+      description: 'Monitora e reage à inatividade do usuário',
+      icon: <InactivityIcon fontSize="small" />,
+      color: customTheme.palette.warning?.main || '#f59e0b',
       category: 'integration'
     },
     {
@@ -924,9 +934,31 @@ const loadFlow = useCallback(async (flowId) => {
         label: getDefaultNodeLabel(nodeType),
         // Dados padrão baseados no tipo do nó
         ...(nodeType === 'messageNode' ? { message: '', messageType: 'text' } : {}),
+        ...(nodeType === 'internalMessageNode' ? { message: '', messageType: 'text' } : {}),
+        ...(nodeType === 'imageNode' ? { message: '', messageType: 'text' } : {}),
+        ...(nodeType === 'questionNode' ? { question: '', variableName: '', options: [] } : {}),
+        ...(nodeType === 'webhookNode' ? { url: '', responseVariable: '' } : {}),
+        ...(nodeType === 'scheduleNode' ? { configuration: { welcomeMessage: 'Bem-vindo ao sistema de agendamento!', timeoutMinutes: 30 } } : {}),
+        ...(nodeType === 'appointmentNode' ? { configuration: { welcomeMessage: 'Bem-vindo ao sistema de agendamento!', timeoutMinutes: 30 } } : {}),
+        ...(nodeType === 'databaseNode' ? { configuration: { welcomeMessage: 'Bem-vindo ao sistema de agendamento!', timeoutMinutes: 30 } } : {}),
+        ...(nodeType === 'inactivityNode' ? {
+          inactivityConfig: {
+            timeoutMinutes: 5,
+            warningTimeoutMinutes: 3,
+            maxWarnings: 2,
+            action: 'warning',
+            warningMessage: 'Você ainda está aí? Por favor, responda para continuar.',
+            endMessage: 'Conversa encerrada por inatividade.',
+            reengageMessage: 'Vamos tentar novamente! Como posso ajudá-lo?',
+            transferMessage: 'Transferindo você para um atendente devido à inatividade.',
+            transferQueueId: null,
+            enableCustomTimeout: false,
+            useGlobalSettings: true,
+            detectInactivityOn: 'all'
+          }
+        } : {}),
         ...(nodeType === 'conditionalNode' ? { conditions: [] } : {}),
         ...(nodeType === 'menuNode' ? { menuTitle: '', menuOptions: [] } : {}),
-        ...(nodeType === 'questionNode' ? { question: '', variableName: '', options: [] } : {}),
         ...(nodeType === 'appointmentNode' ? {
           configuration: {
             welcomeMessage: 'Bem-vindo ao sistema de agendamento!',
@@ -1082,9 +1114,21 @@ const loadFlow = useCallback(async (flowId) => {
         label: getDefaultNodeLabel(nodeType),
         // Dados padrão baseados no tipo do nó
         ...(nodeType === 'messageNode' ? { message: '', messageType: 'text' } : {}),
+        ...(nodeType === 'internalMessageNode' ? { message: '', messageType: 'text' } : {}),
+        ...(nodeType === 'imageNode' ? { message: '', messageType: 'text' } : {}),
+        ...(nodeType === 'questionNode' ? { question: '', variableName: '', options: [] } : {}),
+        ...(nodeType === 'webhookNode' ? { url: '', responseVariable: '' } : {}),
         ...(nodeType === 'conditionalNode' ? { conditions: [] } : {}),
         ...(nodeType === 'menuNode' ? { menuTitle: '', menuOptions: [] } : {}),
-        // Adicionar callback para edição
+        ...(nodeType === 'apiNode' ? {
+          method: 'GET',
+          url: '',
+          responseVariable: '',
+          headers: {},
+          queryParams: {}
+        } : {}),
+        ...(nodeType === 'tagNode' ? { tag: '' } : {}),
+          // Adicionar callback para edição
         onEdit: (nodeId) => {
           const node = nodes.find(n => n.id === nodeId);
           if (node) {
@@ -1172,6 +1216,16 @@ const loadFlow = useCallback(async (flowId) => {
         ...(nodeType === 'messageNode' ? { message: '', messageType: 'text' } : {}),
         ...(nodeType === 'conditionalNode' ? { conditions: [] } : {}),
         ...(nodeType === 'menuNode' ? { menuTitle: '', menuOptions: [] } : {}),
+        ...(nodeType === 'apiNode' ? {
+          method: 'GET',
+          url: '',
+          responseVariable: '',
+          headers: {},
+          queryParams: {}
+        } : {}),
+        ...(nodeType === 'webhookNode' ? { url: '', responseVariable: '' } : {}),
+        ...(nodeType === 'tagNode' ? { tag: '' } : {}),
+
         // Adicionar callback para edição
         onEdit: (nodeId) => {
           const node = nodes.find(n => n.id === nodeId);
@@ -1237,6 +1291,8 @@ const loadFlow = useCallback(async (flowId) => {
         return 'Agendamento';
       case 'internalMessageNode':
         return 'Mensagem Interna';
+      case 'inactivityNode':
+        return 'Inatividade';
       default:
         return 'Novo Nó';
     }
@@ -1268,57 +1324,6 @@ const saveFlow = useCallback(async () => {
     setLoading(false);
   }
 }, [id, flowName, flowDescription, nodes, edges, setLoading]);
-
-// 5. Alterar a função handleOptimizeFlow para utilizar o módulo importado
-const handleOptimizeFlow = useCallback(async () => {
-  try {
-    setOptimizationLoading(true);
-    setOptimizationModalOpen(true);
-
-    // Executar a otimização do fluxo usando o módulo importado
-    const optimizationResult = FlowOptimizer.optimizeFlow({
-      nodes: nodes,
-      edges: edges
-    });
-
-    // Armazenar o resultado para exibir no modal
-    setOptimizationDetails(optimizationResult);
-
-    // Se houve otimização, atualizar o fluxo
-    if (optimizationResult.optimized) {
-      setNodes(optimizationResult.flow.nodes);
-      setEdges(optimizationResult.flow.edges);
-
-      // Exibir notificação de sucesso
-      setNotification({
-        open: true,
-        message: `Fluxo otimizado com sucesso! ${optimizationResult.totalOptimized} nós atualizados.`,
-        type: 'success'
-      });
-
-      // Salvar automaticamente após otimização
-      await saveFlow();
-    } else {
-      setNotification({
-        open: true,
-        message: 'O fluxo já está otimizado, nenhuma alteração necessária.',
-        type: 'info'
-      });
-    }
-
-    setOptimizationLoading(false);
-  } catch (error) {
-    console.error('Erro ao otimizar o fluxo:', error);
-    setNotification({
-      open: true,
-      message: 'Erro ao otimizar o fluxo. Por favor, tente novamente.',
-      type: 'error'
-    });
-    setOptimizationLoading(false);
-    setOptimizationModalOpen(false);
-  }
-}, [nodes, edges, setNodes, setEdges, setOptimizationDetails, setOptimizationLoading, 
-    setOptimizationModalOpen, setNotification, saveFlow]);
 
   // Manipulador para seleção de nós
   const onNodeClick = useCallback((event, node) => {
@@ -1384,6 +1389,7 @@ const handleOptimizeFlow = useCallback(async () => {
     const hasOpenAINode = nodes.some(node => node.type === 'openaiNode');
     const hasTerminalAttendantNode = nodes.some(node => node.type === 'attendantNode' && node.data.endFlowFlag);
     const hasQueueNode = nodes.some(node => node.type === 'queueNode'); // Adicionar esta verificação
+
 
     // Validar o fluxo de acordo com os critérios
     if (!hasStartNode) {
@@ -1569,6 +1575,13 @@ const handleOptimizeFlow = useCallback(async () => {
       label: 'Verificação de Horário',
       icon: <AccessTimeIcon fontSize="small" />,
       color: customTheme.palette.info?.main || '#0ea5e9',
+      category: 'integration'
+    },
+    {
+      type: 'inactivityNode',
+      label: 'Detecção de Inatividade',
+      icon: <InactivityIcon fontSize="small" />,
+      color: customTheme.palette.warning?.main || '#f59e0b',
       category: 'integration'
     },
     {

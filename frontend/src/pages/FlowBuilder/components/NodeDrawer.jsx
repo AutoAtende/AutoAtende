@@ -31,7 +31,8 @@ import {
   Storage as StorageIcon,
   AccessTime as AccessTimeIcon,
   Event as EventIcon,
-  Comment as CommentIcon
+  Comment as CommentIcon,
+  HourglassEmpty as InactivityIcon
 } from '@mui/icons-material';
 import { i18n } from '../../../translate/i18n';
 import { toast } from '../../../helpers/toast';
@@ -54,10 +55,11 @@ import DatabaseNodeDrawer from './DatabaseNodeDrawer';
 import ScheduleNodeDrawer from './ScheduleNodeDrawer';
 import AppointmentNodeDrawer from './AppointmentNodeDrawer';
 import InternalMessageNodeDrawer from './InternalMessageNodeDrawer';
+import InactivityNodeDrawer from './InactivityNodeDrawer';
 
 import { validateUrl, validateVariableName } from '../../../utils/api-error-handler';
 
-const NodeDrawer = ({ open, onClose, node, updateNodeData, companyId, nodes }) => { // Adicionei nodes como prop
+const NodeDrawer = ({ open, onClose, node, updateNodeData, companyId, nodes }) => {
   const theme = useTheme();
   const [nodeData, setNodeData] = useState(null);
   const [validationErrors, setValidationErrors] = useState({});
@@ -132,11 +134,11 @@ const NodeDrawer = ({ open, onClose, node, updateNodeData, companyId, nodes }) =
     
     switch (node.type) {
       case 'apiNode':
-        if (validateUrl(nodeData.url)) {
+        if (validateUrl && validateUrl(nodeData.url)) {
           errors.url = validateUrl(nodeData.url);
         }
         
-        if (nodeData.responseVariable && validateVariableName(nodeData.responseVariable)) {
+        if (nodeData.responseVariable && validateVariableName && validateVariableName(nodeData.responseVariable)) {
           errors.responseVariable = validateVariableName(nodeData.responseVariable);
         }
         break;
@@ -146,13 +148,34 @@ const NodeDrawer = ({ open, onClose, node, updateNodeData, companyId, nodes }) =
           errors.message = "A mensagem é obrigatória";
         }
         break;
+
+      case 'inactivityNode':
+        if (nodeData.inactivityConfig && !nodeData.inactivityConfig.useGlobalSettings) {
+          if (nodeData.inactivityConfig.timeoutMinutes < 1 || nodeData.inactivityConfig.timeoutMinutes > 60) {
+            errors.timeoutMinutes = "Timeout deve estar entre 1 e 60 minutos";
+          }
+          
+          if (nodeData.inactivityConfig.warningTimeoutMinutes < 1 || 
+              nodeData.inactivityConfig.warningTimeoutMinutes >= nodeData.inactivityConfig.timeoutMinutes) {
+            errors.warningTimeoutMinutes = "Timeout de aviso deve ser menor que o timeout principal";
+          }
+          
+          if (nodeData.inactivityConfig.action === 'transfer' && !nodeData.inactivityConfig.transferQueueId) {
+            errors.transferQueueId = "Selecione uma fila para transferência";
+          }
+          
+          if (!nodeData.inactivityConfig.warningMessage?.trim()) {
+            errors.warningMessage = "Mensagem de aviso é obrigatória";
+          }
+        }
+        break;
         
       case 'webhookNode':
-        if (validateUrl(nodeData.url)) {
+        if (validateUrl && validateUrl(nodeData.url)) {
           errors.url = validateUrl(nodeData.url);
         }
         
-        if (nodeData.variableName && validateVariableName(nodeData.variableName)) {
+        if (nodeData.variableName && validateVariableName && validateVariableName(nodeData.variableName)) {
           errors.variableName = validateVariableName(nodeData.variableName);
         }
         break;
@@ -162,7 +185,7 @@ const NodeDrawer = ({ open, onClose, node, updateNodeData, companyId, nodes }) =
           errors.question = "A pergunta é obrigatória";
         }
         
-        if (validateVariableName(nodeData.variableName)) {
+        if (validateVariableName && validateVariableName(nodeData.variableName)) {
           errors.variableName = validateVariableName(nodeData.variableName);
         }
         
@@ -272,6 +295,7 @@ const NodeDrawer = ({ open, onClose, node, updateNodeData, companyId, nodes }) =
       case 'scheduleNode': return theme.palette.primary?.main || '0ea5e9';
       case 'appointmentNode': return theme.palette.primary?.main || '0ea5e9';
       case 'internalMessageNode': return theme.palette.primary?.main || '0ea5e9';
+      case 'inactivityNode': return theme.palette.warning?.main || '#f59e0b';
       default: return theme.palette.primary.main;
     }
   };
@@ -297,6 +321,7 @@ const NodeDrawer = ({ open, onClose, node, updateNodeData, companyId, nodes }) =
       case 'scheduleNode': return <AccessTimeIcon fontSize="small" />;
       case 'appointmentNode': return <EventIcon fontSize="small" />;
       case 'internalMessageNode': return <CommentIcon fontSize="small" />;
+      case 'inactivityNode': return <InactivityIcon fontSize="small" />;
       default: return <ChatIcon fontSize="small" />;
     }
   };
@@ -317,6 +342,9 @@ const NodeDrawer = ({ open, onClose, node, updateNodeData, companyId, nodes }) =
 
       case 'internalMessageNode':
         return <InternalMessageNodeDrawer nodeData={nodeData} onChange={handleNodeDataChange} flowVariables={flowVariables} />;
+
+      case 'inactivityNode':
+        return <InactivityNodeDrawer nodeData={nodeData} onChange={handleNodeDataChange} flowVariables={flowVariables} />;
         
       case 'questionNode':
         return <QuestionNodeDrawer nodeData={nodeData} onChange={handleNodeDataChange} />;
