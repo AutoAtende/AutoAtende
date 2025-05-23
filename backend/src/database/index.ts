@@ -94,6 +94,7 @@ import VoiceMessage from "../models/VoiceMessage";
 import VoiceConfig from "../models/VoiceConfig";
 import AppointmentNode from "../models/AppointmentNode";
 import InternalMessageNode from "../models/InternalMessageNode";
+import InactivityNode from "../models/InactivityNode";
 import DashboardSettings from "../models/DashboardSettings";
 import DynamicForm from "../models/DynamicForm";
 import FormSubmission from "../models/FormSubmission";
@@ -194,6 +195,7 @@ const models = [
   Horario,
   HorarioGroup,
   ChatbotState,
+  InactivityNode,
   VoiceMessage,
   VoiceConfig,
   AppointmentNode,
