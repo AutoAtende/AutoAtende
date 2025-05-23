@@ -1,5 +1,5 @@
 // services/FlowBuilderService/CleanupInactiveFlowsService.ts
-import { Op } from "sequelize";
+import { Op, Sequelize } from "sequelize";
 import { logger } from "../../utils/logger";
 import FlowBuilderExecution from "../../models/FlowBuilderExecution";
 import FlowBuilder from "../../models/FlowBuilder";
@@ -177,9 +177,14 @@ class CleanupInactiveFlowsService {
       // Contar sucessos e falhas de reengajamento
       const reengagementAttempts = await FlowBuilderExecution.findAll({
         where: {
-          variables: {
-            [Op.contains]: { __reengagementAttempts: { [Op.gt]: 0 } }
-          }
+          // Usar o operador @> para verificar se o JSON contém a chave __reengagementAttempts
+          // e se seu valor é maior que 0
+          [Op.and]: [
+            // Verificar se a chave existe
+            Sequelize.literal("variables ? '__reengagementAttempts'"),
+            // Verificar se o valor é maior que 0
+            Sequelize.literal("(variables->>'__reengagementAttempts')::int > 0")
+          ]
         },
         attributes: ['id', 'variables']
       });
