@@ -81,7 +81,7 @@ const Financeiro = () => {
 
   const loadCompanies = async () => {
     try {
-      const { data } = await api.get("/companies/list");
+      const { data } = await api.get("/companies/basic/list");
       setCompanies(data);
     } catch (err) {
       console.error("Erro ao carregar empresas:", err);

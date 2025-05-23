@@ -1,6 +1,7 @@
 // GetGroupInviteCodeService.ts
 import AppError from "../../errors/AppError";
 import Groups from "../../models/Groups";
+import Whatsapp from "../../models/Whatsapp";
 import { getWbot } from "../../libs/wbot";
 import GetWhatsAppConnected from "../../helpers/GetWhatsAppConnected";
 import { logger } from "../../utils/logger";
@@ -26,7 +27,14 @@ const GetGroupInviteCodeService = async ({
   }
 
   try {
-    const whatsapp = await GetWhatsAppConnected(companyId, null);
+
+    const whatsapp = await Whatsapp.findOne({
+          where: {
+            id: group.whatsappId,
+            companyId,
+            status: 'CONNECTED'
+          }
+        });
     
     if (!whatsapp) {
       throw new AppError("Nenhuma conexão WhatsApp disponível");

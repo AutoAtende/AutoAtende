@@ -95,6 +95,7 @@ const TransferTicketsService = async ({
         body: `Ticket transferido para outra conexão pelo usuário ${user.name}`,
         fromMe: true,
         read: true,
+        internalMessage: true,
         mediaType: "system",
         quotedMsgId: null,
         ack: 3,

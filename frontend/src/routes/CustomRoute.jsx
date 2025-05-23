@@ -19,12 +19,6 @@ const CustomRoute = ({ component: Component, isPrivate = false, componentProps =
     }
   }, [isPrivate, loadPublicSettings, location.pathname]);
 
-    // Log para diagnóstico
-    useEffect(() => {
-      console.log(`Rota: ${rest.path || location.pathname}, isPrivate: ${isPrivate}, isAuth: ${isAuth}`);
-    }, [rest.path, location.pathname, isPrivate, isAuth]);
-  
-
   if (loading) {
     return <BackdropLoading />;
   }

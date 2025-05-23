@@ -1,16 +1,14 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback, useContext } from "react";
 import {
   TextField,
   Typography,
   Box,
-  Tabs,
   Badge,
   Dialog,
   DialogActions,
   DialogContent,
   DialogContentText,
   DialogTitle,
-  Tab,
   List,
   ListItem,
   ListItemAvatar,
@@ -29,13 +27,11 @@ import {
   Chip,
   Paper,
   InputAdornment,
-  FormHelperText,
   Snackbar,
   Alert,
   FormGroup,
   Autocomplete,
-  Button,
-  useTheme
+  Button
 } from "@mui/material";
 import {
   Delete as DeleteIcon,
@@ -53,13 +49,16 @@ import {
   PhotoCamera as PhotoCameraIcon,
   Edit as EditIcon
 } from "@mui/icons-material";
+import { AuthContext } from "../../../context/Auth/AuthContext";
 import api from "../../../services/api";
 import { toast } from "../../../helpers/toast";
 import { i18n } from "../../../translate/i18n";
 import BaseModal from "../../../components/shared/BaseModal";
+import BaseResponsiveTabs from "../../../components/shared/BaseResponsiveTabs";
+import BaseButton from "../../../components/shared/BaseButton";
 
 const GroupInfoModal = ({ open, onClose, group }) => {
-  const theme = useTheme();
+  const { user } = useContext(AuthContext);
   const [activeTab, setActiveTab] = useState(0);
   const [loading, setLoading] = useState(false);
   const [subject, setSubject] = useState("");
@@ -85,11 +84,13 @@ const GroupInfoModal = ({ open, onClose, group }) => {
   const [profilePic, setProfilePic] = useState("");
   const [uploadingImage, setUploadingImage] = useState(false);
   const [confirmRemoveProfilePic, setConfirmRemoveProfilePic] = useState(false);
-  
+  const [groupData, setGroupData] = useState(null);
+  const [userRole, setUserRole] = useState("participant");
 
   useEffect(() => {
     if (open && group) {
       loadGroupInfo();
+      loadContacts();
     }
   }, [open, group]);
 
@@ -100,10 +101,11 @@ const GroupInfoModal = ({ open, onClose, group }) => {
     try {
       const { data } = await api.get(`/groups/${group.id}`);
       
+      setGroupData(data);
       setSubject(data.subject || "");
       setDescription(data.description || "");
+      setUserRole(data.userRole || "participant");
       
-      // Verifica configurações do grupo
       if (data.settings) {
         const announceMode = data.settings.find(s => s === "announcement" || s === "not_announcement");
         const lockMode = data.settings.find(s => s === "locked" || s === "unlocked");
@@ -112,7 +114,6 @@ const GroupInfoModal = ({ open, onClose, group }) => {
         setOnlyAdminsSettings(lockMode === "locked");
       }
       
-      // Verificar se há uma imagem de perfil e adicionar timestamp para evitar cache
       if (data.profilePic) {
         const timestamp = new Date().getTime();
         setProfilePic(`${process.env.REACT_APP_BACKEND_URL}${data.profilePic}?t=${timestamp}`);
@@ -120,7 +121,6 @@ const GroupInfoModal = ({ open, onClose, group }) => {
         setProfilePic("");
       }
       
-      // Parse participants JSON
       let parsedParticipants = [];
       try {
         if (data.participantsJson) {
@@ -137,7 +137,6 @@ const GroupInfoModal = ({ open, onClose, group }) => {
       
       setParticipants(parsedParticipants);
       
-      // Verifica se há um link de convite
       if (data.inviteLink) {
         setInviteCode(data.inviteLink);
         setInviteUrl(data.inviteLink);
@@ -147,6 +146,25 @@ const GroupInfoModal = ({ open, onClose, group }) => {
       toast.error(err);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadContacts = async () => {
+    setLoadingContacts(true);
+    try {
+      const { data } = await api.get("/contacts", {
+        params: { 
+          searchParam: "",
+          pageNumber: 1,
+          pageSize: 1000
+        }
+      });
+      setContacts(data.contacts || []);
+    } catch (err) {
+      console.error("Erro ao carregar contatos:", err);
+      setContacts([]);
+    } finally {
+      setLoadingContacts(false);
     }
   };
 
@@ -193,8 +211,7 @@ const GroupInfoModal = ({ open, onClose, group }) => {
   const handleChangeTab = (event, newValue) => {
     setActiveTab(newValue);
     
-    // Carrega o código de convite quando a aba de convite é acessada
-    if (newValue === 2 && !inviteCode) {
+    if (newValue === 2 && !inviteCode && userRole === "admin") {
       handleGetInviteCode();
     }
   };
@@ -206,11 +223,13 @@ const GroupInfoModal = ({ open, onClose, group }) => {
     setErrors({});
     setMenuAnchorEl(null);
     setSelectedParticipant(null);
+    setSubjectChanged(false);
+    setDescriptionChanged(false);
+    setSettingsChanged(false);
     onClose();
   };
 
   const handleSaveInfo = async () => {
-    // Validação
     const newErrors = {};
     
     if (!subject || subject.trim() === "") {
@@ -224,7 +243,6 @@ const GroupInfoModal = ({ open, onClose, group }) => {
     
     setLoading(true);
     try {
-      // Salvar alterações em chamadas separadas
       if (subjectChanged) {
         await api.put(`/groups/${group.id}/subject`, { subject });
       }
@@ -243,12 +261,10 @@ const GroupInfoModal = ({ open, onClose, group }) => {
       
       toast.success(i18n.t("groups.updateSuccess"));
       
-      // Reset flags
       setSubjectChanged(false);
       setDescriptionChanged(false);
       setSettingsChanged(false);
       
-      // Recarregar informações do grupo
       loadGroupInfo();
       
     } catch (err) {
@@ -266,6 +282,18 @@ const GroupInfoModal = ({ open, onClose, group }) => {
     if (!e.target.files || !e.target.files[0]) return;
     
     const file = e.target.files[0];
+    
+    const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
+    if (!allowedTypes.includes(file.type)) {
+      toast.error("Formato não suportado. Use JPG, PNG, GIF ou WEBP.");
+      return;
+    }
+    
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error("Arquivo muito grande. Máximo 5MB.");
+      return;
+    }
+    
     const formData = new FormData();
     formData.append('profilePic', file);
     
@@ -277,7 +305,6 @@ const GroupInfoModal = ({ open, onClose, group }) => {
         },
       });
       
-      // Força atualização da imagem evitando cache
       const timestamp = new Date().getTime();
       setProfilePic(`${process.env.REACT_APP_BACKEND_URL}${data.profilePic}?t=${timestamp}`);
       toast.success(i18n.t("groups.profilePicSuccess"));
@@ -310,8 +337,6 @@ const GroupInfoModal = ({ open, onClose, group }) => {
   const handleCloseRemoveProfilePicConfirm = () => {
     setConfirmRemoveProfilePic(false);
   };
-  
-
 
   const handleAddParticipants = async () => {
     if (newParticipants.length === 0) {
@@ -330,7 +355,6 @@ const GroupInfoModal = ({ open, onClose, group }) => {
       toast.success(i18n.t("groups.participantsAdded"));
       setNewParticipants([]);
       
-      // Recarregar informações do grupo
       loadGroupInfo();
       
     } catch (err) {
@@ -360,8 +384,6 @@ const GroupInfoModal = ({ open, onClose, group }) => {
       
       toast.success(i18n.t("groups.participantPromoted"));
       handleCloseParticipantMenu();
-      
-      // Recarregar informações do grupo
       loadGroupInfo();
       
     } catch (err) {
@@ -382,8 +404,6 @@ const GroupInfoModal = ({ open, onClose, group }) => {
       
       toast.success(i18n.t("groups.participantDemoted"));
       handleCloseParticipantMenu();
-      
-      // Recarregar informações do grupo
       loadGroupInfo();
       
     } catch (err) {
@@ -393,39 +413,32 @@ const GroupInfoModal = ({ open, onClose, group }) => {
     }
   };
 
-// Em GroupInfoModal.jsx - Função handleRemoveParticipant
-
-const handleRemoveParticipant = async () => {
-  if (!selectedParticipant || !selectedParticipant.id) {
-    toast.error(i18n.t("groups.errors.invalidParticipant"));
-    handleCloseParticipantMenu();
-    return;
-  }
-  
-  setLoading(true);
-  try {
-    // Garantir que estamos enviando um participante válido
-    const participantId = selectedParticipant.id;
+  const handleRemoveParticipant = async () => {
+    if (!selectedParticipant || !selectedParticipant.id) {
+      toast.error(i18n.t("groups.errors.invalidParticipant"));
+      handleCloseParticipantMenu();
+      return;
+    }
     
-    console.log(`Tentando remover participante: ${participantId}`);
-    
-    await api.delete(`/groups/${group.id}/participants`, {
-      data: { participants: [participantId] }
-    });
-    
-    toast.success(i18n.t("groups.participantRemoved"));
-    handleCloseParticipantMenu();
-    
-    // Recarregar informações do grupo
-    loadGroupInfo();
-    
-  } catch (err) {
-    console.error("Erro ao remover participante:", err);
-    toast.error(i18n.t("groups.errors.failedToRemove"));
-  } finally {
-    setLoading(false);
-  }
-};
+    setLoading(true);
+    try {
+      const participantId = selectedParticipant.id;
+      
+      await api.delete(`/groups/${group.id}/participants`, {
+        data: { participants: [participantId] }
+      });
+      
+      toast.success(i18n.t("groups.participantRemoved"));
+      handleCloseParticipantMenu();
+      loadGroupInfo();
+      
+    } catch (err) {
+      console.error("Erro ao remover participante:", err);
+      toast.error(i18n.t("groups.errors.failedToRemove"));
+    } finally {
+      setLoading(false);
+    }
+  };
 
   // Filtra participantes com base na pesquisa
   const filteredParticipants = participants.filter(p => {
@@ -433,11 +446,11 @@ const handleRemoveParticipant = async () => {
     
     const searchTermLower = searchTerm.toLowerCase();
     const number = p && p.id ? p.id.split('@')[0] : '';
+    const name = p && p.name ? p.name.toLowerCase() : '';
     
-    // Busca pelo número ou nome (se disponível)
     return (
       number.includes(searchTermLower) || 
-      (p && p.name && p.name.toLowerCase().includes(searchTermLower))
+      name.includes(searchTermLower)
     );
   });
 
@@ -446,139 +459,121 @@ const handleRemoveParticipant = async () => {
     return participant.isAdmin || participant.admin === 'admin' || participant.admin === 'superadmin';
   };
 
-  const modalActions = activeTab === 0 ? [
-    {
-      label: i18n.t("cancel"),
-      onClick: handleClose,
-      variant: "outlined",
-      color: "secondary",
-      disabled: loading,
-      icon: <CancelIcon />
-    },
-    {
-      label: loading ? i18n.t("saving") : i18n.t("save"),
-      onClick: handleSaveInfo,
-      variant: "contained",
-      color: "primary",
-      disabled: loading || (!subjectChanged && !descriptionChanged && !settingsChanged),
-      icon: loading ? <CircularProgress size={20} /> : <SaveIcon />
-    }
-  ] : [
-    {
-      label: i18n.t("close"),
-      onClick: handleClose,
-      variant: "outlined",
-      color: "secondary",
-      disabled: loading,
-      icon: <CancelIcon />
-    }
-  ];
+  // Filtrar contatos que não estão no grupo para adicionar
+  const availableContacts = contacts.filter(contact => {
+    return !participants.some(p => {
+      const participantNumber = p.id ? p.id.split('@')[0] : '';
+      return participantNumber === contact.number;
+    });
+  });
 
-  return (
-    <BaseModal
-      open={open}
-      onClose={handleClose}
-      title={loading ? `${i18n.t("loading")}...` : `${i18n.t("groups.groupInfo")}: ${subject}`}
-      actions={modalActions}
-      loading={loading}
-    >
-      <Tabs
-        value={activeTab}
-        onChange={handleChangeTab}
-        indicatorColor="primary"
-        textColor="primary"
-        variant="fullWidth"
-        sx={{ mb: 3 }}
-      >
-        <Tab label={i18n.t("groups.tabs.info")} />
-        <Tab label={i18n.t("groups.tabs.participants")} />
-        <Tab label={i18n.t("groups.tabs.inviteLink")} />
-      </Tabs>
-      
-      <Box>
-        {loading && <Box display="flex" justifyContent="center" p={4}><CircularProgress /></Box>}
-        
-        {!loading && activeTab === 0 && (
-          <Box>
-<Box mb={3} display="flex" flexDirection="column" alignItems="center">
-  <Badge
-    overlap="circular"
-    anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
-    badgeContent={
-      <IconButton 
-        size="small" 
-        sx={{ 
-          bgcolor: 'primary.main', 
-          color: 'white',
-          '&:hover': {
-            bgcolor: 'primary.dark',
-          } 
-        }}
-        onClick={profilePic ? handleOpenRemoveProfilePicConfirm : handleProfilePicClick}
-        disabled={uploadingImage}
-      >
-        {uploadingImage ? (
-          <CircularProgress size={20} color="inherit" />
-        ) : profilePic ? (
-          <DeleteIcon fontSize="small" />
-        ) : (
-          <EditIcon fontSize="small" />
-        )}
-      </IconButton>
-    }
-  >
-    <Avatar 
-      sx={{ width: 100, height: 100, mb: 1, cursor: 'pointer' }}
-      src={profilePic}
-      onClick={handleProfilePicClick}
-    >
-      {subject ? subject.substring(0, 2).toUpperCase() : "GP"}
-    </Avatar>
-  </Badge>
-  
-  <Typography variant="caption" color="textSecondary" sx={{ mt: 1 }}>
-    {profilePic 
-      ? i18n.t("groups.clickToChangePhoto") 
-      : i18n.t("groups.clickToAddPhoto")}
-  </Typography>
-  
-  <input
-    type="file"
-    ref={fileInputRef}
-    accept="image/*"
-    style={{ display: 'none' }}
-    onChange={handleProfilePicChange}
-  />
-</Box>
+  // Configuração das abas
+  const tabsConfig = [
+    {
+      label: i18n.t("groups.tabs.info"),
+      icon: <AdminIcon />,
+      content: (
+        <Box>
+          <Box mb={3} display="flex" flexDirection="column" alignItems="center">
+            <Badge
+              overlap="circular"
+              anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+              badgeContent={
+                userRole === "admin" && (
+                  <IconButton 
+                    size="small" 
+                    sx={{ 
+                      bgcolor: 'primary.main', 
+                      color: 'white',
+                      '&:hover': {
+                        bgcolor: 'primary.dark',
+                      } 
+                    }}
+                    onClick={profilePic ? handleOpenRemoveProfilePicConfirm : handleProfilePicClick}
+                    disabled={uploadingImage}
+                  >
+                    {uploadingImage ? (
+                      <CircularProgress size={20} color="inherit" />
+                    ) : profilePic ? (
+                      <DeleteIcon fontSize="small" />
+                    ) : (
+                      <EditIcon fontSize="small" />
+                    )}
+                  </IconButton>
+                )
+              }
+            >
+              <Avatar 
+                sx={{ width: 100, height: 100, mb: 1, cursor: userRole === "admin" ? 'pointer' : 'default' }}
+                src={profilePic}
+                onClick={userRole === "admin" ? handleProfilePicClick : undefined}
+              >
+                {subject ? subject.substring(0, 2).toUpperCase() : "GP"}
+              </Avatar>
+            </Badge>
+            
+            <Typography variant="caption" color="textSecondary" sx={{ mt: 1 }}>
+              {userRole === "admin" ? (
+                profilePic 
+                  ? i18n.t("groups.clickToChangePhoto") 
+                  : i18n.t("groups.clickToAddPhoto")
+              ) : (
+                "Visualização apenas"
+              )}
+            </Typography>
+            
+            {userRole === "admin" && (
+              <input
+                type="file"
+                ref={fileInputRef}
+                accept="image/*"
+                style={{ display: 'none' }}
+                onChange={handleProfilePicChange}
+              />
+            )}
+          </Box>
 
-            <TextField
-              label={i18n.t("groups.groupName")}
-              value={subject}
-              onChange={(e) => {
+          <TextField
+            label={i18n.t("groups.groupName")}
+            value={subject}
+            onChange={(e) => {
+              if (userRole === "admin") {
                 setSubject(e.target.value);
                 setSubjectChanged(true);
-              }}
-              fullWidth
-              error={Boolean(errors.subject)}
-              helperText={errors.subject}
-              variant="outlined"
-              margin="normal"
-            />
-            
-            <TextField
-              label={i18n.t("groups.description")}
-              value={description}
-              onChange={(e) => {
+              }
+            }}
+            fullWidth
+            error={Boolean(errors.subject)}
+            helperText={errors.subject}
+            variant="outlined"
+            margin="normal"
+            disabled={userRole !== "admin"}
+            InputProps={{
+              readOnly: userRole !== "admin"
+            }}
+          />
+          
+          <TextField
+            label={i18n.t("groups.description")}
+            value={description}
+            onChange={(e) => {
+              if (userRole === "admin") {
                 setDescription(e.target.value);
                 setDescriptionChanged(true);
-              }}
-              fullWidth
-              multiline
-              rows={4}
-              variant="outlined"
-              margin="normal"
-            />
-            
+              }
+            }}
+            fullWidth
+            multiline
+            rows={4}
+            variant="outlined"
+            margin="normal"
+            disabled={userRole !== "admin"}
+            InputProps={{
+              readOnly: userRole !== "admin"
+            }}
+          />
+          
+          {userRole === "admin" && (
             <Box mt={3}>
               <Typography variant="subtitle1" gutterBottom>
                 {i18n.t("groups.settings")}
@@ -614,66 +609,94 @@ const handleRemoveParticipant = async () => {
                 />
               </FormGroup>
             </Box>
-          </Box>
-        )}
-        
-        {!loading && activeTab === 1 && (
-          <Box>
-            <Box mb={2}>
-              <TextField
-                placeholder={i18n.t("groups.searchParticipants")}
-                fullWidth
-                variant="outlined"
-                size="small"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                InputProps={{
-                  startAdornment: (
-                    <InputAdornment position="start">
-                      <SearchIcon />
-                    </InputAdornment>
-                  ),
-                }}
-              />
+          )}
+
+          {userRole !== "admin" && (
+            <Box mt={2}>
+              <Alert severity="info">
+                Você é um participante deste grupo. Para editar as configurações, você precisa ser promovido a administrador.
+              </Alert>
             </Box>
-            
-            <Paper variant="outlined">
-              <List>
-                {filteredParticipants.length === 0 ? (
-                  <ListItem>
-                    <ListItemText
-                      primary={i18n.t("groups.noParticipantsFound")}
-                      secondary={i18n.t("groups.tryAnotherSearch")}
-                    />
-                  </ListItem>
-                ) : (
-                  filteredParticipants.map((participant, index) => (
-                    <React.Fragment key={participant.id}>
-                      <ListItem key={participant.id}>
-                        <ListItemAvatar>
-                          <Avatar>
-                            {(participant.name && participant.name[0]) ? participant.name[0].toUpperCase() : 'U'}
-                          </Avatar>
-                        </ListItemAvatar>
-                        <ListItemText
-  primary={
-    <Box display="flex" alignItems="center">
-      <Typography variant="body1">
-        {participant.name || (participant.id ? participant.id.split('@')[0] : 'Usuário')}
-      </Typography>
-      {isAdmin(participant) && (
-        <Chip
-          size="small"
-          color="primary"
-          icon={<AdminIcon />}
-          label={i18n.t("groups.admin")}
-          style={{ marginLeft: 8 }}
-        />
-      )}
-    </Box>
-  }
-  secondary={participant.id ? participant.id.split('@')[0] : ''}
-/>
+          )}
+        </Box>
+      )
+    },
+    {
+      label: i18n.t("groups.tabs.participants"),
+      icon: <PersonAddIcon />,
+      content: (
+        <Box>
+          <Box mb={2}>
+            <TextField
+              placeholder={i18n.t("groups.searchParticipants")}
+              fullWidth
+              variant="outlined"
+              size="small"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              InputProps={{
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <SearchIcon />
+                  </InputAdornment>
+                ),
+              }}
+            />
+          </Box>
+          
+          <Paper variant="outlined" sx={{ maxHeight: 400, overflow: 'auto' }}>
+            <List>
+              {filteredParticipants.length === 0 ? (
+                <ListItem>
+                  <ListItemText
+                    primary={i18n.t("groups.noParticipantsFound")}
+                    secondary={i18n.t("groups.tryAnotherSearch")}
+                  />
+                </ListItem>
+              ) : (
+                filteredParticipants.map((participant, index) => (
+                  <React.Fragment key={participant.id}>
+                    <ListItem>
+                      <ListItemAvatar>
+                        <Avatar>
+                          {participant.name 
+                            ? participant.name[0].toUpperCase() 
+                            : participant.number 
+                              ? participant.number[0] 
+                              : 'U'}
+                        </Avatar>
+                      </ListItemAvatar>
+                      <ListItemText
+                        primary={
+                          <Box display="flex" alignItems="center">
+                            <Typography variant="body1">
+                              {participant.name || participant.number || 'Usuário'}
+                            </Typography>
+                            {isAdmin(participant) && (
+                              <Chip
+                                size="small"
+                                color="warning"
+                                icon={<AdminIcon />}
+                                label={i18n.t("groups.admin")}
+                                style={{ marginLeft: 8 }}
+                              />
+                            )}
+                          </Box>
+                        }
+                        secondary={
+                          <Box>
+                            <Typography variant="body2" color="textSecondary">
+                              {participant.number || (participant.id ? participant.id.split('@')[0] : '')}
+                            </Typography>
+                            {participant.contact?.email && (
+                              <Typography variant="caption" color="textSecondary">
+                                {participant.contact.email}
+                              </Typography>
+                            )}
+                          </Box>
+                        }
+                      />
+                      {userRole === "admin" && (
                         <ListItemSecondaryAction>
                           <IconButton
                             edge="end"
@@ -682,14 +705,16 @@ const handleRemoveParticipant = async () => {
                             <MoreVertIcon />
                           </IconButton>
                         </ListItemSecondaryAction>
-                      </ListItem>
-                      {index < filteredParticipants.length - 1 && <Divider variant="inset" component="li" />}
-                    </React.Fragment>
-                  ))
-                )}
-              </List>
-            </Paper>
-            
+                      )}
+                    </ListItem>
+                    {index < filteredParticipants.length - 1 && <Divider variant="inset" component="li" />}
+                  </React.Fragment>
+                ))
+              )}
+            </List>
+          </Paper>
+          
+          {userRole === "admin" && (
             <Box mt={3}>
               <Typography variant="subtitle1" gutterBottom>
                 {i18n.t("groups.addNewParticipants")}
@@ -698,8 +723,9 @@ const handleRemoveParticipant = async () => {
               <Box mb={2}>
                 <Autocomplete
                   multiple
-                  options={contacts}
+                  options={availableContacts}
                   getOptionLabel={(option) => `${option.name} (${option.number})`}
+                  value={newParticipants}
                   onChange={(event, newValue) => {
                     setNewParticipants(newValue);
                   }}
@@ -734,78 +760,133 @@ const handleRemoveParticipant = async () => {
               </Box>
               
               <Box display="flex" justifyContent="flex-start">
-                <Button
+                <BaseButton
                   variant="contained"
                   color="primary"
                   startIcon={<PersonAddIcon />}
                   onClick={handleAddParticipants}
-                  disabled={newParticipants.length === 0}
+                  disabled={newParticipants.length === 0 || loading}
                 >
                   {i18n.t("groups.addParticipants")}
-                </Button>
+                </BaseButton>
               </Box>
             </Box>
-          </Box>
-        )}
-        
-        {!loading && activeTab === 2 && (
-          <Box>
-            <Typography variant="subtitle1" gutterBottom>
-              {i18n.t("groups.inviteLink")}
+          )}
+        </Box>
+      )
+    }
+  ];
+
+  // Adicionar aba de convite apenas para admins
+  if (userRole === "admin") {
+    tabsConfig.push({
+      label: i18n.t("groups.tabs.inviteLink"),
+      icon: <ContentCopyIcon />,
+      content: (
+        <Box>
+          <Typography variant="subtitle1" gutterBottom>
+            {i18n.t("groups.inviteLink")}
+          </Typography>
+          
+          <Box mb={3}>
+            <Typography variant="body2" color="textSecondary" gutterBottom>
+              {i18n.t("groups.inviteLinkDescription")}
             </Typography>
-            
-            <Box mb={3}>
-              <Typography variant="body2" color="textSecondary" gutterBottom>
-                {i18n.t("groups.inviteLinkDescription")}
-              </Typography>
+          </Box>
+          
+          {inviteLoading ? (
+            <Box display="flex" justifyContent="center" p={2}>
+              <CircularProgress size={30} />
             </Box>
-            
-            {inviteLoading ? (
-              <Box display="flex" justifyContent="center" p={2}>
-                <CircularProgress size={30} />
-              </Box>
-            ) : inviteCode ? (
-              <Box>
-                <Paper variant="outlined" style={{ padding: 16 }}>
-                  <Typography variant="body1">
-                    {inviteUrl}
-                  </Typography>
-                </Paper>
-                
-                <Box display="flex" mt={2} gap={1}>
-                  <Button
-                    variant="contained"
-                    color="primary"
-                    startIcon={<ContentCopyIcon />}
-                    onClick={handleCopyInviteLink}
-                  >
-                    {i18n.t("groups.copyLink")}
-                  </Button>
-                  <Button
-                    variant="outlined"
-                    color="secondary"
-                    startIcon={<RefreshIcon />}
-                    onClick={handleRevokeInviteCode}
-                  >
-                    {i18n.t("groups.revokeAndGenerate")}
-                  </Button>
-                </Box>
-              </Box>
-            ) : (
-              <Box textAlign="center">
-                <Button
+          ) : inviteCode ? (
+            <Box>
+              <Paper variant="outlined" style={{ padding: 16 }}>
+                <Typography variant="body1" sx={{ wordBreak: 'break-all' }}>
+                  {inviteUrl}
+                </Typography>
+              </Paper>
+              
+              <Box display="flex" mt={2} gap={1}>
+                <BaseButton
                   variant="contained"
                   color="primary"
-                  startIcon={<RefreshIcon />}
-                  onClick={handleGetInviteCode}
+                  startIcon={<ContentCopyIcon />}
+                  onClick={handleCopyInviteLink}
                 >
-                  {i18n.t("groups.generateInviteLink")}
-                </Button>
+                  {i18n.t("groups.copyLink")}
+                </BaseButton>
+                <BaseButton
+                  variant="outlined"
+                  color="secondary"
+                  startIcon={<RefreshIcon />}
+                  onClick={handleRevokeInviteCode}
+                >
+                  {i18n.t("groups.revokeAndGenerate")}
+                </BaseButton>
               </Box>
-            )}
-          </Box>
-        )}
-      </Box>
+            </Box>
+          ) : (
+            <Box textAlign="center">
+              <BaseButton
+                variant="contained"
+                color="primary"
+                startIcon={<RefreshIcon />}
+                onClick={handleGetInviteCode}
+              >
+                {i18n.t("groups.generateInviteLink")}
+              </BaseButton>
+            </Box>
+          )}
+        </Box>
+      )
+    });
+  }
+
+  const modalActions = activeTab === 0 ? [
+    {
+      label: i18n.t("cancel"),
+      onClick: handleClose,
+      variant: "outlined",
+      color: "secondary",
+      disabled: loading,
+      icon: <CancelIcon />
+    },
+    ...(userRole === "admin" ? [{
+      label: loading ? i18n.t("saving") : i18n.t("save"),
+      onClick: handleSaveInfo,
+      variant: "contained",
+      color: "primary",
+      disabled: loading || (!subjectChanged && !descriptionChanged && !settingsChanged),
+      icon: loading ? <CircularProgress size={20} /> : <SaveIcon />
+    }] : [])
+  ] : [
+    {
+      label: i18n.t("close"),
+      onClick: handleClose,
+      variant: "outlined",
+      color: "secondary",
+      disabled: loading,
+      icon: <CancelIcon />
+    }
+  ];
+
+  return (
+    <>
+      <BaseModal
+        open={open}
+        onClose={handleClose}
+        title={loading ? `${i18n.t("loading")}...` : `${i18n.t("groups.groupInfo")}: ${subject}`}
+        actions={modalActions}
+        loading={loading}
+        maxWidth="md"
+      >
+        <BaseResponsiveTabs
+          tabs={tabsConfig}
+          value={activeTab}
+          onChange={handleChangeTab}
+          showTabsOnMobile={true}
+        />
+      </BaseModal>
       
       {/* Menu de opções para participantes */}
       <Menu
@@ -815,25 +896,16 @@ const handleRemoveParticipant = async () => {
         onClose={handleCloseParticipantMenu}
       >
         {selectedParticipant && !isAdmin(selectedParticipant) && (
-          <MenuItem onClick={handlePromoteParticipant}>
+          <MenuItem onClick={handlePromoteParticipant} disabled={loading}>
             <ListItemIcon>
               <ArrowUpwardIcon fontSize="small" />
-            </ListItemIcon>
-            <ListItemText primary={i18n.t("groups.promoteToAdmin")} />
-          </MenuItem>
-        )}
-        
-        {selectedParticipant && isAdmin(selectedParticipant) && (
-          <MenuItem onClick={handleDemoteParticipant}>
-            <ListItemIcon>
-              <ArrowDownwardIcon fontSize="small" />
             </ListItemIcon>
             <ListItemText primary={i18n.t("groups.demoteFromAdmin")} />
           </MenuItem>
         )}
         
         {selectedParticipant && (
-          <MenuItem onClick={handleRemoveParticipant}>
+          <MenuItem onClick={handleRemoveParticipant} disabled={loading}>
             <ListItemIcon>
               <PersonRemoveIcon fontSize="small" color="error" />
             </ListItemIcon>
@@ -853,40 +925,40 @@ const handleRemoveParticipant = async () => {
         </Alert>
       </Snackbar>
 
+      {/* Dialog para confirmar remoção de foto */}
       <Dialog
-  open={confirmRemoveProfilePic}
-  onClose={handleCloseRemoveProfilePicConfirm}
-  aria-labelledby="remove-profile-pic-dialog-title"
->
-  <DialogTitle id="remove-profile-pic-dialog-title">
-    {i18n.t("groups.removeProfilePicConfirm")}
-  </DialogTitle>
-  <DialogContent>
-    <DialogContentText>
-      {i18n.t("groups.removeProfilePicMessage")}
-    </DialogContentText>
-  </DialogContent>
-  <DialogActions>
-    <Button 
-      onClick={handleCloseRemoveProfilePicConfirm} 
-      color="primary"
-      disabled={uploadingImage}
-    >
-      {i18n.t("cancel")}
-    </Button>
-    <Button 
-      onClick={handleRemoveProfilePic} 
-      color="error" 
-      variant="contained"
-      disabled={uploadingImage}
-      startIcon={uploadingImage ? <CircularProgress size={20} /> : <DeleteIcon />}
-    >
-      {i18n.t("remove")}
-    </Button>
-  </DialogActions>
-</Dialog>
-
-    </BaseModal>
+        open={confirmRemoveProfilePic}
+        onClose={handleCloseRemoveProfilePicConfirm}
+        aria-labelledby="remove-profile-pic-dialog-title"
+      >
+        <DialogTitle id="remove-profile-pic-dialog-title">
+          {i18n.t("groups.removeProfilePicConfirm")}
+        </DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            {i18n.t("groups.removeProfilePicMessage")}
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button 
+            onClick={handleCloseRemoveProfilePicConfirm} 
+            color="primary"
+            disabled={uploadingImage}
+          >
+            {i18n.t("cancel")}
+          </Button>
+          <Button 
+            onClick={handleRemoveProfilePic} 
+            color="error" 
+            variant="contained"
+            disabled={uploadingImage}
+            startIcon={uploadingImage ? <CircularProgress size={20} /> : <DeleteIcon />}
+          >
+            {i18n.t("remove")}
+          </Button>
+        </DialogActions>
+      </Dialog>
+    </>
   );
 };
 

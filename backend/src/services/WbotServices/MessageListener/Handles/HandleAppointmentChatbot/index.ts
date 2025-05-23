@@ -70,7 +70,7 @@ class handleAppointmentChatbot {
   private static async sendMessage(msg: string, ticket: Ticket, wbot: Session): Promise<void> {
     const sentMessage = await wbot.sendMessage(
       `${ticket.contact.number}@${ticket.isGroup ? "g.us" : "s.whatsapp.net"}`,
-      { text: formatBody(msg, ticket) }
+      { text: '\u200e' + formatBody(msg, ticket) }
     );
     
     await verifyMessage(sentMessage, ticket, ticket.contact);

@@ -12,6 +12,7 @@ import { MessageNotificationProvider } from "../context/MessageNotification";
 import { DashboardProvider } from "../pages/Dashboard/context/DashboardContext";
 import LandingPageEditor from "../pages/LandingPages/Editor";
 import PublicLandingPage from '../pages/LandingPages/Public';
+import LandingPagesList from "../pages/LandingPages/List";
 import useSettings from "../hooks/useSettings";
 
 import ErrorBoundary from "../components/ErrorBoundary";
@@ -137,6 +138,7 @@ const Routes = () => {
                         <CustomRoute exact path="/groups" component={Groups} isPrivate />
                         <CustomRoute exact path="/message-rules" component={MessageRules} isPrivate />
                         <CustomRoute exact path="/agendamento" component={AgendamentoServicos} isPrivate />
+                        <CustomRoute exact path="/landing-pages" component={LandingPagesList} isPrivate />
                         <CustomRoute
                           exact
                           path="/reports"

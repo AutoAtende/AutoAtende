@@ -99,12 +99,12 @@ interface ImessageUpsert {
   type: MessageUpsertType;
 }
 
-interface IMe {
+export interface IMe {
   name: string;
   id: string;
 }
 
-interface IMessage {
+export interface IMessage {
   messages: WAMessage[];
   isLatest: boolean;
 }
@@ -181,7 +181,7 @@ const getContactMessage = async (msg: proto.IWebMessageInfo, wbot: Session) => {
 
 
 
-const verifyContact = async (
+export const verifyContact = async (
   msgContact: IMe,
   wbot: Session,
   companyId: number
@@ -387,12 +387,15 @@ const Push = (msg: proto.IWebMessageInfo) => {
 };
 
 export const verifyRating = (ticketTraking: TicketTraking) => {
-  return (
+  if (
     ticketTraking &&
-    ticketTraking.finishedAt == null &&
-    ticketTraking.userId != null &&
-    ticketTraking.ratingAt != null
-  );
+    ticketTraking.finishedAt === null &&
+    ticketTraking.userId !== null &&
+    ticketTraking.ratingAt !== null
+  ) {
+    return true;
+  }
+  return false;
 };
 
 export const handleRating = async (
@@ -437,11 +440,8 @@ export const handleRating = async (
 
   // Verifica se é uma integração com Omie antes de enviar a mensagem de avaliação
   const queue = await Queue.findByPk(ticket.queueId);
-  const isOmieQueue = queue?.name?.includes("2ª Via de Boleto") ||
-    queue?.name?.includes("2 Via de Boleto") ||
-    queue?.name?.includes("Boleto - Cobrança");
 
-  if (complationMessage && !isOmieQueue) {
+  if (complationMessage) {
     if (completionMessageControl.length >= 2500) completionMessageControl = [];
 
     var lastMessage = completionMessageControl.find(
@@ -854,8 +854,6 @@ export const handleMessage = async (
       updatedAt: new Date()
     });
 
-    await provider(ticket, msg, companyId, contact, wbot as WASocket);
-
     /**
      * @description Verifica se a mensagem de conclusão deve ser enviada ao usuário.
      * Este bloco de código verifica se a configuração de mensagem de conclusão está ativa
@@ -865,11 +863,8 @@ export const handleMessage = async (
      */
 
     const queue = await Queue.findByPk(ticket.queueId);
-    const isOmieQueue = queue?.name?.includes("2ª Via de Boleto") ||
-      queue?.name?.includes("2 Via de Boleto") ||
-      queue?.name?.includes("Boleto - Cobrança");
 
-    if (whatsapp.complationMessage && unreadMessages === 0 && !isOmieQueue) {
+    if (whatsapp.complationMessage && unreadMessages === 0) {
       const lastMessage = await Message.findOne({
         where: {
           contactId: contact.id,
@@ -895,7 +890,7 @@ export const handleMessage = async (
  * durante o processamento, captura a exceção e registra o erro.
  */
     try {
-      if (!msg.key.fromMe && !isOmieQueue) {
+      if (!msg.key.fromMe) {
         // Verifica se a mensagem não foi enviada pelo bot
         if (verifyRating(ticketTraking)) {
           // Verifica se a avaliação do ticket deve ser processada
@@ -966,7 +961,7 @@ if (
     }
   );
 
-  await verifyMessage(sentMessage, ticket, ticket.contact);
+  
 
   // Buscar todas execuções ativas do FlowBuilder para este contato
   const activeExecutions = await FlowBuilderExecution.findAll({
@@ -1023,7 +1018,7 @@ if (
     companyId: ticket.companyId,
     userCurrentId: ticket.userId
   });
-
+  await verifyMessage(sentMessage, ticket, ticket.contact);
   await ticket.reload();
   return;
 }
@@ -1477,14 +1472,16 @@ export const wbotMessageListener = async (
         where: { id: message.key.id!, companyId }
       });
       if (!messageExists) {
+        await handleMessage(message, wbot, companyId, false, remoteJid);
         const isRecentCampaign = await verifyRecentCampaign(message, companyId);
         if (isRecentCampaign) {
           return;
         }
-        await handleMessage(message, wbot, companyId, false, remoteJid);
+        await verifyCampaignMessageAndCloseTicket(message, companyId);
+        
       }
 
-      await verifyCampaignMessageAndCloseTicket(message, companyId);
+      
     }); // Fechamento correto do forEach
   });
 

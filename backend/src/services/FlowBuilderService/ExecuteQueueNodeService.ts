@@ -93,24 +93,24 @@ const ExecuteQueueNodeService = async ({
     });
     
     // Obter instância do bot
-    const wbot = await getWbot(whatsappIdToUse);
+    //const wbot = await getWbot(whatsappIdToUse);
     
     // Enviar status de digitando
-    await SendPresenceStatus(
-      wbot,
-      `${contact.number}@${ticket.isGroup ? "g.us" : "s.whatsapp.net"}`
-    );
+    //await SendPresenceStatus(
+    //  wbot,
+    //  `${contact.number}@${ticket.isGroup ? "g.us" : "s.whatsapp.net"}`
+    //);
     
     // Enviar mensagem informando que a solicitação foi recebida
-    const sentMessage = await wbot.sendMessage(
-      `${contact.number}@${ticket.isGroup ? "g.us" : "s.whatsapp.net"}`,
-      {
-        text: `Sua solicitação foi adicionada à fila ${queue.name}. Um atendente entrará em contato em breve.`
-      }
-    );
+    //const sentMessage = await wbot.sendMessage(
+    //  `${contact.number}@${ticket.isGroup ? "g.us" : "s.whatsapp.net"}`,
+    //  {
+    //    text: `Sua solicitação foi adicionada à fila ${queue.name}. Um atendente entrará em contato em breve.`
+    //  }
+    //);
     
     // Verificar e registrar a mensagem no sistema
-    await verifyMessage(sentMessage, ticket, contact);
+    //await verifyMessage(sentMessage, ticket, contact);
     
     // Notificar via socket para atualização da interface
     const io = getIO();

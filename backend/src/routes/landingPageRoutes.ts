@@ -22,6 +22,9 @@ const formSubmissionRateLimiter = FormControllerClass.getFormSubmissionRateLimit
 // Rotas públicas para landing pages
 landingPageRoutes.get('/landing-pages/company/:companyId/l/:slug', landingPageController.renderPublic);
 
+// Rota pública para verificação de telefone no WhatsApp
+landingPageRoutes.get('/landing-pages/:landingPageId/check-phone/:phone', FormController.checkPhone);
+
 // Rota para registrar visitas na landing page
 landingPageRoutes.post('/landing-pages/company/:companyId/l/:landingPageId/visit', landingPageController.recordVisit);
 
@@ -54,6 +57,7 @@ landingPageRoutes.delete('/forms/:id', isAuth, isAdmin, FormController.destroy);
 // Submissões de formulários
 landingPageRoutes.get('/landing-pages/:landingPageId/submissions', isAuth, isAdmin, FormController.getSubmissions);
 landingPageRoutes.get('/forms/:formId/submissions', isAuth, isAdmin, FormController.getSubmissions);
+
 
 // Gerenciamento de arquivos para landing pages
 landingPageRoutes.post(

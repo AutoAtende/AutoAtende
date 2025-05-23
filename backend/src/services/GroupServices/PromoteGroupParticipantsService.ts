@@ -1,6 +1,7 @@
 // PromoteGroupParticipantsService.ts
 import AppError from "../../errors/AppError";
 import Groups from "../../models/Groups";
+import Contact from "../../models/Contact";
 import { getWbot } from "../../libs/wbot";
 import GetWhatsAppConnected from "../../helpers/GetWhatsAppConnected";
 import { logger } from "../../utils/logger";
@@ -27,8 +28,20 @@ const PromoteGroupParticipantsService = async ({
     throw new AppError("Grupo não encontrado");
   }
 
+  // Validação de participantes
+  if (!participants || !Array.isArray(participants) || participants.length === 0) {
+    throw new AppError("Lista de participantes inválida ou vazia");
+  }
+
+  // Filtrar participantes válidos (não nulos/vazios)
+  const validParticipants = participants.filter(p => p && p.trim() !== "");
+  
+  if (validParticipants.length === 0) {
+    throw new AppError("Nenhum participante válido para promover");
+  }
+
   try {
-    const whatsapp = await GetWhatsAppConnected(companyId, null);
+    const whatsapp = await GetWhatsAppConnected(companyId, group.whatsappId);
     
     if (!whatsapp) {
       throw new AppError("Nenhuma conexão WhatsApp disponível");
@@ -36,42 +49,104 @@ const PromoteGroupParticipantsService = async ({
     
     const wbot = await getWbot(whatsapp.id);
 
-    // Formata os números dos participantes
-    const formattedParticipants = participants.map(participant => {
-      // Verifica se já inclui @s.whatsapp.net
-      if (!participant.includes('@')) {
-        return `${participant}@s.whatsapp.net`;
+    // Verificar se o bot tem permissão de admin no grupo
+    const groupMetadata = await wbot.groupMetadata(group.jid);
+    const botJid = wbot.user?.id;
+    const botNumber = whatsapp.number?.replace(/\D/g, '');
+    
+    const botParticipant = groupMetadata.participants.find(p => {
+      return p.id === botJid || p.id.split('@')[0] === botNumber;
+    });
+    
+    if (!botParticipant || (botParticipant.admin !== 'admin' && botParticipant.admin !== 'superadmin')) {
+      throw new AppError("Sem permissão para promover participantes. Você precisa ser administrador do grupo.");
+    }
+
+    // Formatar os números dos participantes
+    const formattedParticipants = validParticipants.map(participant => {
+      // Se já está no formato correto, mantém
+      if (participant.includes('@s.whatsapp.net')) {
+        return participant;
       }
-      return participant;
+      // Se é só o número, adiciona o sufixo
+      return `${participant.replace(/\D/g, '')}@s.whatsapp.net`;
     });
 
-    // Promove os participantes para administradores
+    // Verificar se os participantes existem no grupo
+    const existingParticipants = groupMetadata.participants.map(p => p.id);
+    const participantsToPromote = formattedParticipants.filter(p => 
+      existingParticipants.includes(p)
+    );
+
+    if (participantsToPromote.length === 0) {
+      throw new AppError("Nenhum dos participantes especificados foi encontrado no grupo");
+    }
+
+    logger.info(`Promovendo participantes no grupo ${group.jid}: ${participantsToPromote.join(", ")}`);
+
+    // Promover os participantes para administradores
     await wbot.groupParticipantsUpdate(
       group.jid,
-      formattedParticipants,
+      participantsToPromote,
       "promote"
     );
     
-    logger.info(`Participantes promovidos no grupo ${group.jid}: ${formattedParticipants.join(", ")}`);
+    logger.info(`Participantes promovidos com sucesso no grupo ${group.jid}`);
 
-    // Atualiza os metadados do grupo
-    const groupMetadata = await wbot.groupMetadata(group.jid);
+    // Aguardar um pouco para que as mudanças sejam refletidas
+    await new Promise(resolve => setTimeout(resolve, 1000));
+
+    // Atualizar os metadados do grupo
+    const updatedGroupMetadata = await wbot.groupMetadata(group.jid);
+    
+    // Enriquecer participantes com dados de contatos
+    const enrichedParticipants = await Promise.all(
+      updatedGroupMetadata.participants.map(async (p) => {
+        const number = p.id.split('@')[0];
+        const contact = await Contact.findOne({
+          where: { number, companyId },
+          attributes: ['id', 'name', 'email']
+        });
+        
+        return {
+          id: p.id,
+          number: number,
+          isAdmin: p.admin === 'admin' || p.admin === 'superadmin',
+          admin: p.admin,
+          name: contact?.name || null,
+          contact: contact || null
+        };
+      })
+    );
     
     // Extrair administradores atualizados
-    const adminParticipants = groupMetadata.participants
+    const adminParticipants = enrichedParticipants
       .filter(p => p.admin === 'admin' || p.admin === 'superadmin')
       .map(p => p.id);
     
     await group.update({
-      participants: JSON.stringify(groupMetadata.participants),
-      participantsJson: groupMetadata.participants,
-      adminParticipants
+      participants: JSON.stringify(updatedGroupMetadata.participants),
+      participantsJson: enrichedParticipants,
+      adminParticipants,
+      lastSync: new Date()
     });
+
+    // Recarregar para retornar dados atualizados
+    await group.reload();
 
     return group;
   } catch (error) {
     logger.error(`Erro ao promover participantes no grupo ${groupId}: ${error}`);
-    throw new AppError("Erro ao promover participantes a administradores.");
+    
+    if (error.message.includes('forbidden') || error.message.includes('not-admin')) {
+      throw new AppError("Sem permissão para promover participantes. Verifique se você é administrador do grupo.");
+    }
+    
+    if (error.message.includes('not-found')) {
+      throw new AppError("Grupo não encontrado no WhatsApp ou participantes inválidos.");
+    }
+    
+    throw new AppError(`Erro ao promover participantes: ${error.message || "Erro desconhecido"}`);
   }
 };
 

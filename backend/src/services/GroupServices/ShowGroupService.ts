@@ -11,6 +11,15 @@ interface Request {
   groupId: string;
 }
 
+interface ParticipantWithContact {
+  id: string;
+  number: string;
+  isAdmin: boolean;
+  admin?: string;
+  name?: string;
+  contact?: Contact;
+}
+
 const ShowGroupService = async ({ companyId, groupId }: Request): Promise<Groups> => {
   const group = await Groups.findOne({
     where: {
@@ -25,25 +34,33 @@ const ShowGroupService = async ({ companyId, groupId }: Request): Promise<Groups
 
   try {
     // Obter detalhes atualizados do grupo via WhatsApp API
-    const whatsapp = await GetWhatsAppConnected(companyId, null);
+    const whatsapp = await GetWhatsAppConnected(companyId, group.whatsappId);
     
     if (whatsapp) {
       const wbot = await getWbot(whatsapp.id);
       const groupMetadata = await wbot.groupMetadata(group.jid);
 
-      // Enriquece os participantes com dados de contatos
-      const participantsWithNames = await Promise.all(
+      // Enriquece os participantes com dados de contatos do banco
+      const participantsWithNames: ParticipantWithContact[] = await Promise.all(
         groupMetadata.participants.map(async (p) => {
           const number = p.id.split('@')[0];
+          
+          // Buscar contato no banco de dados
           const contact = await Contact.findOne({
-            where: { number, companyId }
+            where: { 
+              number, 
+              companyId 
+            },
+            attributes: ['id', 'name', 'email', 'profilePicUrl']
           });
           
           return {
             id: p.id,
             number: number,
             isAdmin: p.admin === 'admin' || p.admin === 'superadmin',
-            name: contact?.name || null
+            admin: p.admin,
+            name: contact?.name || null,
+            contact: contact || null
           };
         })
       );
@@ -53,13 +70,35 @@ const ShowGroupService = async ({ companyId, groupId }: Request): Promise<Groups
         .filter(p => p.isAdmin)
         .map(p => p.id);
 
+      // Verificar role do usuário atual
+      const botNumber = whatsapp.number?.replace(/\D/g, '');
+      const botJid = wbot.user?.id;
+      
+      let userRole = "participant";
+      
+      // Buscar participante do bot
+      const botParticipant = participantsWithNames.find(p => {
+        return p.id === botJid || p.number === botNumber;
+      });
+      
+      if (botParticipant && botParticipant.isAdmin) {
+        userRole = "admin";
+      }
+
       // Atualizar as informações do grupo no banco de dados
       await group.update({
         subject: groupMetadata.subject,
+        description: groupMetadata.desc,
         participants: JSON.stringify(groupMetadata.participants),
         participantsJson: participantsWithNames,
-        adminParticipants
+        adminParticipants,
+        userRole,
+        lastSync: new Date(),
+        syncStatus: "synced"
       });
+
+      // Recarregar o grupo com os dados atualizados
+      await group.reload();
     }
 
     return group;

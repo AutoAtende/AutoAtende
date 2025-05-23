@@ -2263,7 +2263,13 @@ const messages = {
           accept: "Aceitar",
           closed: "Finalizar",
           reopen: "Reabrir",
-          close: "Fechar"
+          close: "Fechar",
+          delete: "Deletar",
+          reject: "Rejeitar",
+          spy: "Espiar",
+          
+
+
         },
       },
       newTicketModal: {
@@ -2411,7 +2417,7 @@ const messages = {
       },
       usersFilter: {
         title: "Filtrar",
-        selectAll: "Marcar todos",  
+        selectAll: "Marcar todos",
         placeholder: "Selecione os usuários",
         allSelected: "Todos selecionados",
         selected: "Selecionados"
@@ -2590,6 +2596,12 @@ const messages = {
         emailScheduled: "Email agendado com sucesso!",
         emailCancelled: "Agendamento cancelado com sucesso!",
         emailRescheduled: "Email reagendado com sucesso!"
+      },
+      shared: {
+        empty: {
+          title: "Nenhum resultado encontrado",
+          message: "Nenhum resultado encontrado."
+        }
       },
       todoList: {
         title: "Minhas Tarefas",
@@ -4650,14 +4662,7 @@ const messages = {
             sendOnSingleQueueHelper:
               "Envia mensagem automática quando há apenas um setor",
           },
-
-          groups: {
-            title: "Grupos",
-            ignoreGroups: "Ignorar mensagens de grupos",
-            ignoreGroupsHelper: "Não cria tickets para mensagens de grupos",
-          },
-
-          transfer: {
+        transfer: {
             title: "Transferência",
             notifyOnTransfer: "Notificar transferência",
             notifyOnTransferHelper:
@@ -4919,7 +4924,7 @@ const messages = {
           appointments: "Agendamentos",
           info: "Informações",
           settings: "Configurações",
-           participants: "Participantes"
+          participants: "Participantes"
         },
         settings: "Configurações",
         noExtraInfo: "Nenhuma informação adicional cadastrada",
@@ -5114,7 +5119,7 @@ const messages = {
           voiceResponsesHelp: "O assistente poderá responder com áudio quando o contato enviar mensagens de voz",
           voiceId: "Voz do Assistente",
           voiceSpeed: "Velocidade da fala"
-    
+
         },
         filters: {
           allTools: "Todas",
@@ -7203,163 +7208,198 @@ const messages = {
         }
       },
       groups: {
-        title: "Grupos",
-        createNewGroup: "Criar Novo Grupo",
-        joinGroup: "Entrar em um Grupo",
-        groupInfo: "Informações do Grupo",
-        groupDeleted: "Grupo excluído com sucesso",
-        createSuccess: "Grupo criado com sucesso",
-        updateSuccess: "Grupo atualizado com sucesso",
-        deleteConfirmTitle: "Confirmar exclusão",
-        deleteConfirmMessage: "Tem certeza que deseja excluir o grupo {name}?",
+        title: "Grupos do WhatsApp",
+        searchPlaceholder: "Pesquisar grupos...",
+        noGroupsFound: "Nenhum grupo encontrado",
+        createGroupsMessage: "Sincronize seus grupos do WhatsApp para começar a gerenciá-los",
+        createNewGroup: "Criar novo grupo",
+        
+        // Sincronização
+        sync: {
+          title: "Sincronizar Grupos",
+          description: "Importar todos os grupos do WhatsApp para o sistema",
+          button: "Sincronizar Agora",
+          status: "Sincronizando grupos...",
+          results: "Resultados da Sincronização",
+          complete: "Sincronização concluída!",
+          error: "Erro na sincronização"
+        },
 
-        // Campos do formulário
-        groupName: "Nome do Grupo",
-        groupNamePlaceholder: "Digite o nome do grupo",
-        description: "Descrição",
-        settings: "Configurações",
-        onlyAdminsMessage: "Somente administradores podem enviar mensagens",
-        onlyAdminsSettings: "Somente administradores podem alterar configurações",
-        forceDelete: "Excluir Forçadamente",
-        forceDeleteConfirmTitle: "Confirmar Exclusão Forçada",
-        forceDeleteConfirmMessage: "Você tem certeza que deseja excluir forçadamente o grupo \"{name}\"?",
-        forceDeleteWarning: "ATENÇÃO: Esta ação irá remover o grupo apenas do sistema, ignorando erros de comunicação com o WhatsApp. Use somente quando o grupo já foi excluído no WhatsApp e ainda aparece no sistema.",
-        groupForceDeleted: "Grupo excluído forçadamente com sucesso.",
-        extractContacts: "Extrair Contatos de Grupo",
-        extractContactsDescription: "Insira o link de convite de um grupo do WhatsApp para extrair a lista de contatos.",
-        groupInviteLink: "Link de Convite do Grupo",
-        downloadExcel: "Baixar Lista de Contatos",
-        copyDownloadLink: "Copiar Link de Download",
-        extractContactsInfo: "Este recurso permite extrair contatos de grupos públicos. O sistema entrará no grupo, extrairá os contatos e gerará um arquivo Excel que você pode baixar.",
-        importContacts: "Importar Contatos para Grupo",
-        importContactsDescription: "Selecione um grupo e envie um arquivo CSV ou Excel contendo os números de telefone que deseja adicionar.",
-        selectGroup: "Selecionar Grupo",
-        selectGroupHelp: "Escolha o grupo para o qual deseja importar contatos.",
-        selectFile: "Selecionar Arquivo",
-        fileFormatInfo: "O arquivo deve conter uma coluna chamada 'numero' com os números de telefone no formato internacional, sem caracteres especiais (ex: 5511999999999).",
-        downloadTemplate: "Baixar Modelo de Arquivo",
-        template: "Modelo",
-        importSuccess: "Importação concluída: {valid} contato(s) válido(s) importado(s), {invalid} número(s) inválido(s).",
-        invalidNumbers: "Números inválidos",
-        importTips: "Dicas de importação",
-        importTip1: "Use números no formato internacional (Ex: 5511999999999).",
-        importTip2: "Verifique se os números são válidos e ativos no WhatsApp.",
-        importTip3: "Evite incluir muitos números de uma só vez para prevenir bloqueio por spam.",
-        // Tabs
+        // Permissões
+        permissions: {
+          admin: "Administrador",
+          participant: "Participante",
+          unknown: "Desconhecido",
+          adminDescription: "Gerenciamento completo do grupo",
+          participantDescription: "Pode extrair contatos"
+        },
+
+        // Extração de contatos
+        extract: {
+          title: "Extrair Contatos",
+          button: "Extrair Contatos",
+          description: "Exportar lista de participantes para Excel",
+          success: "Contatos extraídos com sucesso!",
+          download: "Baixar Arquivo Excel",
+          preview: "Preview dos Participantes"
+        },
+
+        // Abas
         tabs: {
-          info: "Informações",
-          participants: "Participantes",
-          inviteLink: "Link de Convite",
-          list: "Lista",
+          list: "Lista de Grupos",
           invites: "Convites",
           requests: "Solicitações",
           extract: "Extrair Contatos",
-          import: "Importar Contatos"
+          import: "Importar Contatos",
+          info: "Informações do Grupo",
+          participants: "Participantes",
+          inviteLink: "Link de Convite"
         },
 
-        // Participantes
-        addParticipants: "Adicionar Participantes",
-        addNewParticipants: "Adicionar Novos Participantes",
-        searchContacts: "Pesquisar contatos...",
-        selectedParticipants: "Participantes Selecionados",
-        noParticipantsSelected: "Nenhum participante selecionado",
-        searchParticipants: "Pesquisar participantes...",
-        selectContacts: "Selecionar contatos",
-        participantsAdded: "Participantes adicionados com sucesso",
-        noParticipantsFound: "Nenhum participante encontrado",
-        tryAnotherSearch: "Tente outra pesquisa ou limpe o campo de busca",
-        admin: "Administrador",
-        promoteToAdmin: "Promover a Administrador",
-        demoteFromAdmin: "Remover Privilégios de Administrador",
-        removeParticipant: "Remover Participante",
-        participantPromoted: "Participante promovido a administrador",
-        participantDemoted: "Privilégios de administrador removidos",
-        participantRemoved: "Participante removido do grupo",
-
-        // Link de convite
-        inviteLink: "Link de Convite",
-        inviteLinkDescription: "Compartilhe este link para convidar pessoas para o grupo. Qualquer pessoa com o link pode entrar no grupo.",
-        generateInviteLink: "Gerar Link de Convite",
-        copyLink: "Copiar Link",
-        revokeAndGenerate: "Revogar e Gerar Novo",
-        inviteCodeRevoked: "Link de convite revogado e novo link gerado",
-        linkCopied: "Link copiado para a área de transferência",
-
-        // Solicitações
-        pendingRequests: "Solicitações Pendentes",
-        noRequests: "Nenhuma solicitação pendente",
-        requestsDescription: "Quando novas solicitações forem recebidas, elas aparecerão aqui.",
-        requestedAt: "Solicitado em",
-        approve: "Aprovar",
-        reject: "Rejeitar",
-        participantApproved: "Participante aprovado",
-        participantRejected: "Participante rejeitado",
-        requestsInfo: "Apenas solicitações de entrada em grupos com aprovação aparecem aqui.",
-        selectGroupToSeeRequests: "Selecione um grupo na lista para ver as solicitações pendentes",
-
-        // Busca e tabela
-        searchPlaceholder: "Buscar grupos...",
-        newGroup: "Novo Grupo",
-        noGroupsFound: "Nenhum grupo encontrado",
-        createGroupsMessage: "Crie um novo grupo ou entre em um grupo existente",
+        // Tabela
         table: {
           name: "Nome",
           participants: "Participantes",
           createdAt: "Criado em",
           actions: "Ações",
+          permission: "Permissão",
           rowsPerPage: "Linhas por página",
           of: "de"
         },
 
-        // Ações da tabela
+        // Ações
         actions: {
-          edit: "Informações",
+          edit: "Visualizar/Editar",
+          delete: "Sair do Grupo",
+          forceDelete: "Remover do Sistema",
           requests: "Solicitações",
-          delete: "Excluir",
-          forceDelete: "Exclusão Forçada"
+          extract: "Extrair Contatos"
         },
 
-        // Entrar em grupo
-        joinByInvite: "Entrar com Código de Convite",
-        joinByInviteDescription: "Para entrar em um grupo, você precisa do código de convite. Cole o código ou link de convite abaixo.",
-        joinGroupDescription: "Para entrar em um grupo, você precisa do código de convite. Cole o código ou link de convite abaixo.",
-        inviteCode: "Código ou Link de Convite",
-        check: "Verificar",
-        joining: "Entrando...",
-        join: "Entrar",
-        groupInfoFound: "Informações do grupo encontradas! Verifique os detalhes abaixo antes de entrar.",
-        createdBy: "Criado por",
-        participants: "Participantes",
-        unknown: "Desconhecido",
-        joinSuccess: "Entrou no grupo com sucesso",
+        demoteFromAdmin: "Rebaixar de Administrador",
+        removeParticipant: "Remover Participante",
+        selectContacts: "Selecionar Contatos",
+        extractContactsInfo: "Informações de Extração de Contatos",
 
-        // Imagem de perfil
-        profilePicSuccess: "Foto de perfil atualizada com sucesso",
-        profilePicRemoved: "Foto de perfil removida com sucesso",
+        
+
+        // Modais
+        newGroup: "Novo Grupo",
+        groupInfo: "Informações do Grupo",
+        groupName: "Nome do Grupo",
+        groupNamePlaceholder: "Digite o nome do grupo",
+        description: "Descrição",
+        participants: "Participantes",
+        selectedParticipants: "Participantes Selecionados",
+        addParticipants: "Adicionar Participantes",
+        searchContacts: "Pesquisar contatos",
+        noParticipantsSelected: "Nenhum participante selecionado",
+
+        // Mensagens
+        createSuccess: "Grupo criado com sucesso!",
+        updateSuccess: "Grupo atualizado com sucesso!",
+        groupDeleted: "Saiu do grupo com sucesso!",
+        groupForceDeleted: "Grupo removido do sistema!",
+        participantsAdded: "Participantes adicionados com sucesso!",
+        participantRemoved: "Participante removido com sucesso!",
+        participantPromoted: "Participante promovido a administrador!",
+        participantDemoted: "Participante rebaixado para membro!",
+
+        // Configurações
+        settings: "Configurações do Grupo",
+        onlyAdminsMessage: "Apenas administradores podem enviar mensagens",
+        onlyAdminsSettings: "Apenas administradores podem editar configurações",
+
+        // Convites
+        inviteLink: "Link de Convite",
+        inviteLinkDescription: "Compartilhe este link para convidar pessoas",
+        generateInviteLink: "Gerar Link de Convite",
+        copyLink: "Copiar Link",
+        linkCopied: "Link copiado!",
+        revokeAndGenerate: "Revogar e Gerar Novo",
+        inviteCodeRevoked: "Código de convite revogado com sucesso!",
+
+        // Foto de perfil
+        addGroupPhoto: "Adicionar foto do grupo",
+        groupPhotoSelected: "Foto do grupo selecionada",
         clickToChangePhoto: "Clique para alterar a foto",
         clickToAddPhoto: "Clique para adicionar uma foto",
-        removeProfilePicConfirm: "Remover foto de perfil",
-        removeProfilePicMessage: "Tem certeza que deseja remover a foto de perfil deste grupo?",
-        addGroupPhoto: "Adicionar foto do grupo",
-        groupPhotoSelected: "Foto selecionada (clique para alterar)",
-        profilePicUploadError: "Erro ao fazer upload da imagem",
+        profilePicSuccess: "Foto do grupo atualizada!",
+        profilePicRemoved: "Foto do grupo removida!",
+        removeProfilePicConfirm: "Remover foto do grupo?",
+        removeProfilePicMessage: "Esta ação não pode ser desfeita.",
+
+        // Solicitações
+        pendingRequests: "Solicitações Pendentes",
+        noRequests: "Nenhuma solicitação pendente",
+        requestsDescription: "Solicitações de entrada no grupo aparecerão aqui",
+        requestedAt: "Solicitado em",
+        approve: "Aprovar",
+        reject: "Rejeitar",
+        participantApproved: "Participante aprovado!",
+        participantRejected: "Participante rejeitado!",
+        requestsInfo: "Apenas administradores podem aprovar ou rejeitar solicitações",
 
         // Erros
         errors: {
-          titleRequired: "O nome do grupo é obrigatório",
-          participantsRequired: "Adicione pelo menos um participante",
-          inviteCodeRequired: "O código de convite é obrigatório",
+          titleRequired: "Nome do grupo é obrigatório",
+          participantsRequired: "Selecione pelo menos um participante",
+          subjectRequired: "Nome do grupo é obrigatório",
+          linkRequired: "Link de convite é obrigatório",
+          inviteCodeRequired: "Código de convite é obrigatório",
           invalidInviteCode: "Código de convite inválido",
-          inviteCodeFailed: "Falha ao obter o código de convite",
-          selectParticipants: "Selecione pelo menos um participante para adicionar",
-          linkRequired: "O link de convite é obrigatório",
-          extractFailed: "Falha ao extrair contatos. Tente novamente mais tarde.",
+          selectParticipants: "Selecione participantes para adicionar",
+          invalidParticipant: "Participante inválido",
+          failedToRemove: "Falha ao remover participante",
+          extractFailed: "Erro ao extrair contatos",
+          importFailed: "Erro ao importar contatos",
           selectGroup: "Selecione um grupo",
           selectFile: "Selecione um arquivo",
-          invalidFileFormat: "Formato de arquivo inválido. Use CSV, XLSX ou XLS.",
-          importFailed: "Falha ao importar contatos. Verifique o formato do arquivo e tente novamente."
-        }
+          invalidFileFormat: "Formato de arquivo inválido. Use CSV ou Excel."
+        },
 
+        // Confirmações
+        deleteConfirmTitle: "Confirmar saída do grupo",
+        deleteConfirmMessage: "Tem certeza que deseja sair do grupo \"{name}\"?",
+        forceDeleteConfirmTitle: "Confirmar remoção",
+        forceDeleteConfirmMessage: "Tem certeza que deseja remover o grupo \"{name}\" do sistema?",
+        forceDeleteWarning: "Esta ação não pode ser desfeita e o grupo será removido permanentemente do sistema.",
+
+        // Importação/Exportação
+        importContacts: "Importar Contatos",
+        importContactsDescription: "Importe contatos de arquivo CSV/Excel para um grupo",
+        extractContacts: "Extrair Contatos",
+        extractContactsDescription: "Extraia a lista de participantes de um grupo via link de convite",
+
+        template: "Modelo",
+        downloadTemplate: "Baixar Modelo",
+        selectGroup: "Selecionar Grupo",
+        selectGroupHelp: "Escolha o grupo onde os contatos serão adicionados",
+        selectFile: "Selecionar Arquivo",
+        fileFormatInfo: "Formatos aceitos: CSV, XLS, XLSX",
+
+        invalidNumbers: "Números Inválidos",
+        importSuccess: "Importação concluída! {valid} contatos válidos, {invalid} inválidos.",
+        importTips: "Dicas de Importação",
+        importTip1: "Use uma coluna chamada 'numero' com os números de telefone",
+        importTip2: "Inclua o código do país (ex: 5511999999999)",
+        importTip3: "Números inválidos serão ignorados automaticamente",
+
+        // Join group
+        joinGroup: "Entrar em Grupo",
+        joinGroupDescription: "Digite o link ou código de convite para entrar em um grupo",
+        inviteCode: "Código/Link de Convite",
+        join: "Entrar",
+        joining: "Entrando...",
+        check: "Verificar",
+        groupInfoFound: "Informações do grupo encontradas",
+        joinSuccess: "Entrou no grupo com sucesso!",
+        createdBy: "Criado por",
+        unknown: "Desconhecido",
+        joinByInvite: "Entrar por Convite",
+        joinByInviteDescription: "Use um link de convite para entrar em um grupo existente",
+
+        selectGroupToSeeRequests: "Selecione um grupo na lista para ver as solicitações"
       },
       employers: {
         title: 'Gerenciamento de Empresas',

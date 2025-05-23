@@ -15,7 +15,6 @@ import {
 import {
   Save as SaveIcon,
   Cancel as CancelIcon,
-  PersonAdd as PersonAddIcon,
   PhotoCamera as PhotoCameraIcon,
   Delete as DeleteIcon,
   Add as AddIcon
@@ -78,7 +77,6 @@ const CreateGroupModal = ({ open, onClose }) => {
     const file = e.target.files[0];
     setProfilePic(file);
     
-    // Criar preview da imagem
     const reader = new FileReader();
     reader.onload = () => {
       setProfilePicPreview(reader.result);
@@ -92,7 +90,6 @@ const CreateGroupModal = ({ open, onClose }) => {
   };
 
   const handleSave = async () => {
-    // Validação
     const newErrors = {};
     
     if (!title || title.trim() === "") {
@@ -110,16 +107,13 @@ const CreateGroupModal = ({ open, onClose }) => {
     
     setLoading(true);
     try {
-      // Formatar os participantes para o formato esperado pelo backend
       const formattedParticipants = participants.map(p => p.number);
       
-      // Criar o grupo inicialmente sem a imagem de perfil
       const { data: newGroup } = await api.post("/groups", {
         title,
         participants: formattedParticipants
       });
       
-      // Se tiver uma imagem de perfil, fazer o upload
       if (profilePic && newGroup && newGroup.id) {
         setUploadingImage(true);
         const formData = new FormData();
@@ -145,12 +139,10 @@ const CreateGroupModal = ({ open, onClose }) => {
   const handleAddParticipant = (event, contact) => {
     if (!contact) return;
     
-    // Verifica se o contato já foi adicionado
     if (!participants.find(p => p.id === contact.id)) {
       setParticipants([...participants, contact]);
     }
     
-    // Limpa o erro de participantes se existir
     if (errors.participants) {
       setErrors({...errors, participants: undefined});
     }

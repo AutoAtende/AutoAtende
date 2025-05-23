@@ -30,7 +30,7 @@ const UpdateGroupRequestParticipantsService = async ({
   }
 
   try {
-    const whatsapp = await GetWhatsAppConnected(companyId, null);
+    const whatsapp = await GetWhatsAppConnected(companyId, group.whatsappId);
     
     if (!whatsapp) {
       throw new AppError("Nenhuma conexão WhatsApp disponível");

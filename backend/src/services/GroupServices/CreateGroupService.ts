@@ -5,6 +5,7 @@ import Groups from "../../models/Groups";
 import ShowWhatsAppByCompanyIdByDefaultService from "../WhatsappService/ShowWhatsAppByCompanyIdByDefaultService";
 import { getWbot } from "../../libs/wbot";
 import { logger } from "../../utils/logger";
+import Company from "../../models/Company";
 
 interface CreateGroupData {
   companyId: number;
@@ -80,9 +81,15 @@ const CreateGroupService = async ({
       companyId
     });
 
+    const company = await Company.findOne({
+      where: {
+        id: companyId
+      }
+    });
+
     // Enviar mensagem de boas-vindas
     await wbot.sendMessage(groupResult.id, { 
-      text: `Grupo "${title}" criado pelo AutoAtende.` 
+      text: `Grupo "${title}" criado pelo ${company.name}.` 
     });
 
     return newGroup;

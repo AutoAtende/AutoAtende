@@ -4,15 +4,10 @@ import GetTicketWbot from "../../helpers/GetTicketWbot";
 import Message from "../../models/Message";
 import Ticket from "../../models/Ticket";
 import formatBody from "../../helpers/Mustache";
-import path from "path";
 import fs from "fs";
 import {SendPresenceStatus} from "../../helpers/SendPresenceStatus";
 import { Session } from "../../libs/wbot";
-interface Request {
-  body: string;
-  ticket: Ticket;
-  quotedMsg?: Message;
-}
+
 function makeid(length) {
   var result = "";
   var characters =
@@ -23,7 +18,7 @@ function makeid(length) {
   }
   return result;
 }
-const publicFolder = path.resolve(__dirname, "..", "..", "..", "public");
+const publicFolder = process.env.BACKEND_PUBLIC_FOLDER;
 
 const SendWhatsAppMediaImage = async ({
   ticket,

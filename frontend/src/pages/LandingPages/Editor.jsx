@@ -26,7 +26,7 @@ import {
   Notifications as NotificationsIcon,
   Settings as SettingsIcon
 } from '@mui/icons-material';
-import { useSnackbar } from 'notistack';
+import { toast } from "../../helpers/toast";
 import { useSpring, animated } from 'react-spring';
 import api from '../../services/api';
 import { AuthContext } from '../../context/Auth/AuthContext';
@@ -59,7 +59,6 @@ const LandingPageEditor = () => {
   const landingPageId = isNewLandingPage ? null : parseInt(id, 10);
   const isValidId = !isNewLandingPage && Boolean(landingPageId && !isNaN(landingPageId) && landingPageId > 0);
   const history = useHistory();
-  const { enqueueSnackbar } = useSnackbar();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const { isAuth, user } = useContext(AuthContext);
@@ -71,11 +70,6 @@ const LandingPageEditor = () => {
   const [saving, setSaving] = useState(false);
   const [previewOpen, setPreviewOpen] = useState(false);
   const [isNew, setIsNew] = useState(isNewLandingPage);
-  const [snackbarState, setSnackbarState] = useState({
-    open: false,
-    message: '',
-    severity: 'success'
-  });
 
   // Estado da landing page
   const [landingPage, setLandingPage] = useState({
@@ -139,6 +133,14 @@ const LandingPageEditor = () => {
         placeholder: 'Digite seu e-mail',
         required: true,
         order: 1
+      },
+      {
+        id: 'number',
+        type: 'phone',
+        label: 'Telefone',
+        placeholder: 'Digite seu telefone',
+        required: true,
+        order: 2
       }
     ],
     active: true
@@ -166,17 +168,12 @@ const LandingPageEditor = () => {
   const loadLandingPage = useCallback(async () => {
     // Se for nova landing page, não precisamos carregar dados
     if (isNewLandingPage) {
-      console.log("Iniciando criação de nova landing page");
       setLoading(false);
       return;
     }
     
     if (!isValidId) {
-      setSnackbarState({
-        open: true,
-        message: 'ID da landing page inválido',
-        severity: 'error'
-      });
+      toast.error('ID da landing page inválido');
       history.push('/landing-pages');
       return;
     }
@@ -200,12 +197,8 @@ const LandingPageEditor = () => {
       }
       
     } catch (error) {
-      setSnackbarState({
-        open: true,
-        message: 'Erro ao carregar landing page: ' + 
-          (error.response?.data?.message || error.message),
-        severity: 'error'
-      });
+      toast.error('Erro ao carregar landing page: ' + 
+          (error.response?.data?.message || error.message));
       
       setTimeout(() => {
         history.push('/landing-pages');
@@ -213,7 +206,7 @@ const LandingPageEditor = () => {
     } finally {
       setLoading(false);
     }
-  }, [landingPageId, isValidId, history, setSnackbarState, isNewLandingPage]);
+  }, [landingPageId, isValidId, history, isNewLandingPage]);
   
 
   useEffect(() => {
@@ -262,11 +255,7 @@ const LandingPageEditor = () => {
 
       // Validar campos obrigatórios
       if (!landingPage.title) {
-        setSnackbarState({
-          open: true,
-          message: 'O título da página é obrigatório',
-          severity: 'error'
-        });
+        toast.error('O título da página é obrigatório');
         setActiveTab(0);
         setSaving(false);
         return;
@@ -313,11 +302,7 @@ const LandingPageEditor = () => {
         }
 
         // Redirecionar para a página de edição
-        setSnackbarState({
-          open: true,
-          message: 'Landing page criada com sucesso!',
-          severity: 'success'
-        });
+        toast.success('Landing page criada com sucesso!');
 
         setIsNew(false);
 
@@ -340,22 +325,14 @@ const LandingPageEditor = () => {
           });
         }
 
-        setSnackbarState({
-          open: true,
-          message: 'Landing page atualizada com sucesso!',
-          severity: 'success'
-        });
+        toast.success('Landing page atualizada com sucesso!');
       }
 
       // Atualizar estado com dados retornados
       setLandingPage(response.data);
 
     } catch (error) {
-      setSnackbarState({
-        open: true,
-        message: `Erro ao salvar: ${error.response?.data?.message || error.message}`,
-        severity: 'error'
-      });
+      toast.error(`Erro ao salvar: ${error.response?.data?.message || error.message}`);
     } finally {
       setSaving(false);
     }
@@ -388,13 +365,6 @@ const LandingPageEditor = () => {
     setPreviewOpen(false);
   };
 
-  // Fecha a snackbar
-  const handleCloseSnackbar = () => {
-    setSnackbarState({
-      ...snackbarState,
-      open: false
-    });
-  };
 
   // Cria as abas com ícones e conteúdo
   const tabs = [
@@ -476,7 +446,7 @@ const LandingPageEditor = () => {
 
   // Define os items da breadcrumb
   const breadcrumbItems = [
-    { label: "Dashboard", link: "/dashboard" },
+    { label: "Home", link: "/dashboard" },
     { label: "Landing Pages", link: "/landing-pages" },
     { label: isNew ? 'Nova Landing Page' : landingPage.title || 'Edição' }
   ];
@@ -642,24 +612,6 @@ const LandingPageEditor = () => {
         landingPage={landingPage}
         form={form}
       />
-
-      {/* Snackbar para mensagens de feedback */}
-      <Snackbar
-        open={snackbarState.open}
-        autoHideDuration={6000}
-        onClose={handleCloseSnackbar}
-        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
-      >
-        <Alert
-          onClose={handleCloseSnackbar}
-          severity={snackbarState.severity}
-          variant="filled"
-          elevation={6}
-          sx={{ width: '100%' }}
-        >
-          {snackbarState.message}
-        </Alert>
-      </Snackbar>
     </BasePage>
   );
 };

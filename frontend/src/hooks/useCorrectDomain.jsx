@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 
-export const useCorrectDomain = (domains = ['https://dev.autoatende.com', 'https://www.autoatende.com']) => {
+export const useCorrectDomain = (domains = ['https://dev.autoatende.com', 'https://www.autoatende.com', 'https://wcrm.startupvarejo.com.br']) => {
   return useMemo(() => {
     if (typeof window === 'undefined') return false;
     

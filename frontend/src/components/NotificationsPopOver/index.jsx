@@ -570,7 +570,7 @@ const NotificationsPopOver = (props) => {
         {notifications.length > 0 ? (
           <StyledBadge 
             variant="dot" 
-            color="secondary"
+            color="white"
           />
         ) : ""}
       </IconButton>
@@ -591,14 +591,14 @@ const NotificationsPopOver = (props) => {
     // Adicionando estilos personalizados para mobile
     [theme.breakpoints.down('sm')]: {
       '& .MuiBackdrop-root': {
-        backgroundColor: 'rgba(0, 0, 0, 0.5)'
+        backgroundColor: '#ffffff'
       }
     }
   }}
 >
         {/* Cabeçalho estilizado */}
         <NotificationHeader>
-          <Typography variant="h6" sx={{ display: 'flex', alignItems: 'center' }}>
+          <Typography variant="h6" sx={{ color: '#FFFFFF', display: 'flex', alignItems: 'center' }}>
             <HeaderIcon />
             {i18n.t("notifications.title")}
           </Typography>
@@ -606,6 +606,7 @@ const NotificationsPopOver = (props) => {
             <Tooltip title={i18n.t("notifications.enableNotifications")}>
               <NotificationButton 
                 size="small" 
+                color="white"
                 onClick={requestNotificationPermission}
               >
                 <NotificationsIcon fontSize="small" />
@@ -616,6 +617,7 @@ const NotificationsPopOver = (props) => {
             <Tooltip title={i18n.t("notifications.clearAll")}>
               <ClearButton 
                 size="small" 
+                color="white"
                 onClick={handleClearAllNotifications}
               >
                 <ClearAllIcon fontSize="small" />

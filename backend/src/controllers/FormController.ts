@@ -6,6 +6,8 @@ import LandingPage from '../models/LandingPage';
 import DynamicForm from '../models/DynamicForm';
 import FormSubmission from '../models/FormSubmission';
 import { rateLimit } from 'express-rate-limit';
+import { getWbot } from '@libs/wbot';
+import Whatsapp from '@models/Whatsapp';
 
 class FormController {
   /**
@@ -383,6 +385,125 @@ class FormController {
       }
       
       return res.status(500).json({ error: 'Erro interno do servidor' });
+    }
+  }
+
+  async checkPhone(req: Request, res: Response): Promise<Response> {
+    try {
+      const { landingPageId, phone } = req.params;
+      
+      logger.info(`Verificando telefone ${phone} para landing page ${landingPageId}`);
+      
+      // Validar parâmetros de entrada
+      if (!landingPageId || isNaN(Number(landingPageId))) {
+        logger.error(`ID da landing page inválido: ${landingPageId}`);
+        return res.status(400).json({ 
+          exists: false, 
+          error: 'ID da landing page inválido' 
+        });
+      }
+      
+      if (!phone || typeof phone !== 'string' || phone.trim() === '') {
+        logger.error(`Número de telefone inválido: ${phone}`);
+        return res.status(400).json({ 
+          exists: false, 
+          error: 'Número de telefone inválido' 
+        });
+      }
+      
+      const validLandingPageId = Number(landingPageId);
+      const cleanPhone = phone.trim();
+      
+      // Buscar a landing page com as configurações
+      const landingPage = await LandingPage.findOne({
+        where: {
+          id: validLandingPageId,
+          active: true
+        },
+        attributes: ['id', 'companyId', 'advancedConfig', 'notificationConfig']
+      });
+      
+      if (!landingPage) {
+        logger.error(`Landing page não encontrada: ID ${validLandingPageId}`);
+        return res.status(404).json({ 
+          exists: false, 
+          error: 'Landing page não encontrada' 
+        });
+      }
+      
+      logger.info(`Landing page encontrada. CompanyId: ${landingPage.companyId}`);
+      
+      // Determinar qual conexão WhatsApp usar
+      let whatsapp: Whatsapp | null = null;
+      
+      // 1. Tentar usar a conexão específica configurada na landing page
+      if (landingPage.advancedConfig?.notificationConnectionId) {
+        const connectionId = Number(landingPage.advancedConfig.notificationConnectionId);
+        
+        if (!isNaN(connectionId)) {
+          logger.info(`Tentando usar conexão específica ID: ${connectionId}`);
+          
+          whatsapp = await Whatsapp.findOne({
+            where: {
+              id: connectionId,
+              companyId: landingPage.companyId,
+              status: 'CONNECTED'
+            }
+          });
+          
+          if (whatsapp) {
+            logger.info(`Conexão específica encontrada: ID ${whatsapp.id}`);
+          } else {
+            logger.warn(`Conexão específica ID ${connectionId} não encontrada ou inativa`);
+          }
+        }
+      }
+            
+      // Verificar se encontrou uma conexão WhatsApp válida
+      if (!whatsapp) {
+        logger.error(`Nenhuma conexão WhatsApp disponível para verificação`);
+        return res.status(503).json({ 
+          exists: false, 
+          error: 'Serviço de verificação indisponível' 
+        });
+      }
+      
+      // Verificar o número no WhatsApp
+      try {
+        logger.info(`Obtendo instância do WhatsApp ID: ${whatsapp.id}`);
+        const wbot = await getWbot(whatsapp.id);
+        
+        // Usar o serviço para validar e normalizar o número
+        const validatedNumber = await FormService.validateAndNormalizeWhatsAppNumber(
+          cleanPhone, 
+          wbot, 
+          'número do formulário'
+        );
+        
+        logger.info(`Número ${cleanPhone} validado com sucesso como ${validatedNumber}`);
+        
+        return res.status(200).json({ 
+          exists: true,
+          validatedNumber: validatedNumber
+        });
+        
+      } catch (validationError) {
+        logger.error(`Erro na validação do número ${cleanPhone}: ${validationError.message}`);
+        
+        return res.status(200).json({ 
+          exists: false,
+          error: validationError.message
+        });
+      }
+      
+    } catch (error) {
+      logger.error(`Erro geral na verificação de telefone: ${error.message}`);
+      logger.error(`Stack trace: ${error.stack}`);
+      
+      return res.status(500).json({ 
+        exists: false, 
+        error: 'Erro interno do servidor' 
+      });
     }
   }
 }

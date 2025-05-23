@@ -41,7 +41,8 @@ import {
   AllInclusive,
   DeviceHubOutlined,
   EmailRounded,
-  RotateRight
+  RotateRight,
+  WebOutlined
 } from '@mui/icons-material';
 
 // Importações de contexto e utilitários

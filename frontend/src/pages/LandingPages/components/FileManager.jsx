@@ -41,7 +41,7 @@ import {
   FilterList as FilterListIcon,
   CheckOutlined as CheckIcon
 } from '@mui/icons-material';
-import { useSnackbar } from 'notistack';
+import { toast } from "../../../helpers/toast";
 import { useSpring, animated } from 'react-spring';
 import { AuthContext } from '../../../context/Auth/AuthContext';
 import api from '../../../services/api';
@@ -64,7 +64,6 @@ const FileTypeIcon = ({ mimeType, fontSize = 'large' }) => {
 // Componente para previsualisar arquivos
 const FilePreview = ({ file, onClose, onDelete, landingPageId }) => {
   const [loading, setLoading] = useState(false);
-  const { enqueueSnackbar } = useSnackbar();
   const theme = useTheme();
   const { isAuth, user } = useContext(AuthContext);  
   // Animações
@@ -78,11 +77,11 @@ const FilePreview = ({ file, onClose, onDelete, landingPageId }) => {
   const handleCopyUrl = () => {
     navigator.clipboard.writeText(file.url)
       .then(() => {
-        enqueueSnackbar('URL copiada para a área de transferência', { variant: 'success' });
+        toast.success('URL copiada para a área de transferência');
       })
       .catch(err => {
         console.error('Erro ao copiar URL:', err);
-        enqueueSnackbar('Erro ao copiar URL', { variant: 'error' });
+        toast.error('Erro ao copiar URL');
       });
   };
   
@@ -91,12 +90,12 @@ const FilePreview = ({ file, onClose, onDelete, landingPageId }) => {
     try {
       setLoading(true);
       await api.delete(`/landing-pages/${landingPageId}/media/${file.id}?fileName=${encodeURIComponent(file.name)}`);
-      enqueueSnackbar('Arquivo excluído com sucesso', { variant: 'success' });
+      toast.success('Arquivo excluído com sucesso');
       onDelete(file.id);
       onClose();
     } catch (error) {
       console.error('Erro ao excluir arquivo:', error);
-      enqueueSnackbar('Erro ao excluir arquivo', { variant: 'error' });
+      toast.error('Erro ao excluir arquivo');
     } finally {
       setLoading(false);
     }
@@ -271,7 +270,6 @@ const FileManager = ({
   const [selectedFile, setSelectedFile] = useState(null);
   const [viewMode, setViewMode] = useState('grid');
   const fileInputRef = useRef(null);
-  const { enqueueSnackbar } = useSnackbar();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   
@@ -285,7 +283,7 @@ const FileManager = ({
   // Carregar lista de arquivos
   const loadFiles = async () => {
     if (!landingPageId) {
-      enqueueSnackbar('ID da landing page não fornecido', { variant: 'error' });
+      toast.error('ID da landing page não fornecido');
       setLoading(false);
       return;
     }
@@ -305,7 +303,7 @@ const FileManager = ({
       setFiles(response.data || []);
     } catch (error) {
       console.error('Erro ao carregar arquivos:', error);
-      enqueueSnackbar('Erro ao carregar arquivos', { variant: 'error' });
+      toast.error('Erro ao carregar arquivos');
     } finally {
       setLoading(false);
     }
@@ -321,7 +319,7 @@ const FileManager = ({
   // Função para fazer upload de arquivos
   const handleFileUpload = async (event) => {
     if (!landingPageId) {
-      enqueueSnackbar('ID da landing page não fornecido', { variant: 'error' });
+      toast.error('ID da landing page não fornecido');
       return;
     }
 
@@ -334,7 +332,7 @@ const FileManager = ({
       // Verificar tamanho
       if (file.size > maxFileSize) {
         const maxSizeMB = (maxFileSize / (1024 * 1024)).toFixed(2);
-        enqueueSnackbar(`Arquivo ${file.name} excede o tamanho máximo de ${maxSizeMB}MB`, { variant: 'error' });
+        toast.error(`Arquivo ${file.name} excede o tamanho máximo de ${maxSizeMB}MB`);
         return false;
       }
       
@@ -354,7 +352,7 @@ const FileManager = ({
       }
       
       if (!isAllowedType) {
-        enqueueSnackbar(`Tipo de arquivo não suportado: ${file.type}`, { variant: 'error' });
+        toast.error(`Tipo de arquivo não suportado: ${file.type}`);
         return false;
       }
       
@@ -381,7 +379,7 @@ const FileManager = ({
       
       const results = await Promise.all(uploadPromises);
       
-      enqueueSnackbar(`${results.length} arquivo(s) enviado(s) com sucesso`, { variant: 'success' });
+      toast.success(`${results.length} arquivo(s) enviado(s) com sucesso`);
       
       // Recarregar lista de arquivos
       loadFiles();
@@ -391,7 +389,7 @@ const FileManager = ({
       
     } catch (error) {
       console.error('Erro ao fazer upload de arquivos:', error);
-      enqueueSnackbar('Erro ao fazer upload de arquivos', { variant: 'error' });
+      toast.error('Erro ao fazer upload de arquivos');
     } finally {
       setUploading(false);
     }

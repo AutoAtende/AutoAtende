@@ -189,10 +189,19 @@ const Dashboard = () => {
     }
   };
 
+  const getComparisonPeriodText = (period) => {
+    const periodMap = {
+      7: 'semana anterior',
+      15: 'quinzena anterior',
+      30: 'mês anterior',
+    };
+    return periodMap[period] || 'período anterior';
+  };
+
   return (
     <StyledContainer maxWidth={false}>
       <PageHeader>
-        <Title variant="h1">Dashboard de Desempenho</Title>
+        <Title variant="h1">Análise de Performance Operacional</Title>
         <FiltersContainer>
           <DateFilter>
             <DateFilterIcon />
@@ -268,44 +277,45 @@ const Dashboard = () => {
           <Grid container spacing={2.5} sx={{ mb: 2.5 }}>
             {isComponentVisible('messagesCard') && (
               <Grid item xs={12} md={4}>
-                <DashboardCard
-                  icon="paper-plane"
-                  title="Mensagens Enviadas"
-                  value={dashboardData.messagesCount.toLocaleString()}
-                  subtitle="Total no período"
-                  trend={dashboardData.messagesTrend}
-                  trendText={`${Math.abs(dashboardData.messagesTrend)}% em relação à semana anterior`}
-                  visibilityControl={<ComponentVisibilityControl componentKey="messagesCard" />}
-                />
+<DashboardCard
+  icon="paper-plane"
+  title="Mensagens Enviadas"
+  value={dashboardData.messagesCount.toLocaleString()}
+  subtitle="Total no período"
+  trend={dashboardData.messagesTrend}
+  trendText={`${Math.abs(dashboardData.messagesTrend)}% em relação à ${getComparisonPeriodText(dateRange)}`}
+  visibilityControl={<ComponentVisibilityControl componentKey="messagesCard" />}
+/>
               </Grid>
             )}
             
             {isComponentVisible('responseTimeCard') && (
               <Grid item xs={12} md={4}>
-                <DashboardCard
-                  icon="clock"
-                  title="Tempo Médio de Resposta"
-                  value={dashboardData.avgResponseTime}
-                  subtitle="Após primeira mensagem do cliente"
-                  trend={dashboardData.responseTimeTrend}
-                  trendText={`${Math.abs(dashboardData.responseTimeTrend)}% em relação à semana anterior`}
-                  invertTrend={true}
-                  visibilityControl={<ComponentVisibilityControl componentKey="responseTimeCard" />}
-                />
+<DashboardCard
+  icon="clock"
+  title="Tempo Médio de Resposta"
+  value={dashboardData.avgResponseTime}
+  subtitle="Após primeira mensagem do cliente"
+  trend={dashboardData.responseTimeTrend}
+  trendText={`${Math.abs(dashboardData.responseTimeTrend)}% em relação à ${getComparisonPeriodText(dateRange)}`}
+  invertTrend={true}
+  visibilityControl={<ComponentVisibilityControl componentKey="responseTimeCard" />}
+/>
+
               </Grid>
             )}
             
             {isComponentVisible('clientsCard') && (
               <Grid item xs={12} md={4}>
-                <DashboardCard
-                  icon="users"
-                  title="Clientes Interagidos"
-                  value={dashboardData.clientsCount.toLocaleString()}
-                  subtitle="No período selecionado"
-                  trend={dashboardData.clientsTrend}
-                  trendText={`${Math.abs(dashboardData.clientsTrend)}% em relação à semana anterior`}
-                  visibilityControl={<ComponentVisibilityControl componentKey="clientsCard" />}
-                />
+<DashboardCard
+  icon="users"
+  title="Clientes Interagidos"
+  value={dashboardData.clientsCount.toLocaleString()}
+  subtitle="No período selecionado"
+  trend={dashboardData.clientsTrend}
+  trendText={`${Math.abs(dashboardData.clientsTrend)}% em relação à ${getComparisonPeriodText(dateRange)}`}
+  visibilityControl={<ComponentVisibilityControl componentKey="clientsCard" />}
+/>
               </Grid>
             )}
           </Grid>

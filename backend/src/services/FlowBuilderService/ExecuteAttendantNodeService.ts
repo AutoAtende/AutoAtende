@@ -201,15 +201,15 @@ const ExecuteAttendantNodeService = async ({
       pendingText += " Um atendente entrará em contato em breve.";
       
       // Enviar mensagem informando que a solicitação foi recebida
-      const pendingMessage = await wbot.sendMessage(
-        `${contact.number}@${ticket.isGroup ? "g.us" : "s.whatsapp.net"}`,
-        {
-          text: pendingText
-        }
-      );
+      //const pendingMessage = await wbot.sendMessage(
+      //  `${contact.number}@${ticket.isGroup ? "g.us" : "s.whatsapp.net"}`,
+      //  {
+      //    text: pendingText
+      //  }
+      //);
       
       // Verificar e registrar a mensagem no sistema
-      await verifyMessage(pendingMessage, ticket, contact);
+      //await verifyMessage(pendingMessage, ticket, contact);
     }
     
     // Notificar via socket para atualização da interface

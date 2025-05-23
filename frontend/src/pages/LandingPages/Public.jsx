@@ -8,8 +8,6 @@ import {
   Paper,
   Grid,
   CircularProgress,
-  Snackbar,
-  Alert,
   IconButton,
   Link,
   Select,
@@ -20,13 +18,21 @@ import {
   FormControlLabel,
   Checkbox,
   Radio,
-  RadioGroup
+  RadioGroup,
+  InputAdornment
 } from '@mui/material';
-import { WhatsApp as WhatsAppIcon, Close as CloseIcon } from '@mui/icons-material';
+import { 
+  WhatsApp as WhatsAppIcon, 
+  Close as CloseIcon,
+  CheckCircle as CheckCircleIcon,
+  Error as ErrorIcon,
+  HourglassEmpty as HourglassEmptyIcon
+} from '@mui/icons-material';
 import openApi from '../../services/api';
-import 'bootstrap/dist/css/bootstrap.min.css'; // Importar apenas para este componente
-import 'bootstrap/dist/js/bootstrap.bundle.min.js'; // Se você precisar de funcionalidades JS do Bootstrap
-import { PhoneTextField } from './components/PhoneNumberMask';
+import 'bootstrap/dist/css/bootstrap.min.css';
+import 'bootstrap/dist/js/bootstrap.bundle.min.js';
+import { LandingPagePhoneInput } from '../../components/PhoneInputs/LandingPagePhoneInput'; // Novo componente
+import { toast } from '../../helpers/toast';
 
 const PublicLandingPage = () => {
   const { companyId, slug } = useParams();
@@ -37,11 +43,7 @@ const PublicLandingPage = () => {
   const [form, setForm] = useState(null);
   const [formData, setFormData] = useState({});
   const [formErrors, setFormErrors] = useState({});
-  const [snackbar, setSnackbar] = useState({
-    open: false,
-    message: '',
-    severity: 'info'
-  });
+  const [phoneValidation, setPhoneValidation] = useState({});
   const [error, setError] = useState(null);
   
   // Referências para os elementos do DOM
@@ -49,6 +51,9 @@ const PublicLandingPage = () => {
   const bootstrapJSRef = useRef(null);
   const pixelScriptRef = useRef(null);
   const pixelNoscriptRef = useRef(null);
+  
+  // Timeout para debounce da validação do telefone
+  const phoneValidationTimeoutRef = useRef(null);
   
   // Efeito para carregar a landing page
   useEffect(() => {
@@ -96,6 +101,59 @@ const PublicLandingPage = () => {
     loadLandingPage();
   }, [companyId, slug]);
   
+  // Função para validar telefone no WhatsApp
+  const validatePhoneNumber = async (phone, fieldId) => {
+    if (!phone || phone.length < 10) {
+      setPhoneValidation(prev => ({
+        ...prev,
+        [fieldId]: { status: 'idle', message: '' }
+      }));
+      return;
+    }
+    
+    try {
+      setPhoneValidation(prev => ({
+        ...prev,
+        [fieldId]: { status: 'validating', message: 'Verificando número...' }
+      }));
+      
+      // IMPORTANTE: Limpar formatação antes de enviar para API
+      const cleanPhone = phone.replace(/[^\d+]/g, ''); // Remove espaços, traços, parênteses
+      
+      const response = await openApi.get(
+        `/landing-pages/${landingPage.id}/check-phone/${encodeURIComponent(cleanPhone)}`
+      );
+      
+      if (response.data.exists) {
+        setPhoneValidation(prev => ({
+          ...prev,
+          [fieldId]: { 
+            status: 'valid', 
+            message: 'Número válido no WhatsApp' 
+          }
+        }));
+      } else {
+        setPhoneValidation(prev => ({
+          ...prev,
+          [fieldId]: { 
+            status: 'invalid', 
+            message: 'Número não encontrado no WhatsApp' 
+          }
+        }));
+      }
+    } catch (error) {
+      console.error('Erro ao validar telefone:', error);
+      setPhoneValidation(prev => ({
+        ...prev,
+        [fieldId]: { 
+          status: 'error', 
+          message: 'Erro ao verificar número' 
+        }
+      }));
+    }
+  };
+  
+  
   // Handler para alteração de campos do formulário
   const handleFieldChange = (e) => {
     const { name, value, type, checked } = e.target;
@@ -114,6 +172,20 @@ const PublicLandingPage = () => {
         ...prev,
         [name]: null
       }));
+    }
+    
+    // Se for campo de telefone, validar após um delay
+    const field = form?.fields?.find(f => f.id === name);
+    if (field && field.type === 'phone' && type !== 'checkbox') {
+      // Limpar timeout anterior
+      if (phoneValidationTimeoutRef.current) {
+        clearTimeout(phoneValidationTimeoutRef.current);
+      }
+      
+      // Definir novo timeout para validação
+      phoneValidationTimeoutRef.current = setTimeout(() => {
+        validatePhoneNumber(fieldValue, name);
+      }, 1500); // Delay de 1.5 segundos
     }
   };
   
@@ -137,12 +209,22 @@ const PublicLandingPage = () => {
       }
     }
     
-    // Validar telefone
+    // ATUALIZADA: Validar telefone
     const phoneField = form.fields.find(f => f.type === 'phone');
     if (phoneField && formData[phoneField.id]) {
-      const phoneRegex = /^\+?[0-9\s\-()]{8,20}$/;
-      if (!phoneRegex.test(formData[phoneField.id])) {
+      // Limpar número para validação
+      const cleanPhone = formData[phoneField.id].replace(/[^\d+]/g, '');
+      
+      // Validação de formato atualizada
+      const phoneRegex = /^\+[1-9]\d{7,14}$/; // Formato internacional: +[código país][número] (8-15 dígitos total)
+      if (!phoneRegex.test(cleanPhone)) {
         errors[phoneField.id] = 'Telefone inválido. Use o formato internacional (+55...)';
+      } else {
+        // Verificar se o telefone foi validado no WhatsApp
+        const validation = phoneValidation[phoneField.id];
+        if (validation && validation.status === 'invalid') {
+          errors[phoneField.id] = 'Este número não foi encontrado no WhatsApp.';
+        }
       }
     }
     
@@ -162,10 +244,19 @@ const PublicLandingPage = () => {
       
       setSubmitting(true);
       
+      // Preparar dados do formulário - limpar formatação do telefone
+      const submissionData = { ...formData };
+      
+      // Encontrar campo de telefone e limpar formatação
+      const phoneField = form.fields.find(f => f.type === 'phone');
+      if (phoneField && submissionData[phoneField.id]) {
+        submissionData[phoneField.id] = submissionData[phoneField.id].replace(/[^\d+]/g, '');
+      }
+      
       // Enviar dados do formulário
       await openApi.post(
         `/landing-pages/company/${companyId}/l/${landingPage.id}/form/${form.id}/submit`,
-        formData
+        submissionData // Usando dados limpos
       );
       
       // Limpar formulário
@@ -174,32 +265,26 @@ const PublicLandingPage = () => {
         cleanFormData[key] = '';
       });
       setFormData(cleanFormData);
+      setPhoneValidation({});
       
       // Mostrar mensagem de sucesso
-      setSnackbar({
-        open: true,
-        message: 'Formulário enviado com sucesso!',
-        severity: 'success'
-      });
+      toast.success('Formulário enviado com sucesso!');
       
     } catch (error) {
-      setSnackbar({
-        open: true,
-        message: error.response?.data?.message || error.message,
-        severity: 'error'
-      });
+      toast.error(error.response?.data?.message || error.message);
     } finally {
       setSubmitting(false);
     }
   };
   
-  // Função para fechar snackbar
-  const handleCloseSnackbar = () => {
-    setSnackbar(prev => ({
-      ...prev,
-      open: false
-    }));
-  };
+  // Cleanup do timeout ao desmontar
+  useEffect(() => {
+    return () => {
+      if (phoneValidationTimeoutRef.current) {
+        clearTimeout(phoneValidationTimeoutRef.current);
+      }
+    };
+  }, []);
     
   // Adicionar Meta Pixel se configurado
   useEffect(() => {
@@ -249,9 +334,44 @@ const PublicLandingPage = () => {
     };
   }, [landingPage?.advancedConfig?.metaPixelId]);
   
+  // Função para obter ícone de validação do telefone
+  const getPhoneValidationIcon = (fieldId) => {
+    const validation = phoneValidation[fieldId];
+    if (!validation) return null;
+    
+    switch (validation.status) {
+      case 'validating':
+        return <HourglassEmptyIcon color="action" />;
+      case 'valid':
+        return <CheckCircleIcon color="success" />;
+      case 'invalid':
+      case 'error':
+        return <ErrorIcon color="error" />;
+      default:
+        return null;
+    }
+  };
+  
+  // Função para obter cor da validação do telefone
+  const getPhoneValidationColor = (fieldId) => {
+    const validation = phoneValidation[fieldId];
+    if (!validation) return undefined;
+    
+    switch (validation.status) {
+      case 'valid':
+        return 'success';
+      case 'invalid':
+      case 'error':
+        return 'error';
+      default:
+        return undefined;
+    }
+  };
+  
   // Renderizar campo de formulário baseado no tipo
   const renderFormField = (field) => {
     const focusColor = landingPage.formConfig.focusColor || '#1976d2';
+    const validation = phoneValidation[field.id];
     
     switch (field.type) {
       case 'select':
@@ -348,16 +468,26 @@ const PublicLandingPage = () => {
       
       case 'phone':
         return (
-          <PhoneTextField
+          <LandingPagePhoneInput
             label={field.label}
             name={field.id}
             value={formData[field.id] || ''}
             onChange={handleFieldChange}
             placeholder={field.placeholder || "+55 XX XXXXX-XXXX"}
             required={field.required}
-            error={!!formErrors[field.id]}
-            helperText={formErrors[field.id]}
+            error={!!formErrors[field.id] || getPhoneValidationColor(field.id) === 'error'}
+            helperText={
+              formErrors[field.id] || 
+              (validation ? validation.message : '')
+            }
             margin="normal"
+            InputProps={{
+              endAdornment: (
+                <InputAdornment position="end">
+                  {getPhoneValidationIcon(field.id)}
+                </InputAdornment>
+              )
+            }}
             sx={{
               '& .MuiOutlinedInput-root.Mui-focused .MuiOutlinedInput-notchedOutline': {
                 borderColor: focusColor,
@@ -490,15 +620,21 @@ const PublicLandingPage = () => {
         
           <Button
             type="submit"
-            fullWidth
             variant="contained"
             sx={{ 
               mt: 2,
+              width: '100%',
+              minHeight: '56px', // Mesma altura dos campos TextField
               backgroundColor: landingPage.formConfig.buttonColor || '#1976d2',
               '&:hover': {
                 backgroundColor: landingPage.formConfig.buttonColor 
-                  ? `${landingPage.formConfig.buttonColor}e0` // Adiciona transparência para efeito hover
+                  ? `${landingPage.formConfig.buttonColor}e0`
                   : '#1565c0',
+              },
+              '&.Mui-disabled': {
+                backgroundColor: landingPage.formConfig.buttonColor 
+                  ? `${landingPage.formConfig.buttonColor}80`
+                  : 'rgba(0, 0, 0, 0.12)',
               }
             }}
             disabled={submitting}
@@ -642,21 +778,21 @@ const PublicLandingPage = () => {
           spacing={3}
           className="row"
         >
-{/* Formulário à esquerda */}
-{landingPage.formConfig.position === 'left' && landingPage.formConfig.showForm && (
-  <Grid 
-    item 
-    xs={12} 
-    md={4} 
-    className="col-md-4"
-    sx={{ 
-      height: 'auto',           // Adicionada esta linha
-      alignSelf: 'flex-start'   // Adicionada esta linha
-    }}
-  >
-    {renderForm()}
-  </Grid>
-)}
+          {/* Formulário à esquerda */}
+          {landingPage.formConfig.position === 'left' && landingPage.formConfig.showForm && (
+            <Grid 
+              item 
+              xs={12} 
+              md={4} 
+              className="col-md-4"
+              sx={{ 
+                height: 'auto',
+                alignSelf: 'flex-start'
+              }}
+            >
+              {renderForm()}
+            </Grid>
+          )}
           
           {/* Conteúdo principal */}
           <Grid 
@@ -691,58 +827,42 @@ const PublicLandingPage = () => {
               />
             </Box>
             
-{/* Formulário centralizado */}
-{landingPage.formConfig.position === 'center' && landingPage.formConfig.showForm && (
-  <Box 
-    sx={{ 
-      maxWidth: '600px', 
-      mx: 'auto', 
-      my: 4,
-      height: 'auto',           // Adicionada esta linha
-      alignSelf: 'flex-start'   // Adicionada esta linha
-    }}
-  >
-    {renderForm()}
-  </Box>
-)}
+            {/* Formulário centralizado */}
+            {landingPage.formConfig.position === 'center' && landingPage.formConfig.showForm && (
+              <Box 
+                sx={{ 
+                  maxWidth: '600px', 
+                  mx: 'auto', 
+                  my: 4,
+                  height: 'auto',
+                  alignSelf: 'flex-start'
+                }}
+              >
+                {renderForm()}
+              </Box>
+            )}
           </Grid>
           
-{/* Formulário à direita */}
-{landingPage.formConfig.position === 'right' && landingPage.formConfig.showForm && (
-  <Grid 
-    item 
-    xs={12} 
-    md={4} 
-    className="col-md-4"
-    sx={{ 
-      height: 'auto',           // Adicionada esta linha
-      alignSelf: 'flex-start'   // Adicionada esta linha
-    }}
-  >
-    {renderForm()}
-  </Grid>
-)}
+          {/* Formulário à direita */}
+          {landingPage.formConfig.position === 'right' && landingPage.formConfig.showForm && (
+            <Grid 
+              item 
+              xs={12} 
+              md={4} 
+              className="col-md-4"
+              sx={{ 
+                height: 'auto',
+                alignSelf: 'flex-start'
+              }}
+            >
+              {renderForm()}
+            </Grid>
+          )}
         </Grid>
       </Box>
       
       {/* Botão de WhatsApp flutuante */}
       {renderWhatsAppButton()}
-      
-      {/* Snackbar para mensagens */}
-      <Snackbar
-        open={snackbar.open}
-        autoHideDuration={6000}
-        onClose={handleCloseSnackbar}
-        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
-      >
-        <Alert
-          onClose={handleCloseSnackbar}
-          severity={snackbar.severity}
-          sx={{ width: '100%' }}
-        >
-          {snackbar.message}
-        </Alert>
-      </Snackbar>
     </Box>
   );
 };

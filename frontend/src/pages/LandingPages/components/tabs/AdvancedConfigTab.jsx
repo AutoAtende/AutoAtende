@@ -70,7 +70,7 @@ const AdvancedConfigTab = ({ landingPage, setLandingPage }) => {
   const [groups, setGroups] = useState([]);
   const [loadingGroups, setLoadingGroups] = useState(false);
   const [mediaManagerOpen, setMediaManagerOpen] = useState(false);
-  const [selectedImageTarget, setSelectedImageTarget] = useState(null); // 'groupInvite' ou null
+  const [selectedImageTarget, setSelectedImageTarget] = useState(null);
   
   // Estado para armazenar as tags selecionadas
   const [selectedTags, setSelectedTags] = useState(landingPage.advancedConfig?.contactTags || []);
@@ -147,7 +147,7 @@ const AdvancedConfigTab = ({ landingPage, setLandingPage }) => {
     }
   }, [landingPage.advancedConfig?.contactTags]);
 
-  // NOVA FUNÇÃO: Carregar grupos disponíveis
+  // Carregar grupos disponíveis
   useEffect(() => {
     const fetchGroups = async () => {
       try {
@@ -473,7 +473,7 @@ const AdvancedConfigTab = ({ landingPage, setLandingPage }) => {
             <TextField
               fullWidth
               label="ID do Meta Pixel"
-              value={landingPage.advancedConfig.metaPixelId || ''}
+              value={landingPage.advancedConfig?.metaPixelId || ''}
               onChange={handleMetaPixelChange}
               variant="outlined"
               placeholder="Exemplo: 123456789012345"
@@ -530,11 +530,6 @@ const AdvancedConfigTab = ({ landingPage, setLandingPage }) => {
                 value={landingPage.advancedConfig?.notificationConnectionId || ''}
                 onChange={handleNotificationConnectionChange}
                 label="Conexão para Notificações"
-                startAdornment={
-                  <InputAdornment position="start">
-                    <WhatsAppIcon color="action" />
-                  </InputAdornment>
-                }
                 endAdornment={
                   loadingConnections && (
                     <InputAdornment position="end">
@@ -550,7 +545,10 @@ const AdvancedConfigTab = ({ landingPage, setLandingPage }) => {
                 ) : (
                   whatsappConnections.map((conn) => (
                     <MenuItem key={conn.id} value={conn.id}>
-                      {conn.name}
+                      <Box display="flex" alignItems="center">
+                        <WhatsAppIcon color="success" sx={{ mr: 1, fontSize: 'small' }} />
+                        {conn.name}
+                      </Box>
                     </MenuItem>
                   ))
                 )}
@@ -575,11 +573,6 @@ const AdvancedConfigTab = ({ landingPage, setLandingPage }) => {
                   value={landingPage.advancedConfig?.inviteGroupId || ''}
                   onChange={handleGroupChange}
                   label="Selecione um Grupo"
-                  startAdornment={
-                    <InputAdornment position="start">
-                      <GroupIcon color="action" />
-                    </InputAdornment>
-                  }
                   endAdornment={
                     loadingGroups && (
                       <InputAdornment position="end">
@@ -593,7 +586,10 @@ const AdvancedConfigTab = ({ landingPage, setLandingPage }) => {
                   </MenuItem>
                   {groups.map((group) => (
                     <MenuItem key={group.id} value={group.id}>
-                      {group.subject || `Grupo ${group.id}`}
+                      <Box display="flex" alignItems="center">
+                        <GroupIcon color="primary" sx={{ mr: 1, fontSize: 'small' }} />
+                        {group.subject || `Grupo ${group.id}`}
+                      </Box>
                     </MenuItem>
                   ))}
                 </Select>
@@ -812,16 +808,16 @@ const AdvancedConfigTab = ({ landingPage, setLandingPage }) => {
               </Box>
               
               <Chip 
-                label={landingPage.advancedConfig.whatsAppChatButton?.enabled ? "Ativado" : "Desativado"}
-                color={landingPage.advancedConfig.whatsAppChatButton?.enabled ? "success" : "default"}
-                variant={landingPage.advancedConfig.whatsAppChatButton?.enabled ? "filled" : "outlined"}
+                label={landingPage.advancedConfig?.whatsAppChatButton?.enabled ? "Ativado" : "Desativado"}
+                color={landingPage.advancedConfig?.whatsAppChatButton?.enabled ? "success" : "default"}
+                variant={landingPage.advancedConfig?.whatsAppChatButton?.enabled ? "filled" : "outlined"}
               />
             </Box>
             
             <FormControlLabel
               control={
                 <Switch
-                  checked={landingPage.advancedConfig.whatsAppChatButton?.enabled || false}
+                  checked={landingPage.advancedConfig?.whatsAppChatButton?.enabled || false}
                   onChange={handleToggleWhatsAppChat}
                   color="success"
                 />
@@ -829,7 +825,7 @@ const AdvancedConfigTab = ({ landingPage, setLandingPage }) => {
               label={
                 <Box>
                   <Typography variant="body1">
-                    {landingPage.advancedConfig.whatsAppChatButton?.enabled
+                    {landingPage.advancedConfig?.whatsAppChatButton?.enabled
                       ? "Exibir botão de chat WhatsApp"
                       : "Botão de chat WhatsApp desativado"}
                   </Typography>
@@ -840,19 +836,19 @@ const AdvancedConfigTab = ({ landingPage, setLandingPage }) => {
               }
             />
             
-            <Collapse in={landingPage.advancedConfig.whatsAppChatButton?.enabled}>
+            <Collapse in={landingPage.advancedConfig?.whatsAppChatButton?.enabled}>
               <Box mt={2}>
                 <Grid container spacing={2}>
                   <Grid item xs={12} md={6}>
                     <PhoneTextField
                       label="Número do WhatsApp"
                       name="whatsAppNumber"
-                      value={landingPage.advancedConfig.whatsAppChatButton?.number || ''}
+                      value={landingPage.advancedConfig?.whatsAppChatButton?.number || ''}
                       onChange={handleWhatsAppNumberChange}
                       placeholder="+5511999998888"
-                      error={!isWhatsAppNumberValid() && !!landingPage.advancedConfig.whatsAppChatButton?.number}
+                      error={!isWhatsAppNumberValid() && !!landingPage.advancedConfig?.whatsAppChatButton?.number}
                       helperText={
-                        !isWhatsAppNumberValid() && !!landingPage.advancedConfig.whatsAppChatButton?.number
+                        !isWhatsAppNumberValid() && !!landingPage.advancedConfig?.whatsAppChatButton?.number
                           ? "Formato inválido. Use o formato internacional (+5511999998888)"
                           : "Use o formato internacional com prefixo de país"
                       }
@@ -864,7 +860,7 @@ const AdvancedConfigTab = ({ landingPage, setLandingPage }) => {
                     <TextField
                       fullWidth
                       label="Mensagem Padrão"
-                      value={landingPage.advancedConfig.whatsAppChatButton?.defaultMessage || ''}
+                      value={landingPage.advancedConfig?.whatsAppChatButton?.defaultMessage || ''}
                       onChange={handleDefaultMessageChange}
                       variant="outlined"
                       placeholder="Olá! Gostaria de mais informações sobre..."

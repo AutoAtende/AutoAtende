@@ -18,6 +18,8 @@ import api from "../../../services/api";
 import { toast } from "../../../helpers/toast";
 import { i18n } from "../../../translate/i18n";
 import BaseModal from "../../../components/shared/BaseModal";
+import BaseButton from "../../../components/shared/BaseButton";
+import BasePageContent from "../../../components/shared/BasePageContent";
 
 const JoinGroupModal = ({ open, onClose }) => {
   const [inviteCode, setInviteCode] = useState("");
@@ -113,51 +115,79 @@ const JoinGroupModal = ({ open, onClose }) => {
     }
   ];
 
-  return (
-    <BaseModal
-      open={open}
-      onClose={handleClose}
-      title={i18n.t("groups.joinGroup")}
-      actions={modalActions}
-      loading={loading}
-    >
-      <Box mb={3}>
-        <Typography variant="body1" gutterBottom>
-          {i18n.t("groups.joinGroupDescription")}
-        </Typography>
-      </Box>
-      
-      <Box display="flex" mb={3}>
-        <TextField
-          label={i18n.t("groups.inviteCode")}
-          placeholder="https://chat.whatsapp.com/AbCdEfGhIjK123456789"
-          value={inviteCode}
-          onChange={handleCodeChange}
-          fullWidth
-          error={Boolean(errors.inviteCode)}
-          helperText={errors.inviteCode}
-          variant="outlined"
-          disabled={loading || checking}
-        />
-        
-        <Button
-          variant="contained"
-          color="primary"
-          onClick={checkGroupInfo}
-          disabled={loading || checking || !inviteCode}
-          style={{ marginLeft: 8, minWidth: 100 }}
-        >
-          {checking ? <CircularProgress size={24} /> : i18n.t("groups.check")}
-        </Button>
-      </Box>
-      
-      {groupInfo && (
-        <Box mb={3}>
-          <Alert severity="info" icon={<LinkIcon />}>
+  const renderContent = () => {
+    if (!groupInfo) {
+      return (
+        <BasePageContent>
+          <Box>
+            <Typography variant="body1" gutterBottom>
+              {i18n.t("groups.joinGroupDescription")}
+            </Typography>
+            
+            <Box display="flex" mb={3} gap={1}>
+              <TextField
+                label={i18n.t("groups.inviteCode")}
+                placeholder="https://chat.whatsapp.com/AbCdEfGhIjK123456789"
+                value={inviteCode}
+                onChange={handleCodeChange}
+                fullWidth
+                error={Boolean(errors.inviteCode)}
+                helperText={errors.inviteCode}
+                variant="outlined"
+                disabled={loading || checking}
+              />
+              
+              <BaseButton
+                variant="contained"
+                color="primary"
+                onClick={checkGroupInfo}
+                disabled={loading || checking || !inviteCode}
+                sx={{ minWidth: 100 }}
+              >
+                {checking ? <CircularProgress size={24} /> : i18n.t("groups.check")}
+              </BaseButton>
+            </Box>
+          </Box>
+        </BasePageContent>
+      );
+    }
+
+    return (
+      <BasePageContent>
+        <Box>
+          <Typography variant="body1" gutterBottom>
+            {i18n.t("groups.joinGroupDescription")}
+          </Typography>
+          
+          <Box display="flex" mb={3} gap={1}>
+            <TextField
+              label={i18n.t("groups.inviteCode")}
+              placeholder="https://chat.whatsapp.com/AbCdEfGhIjK123456789"
+              value={inviteCode}
+              onChange={handleCodeChange}
+              fullWidth
+              error={Boolean(errors.inviteCode)}
+              helperText={errors.inviteCode}
+              variant="outlined"
+              disabled={loading || checking}
+            />
+            
+            <BaseButton
+              variant="contained"
+              color="primary"
+              onClick={checkGroupInfo}
+              disabled={loading || checking || !inviteCode}
+              sx={{ minWidth: 100 }}
+            >
+              {checking ? <CircularProgress size={24} /> : i18n.t("groups.check")}
+            </BaseButton>
+          </Box>
+          
+          <Alert severity="info" icon={<LinkIcon />} sx={{ mb: 2 }}>
             {i18n.t("groups.groupInfoFound")}
           </Alert>
           
-          <Paper variant="outlined" style={{ padding: 16, marginTop: 16 }}>
+          <Paper variant="outlined" sx={{ p: 2 }}>
             <Typography variant="h6" gutterBottom>
               {groupInfo.subject}
             </Typography>
@@ -179,7 +209,19 @@ const JoinGroupModal = ({ open, onClose }) => {
             )}
           </Paper>
         </Box>
-      )}
+      </BasePageContent>
+    );
+  };
+
+  return (
+    <BaseModal
+      open={open}
+      onClose={handleClose}
+      title={i18n.t("groups.joinGroup")}
+      actions={modalActions}
+      loading={loading}
+    >
+      {renderContent()}
     </BaseModal>
   );
 };

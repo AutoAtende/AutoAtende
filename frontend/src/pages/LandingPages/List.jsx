@@ -38,13 +38,12 @@ import {
   ContentCopy as ContentCopyIcon,
   FilterList as FilterListIcon
 } from '@mui/icons-material';
-import { useSnackbar } from 'notistack';
+import { toast } from "../../helpers/toast";
 import { AuthContext } from '../../context/Auth/AuthContext';
 import api from '../../services/api';
 import QRCodeDialog from '../../components/QrCodeDialog';
 
 const LandingPagesList = () => {
-  const { enqueueSnackbar } = useSnackbar();
   const { user } = useContext(AuthContext);
   const history = useHistory(); // Hook para navegação programática
   const companyId = localStorage.getItem("companyId") ? localStorage.getItem("companyId") : user?.companyId;
@@ -64,9 +63,7 @@ const LandingPagesList = () => {
   const [viewMode, setViewMode] = useState(localStorage.getItem('landingPagesViewMode') || 'list');
   
   // Função para criar nova landing page (navegação programática em vez de Link)
-  const handleCreateNewPage = () => {
-    console.log("Navegando para /landing-pages/new");
-    
+  const handleCreateNewPage = () => {    
     // Armazenar um valor no localStorage para indicar que é uma nova página
     localStorage.setItem("landingPageNew", "true");
     
@@ -96,11 +93,11 @@ const LandingPagesList = () => {
       
     } catch (error) {
       console.error('Erro ao carregar landing pages:', error);
-      enqueueSnackbar('Erro ao carregar landing pages', { variant: 'error' });
+      toast.error('Erro ao carregar landing pages');
     } finally {
       setLoading(false);
     }
-  }, [page, rowsPerPage, search, filterActive, enqueueSnackbar]);
+  }, [page, rowsPerPage, search, filterActive]);
   
   // Carregar landing pages na inicialização e quando os filtros mudarem
   useEffect(() => {
@@ -120,16 +117,16 @@ const LandingPagesList = () => {
   // Função para copiar URL da landing page
   const handleCopyUrl = (slug) => {
     if (!companyId) {
-      enqueueSnackbar('Company ID não encontrado', { variant: 'error' });
+      toast.error('Company ID não encontrado');
       return;
     }
     const url = `${window.location.origin}/l/${companyId}/${slug}`;
     navigator.clipboard.writeText(url)
       .then(() => {
-        enqueueSnackbar('URL copiada com sucesso!', { variant: 'success' });
+        toast.success('URL copiada com sucesso!');
       })
       .catch((error) => {
-        enqueueSnackbar('Erro ao copiar URL', { variant: 'error' });
+        toast.error('Erro ao copiar URL');
       });
   };
 
@@ -148,12 +145,12 @@ const LandingPagesList = () => {
   const handleDelete = async () => {
     try {
       await api.delete(`/landing-pages/${deleteId}`);
-      enqueueSnackbar('Landing page excluída com sucesso!', { variant: 'success' });
+      toast.success('Landing page excluída com sucesso!');
       loadLandingPages();
       handleCloseDeleteDialog();
     } catch (error) {
       console.error('Erro ao excluir landing page:', error);
-      enqueueSnackbar('Erro ao excluir landing page', { variant: 'error' });
+      toast.error('Erro ao excluir landing page');
     }
   };
   
@@ -172,11 +169,11 @@ const LandingPagesList = () => {
   const handleToggleActive = async (id, currentStatus) => {
     try {
       await api.put(`/landing-pages/${id}/toggle-active`);
-      enqueueSnackbar(`Landing page ${currentStatus ? 'desativada' : 'ativada'} com sucesso!`, { variant: 'success' });
+      toast.success(`Landing page ${currentStatus ? 'desativada' : 'ativada'} com sucesso!`);
       loadLandingPages();
     } catch (error) {
       console.error('Erro ao alterar status da landing page:', error);
-      enqueueSnackbar('Erro ao alterar status da landing page', { variant: 'error' });
+      toast.error('Erro ao alterar status da landing page');
     }
   };
   

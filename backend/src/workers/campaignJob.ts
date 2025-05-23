@@ -559,7 +559,7 @@ export default class CampaignJob {
       if (messages.length) {
         const randomIndex = Math.floor(randomValue(0, messages.length - 1));
         const message = this.getProcessedMessage(messages[randomIndex], variables, contact);
-        campaignShipping.message = `\u200c ${message}`;
+        campaignShipping.message = `\u200c${message}`;
       } else {
         logger.warn(`Campaign ${campaignId} has no valid messages`);
         return { success: false, reason: 'NO_VALID_MESSAGES' };
@@ -570,7 +570,7 @@ export default class CampaignJob {
         if (confirmationMessages.length) {
           const randomIndex = Math.floor(randomValue(0, confirmationMessages.length - 1));
           const message = this.getProcessedMessage(confirmationMessages[randomIndex], variables, contact);
-          campaignShipping.confirmationMessage = `\u200c ${message}`;
+          campaignShipping.confirmationMessage = `\u200c${message}`;
         }
       }
 
@@ -686,13 +686,36 @@ export default class CampaignJob {
       }
 
       const normalizedNumber = campaignShipping.number.replace(/\D/g, "");
-      const chatId = `${normalizedNumber}@s.whatsapp.net`;
+      let processedNumber = normalizedNumber;
+      
+      // Adiciona código do país (55) se faltar
+      if (!processedNumber.startsWith('55')) {
+        processedNumber = '55' + processedNumber;
+      }
+      
+      // Valida e ajusta o nono dígito se necessário
+      if (processedNumber.length === 13) {
+        // Número válido (55 + DDD + 9 dígitos)
+      } else if (processedNumber.length === 12) {
+        const ddd = processedNumber.substring(2, 4);
+        const numeroParte = processedNumber.substring(4);
+        if (numeroParte.length === 8) {
+          // Adiciona o nono dígito (9)
+          processedNumber = processedNumber.substring(0, 4) + '9' + numeroParte;
+        } else {
+          throw new Error('Número inválido: parte do número após DDD incorreta');
+        }
+      } else {
+        throw new Error('Número inválido: comprimento incorreto');
+      }
+      
+      const chatId = `${processedNumber}@s.whatsapp.net`;
 
       try {
         // Verificar primeiro se o número existe e é válido
-        const [result] = await wbot.onWhatsApp(campaignShipping.number);
+        const [result] = await wbot.onWhatsApp(chatId);
         if (!result || !result.exists) {
-          logger.warn(`Number ${campaignShipping.number} does not exist on WhatsApp`);
+          logger.warn(`Number ${processedNumber} does not exist on WhatsApp`);
           // Atualizar status para indicar que o número não é válido
           await campaignShipping.update({
             deliveredAt: moment()
@@ -715,12 +738,12 @@ export default class CampaignJob {
         // Criar ou obter contato no sistema
         const [contact] = await Contact.findOrCreate({
           where: {
-            number: campaignShipping.number,
+            number: processedNumber,
             companyId: campaign.companyId
           },
           defaults: {
             name: campaignShipping.contact.name,
-            number: campaignShipping.number,
+            number: processedNumber,
             email: campaignShipping.contact.email || "",
             isGroup: false,
             companyId: campaign.companyId,
@@ -797,16 +820,11 @@ export default class CampaignJob {
               });
 
               // Registrar a mensagem enviada no ticket
-              try {
-                const sentMessage = await wbot.sendMessage(chatId, {
-                  text: body
-                });
-
-                await verifyMessage(sentMessage, existingTicket, contact);
+          await wbot.sendMessage(chatId, { text: body });
+          const sentMessage = { key: { remoteJid: chatId }, text: body }; // Usa a mensagem já enviada
+              await verifyMessage(sentMessage, existingTicket, contact);
                 logger.info(`Mensagem registrada no ticket ${existingTicket.id}`);
-              } catch (msgError) {
-                logger.error(`Erro ao registrar mensagem no ticket existente: ${msgError}`);
-              }
+
 
               // Notificar sobre a atualização do ticket
               const io = getIO();
@@ -843,9 +861,7 @@ export default class CampaignJob {
 
               // Registrar a mensagem enviada no ticket
               try {
-                const sentMessage = await wbot.sendMessage(chatId, {
-                  text: body
-                });
+                const sentMessage = { text: body, key: { remoteJid: chatId } };
 
                 await verifyMessage(sentMessage, newTicket, contact);
                 logger.info(`Mensagem registrada no novo ticket ${newTicket.id}`);
@@ -866,32 +882,6 @@ export default class CampaignJob {
           } catch (ticketError) {
             logger.error(`Error handling ticket from campaign ${campaign.id}:`, ticketError);
             // Continuar o envio mesmo com erro no ticket
-          }
-        } else {
-          // Envio normal sem integração com tickets
-          if (campaign.mediaPath) {
-            const publicFolder = process.env.BACKEND_PUBLIC_PATH || path.resolve(__dirname, "..", "..", "public");
-            const filePath = path.join(publicFolder, `company${campaign.companyId}`, campaign.mediaPath);
-
-            const options = await getMessageOptions(
-              campaign.mediaName,
-              filePath,
-              body,
-              Number(campaign.companyId)
-            );
-
-            if (Object.keys(options).length) {
-              if (options.mimetype === "audio/mp4") {
-                await wbot.sendMessage(chatId, {
-                  text: body
-                });
-              }
-              await wbot.sendMessage(chatId, { ...options });
-            }
-          } else {
-            await wbot.sendMessage(chatId, {
-              text: body
-            });
           }
         }
 

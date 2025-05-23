@@ -29,6 +29,20 @@ groupRoutes.get(
   GroupController.getGroupDetails
 );
 
+// Rota para sincronizar grupos do WhatsApp
+groupRoutes.post(
+  "/groups/sync",
+  isAuth, isAdmin,
+  GroupController.syncGroups
+);
+
+// Rota para extrair contatos localmente (usando dados já sincronizados)
+groupRoutes.post(
+  "/groups/:groupId/extract-local-contacts",
+  isAuth,
+  GroupController.extractLocalContacts
+);
+
 // Obter, atualizar e excluir um grupo específico
 groupRoutes.get(
   "/groups/:groupId",

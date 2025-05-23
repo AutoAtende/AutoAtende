@@ -27,6 +27,8 @@ import api from "../../../services/api";
 import { toast } from "../../../helpers/toast";
 import { i18n } from "../../../translate/i18n";
 import BaseModal from "../../../components/shared/BaseModal";
+import BasePageContent from "../../../components/shared/BasePageContent";
+import BaseButton from "../../../components/shared/BaseButton";
 
 const GroupRequestsModal = ({ open, onClose, group }) => {
   const [requests, setRequests] = useState([]);
@@ -123,7 +125,7 @@ const GroupRequestsModal = ({ open, onClose, group }) => {
     }
   ];
 
-  const modalTitle = (
+  const renderModalTitle = () => (
     <Box display="flex" alignItems="center" justifyContent="space-between" width="100%">
       <Typography variant="h6">
         {i18n.t("groups.pendingRequests")} - {group?.subject}
@@ -136,49 +138,40 @@ const GroupRequestsModal = ({ open, onClose, group }) => {
     </Box>
   );
 
-  return (
-    <BaseModal
-      open={open}
-      onClose={handleClose}
-      title={modalTitle}
-      actions={modalActions}
-      loading={loading}
-      maxWidth="md"
-    >
-      {loading ? (
-        <Box display="flex" justifyContent="center" p={4}>
-          <CircularProgress />
-        </Box>
-      ) : requests.length === 0 ? (
-        <Box textAlign="center" p={4}>
-          <PersonAddIcon style={{ fontSize: 60, color: '#ccc' }} />
-          <Typography variant="h6" color="textSecondary">
-            {i18n.t("groups.noRequests")}
-          </Typography>
-          <Typography variant="body2" color="textSecondary">
-            {i18n.t("groups.requestsDescription")}
-          </Typography>
-        </Box>
-      ) : (
-        <Paper variant="outlined">
-          <List>
-            {requests.map((request, index) => (
-              <React.Fragment key={request.jid}>
-                <ListItem>
-                  <ListItemAvatar>
-                    <Avatar>
-                      {request.jid.split('@')[0].charAt(0).toUpperCase()}
-                    </Avatar>
-                  </ListItemAvatar>
-                  <ListItemText
-                    primary={request.jid.split('@')[0]}
-                    secondary={
-                      <Typography variant="body2" color="textSecondary">
-                        {i18n.t("groups.requestedAt")}: {formatTimestamp(request.requestedTimestamp)}
-                      </Typography>
-                    }
-                  />
-                  <ListItemSecondaryAction>
+  const renderEmptyState = () => (
+    <BasePageContent
+      empty={true}
+      emptyProps={{
+        icon: <PersonAddIcon />,
+        title: i18n.t("groups.noRequests"),
+        message: i18n.t("groups.requestsDescription"),
+        showButton: false
+      }}
+    />
+  );
+
+  const renderRequestsList = () => (
+    <BasePageContent>
+      <Paper variant="outlined">
+        <List>
+          {requests.map((request, index) => (
+            <React.Fragment key={request.jid}>
+              <ListItem>
+                <ListItemAvatar>
+                  <Avatar>
+                    {request.jid.split('@')[0].charAt(0).toUpperCase()}
+                  </Avatar>
+                </ListItemAvatar>
+                <ListItemText
+                  primary={request.jid.split('@')[0]}
+                  secondary={
+                    <Typography variant="body2" color="textSecondary">
+                      {i18n.t("groups.requestedAt")}: {formatTimestamp(request.requestedTimestamp)}
+                    </Typography>
+                  }
+                />
+                <ListItemSecondaryAction>
+                  <Box display="flex" gap={1}>
                     <Tooltip title={i18n.t("groups.approve")}>
                       <IconButton
                         edge="end"
@@ -199,19 +192,18 @@ const GroupRequestsModal = ({ open, onClose, group }) => {
                         color="error"
                         onClick={() => handleReject(request.jid)}
                         disabled={processingIds.includes(request.jid)}
-                        style={{ marginLeft: 8 }}
                       >
                         <RejectIcon />
                       </IconButton>
                     </Tooltip>
-                  </ListItemSecondaryAction>
-                </ListItem>
-                {index < requests.length - 1 && <Divider variant="inset" component="li" />}
-              </React.Fragment>
-            ))}
-          </List>
-        </Paper>
-      )}
+                  </Box>
+                </ListItemSecondaryAction>
+              </ListItem>
+              {index < requests.length - 1 && <Divider variant="inset" component="li" />}
+            </React.Fragment>
+          ))}
+        </List>
+      </Paper>
       
       <Box mt={3} p={1}>
         <Box display="flex" alignItems="center">
@@ -221,6 +213,33 @@ const GroupRequestsModal = ({ open, onClose, group }) => {
           </Typography>
         </Box>
       </Box>
+    </BasePageContent>
+  );
+
+  const renderContent = () => {
+    if (loading) {
+      return (
+        <BasePageContent loading={true} />
+      );
+    }
+
+    if (requests.length === 0) {
+      return renderEmptyState();
+    }
+
+    return renderRequestsList();
+  };
+
+  return (
+    <BaseModal
+      open={open}
+      onClose={handleClose}
+      title={renderModalTitle()}
+      actions={modalActions}
+      loading={loading}
+      maxWidth="md"
+    >
+      {renderContent()}
     </BaseModal>
   );
 };

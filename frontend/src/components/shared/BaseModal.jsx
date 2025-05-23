@@ -11,18 +11,19 @@ import {
   Typography,
   useTheme,
   useMediaQuery,
-  Tooltip,
-  Button
+  Tooltip
 } from '@mui/material';
 import {
   Close as CloseIcon,
   HelpOutline as HelpIcon
 } from '@mui/icons-material';
+import BaseButton from './BaseButton';
 
-// Componentes estilizados
+// Componentes estilizados com adaptação para tema claro/escuro
 const StyledDialog = styled(Dialog)(({ theme }) => ({
   '& .MuiDialog-paper': {
     margin: theme.spacing(2),
+    backgroundColor: theme.palette.background.paper,
     [theme.breakpoints.down('sm')]: {
       margin: 0,
       maxHeight: '100%',
@@ -41,6 +42,21 @@ const StyledDialogTitle = styled(MuiDialogTitle)(({ theme }) => ({
   padding: theme.spacing(2),
 }));
 
+const StyledDialogContent = styled(DialogContent)(({ theme }) => ({
+  padding: theme.spacing(5),
+  paddingTop: theme.spacing(5),
+  marginTop: theme.spacing(2), 
+  backgroundColor: theme.palette.background.paper,
+  color: theme.palette.text.primary,
+}));
+
+const StyledDialogActions = styled(DialogActions)(({ theme }) => ({
+  padding: theme.spacing(2),
+  gap: theme.spacing(1),
+  backgroundColor: theme.palette.background.paper,
+  borderTop: `1px solid ${theme.palette.divider}`,
+}));
+
 const TitleText = styled(Typography)(({ theme, isMobile }) => ({
   flex: 1,
   ...(isMobile ? theme.typography.subtitle1 : theme.typography.h6),
@@ -51,10 +67,6 @@ const IconContainer = styled(Box)(({ theme }) => ({
   gap: theme.spacing(1),
 }));
 
-const ActionButton = styled(Button)(({ theme }) => ({
-  marginLeft: theme.spacing(1),
-}));
-
 const BaseModal = ({
   open,
   onClose,
@@ -63,25 +75,25 @@ const BaseModal = ({
   actions = [],
   maxWidth = 'md',
   helpText,
-  loading = false,
-  sx = {} // Adicionado a prop sx com valor padrão
+  loading = false
 }) => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
 
   const renderActionButtons = () => {
     return actions.map((action, index) => (
-      <ActionButton
+      <BaseButton
         key={index}
         onClick={action.onClick}
-        variant={action.variant || 'text'}
+        variant={action.variant || 'contained'}
         color={action.color || 'primary'}
         disabled={loading || action.disabled}
         startIcon={action.icon}
         size={isMobile ? 'small' : 'medium'}
+        type={action.type} // Adicionando suporte para a propriedade type
       >
-        {!isMobile && action.label}
-      </ActionButton>
+        {action.label}
+      </BaseButton>
     ));
   };
 
@@ -92,10 +104,9 @@ const BaseModal = ({
       maxWidth={maxWidth}
       fullWidth
       fullScreen={isMobile}
-      sx={sx}
     >
       <StyledDialogTitle>
-        <TitleText isMobile={isMobile}>
+        <TitleText isMobile={isMobile} variant={isMobile ? "subtitle1" : "h6"}>
           {title}
         </TitleText>
         <IconContainer>
@@ -103,6 +114,7 @@ const BaseModal = ({
             <Tooltip title={helpText}>
               <IconButton
                 size="small"
+                aria-label="ajuda"
                 onClick={(e) => e.preventDefault()}
                 sx={{ color: 'primary.contrastText' }}
               >
@@ -112,6 +124,7 @@ const BaseModal = ({
           )}
           <IconButton
             size="small"
+            aria-label="fechar"
             onClick={onClose}
             disabled={loading}
             sx={{ color: 'primary.contrastText' }}
@@ -121,14 +134,14 @@ const BaseModal = ({
         </IconContainer>
       </StyledDialogTitle>
 
-      <DialogContent sx={{ p: 3 }}>
+      <StyledDialogContent>
         {children}
-      </DialogContent>
+      </StyledDialogContent>
 
       {actions.length > 0 && (
-        <DialogActions sx={{ p: 2, gap: 1 }}>
+        <StyledDialogActions>
           {renderActionButtons()}
-        </DialogActions>
+        </StyledDialogActions>
       )}
     </StyledDialog>
   );
@@ -137,20 +150,21 @@ const BaseModal = ({
 BaseModal.propTypes = {
   open: PropTypes.bool.isRequired,
   onClose: PropTypes.func.isRequired,
-  title: PropTypes.node,
+  title: PropTypes.string.isRequired,
   children: PropTypes.node,
   actions: PropTypes.arrayOf(PropTypes.shape({
-    label: PropTypes.string,
-    onClick: PropTypes.func,
+    label: PropTypes.string.isRequired,
+    onClick: PropTypes.func.isRequired,
     variant: PropTypes.string,
     color: PropTypes.string,
     disabled: PropTypes.bool,
-    icon: PropTypes.node
+    icon: PropTypes.node,
+    type: PropTypes.string // Adicionando type ao PropTypes
   })),
   maxWidth: PropTypes.string,
   helpText: PropTypes.string,
-  loading: PropTypes.bool,
-  sx: PropTypes.object
+  loading: PropTypes.bool
 };
 
+// Aplicar memo para evitar re-renderizações desnecessárias
 export default React.memo(BaseModal);

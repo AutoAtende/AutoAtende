@@ -88,6 +88,7 @@ const wbotMonitor = async (
                       mediaType: "call_log",
                       read: true,
                       quotedMsgId: null,
+                      internalMessage: true,
                       ack: 1
                     };
 

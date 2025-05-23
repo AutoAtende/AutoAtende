@@ -1,8 +1,5 @@
 import React, { useContext, useEffect, useState, useCallback, useMemo, useRef } from "react";
-import { useMediaQuery } from "@mui/material";
-import { BrushOutlined } from "@mui/icons-material";
 import { useTheme } from '@mui/material/styles';
-import WhiteLabelHelp from "../WhitelabelHelp";
 
 import {
   FormControl,
@@ -21,12 +18,26 @@ import {
   CardContent,
   Popover,
   CircularProgress,
-  Button
+  Button,
+  Stack,
+  Divider,
+  useMediaQuery,
+  Tooltip,
+  Chip
 } from "@mui/material";
-import makeStyles from "@mui/styles/makeStyles";
 import { ChromePicker } from "react-color";
-import { AttachFile, Delete, Save } from "@mui/icons-material";
-import { Settings, Palette, Image } from 'lucide-react';
+import { 
+  AttachFile, 
+  Delete, 
+  Save, 
+  Settings, 
+  Palette, 
+  Image,
+  ColorLens,
+  Refresh,
+  Info
+} from '@mui/icons-material';
+import WhiteLabelHelp from "../WhitelabelHelp";
 import { toast } from "../../helpers/toast";
 import { AuthContext } from "../../context/Auth/AuthContext.jsx";
 import useSettings from "../../hooks/useSettings";
@@ -49,166 +60,6 @@ const defaultBackgoundSignup = "";
 function capitalizeFirstLetter(string) {
   return string?.charAt(0).toUpperCase() + string?.slice(1) || '';
 }
-
-// Componente SplashPreview otimizado com memo
-const SplashPreview = React.memo(({ settings, theme }) => {
-  // Determinar as cores com base no tema atual
-  const isDarkMode = theme.palette.mode === 'dark';
-  
-  const backgroundColor = isDarkMode 
-    ? settings.splashBackgroundDark || '#1C2E36' 
-    : settings.splashBackgroundLight || '#ffffff';
-    
-  const textColor = isDarkMode 
-    ? settings.splashTextColorDark || '#ffffff' 
-    : settings.splashTextColorLight || '#000000';
-  
-  const appName = settings.splashAppName || "AutoAtende";
-  const slogan = settings.splashSlogan || "Sua plataforma completa de atendimento";
-  
-  return (
-    <Box
-      sx={{
-        width: "100%",
-        height: 200,
-        display: "flex",
-        flexDirection: "column",
-        justifyContent: "center",
-        alignItems: "center",
-        backgroundColor: backgroundColor,
-        color: textColor,
-        borderRadius: 1,
-        padding: 2,
-        boxShadow: "0px 4px 10px rgba(0, 0, 0, 0.1)",
-        overflow: "hidden",
-      }}
-    >
-      <CircularProgress 
-        size={40} 
-        thickness={4} 
-        sx={{ 
-          marginBottom: 2,
-          color: textColor 
-        }} 
-      />
-      
-      <Typography 
-        variant="h5" 
-        sx={{ 
-          fontWeight: "bold",
-          marginBottom: 1
-        }}
-      >
-        {appName}
-      </Typography>
-      
-      <Typography variant="body2">
-        {slogan}
-      </Typography>
-    </Box>
-  );
-});
-
-SplashPreview.displayName = 'SplashPreview';
-
-const useStyles = makeStyles((theme) => ({
-  root: {
-    flexGrow: 1,
-    padding: theme.spacing(3),
-  },
-  tabPanel: {
-    marginTop: theme.spacing(3),
-  },
-  paper: {
-    padding: theme.spacing(3),
-    height: "100%",
-  },
-  formControl: {
-    marginBottom: theme.spacing(2),
-    width: "100%",
-  },
-  colorPicker: {
-    marginTop: theme.spacing(2),
-  },
-  previewBox: {
-    marginBottom: theme.spacing(2),
-    width: "100%",
-    height: 100,
-    display: "flex",
-    justifyContent: "center",
-    alignItems: "center",
-    border: `1px solid ${theme.palette.divider}`,
-    borderRadius: theme.shape.borderRadius,
-    overflow: "hidden",
-  },
-  previewImage: {
-    maxWidth: "100%",
-    maxHeight: "100%",
-    objectFit: "contain",
-  },
-  smallPreviewImage: {
-    width: 48,
-    height: 48,
-    objectFit: "contain",
-  },
-  uploadInput: {
-    display: "none",
-  },
-  backgroundPreviewBox: {
-    marginBottom: theme.spacing(2),
-    width: "100%",
-    height: 200,
-    display: "flex",
-    justifyContent: "center",
-    alignItems: "center",
-    border: `1px solid ${theme.palette.divider}`,
-    borderRadius: theme.shape.borderRadius,
-    overflow: "hidden",
-  },
-  backgroundPreviewImage: {
-    width: "100%",
-    height: "100%",
-    objectFit: "cover",
-  },
-  colorPreview: {
-    width: 42,
-    height: 42,
-    borderRadius: theme.shape.borderRadius,
-    border: `2px solid ${theme.palette.divider}`,
-    cursor: 'pointer',
-    transition: 'all 0.3s ease',
-    '&:hover': {
-      transform: 'scale(1.05)',
-    },
-  },
-  colorPickerPopover: {
-    position: 'absolute',
-    zIndex: 2,
-    [theme.breakpoints.down('sm')]: {
-      position: 'fixed',
-      top: '50%',
-      left: '50%',
-      transform: 'translate(-50%, -50%)',
-    },
-  },
-  backdrop: {
-    position: 'fixed',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    zIndex: 1,
-  },
-  tabIcon: {
-    marginRight: theme.spacing(1),
-    [theme.breakpoints.down('sm')]: {
-      marginRight: 0,
-    },
-  },
-  saveButton: {
-    marginTop: theme.spacing(2),
-  }
-}));
 
 function TabPanel({ children, value, index, ...other }) {
   return (
@@ -253,6 +104,28 @@ const colorLabels = {
   boxRightDark: "Mensagens do Usuário Modo Escuro",
 };
 
+// Agrupamentos de cores para uma melhor organização visual
+const colorGroups = {
+  "Cores do Tema": [
+    "primaryColorLight", 
+    "secondaryColorLight", 
+    "primaryColorDark", 
+    "secondaryColorDark"
+  ],
+  "Cores dos Ícones": [
+    "iconColorLight", 
+    "iconColorDark"
+  ],
+  "Cores do Chat": [
+    "chatlistLight", 
+    "chatlistDark", 
+    "boxLeftLight", 
+    "boxLeftDark", 
+    "boxRightLight", 
+    "boxRightDark"
+  ]
+};
+
 const imageFiles = [
   "appLogoLight",
   "appLogoDark",
@@ -271,31 +144,21 @@ const imageLabels = {
   signupBackground: "Imagem de fundo para tela de cadastro",
 };
 
-// Adicione esta constante para as opções de cores do Splash
-const splashColorOptions = [
-  { key: 'splashBackgroundLight', label: 'Cor de Fundo - Modo Claro' },
-  { key: 'splashBackgroundDark', label: 'Cor de Fundo - Modo Escuro' },
-  { key: 'splashTextColorLight', label: 'Cor do Texto - Modo Claro' },
-  { key: 'splashTextColorDark', label: 'Cor do Texto - Modo Escuro' }
-];
-
 function Whitelabel({ settings }) {
-  const classes = useStyles();
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+  
   // Estados e hooks
   const { colorMode } = useContext(ColorModeContext);
   const { user } = useContext(AuthContext);
   const { update } = useSettings();
   const { Loading } = useLoading();
-  const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+  
   const [selectedTab, setSelectedTab] = useState(0);
   const [settingsLoaded, setSettingsLoaded] = useState({});
   const [selectedColorKey, setSelectedColorKey] = useState(themeColors[0]);
   const [selectedColorValue, setSelectedColorValue] = useState("");
-  const [appName, setAppName] = useState("");
-  const [copyright, setCopyright] = useState("");
-  const [privacy, setPrivacy] = useState("");
-  const [terms, setTerms] = useState("");
+  const [colorPickerAnchorEl, setColorPickerAnchorEl] = useState(null);
   
   // Estados para os formulários que devem ser salvos apenas quando explicitamente solicitado
   const [generalForm, setGeneralForm] = useState({
@@ -305,26 +168,10 @@ function Whitelabel({ settings }) {
     terms: ""
   });
   
-  const [splashForm, setSplashForm] = useState({
-    splashAppName: "",
-    splashSlogan: ""
-  });
-  
-  const [selectedSplashColor, setSelectedSplashColor] = useState({
-    key: 'splashBackgroundLight',
-    value: '',
-    label: 'Cor de Fundo - Modo Claro'
-  });
-  
-  // Separação dos estados de colorPicker
-  const [themeColorPickerAnchor, setThemeColorPickerAnchor] = useState(null);
-  const [splashColorPickerAnchor, setSplashColorPickerAnchor] = useState(null);
-  
   // Estado para indicar se há alterações não salvas
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState({
     general: false,
     colors: false,
-    splash: false,
     logos: false
   });
   
@@ -332,9 +179,11 @@ function Whitelabel({ settings }) {
   const [loadingStates, setLoadingStates] = useState({
     general: false,
     colors: false,
-    splash: false,
     logos: false
   });
+
+  // Estado para armazenar cores do tema
+  const [themeColorValues, setThemeColorValues] = useState({});
 
   // Referência para rastrear se o componente ainda está montado
   const isMounted = useRef(true);
@@ -369,66 +218,68 @@ function Whitelabel({ settings }) {
     }
   }, []);
 
-const handleSaveSetting = useCallback(
-  async (key, value, section = null) => {
+  // Atualiza o estado de cores do tema
+  const updateThemeColorValues = useCallback((key, value) => {
+    if (isMounted.current) {
+      setThemeColorValues(prev => ({ ...prev, [key]: value }));
+    }
+  }, []);
+
+  const handleSaveSetting = useCallback(
+    async (key, value, section = null) => {
       // Evitar requisições desnecessárias se o valor não mudou
       if (settingsLoaded[key] === value) {
-          return;
+        return;
       }
       
       try {
+        if (section) {
+          setLoadingForSection(section, true);
+        }
+        
+        await update({ key, value });
+        
+        if (isMounted.current) {
+          // Atualizar o estado localmente em uma única operação
+          setSettingsLoaded(prev => ({ ...prev, [key]: value }));
+          
+          // Atualizar o tema apenas para a chave específica
+          if (themeColors.includes(key)) {
+            updateThemeColorValues(key, value);
+            const setterFunction = colorMode[`set${capitalizeFirstLetter(key)}`];
+            if (typeof setterFunction === 'function') {
+              setterFunction(value);
+            }
+          }
+          
+          // Atualizar o cache no localStorage
+          updateSettingsCache(key, value);
+          
+          // Resetar flag de alterações não salvas para esta seção
           if (section) {
-              setLoadingForSection(section, true);
+            setHasUnsavedChanges(prev => ({
+              ...prev, 
+              [section]: false
+            }));
           }
-          
-          await update({ key, value });
-          
-          if (isMounted.current) {
-              // Atualizar o estado localmente em uma única operação
-              setSettingsLoaded(prev => ({ ...prev, [key]: value }));
-              
-              // Atualizar estados específicos se necessário
-              if (key === 'privacy') setPrivacy(value);
-              if (key === 'terms') setTerms(value);
-              if (key === 'appName') setAppName(value);
-              if (key === 'copyright') setCopyright(value);
-              
-              // Atualizar o tema apenas para a chave específica
-              if (themeColors.includes(key) || key.startsWith('splash')) {
-                  const setterFunction = colorMode[`set${capitalizeFirstLetter(key)}`];
-                  if (typeof setterFunction === 'function') {
-                      setterFunction(value);
-                  }
-              }
-              
-              // Atualizar o cache no localStorage
-              updateSettingsCache(key, value);
-              
-              // Resetar flag de alterações não salvas para esta seção
-              if (section) {
-                  setHasUnsavedChanges(prev => ({
-                      ...prev, 
-                      [section]: false
-                  }));
-              }
-          }
-          
-          toast.success(i18n.t("whiteLabel.updateSuccess"));
+        }
+        
+        toast.success(i18n.t("whiteLabel.updateSuccess"));
       } catch (error) {
-          console.error("Erro ao salvar configuração:", error);
-          toast.error(i18n.t("whiteLabel.updateError"));
+        console.error("Erro ao salvar configuração:", error);
+        toast.error(i18n.t("whiteLabel.updateError"));
       } finally {
-          if (section && isMounted.current) {
-              setLoadingForSection(section, false);
-          }
+        if (section && isMounted.current) {
+          setLoadingForSection(section, false);
+        }
       }
-  },
-  [update, settingsLoaded, colorMode, setLoadingForSection]
-);
+    },
+    [update, settingsLoaded, colorMode, setLoadingForSection, updateThemeColorValues]
+  );
 
-// Adicione esta nova função para atualizar o cache
-const updateSettingsCache = useCallback((key, value) => {
-  try {
+  // Função para atualizar o cache
+  const updateSettingsCache = useCallback((key, value) => {
+    try {
       const companyId = user?.companyId;
       if (!companyId) return;
       
@@ -436,51 +287,116 @@ const updateSettingsCache = useCallback((key, value) => {
       const cachedData = localStorage.getItem(cacheKey);
       
       if (cachedData) {
-          const cache = JSON.parse(cachedData);
-          cache.settings[key] = value;
-          cache.timestamp = new Date().getTime(); // Atualiza o timestamp
-          localStorage.setItem(cacheKey, JSON.stringify(cache));
+        const cache = JSON.parse(cachedData);
+        cache.settings[key] = value;
+        cache.timestamp = new Date().getTime(); // Atualiza o timestamp
+        localStorage.setItem(cacheKey, JSON.stringify(cache));
       } else {
-          // Se não existir cache, cria um novo com esta configuração
-          const settingsObj = { [key]: value };
-          const cacheData = {
-              timestamp: new Date().getTime(),
-              settings: settingsObj
-          };
-          localStorage.setItem(cacheKey, JSON.stringify(cacheData));
+        // Se não existir cache, cria um novo com esta configuração
+        const settingsObj = { [key]: value };
+        const cacheData = {
+          timestamp: new Date().getTime(),
+          settings: settingsObj
+        };
+        localStorage.setItem(cacheKey, JSON.stringify(cacheData));
       }
-  } catch (error) {
+    } catch (error) {
       console.error('Erro ao atualizar cache de configurações:', error);
-  }
-}, [user?.companyId]);
-  
-  const handleColorChange = useCallback(
-    (color) => {
-      if (!color) return;
-      const newColor = color.hex;
-      setSelectedColorValue(newColor);
-      // Marca que há alterações não salvas
-      setHasUnsavedChanges(prev => ({...prev, colors: true}));
-    },
-    []
-  );
-  
-  // Função para salvar cores do tema
-  const saveThemeColor = useCallback(() => {
-    if (selectedColorKey && selectedColorValue) {
-      handleSaveSetting(selectedColorKey, selectedColorValue, 'colors');
     }
-  }, [selectedColorKey, selectedColorValue, handleSaveSetting]);
+  }, [user?.companyId]);
+  
+  // Função para abrir o color picker
+  const handleColorPickerOpen = useCallback((event, colorKey) => {
+    setSelectedColorKey(colorKey);
+    setSelectedColorValue(themeColorValues[colorKey] || settingsLoaded[colorKey] || '');
+    setColorPickerAnchorEl(event.currentTarget);
+  }, [themeColorValues, settingsLoaded]);
+  
+  // Função para fechar o color picker
+  const handleColorPickerClose = useCallback(() => {
+    setColorPickerAnchorEl(null);
+  }, []);
+  
+  // Função para alterar cor no color picker
+  const handleColorChange = useCallback((color) => {
+    if (!color) return;
+    const newColor = color.hex;
+    setSelectedColorValue(newColor);
+    // Marca que há alterações não salvas
+    setHasUnsavedChanges(prev => ({...prev, colors: true}));
+  }, []);
+  
+  // Função para salvar a cor selecionada
+  const saveSelectedColor = useCallback(() => {
+    if (selectedColorKey && selectedColorValue) {
+      updateThemeColorValues(selectedColorKey, selectedColorValue);
+      handleSaveSetting(selectedColorKey, selectedColorValue, 'colors');
+      handleColorPickerClose();
+    }
+  }, [selectedColorKey, selectedColorValue, handleSaveSetting, handleColorPickerClose, updateThemeColorValues]);
+  
+  // Função para salvar todas as cores de uma vez
+  const saveAllThemeColors = useCallback(async () => {
+    try {
+      setLoadingForSection('colors', true);
+      
+      // Cria um array de promises para todas as operações de salvamento
+      const savePromises = Object.entries(themeColorValues).map(([key, value]) => 
+        handleSaveSetting(key, value, null)
+      );
+      
+      await Promise.all(savePromises);
+      
+      setHasUnsavedChanges(prev => ({...prev, colors: false}));
+      toast.success(i18n.t("whiteLabel.updateSuccess"));
+    } catch (error) {
+      console.error("Erro ao salvar todas as cores:", error);
+      toast.error(i18n.t("whiteLabel.updateError"));
+    } finally {
+      setLoadingForSection('colors', false);
+    }
+  }, [themeColorValues, handleSaveSetting, setLoadingForSection]);
 
-  const handleColorKeyChange = useCallback(
-    (event) => {
-      const newColorKey = event.target.value;
-      setSelectedColorKey(newColorKey);
-      setSelectedColorValue(settingsLoaded[newColorKey] || "");
-      setHasUnsavedChanges(prev => ({...prev, colors: false})); // Resetar alterações ao mudar a cor selecionada
-    },
-    [settingsLoaded]
-  );
+  // Função para restaurar as cores padrão
+  const resetToDefaultColors = useCallback(async () => {
+    // Valores padrão para as cores do tema
+    const defaultColors = {
+      primaryColorLight: "#2196f3",
+      secondaryColorLight: "#f50057",
+      primaryColorDark: "#90caf9",
+      secondaryColorDark: "#f48fb1",
+      iconColorLight: "#424242",
+      iconColorDark: "#e0e0e0",
+      chatlistLight: "#f5f5f5",
+      chatlistDark: "#303030",
+      boxLeftLight: "#e0e0e0",
+      boxLeftDark: "#424242",
+      boxRightLight: "#dcf8c6",
+      boxRightDark: "#056162"
+    };
+    
+    try {
+      setLoadingForSection('colors', true);
+      
+      // Atualiza os estados locais primeiro
+      setThemeColorValues(defaultColors);
+      
+      // Cria um array de promises para todas as operações de salvamento
+      const savePromises = Object.entries(defaultColors).map(([key, value]) => 
+        handleSaveSetting(key, value, null)
+      );
+      
+      await Promise.all(savePromises);
+      
+      setHasUnsavedChanges(prev => ({...prev, colors: false}));
+      toast.success(i18n.t("whiteLabel.resetSuccess"));
+    } catch (error) {
+      console.error("Erro ao restaurar cores padrão:", error);
+      toast.error(i18n.t("whiteLabel.resetError"));
+    } finally {
+      setLoadingForSection('colors', false);
+    }
+  }, [handleSaveSetting, setLoadingForSection]);
 
   const getImagePath = useCallback((imageKey, imagePath, companyId) => {
     // Verificar se o caminho já é uma URL completa
@@ -565,27 +481,7 @@ const updateSettingsCache = useCallback((key, value) => {
   const handleTabChange = useCallback((event, newValue) => {
     setSelectedTab(newValue);
   }, []);
-  
-  // Funções para o seletor de cores do tema
-  const handleThemeColorPickerOpen = useCallback((event, colorType) => {
-    setSelectedColorKey(colorType);
-    setSelectedColorValue(settingsLoaded[colorType] || '');
-    setThemeColorPickerAnchor(event.currentTarget);
-  }, [settingsLoaded]);
-  
-  const handleThemeColorPickerClose = useCallback(() => {
-    setThemeColorPickerAnchor(null);
-  }, []);
-  
-  // Funções para o seletor de cores do splash
-  const handleSplashColorPickerOpen = useCallback((event) => {
-    setSplashColorPickerAnchor(event.currentTarget);
-  }, []);
-  
-  const handleSplashColorPickerClose = useCallback(() => {
-    setSplashColorPickerAnchor(null);
-  }, []);
-  
+
   // Função otimizada para fazer upload de logos
   const uploadLogo = useCallback(
     async (e, mode) => {
@@ -631,20 +527,6 @@ const updateSettingsCache = useCallback((key, value) => {
     },
     [colorMode, handleSaveSetting, updateSettingsLoaded, setLoadingForSection]
   );
-
-  const handleSplashColorChange = useCallback((color) => {
-    if (!color) return;
-    const newColor = color.hex;
-    setSelectedSplashColor(prev => ({ ...prev, value: newColor }));
-    setHasUnsavedChanges(prev => ({...prev, splash: true}));
-  }, []);
-  
-  // Função para salvar cores do splash
-  const saveSplashColor = useCallback(() => {
-    if (selectedSplashColor.key && selectedSplashColor.value) {
-      handleSaveSetting(selectedSplashColor.key, selectedSplashColor.value, 'splash');
-    }
-  }, [selectedSplashColor, handleSaveSetting]);
   
   // Função auxiliar para obter imagens padrão
   const getImageDefaultByImageKey = useCallback((imageKey) => {
@@ -660,10 +542,15 @@ const updateSettingsCache = useCallback((key, value) => {
   // Implementação de função auxiliar para aplicar configurações ao tema de uma vez
   const applySettingsToTheme = useCallback((settings, companyId) => {
     if (!settings || !colorMode) return;
+
+    // Criar uma cópia das cores do tema para o estado
+    const themeColorsCopy = {};
     
     // Aplica as cores ao tema
     themeColors.forEach((colorKey) => {
       const colorValue = settings[colorKey];
+      themeColorsCopy[colorKey] = colorValue || '';
+      
       if (colorValue && colorMode) {
         const setterFunction = colorMode[`set${capitalizeFirstLetter(colorKey)}`];
         if (typeof setterFunction === 'function') {
@@ -672,16 +559,8 @@ const updateSettingsCache = useCallback((key, value) => {
       }
     });
 
-    // Aplica as configurações do splash ao tema
-    splashColorOptions.forEach((option) => {
-      const colorValue = settings[option.key];
-      if (colorValue && colorMode) {
-        const setterFunction = colorMode[`set${capitalizeFirstLetter(option.key)}`];
-        if (typeof setterFunction === 'function') {
-          setterFunction(colorValue);
-        }
-      }
-    });
+    // Atualiza o estado das cores do tema
+    setThemeColorValues(themeColorsCopy);
 
     // Aplica as imagens
     imageFiles.forEach((imageKey) => {
@@ -731,7 +610,6 @@ const updateSettingsCache = useCallback((key, value) => {
         if (isMounted.current) {
           // Atualiza todos os estados em uma única operação
           setSettingsLoaded(mergedSettings);
-          setSelectedColorValue(mergedSettings[themeColors[0]] || '');
           
           // Inicializa os formulários com os valores carregados
           setGeneralForm({
@@ -740,22 +618,6 @@ const updateSettingsCache = useCallback((key, value) => {
             privacy: mergedSettings.privacy || '',
             terms: mergedSettings.terms || ''
           });
-          
-          setSplashForm({
-            splashAppName: mergedSettings.splashAppName || '',
-            splashSlogan: mergedSettings.splashSlogan || ''
-          });
-          
-          // Mantém os estados individuais para compatibilidade
-          setAppName(mergedSettings.appName || '');
-          setCopyright(mergedSettings.copyright || '');
-          setPrivacy(mergedSettings.privacy || '');
-          setTerms(mergedSettings.terms || '');
-          
-          setSelectedSplashColor(prev => ({
-            ...prev,
-            value: mergedSettings[prev.key] || ''
-          }));
 
           // Aplicar as configurações ao tema apenas uma vez
           applySettingsToTheme(mergedSettings, user?.companyId);
@@ -766,7 +628,7 @@ const updateSettingsCache = useCallback((key, value) => {
       }
     } catch (error) {
       if (isMounted.current) {
-        toast.error(error);
+        toast.error(error.message || "Erro ao carregar configurações");
       }
     } finally {
       if (isMounted.current) {
@@ -789,12 +651,6 @@ const updateSettingsCache = useCallback((key, value) => {
       ...prev,
       [name]: value
     }));
-    
-    // Atualiza também os estados individuais para compatibilidade
-    if (name === 'appName') setAppName(value);
-    if (name === 'copyright') setCopyright(value);
-    if (name === 'privacy') setPrivacy(value);
-    if (name === 'terms') setTerms(value);
     
     // Marca que há alterações não salvas
     setHasUnsavedChanges(prev => ({...prev, general: true}));
@@ -823,499 +679,486 @@ const updateSettingsCache = useCallback((key, value) => {
       });
   }, [generalForm, handleSaveSetting, setLoadingForSection]);
   
-  // Funções para o formulário splash
-  const handleSplashFormChange = useCallback((e) => {
-    const { name, value } = e.target;
-    
-    // Atualiza o estado do formulário
-    setSplashForm(prev => ({
-      ...prev,
-      [name]: value
-    }));
-    
-    // Atualiza também settingsLoaded para o preview
-    updateSettingsLoaded(name, value);
-    
-    // Marca que há alterações não salvas
-    setHasUnsavedChanges(prev => ({...prev, splash: true}));
-  }, [updateSettingsLoaded]);
-  
-// Função para salvar configurações do splash
-const saveSplashSettings = useCallback(() => {
-  setLoadingForSection('splash', true);
-  
-  Promise.all([
-    handleSaveSetting('splashAppName', splashForm.splashAppName, 'splash'),
-    handleSaveSetting('splashSlogan', splashForm.splashSlogan, 'splash'),
-    saveSplashColor()
-  ])
-    .then(() => {
-      setHasUnsavedChanges(prev => ({...prev, splash: false}));
-      toast.success(i18n.t("whiteLabel.updateSuccess"));
-    })
-    .catch((error) => {
-      console.error('Erro ao salvar configurações do splash:', error);
-      toast.error(i18n.t("whiteLabel.updateError"));
-    })
-    .finally(() => {
-      setLoadingForSection('splash', false);
-    });
-}, [splashForm, handleSaveSetting, saveSplashColor, setLoadingForSection]);
-
-// Componentes otimizados com useMemo
-const renderGeneralSettings = useMemo(
-  () => (
-    <Card>
-      <CardContent>
-        <Grid container spacing={3}>
-          <Grid item xs={12} md={6}>
-            <FormControl className={classes.formControl}>
-              <TextField
-                label="Nome do sistema"
-                variant="outlined"
-                name="appName"
-                value={generalForm.appName}
-                onChange={handleGeneralFormChange}
-                InputLabelProps={{ shrink: true }}
-              />
-            </FormControl>
-          </Grid>
-          <Grid item xs={12} md={6}>
-            <FormControl className={classes.formControl}>
-              <TextField
-                label="Copyright"
-                variant="outlined"
-                name="copyright"
-                value={generalForm.copyright}
-                onChange={handleGeneralFormChange}
-                InputLabelProps={{ shrink: true }}
-              />
-            </FormControl>
-          </Grid>
-          <Grid item xs={12} md={6}>
-            <FormControl className={classes.formControl}>
-              <TextField
-                label="Link da Política de Privacidade"
-                variant="outlined"
-                name="privacy"
-                value={generalForm.privacy}
-                onChange={handleGeneralFormChange}
-                InputLabelProps={{ shrink: true }}
-              />
-            </FormControl>
-          </Grid>
-          <Grid item xs={12} md={6}>
-            <FormControl className={classes.formControl}>
-              <TextField
-                label="Link dos Termos de uso"
-                variant="outlined"
-                name="terms"
-                value={generalForm.terms}
-                onChange={handleGeneralFormChange}
-                InputLabelProps={{ shrink: true }}
-              />
-            </FormControl>
-          </Grid>
-        </Grid>
-        {loadingStates.general && (
-          <Box sx={{ display: 'flex', justifyContent: 'center', mt: 2 }}>
-            <CircularProgress size={24} />
-          </Box>
-        )}
-        <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 2 }}>
-          <Button
-            variant="contained"
-            color="primary"
-            disabled={!hasUnsavedChanges.general || loadingStates.general}
-            onClick={saveGeneralSettings}
-            startIcon={<Save />}
-            className={classes.saveButton}
-          >
-            Salvar Alterações
-          </Button>
-        </Box>
-      </CardContent>
-    </Card>
-  ),
-  [
-    generalForm, 
-    classes.formControl,
-    classes.saveButton,
-    loadingStates.general,
-    hasUnsavedChanges.general,
-    handleGeneralFormChange,
-    saveGeneralSettings
-  ]
-);
-
-const renderColorSettings = useMemo(
-  () => (
-    <Card>
-      <CardContent>
-        <Grid container spacing={3}>
-          <Grid item xs={12} md={4}>
-            <FormControl className={classes.formControl}>
-              <InputLabel>Escolha a cor para personalizar</InputLabel>
-              <Select value={selectedColorKey} onChange={handleColorKeyChange}>
-                {themeColors.map((colorKey) => (
-                  <MenuItem key={colorKey} value={colorKey}>
-                    {colorLabels[colorKey]}
-                  </MenuItem>
-                ))}
-                </Select>
-            </FormControl>
-          </Grid>
-          <Grid item xs={12} md={8}>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-              <Box
-                className={classes.colorPreview}
-                sx={{ backgroundColor: selectedColorValue }}
-                onClick={(e) => handleThemeColorPickerOpen(e, selectedColorKey)}
-              />
-              <Typography>
-                {selectedColorValue || 'Nenhuma cor selecionada'}
-              </Typography>
-            </Box>
-            {themeColorPickerAnchor && (
-              <>
-                <Box
-                  className={classes.backdrop}
-                  onClick={handleThemeColorPickerClose}
+  // Componentes otimizados com useMemo
+  const renderGeneralSettings = useMemo(
+    () => (
+      <Card>
+        <CardContent>
+          <Grid container spacing={3}>
+            <Grid item xs={12} md={6}>
+              <FormControl fullWidth>
+                <TextField
+                  label="Nome do sistema"
+                  variant="outlined"
+                  name="appName"
+                  value={generalForm.appName}
+                  onChange={handleGeneralFormChange}
+                  InputLabelProps={{ shrink: true }}
+                  sx={{ mb: 2 }}
                 />
-                <Box className={classes.colorPickerPopover}>
-                  <ChromePicker
-                    color={selectedColorValue}
-                    onChange={handleColorChange}
-                    disableAlpha
-                  />
-                </Box>
-              </>
-            )}
-          </Grid>
-        </Grid>
-        {loadingStates.colors && (
-          <Box sx={{ display: 'flex', justifyContent: 'center', mt: 2 }}>
-            <CircularProgress size={24} />
-          </Box>
-        )}
-        <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 2 }}>
-          <Button
-            variant="contained"
-            color="primary"
-            disabled={!hasUnsavedChanges.colors || loadingStates.colors}
-            onClick={saveThemeColor}
-            startIcon={<Save />}
-            className={classes.saveButton}
-          >
-            Salvar Alterações
-          </Button>
-        </Box>
-      </CardContent>
-    </Card>
-  ),
-  [
-    classes,
-    selectedColorKey,
-    selectedColorValue,
-    handleColorKeyChange,
-    handleColorChange,
-    themeColorPickerAnchor,
-    loadingStates.colors,
-    hasUnsavedChanges.colors,
-    handleThemeColorPickerOpen,
-    handleThemeColorPickerClose,
-    saveThemeColor
-  ]
-);
-
-const renderSplashSettings = useMemo(
-  () => (
-    <Card>
-      <CardContent>
-        <Grid container spacing={3}>
-          <Grid item xs={12} md={6}>
-            <FormControl className={classes.formControl}>
-              <TextField
-                label="Nome do Sistema na Tela de Carregamento"
-                variant="outlined"
-                name="splashAppName"
-                value={splashForm.splashAppName}
-                onChange={handleSplashFormChange}
-                InputLabelProps={{ shrink: true }}
-              />
-            </FormControl>
-          </Grid>
-          <Grid item xs={12} md={6}>
-            <FormControl className={classes.formControl}>
-              <TextField
-                label="Slogan na Tela de Carregamento"
-                variant="outlined"
-                name="splashSlogan"
-                value={splashForm.splashSlogan}
-                onChange={handleSplashFormChange}
-                InputLabelProps={{ shrink: true }}
-              />
-            </FormControl>
-          </Grid>
-          <Grid item xs={12} md={4}>
-            <FormControl className={classes.formControl}>
-              <InputLabel>Escolha a cor para personalizar</InputLabel>
-              <Select
-                value={selectedSplashColor.key}
-                onChange={(e) => {
-                  const option = splashColorOptions.find(opt => opt.key === e.target.value);
-                  if (option) {
-                    setSelectedSplashColor({
-                      key: e.target.value,
-                      value: settingsLoaded[e.target.value] || '',
-                      label: option.label
-                    });
-                    setHasUnsavedChanges(prev => ({...prev, splash: false})); // Resetar alterações ao mudar a cor
-                  }
-                }}
-              >
-                {splashColorOptions.map((option) => (
-                  <MenuItem key={option.key} value={option.key}>
-                  {option.label}
-                </MenuItem>
-              ))}
-              </Select>
-            </FormControl>
-          </Grid>
-          <Grid item xs={12} md={8}>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-              <Box
-                className={classes.colorPreview}
-                sx={{ backgroundColor: settingsLoaded[selectedSplashColor.key] }}
-                onClick={handleSplashColorPickerOpen}
-              />
-              <Typography>
-                {settingsLoaded[selectedSplashColor.key] || 'Nenhuma cor selecionada'}
-              </Typography>
-            </Box>
-            {splashColorPickerAnchor && (
-              <>
-                <Box
-                  className={classes.backdrop}
-                  onClick={handleSplashColorPickerClose}
+              </FormControl>
+            </Grid>
+            <Grid item xs={12} md={6}>
+              <FormControl fullWidth>
+                <TextField
+                  label="Copyright"
+                  variant="outlined"
+                  name="copyright"
+                  value={generalForm.copyright}
+                  onChange={handleGeneralFormChange}
+                  InputLabelProps={{ shrink: true }}
+                  sx={{ mb: 2 }}
                 />
-                <Box className={classes.colorPickerPopover}>
-                  <ChromePicker
-                    color={settingsLoaded[selectedSplashColor.key]}
-                    onChange={handleSplashColorChange}
-                    disableAlpha
-                  />
-                </Box>
-              </>
-            )}
+              </FormControl>
+            </Grid>
+            <Grid item xs={12} md={6}>
+              <FormControl fullWidth>
+                <TextField
+                  label="Link da Política de Privacidade"
+                  variant="outlined"
+                  name="privacy"
+                  value={generalForm.privacy}
+                  onChange={handleGeneralFormChange}
+                  InputLabelProps={{ shrink: true }}
+                  sx={{ mb: 2 }}
+                />
+              </FormControl>
+            </Grid>
+            <Grid item xs={12} md={6}>
+              <FormControl fullWidth>
+                <TextField
+                  label="Link dos Termos de uso"
+                  variant="outlined"
+                  name="terms"
+                  value={generalForm.terms}
+                  onChange={handleGeneralFormChange}
+                  InputLabelProps={{ shrink: true }}
+                  sx={{ mb: 2 }}
+                />
+              </FormControl>
+            </Grid>
           </Grid>
-        </Grid>
-        {loadingStates.splash && (
-          <Box sx={{ display: 'flex', justifyContent: 'center', mt: 2 }}>
-            <CircularProgress size={24} />
+          {loadingStates.general && (
+            <Box sx={{ display: 'flex', justifyContent: 'center', mt: 2 }}>
+              <CircularProgress size={24} />
+            </Box>
+          )}
+          <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 2 }}>
+            <Button
+              variant="contained"
+              color="primary"
+              disabled={!hasUnsavedChanges.general || loadingStates.general}
+              onClick={saveGeneralSettings}
+              startIcon={<Save />}
+              sx={{ mt: 2 }}
+            >
+              Salvar Alterações
+            </Button>
           </Box>
-        )}
-        <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 2 }}>
-          <Button
-            variant="contained"
-            color="primary"
-            disabled={!hasUnsavedChanges.splash || loadingStates.splash}
-            onClick={saveSplashSettings}
-            startIcon={<Save />}
-            className={classes.saveButton}
-          >
-            Salvar Alterações
-          </Button>
-        </Box>
-        <Box sx={{ mt: 4 }}>
-          <Typography variant="h6" gutterBottom>
-            Preview da Tela de Carregamento
-          </Typography>
-          <SplashPreview 
-            settings={settingsLoaded}
-            theme={theme} 
-          />
-        </Box>
-      </CardContent>
-    </Card>
-  ),
-  [
-    classes,
-    splashForm,
-    settingsLoaded,
-    selectedSplashColor,
-    handleSplashColorChange,
-    handleSplashFormChange,
-    splashColorPickerAnchor,
-    theme,
-    loadingStates.splash,
-    hasUnsavedChanges.splash,
-    saveSplashSettings,
-    handleSplashColorPickerOpen,
-    handleSplashColorPickerClose
-  ]
-);
+        </CardContent>
+      </Card>
+    ),
+    [
+      generalForm, 
+      loadingStates.general,
+      hasUnsavedChanges.general,
+      handleGeneralFormChange,
+      saveGeneralSettings
+    ]
+  );
 
-// Renderização otimizada para logos e fundos
-const renderLogosAndBackgrounds = useMemo(
-  () => (
-    <Card>
-      <CardContent>
-        <Typography variant="h6" gutterBottom>
-          Logos, Ícones e Imagens de Fundo
-        </Typography>
-        <Grid container spacing={3}>
-          {imageFiles.map((imageKey) => {
-            const imagePath = settingsLoaded[imageKey]
-              ? `${process.env.REACT_APP_BACKEND_URL}/public/${settingsLoaded[imageKey]}`
-              : getImageDefaultByImageKey(imageKey);
-              
-            return (
-              <Grid item xs={12} sm={6} md={4} key={imageKey}>
-                <Typography variant="subtitle1" gutterBottom>
-                  {imageLabels[imageKey]}
-                </Typography>
-                <Box
-                  className={
-                    imageKey.includes("Background")
-                      ? classes.backgroundPreviewBox
-                      : classes.previewBox
-                  }
-                >
-                  {imagePath && (
-                    <img
-                      src={imagePath}
-                      alt={imageLabels[imageKey]}
-                      className={
-                        imageKey === "appLogoFavicon" ||
-                        imageKey === "appLogoPWAIcon"
-                          ? classes.smallPreviewImage
-                          : imageKey.includes("Background")
-                          ? classes.backgroundPreviewImage
-                          : classes.previewImage
-                      }
-                      onError={(e) => {
-                        e.target.onerror = null;
-                        e.target.src = getImageDefaultByImageKey(imageKey) || '';
-                      }}
-                    />
-                  )}
-                </Box>
-                <Box sx={{ mt: 1, display: 'flex', gap: 1 }}>
-                  <input
-                    type="file"
-                    id={`upload-${imageKey}-button`}
-                    className={classes.uploadInput}
-                    onChange={(e) =>
-                      imageKey.includes("Background")
-                        ? uploadBackground(e, imageKey.replace("Background", ""))
-                        : uploadLogo(e, imageKey)
-                    }
-                    accept="image/*"
-                  />
-                  <label htmlFor={`upload-${imageKey}-button`}>
-                    <IconButton component="span" color="primary">
-                      <AttachFile />
-                    </IconButton>
-                  </label>
-                  {settingsLoaded[imageKey] && (
-                    <IconButton
-                      onClick={() =>
-                        imageKey.includes("Background")
-                          ? deleteBackground(settingsLoaded[imageKey], imageKey)
-                          : handleSaveSetting(imageKey, "", "logos")
-                      }
-                      color="secondary"
-                    >
-                      <Delete />
-                    </IconButton>
-                  )}
-                </Box>
-              </Grid>
-            );
-          })}
-        </Grid>
-        {loadingStates.logos && (
-          <Box sx={{ display: 'flex', justifyContent: 'center', mt: 2 }}>
-            <CircularProgress size={24} />
-          </Box>
-        )}
-      </CardContent>
-    </Card>
-  ),
-  [
-    classes,
-    settingsLoaded,
-    uploadLogo,
-    uploadBackground,
-    deleteBackground,
-    handleSaveSetting,
-    loadingStates.logos,
-    getImageDefaultByImageKey
-  ]
-);
-
-// Render principal com otimizações
-return (
-  <div className={classes.root}>
-    <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 3 }}>
-      <Tabs
-        value={selectedTab}
-        onChange={handleTabChange}
-        variant={isMobile ? "scrollable" : "fullWidth"}
-        scrollButtons="auto"
-        allowScrollButtonsMobile
-      >
-        <Tab
-          icon={<Settings className={classes.tabIcon} />}
-          label={!isMobile && "Configurações Gerais"}
-          iconPosition="start"
-        />
-        <Tab
-          icon={<Palette className={classes.tabIcon} />}
-          label={!isMobile && "Cores"}
-          iconPosition="start"
-        />
-        <Tab
-          icon={<BrushOutlined className={classes.tabIcon} />}
-          label={!isMobile && "Tela de Carregamento"}
-          iconPosition="start"
-        />
-        <Tab
-          icon={<AttachFile className={classes.tabIcon} />}
-          label={!isMobile && "Logos e Imagens"}
-          iconPosition="start"
-        />
-      </Tabs>
-    </Box>
-
-    <TabPanel value={selectedTab} index={0}>
-      {renderGeneralSettings}
-    </TabPanel>
-
-    <TabPanel value={selectedTab} index={1}>
-      {renderColorSettings}
-    </TabPanel>
-
-    <TabPanel value={selectedTab} index={2}>
-      {renderSplashSettings}
-    </TabPanel>
-
-    <TabPanel value={selectedTab} index={3}>
-      {renderLogosAndBackgrounds}
-    </TabPanel>
-
-    {selectedTab === 0 && (
-      <Box sx={{ mt: 3 }}>
-        <Card>
+  // Interface melhorada para seleção de cores
+  const renderColorSettings = useMemo(
+    () => (
+      <Box>
+        <Card sx={{ mb: 3 }}>
           <CardContent>
-            <WhiteLabelHelp />
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+              <Typography variant="h6">
+                Personalização de Cores do Tema
+              </Typography>
+              
+              <Stack direction="row" spacing={1}>
+                <Tooltip title="Restaurar cores padrão">
+                  <Button 
+                    variant="outlined" 
+                    color="secondary" 
+                    startIcon={<Refresh />}
+                    onClick={resetToDefaultColors}
+                    disabled={loadingStates.colors}
+                    size="small"
+                  >
+                    {isMobile ? "" : "Restaurar Padrões"}
+                  </Button>
+                </Tooltip>
+                
+                <Button
+                  variant="contained"
+                  color="primary"
+                  startIcon={<Save />}
+                  onClick={saveAllThemeColors}
+                  disabled={loadingStates.colors}
+                  size="small"
+                >
+                  {isMobile ? "" : "Salvar Todas as Cores"}
+                </Button>
+              </Stack>
+            </Box>
+            
+            {loadingStates.colors && (
+              <Box sx={{ display: 'flex', justifyContent: 'center', my: 2 }}>
+                <CircularProgress size={24} />
+              </Box>
+            )}
+            
+            {/* Layout em grupos para melhor visualização */}
+            {Object.entries(colorGroups).map(([groupName, colorKeys]) => (
+              <Box key={groupName} sx={{ mb: 3 }}>
+                <Typography variant="subtitle1" sx={{ fontWeight: 'bold', mb: 1 }}>
+                  {groupName}
+                </Typography>
+                <Divider sx={{ mb: 2 }} />
+                
+                <Grid container spacing={2}>
+                  {colorKeys.map((colorKey) => (
+                    <Grid item xs={6} sm={4} md={3} key={colorKey}>
+                      <Box
+                        sx={{
+                          display: 'flex',
+                          flexDirection: 'column',
+                          alignItems: 'center',
+                          p: 1,
+                          border: '1px solid',
+                          borderColor: 'divider',
+                          borderRadius: 1,
+                          height: '100%',
+                          transition: 'all 0.2s',
+                          '&:hover': {
+                            boxShadow: 2,
+                            transform: 'translateY(-2px)'
+                          }
+                        }}
+                      >
+                        <Typography
+                          variant="body2"
+                          sx={{
+                            textAlign: 'center',
+                            mb: 1,
+                            fontSize: '0.75rem',
+                            height: 32,
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center'
+                          }}
+                        >
+                          {colorLabels[colorKey]}
+                        </Typography>
+                        
+                        <Box
+                          sx={{
+                            width: '100%',
+                            height: 48,
+                            backgroundColor: themeColorValues[colorKey] || settingsLoaded[colorKey] || '#ffffff',
+                            borderRadius: 1,
+                            border: '1px solid',
+                            borderColor: 'divider',
+                            cursor: 'pointer',
+                            mb: 1,
+                            transition: 'transform 0.2s',
+                            '&:hover': {
+                              transform: 'scale(1.05)'
+                            }
+                          }}
+                          onClick={(e) => handleColorPickerOpen(e, colorKey)}
+                        />
+                        
+                        <Chip 
+                          label={themeColorValues[colorKey] || settingsLoaded[colorKey] || 'Não definido'} 
+                          size="small"
+                          sx={{ 
+                            width: '100%', 
+                            fontSize: '0.7rem', 
+                            height: 24,
+                            '& .MuiChip-label': {
+                              overflow: 'hidden',
+                              textOverflow: 'ellipsis'
+                            }
+                          }}
+                        />
+                      </Box>
+                    </Grid>
+                  ))}
+                </Grid>
+              </Box>
+            ))}
           </CardContent>
         </Card>
+        
+        {/* Color Picker Popover */}
+        <Popover
+          open={Boolean(colorPickerAnchorEl)}
+          anchorEl={colorPickerAnchorEl}
+          onClose={handleColorPickerClose}
+          anchorOrigin={{
+            vertical: 'bottom',
+            horizontal: 'center',
+          }}
+          transformOrigin={{
+            vertical: 'top',
+            horizontal: 'center',
+          }}
+          sx={{
+            '& .MuiPopover-paper': {
+              p: 2,
+              boxShadow: 4
+            }
+          }}
+        >
+          <Box sx={{ width: 220 }}>
+            <Typography variant="subtitle2" gutterBottom>
+              {colorLabels[selectedColorKey]}
+            </Typography>
+            <ChromePicker
+              color={selectedColorValue}
+              onChange={handleColorChange}
+              disableAlpha
+              styles={{
+                default: {
+                  picker: {
+                    width: '100%',
+                    boxShadow: 'none',
+                    fontFamily: theme.typography.fontFamily
+                  }
+                }
+              }}
+            />
+            <Box sx={{ mt: 2, display: 'flex', justifyContent: 'space-between' }}>
+              <Button 
+                variant="outlined" 
+                size="small" 
+                onClick={handleColorPickerClose}
+              >
+                Cancelar
+              </Button>
+              <Button 
+                variant="contained" 
+                size="small" 
+                onClick={saveSelectedColor}
+                disabled={!selectedColorValue}
+              >
+                Aplicar
+              </Button>
+            </Box>
+          </Box>
+        </Popover>
       </Box>
-    )}
-  </div>
-);
+    ),
+    [
+      theme,
+      colorPickerAnchorEl,
+      selectedColorKey,
+      selectedColorValue,
+      themeColorValues,
+      settingsLoaded,
+      loadingStates.colors,
+      handleColorPickerOpen,
+      handleColorPickerClose,
+      handleColorChange,
+      saveSelectedColor,
+      saveAllThemeColors,
+      resetToDefaultColors,
+      isMobile
+    ]
+  );
+
+  // Renderização otimizada para logos e fundos
+  const renderLogosAndBackgrounds = useMemo(
+    () => (
+      <Card>
+        <CardContent>
+          <Typography variant="h6" gutterBottom>
+            Logos, Ícones e Imagens de Fundo
+          </Typography>
+          <Grid container spacing={3}>
+            {imageFiles.map((imageKey) => {
+              const imagePath = settingsLoaded[imageKey]
+                ? `${process.env.REACT_APP_BACKEND_URL}/public/${settingsLoaded[imageKey]}`
+                : getImageDefaultByImageKey(imageKey);
+                
+              return (
+                <Grid item xs={12} sm={6} md={4} key={imageKey}>
+                  <Card elevation={1} sx={{ height: '100%' }}>
+                    <CardContent>
+                      <Typography variant="subtitle1" gutterBottom>
+                        {imageLabels[imageKey]}
+                      </Typography>
+                      <Box
+                        sx={{
+                          mb: 2,
+                          width: "100%",
+                          height: imageKey.includes("Background") ? 200 : 100,
+                          display: "flex",
+                          justifyContent: "center",
+                          alignItems: "center",
+                          border: `1px solid ${theme.palette.divider}`,
+                          borderRadius: 1,
+                          overflow: "hidden",
+                          backgroundColor: theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)'
+                        }}
+                      >
+                        {imagePath && (
+                          <img
+                            src={imagePath}
+                            alt={imageLabels[imageKey]}
+                            style={{
+                              maxWidth: "100%",
+                              maxHeight: "100%",
+                              width: imageKey === "appLogoFavicon" || imageKey === "appLogoPWAIcon" ? 48 : "auto",
+                              height: imageKey === "appLogoFavicon" || imageKey === "appLogoPWAIcon" ? 48 : "auto",
+                              objectFit: imageKey.includes("Background") ? "cover" : "contain"
+                            }}
+                            onError={(e) => {
+                              e.target.onerror = null;
+                              e.target.src = getImageDefaultByImageKey(imageKey) || '';
+                            }}
+                          />
+                        )}
+                      </Box>
+                      <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 1 }}>
+                        <input
+                          type="file"
+                          id={`upload-${imageKey}-button`}
+                          style={{ display: 'none' }}
+                          onChange={(e) =>
+                            imageKey.includes("Background")
+                              ? uploadBackground(e, imageKey.replace("Background", ""))
+                              : uploadLogo(e, imageKey)
+                          }
+                          accept="image/*"
+                        />
+                        <label htmlFor={`upload-${imageKey}-button`}>
+                          <Button
+                            component="span"
+                            variant="outlined"
+                            startIcon={<AttachFile />}
+                            size="small"
+                          >
+                            Upload
+                          </Button>
+                        </label>
+                        {settingsLoaded[imageKey] && (
+                          <Button
+                            onClick={() =>
+                              imageKey.includes("Background")
+                                ? deleteBackground(settingsLoaded[imageKey], imageKey)
+                                : handleSaveSetting(imageKey, "", "logos")
+                            }
+                            color="error"
+                            variant="outlined"
+                            startIcon={<Delete />}
+                            size="small"
+                          >
+                            Remover
+                          </Button>
+                        )}
+                      </Box>
+                    </CardContent>
+                  </Card>
+                </Grid>
+              );
+            })}
+          </Grid>
+          {loadingStates.logos && (
+            <Box sx={{ display: 'flex', justifyContent: 'center', mt: 3 }}>
+              <CircularProgress size={24} />
+            </Box>
+          )}
+        </CardContent>
+      </Card>
+    ),
+    [
+      theme,
+      settingsLoaded,
+      uploadLogo,
+      uploadBackground,
+      deleteBackground,
+      handleSaveSetting,
+      loadingStates.logos,
+      getImageDefaultByImageKey
+    ]
+  );
+
+  // Renderiza mensagem de ajuda informativa
+  const renderHelpSection = useMemo(() => (
+    <Card sx={{ mt: 3 }}>
+      <CardContent>
+        <Box sx={{ display: 'flex', alignItems: 'flex-start', mb: 2 }}>
+          <Info color="primary" sx={{ mr: 1, mt: 0.3 }} />
+          <Typography variant="subtitle1" fontWeight="medium">
+            Ajuda - Personalização do Sistema
+          </Typography>
+        </Box>
+        <WhiteLabelHelp />
+      </CardContent>
+    </Card>
+  ), []);
+
+  // Render principal com otimizações
+  return (
+    <Box sx={{ p: 3 }}>
+      <Paper sx={{ mb: 3 }}>
+        <Tabs
+          value={selectedTab}
+          onChange={handleTabChange}
+          variant={isMobile ? "scrollable" : "fullWidth"}
+          scrollButtons="auto"
+          allowScrollButtonsMobile
+          sx={{ borderBottom: 1, borderColor: 'divider' }}
+        >
+          <Tab 
+            icon={<Settings />} 
+            label={!isMobile ? "Configurações Gerais" : ""}
+            iconPosition="start"
+            sx={{ 
+              minHeight: 48,
+              ...(isMobile ? {} : { py: 1.5 })
+            }}
+          />
+          <Tab 
+            icon={<Palette />} 
+            label={!isMobile ? "Cores" : ""}
+            iconPosition="start"
+            sx={{ 
+              minHeight: 48,
+              ...(isMobile ? {} : { py: 1.5 })
+            }}
+          />
+          <Tab 
+            icon={<Image />} 
+            label={!isMobile ? "Logos e Imagens" : ""}
+            iconPosition="start"
+            sx={{ 
+              minHeight: 48,
+              ...(isMobile ? {} : { py: 1.5 })
+            }}
+          />
+        </Tabs>
+      </Paper>
+
+      <TabPanel value={selectedTab} index={0}>
+        {renderGeneralSettings}
+        {renderHelpSection}
+      </TabPanel>
+
+      <TabPanel value={selectedTab} index={1}>
+        {renderColorSettings}
+      </TabPanel>
+
+      <TabPanel value={selectedTab} index={2}>
+        {renderLogosAndBackgrounds}
+      </TabPanel>
+    </Box>
+  );
 }
 
 export default React.memo(Whitelabel);

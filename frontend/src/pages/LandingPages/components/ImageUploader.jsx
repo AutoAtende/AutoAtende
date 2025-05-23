@@ -19,7 +19,7 @@ import {
   Image as ImageIcon,
   Info as InfoIcon
 } from '@mui/icons-material';
-import { useSnackbar } from 'notistack';
+import { toast } from "../../../helpers/toast";
 import { useSpring, animated } from 'react-spring';
 import { AuthContext } from '../../../context/Auth/AuthContext';
 import api from '../../../services/api';
@@ -40,7 +40,6 @@ const ImageUploader = ({
   const [dragActive, setDragActive] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const fileInputRef = useRef(null);
-  const { enqueueSnackbar } = useSnackbar();
   const theme = useTheme();
   const { isAuth, user } = useContext(AuthContext);
   
@@ -111,7 +110,7 @@ const ImageUploader = ({
     // Validar tipo de arquivo
     if (!acceptedTypes.includes(file.type)) {
       setError(`Tipo de arquivo não suportado. Tipos aceitos: ${acceptedTypes.join(', ')}`);
-      enqueueSnackbar(`Tipo de arquivo não suportado: ${file.type}`, { variant: 'error' });
+      toast.error(`Tipo de arquivo não suportado: ${file.type}`);
       return;
     }
     
@@ -119,7 +118,7 @@ const ImageUploader = ({
     if (file.size > maxSize) {
       const maxSizeInMB = (maxSize / (1024 * 1024)).toFixed(2);
       setError(`Arquivo muito grande. Tamanho máximo: ${maxSizeInMB}MB`);
-      enqueueSnackbar(`Arquivo muito grande. Máximo: ${maxSizeInMB}MB`, { variant: 'error' });
+      toast.error(`Arquivo muito grande. Máximo: ${maxSizeInMB}MB`);
       return;
     }
     
@@ -150,7 +149,7 @@ const ImageUploader = ({
     } catch (error) {
       console.error('Erro ao fazer upload da imagem:', error);
       setError('Falha ao fazer upload da imagem. Tente novamente.');
-      enqueueSnackbar('Falha ao fazer upload da imagem', { variant: 'error' });
+      toast.error('Falha ao fazer upload da imagem');
     } finally {
       setLoading(false);
       setUploadProgress(0);

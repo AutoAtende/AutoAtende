@@ -130,7 +130,6 @@ routes.get(
     }
   }),
   isAuth,
-  isSuper,
   CompanyController.getDetails
 );
 

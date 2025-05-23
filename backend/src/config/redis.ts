@@ -143,7 +143,7 @@ export async function closeRedisConnection(): Promise<void> {
       logger.error('Error closing Redis connection:', error);
       // Forçar desconexão em caso de erro
       try {
-        redisClient.disconnect();
+        await redisClient.disconnect();
         logger.info('Redis disconnected forcefully');
       } catch (err) {
         logger.error('Failed to force disconnect Redis:', err);

@@ -1,4 +1,3 @@
-// SignUpPhoneInput.js - Correção
 import 'react-international-phone/style.css';
 import {
   InputAdornment,

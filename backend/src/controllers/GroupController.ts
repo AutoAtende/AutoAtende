@@ -29,11 +29,13 @@ import GetGroupInfoByInviteService from "../services/GroupServices/GetGroupInfoB
 import UpdateGroupProfilePicService from "../services/GroupServices/UpdateGroupProfilePicService";
 import RemoveGroupProfilePicService from "../services/GroupServices/RemoveGroupProfilePicService";
 import GetGroupRequestParticipantsService from "../services/GroupServices/GetGroupRequestParticipantsService";
+import ExtractLocalContactsService from "../services/GroupServices/ExtractLocalContactsService";
 import UpdateGroupRequestParticipantsService from "../services/GroupServices/UpdateGroupRequestParticipantsService";
 import { ExtractContactsService } from "../services/GroupServices/ExtractContactsService";
 import { GetExcelContactsFile } from "../services/GroupServices/GetExcelContactsFile";
 import { ImportContacts } from "../services/GroupServices/ImportContacts";
 import GetGroupDetailsService from "../services/GroupServices/GetGroupDetailsService";
+import SyncGroupsService from "../services/GroupServices/SyncGroupsService";
 
 export const index = async (req: Request, res: Response): Promise<Response> => {
   const { companyId } = req.user;
@@ -289,6 +291,25 @@ export const demoteParticipants = async (req: Request, res: Response): Promise<R
   });
 
   return res.status(200).json(group);
+};
+
+export const extractLocalContacts = async (req: Request, res: Response): Promise<Response> => {
+  const { companyId } = req.user;
+  const { groupId } = req.params;
+  const { participants } = req.body;
+
+  try {
+    const result = await ExtractLocalContactsService({
+      companyId,
+      groupId,
+      participants
+    });
+
+    return res.status(200).json(result);
+  } catch (err) {
+    logger.error(`Erro ao extrair contatos localmente: ${err}`);
+    throw new AppError(err.message);
+  }
 };
 
 export const updateGroupSubject = async (req: Request, res: Response): Promise<Response> => {
@@ -598,6 +619,30 @@ export const getGroupDetails = async (req: Request, res: Response): Promise<Resp
     return res.status(200).json(groupInfo);
   } catch (err) {
     logger.error(`[GroupController] Erro ao recuperar detalhes do grupo ${groupId}: ${err.message}`);
+    throw new AppError(err.message);
+  }
+};
+
+export const syncGroups = async (req: Request, res: Response): Promise<Response> => {
+  const { companyId } = req.user;
+
+  try {
+    // Inicia o processo de sincronização em background
+    SyncGroupsService(companyId)
+      .then(result => {
+        logger.info(`Sincronização de grupos concluída para empresa ${companyId}:`, result);
+      })
+      .catch(error => {
+        logger.error(`Erro na sincronização de grupos para empresa ${companyId}:`, error);
+      });
+
+    // Retorna imediatamente informando que o processo foi iniciado
+    return res.status(200).json({ 
+      message: "Sincronização de grupos iniciada com sucesso",
+      status: "started" 
+    });
+  } catch (err) {
+    logger.error(`Erro ao iniciar sincronização de grupos: ${err}`);
     throw new AppError(err.message);
   }
 };

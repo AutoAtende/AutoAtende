@@ -4,7 +4,6 @@ import {
   Paper,
   Typography,
   TextField,
-  Button,
   CircularProgress,
   Divider,
   Alert,
@@ -21,6 +20,8 @@ import {
 import { toast } from "../../../helpers/toast";
 import { i18n } from "../../../translate/i18n";
 import api from "../../../services/api";
+import BaseButton from "../../../components/shared/BaseButton";
+import BasePageContent from "../../../components/shared/BasePageContent";
 
 const ExtractContactsTab = () => {
   const [link, setLink] = useState("");
@@ -37,13 +38,10 @@ const ExtractContactsTab = () => {
 
     setLoading(true);
     try {
-      // Emita evento para iniciar a extração
       const { data } = await api.post(`/groups/${localStorage.getItem('companyId')}/extract-contacts`, {
         link
       });
       
-      // Escuta o evento de socket para receber atualizações
-      // Este código assume que você tem um socket configurado
       const companyId = localStorage.getItem('companyId');
       const socket = window.socket;
       
@@ -54,7 +52,6 @@ const ExtractContactsTab = () => {
             message: data.result.message
           });
           
-          // Solicitar o URL de download do arquivo
           fetchDownloadUrl();
         } else if (data.action === "error") {
           setResult({
@@ -100,86 +97,105 @@ const ExtractContactsTab = () => {
     setOpenSnackbar(true);
   };
 
+  const handleReset = () => {
+    setLink("");
+    setResult(null);
+    setDownloadUrl("");
+  };
+
   return (
-    <Paper variant="outlined" sx={{ p: 3 }}>
-      <Typography variant="h6" gutterBottom>
-        {i18n.t("groups.extractContacts")}
-      </Typography>
-      
-      <Typography variant="body2" color="textSecondary" paragraph>
-        {i18n.t("groups.extractContactsDescription")}
-      </Typography>
-      
-      <Box sx={{ display: 'flex', mb: 3 }}>
-        <TextField
-          fullWidth
-          label={i18n.t("groups.groupInviteLink")}
-          placeholder="https://chat.whatsapp.com/..."
-          value={link}
-          onChange={(e) => setLink(e.target.value)}
-          disabled={loading}
-          variant="outlined"
-        />
-        <Button
-          variant="contained"
-          color="primary"
-          startIcon={loading ? <CircularProgress size={20} /> : <ExtractIcon />}
-          onClick={handleExtractContacts}
-          disabled={loading || !link}
-          sx={{ ml: 1, minWidth: '180px' }}
-        >
-          {loading ? i18n.t("loading") : i18n.t("groups.extractContacts")}
-        </Button>
-      </Box>
-      
-      {result && (
-        <>
-          <Divider sx={{ my: 2 }} />
-          
-          <Alert 
-            severity={result.status === "success" ? "success" : "error"}
-            sx={{ mb: 2 }}
-          >
-            {result.message}
-          </Alert>
-          
-          {result.status === "success" && downloadUrl && (
-            <Box sx={{ display: 'flex', alignItems: 'center', mt: 2 }}>
-              <Button
-                variant="outlined"
-                color="primary"
-                startIcon={<DownloadIcon />}
-                href={downloadUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                {i18n.t("groups.downloadExcel")}
-              </Button>
-              
-              <Tooltip title={i18n.t("groups.copyDownloadLink")}>
-                <IconButton onClick={handleCopyLink} sx={{ ml: 1 }}>
-                  <CopyIcon />
-                </IconButton>
-              </Tooltip>
-            </Box>
-          )}
-        </>
-      )}
-      
-      <Box sx={{ mt: 3, display: 'flex', alignItems: 'center', bgcolor: 'info.light', p: 2, borderRadius: 1 }}>
-        <InfoIcon color="info" sx={{ mr: 1 }} />
-        <Typography variant="body2" color="textSecondary">
-          {i18n.t("groups.extractContactsInfo")}
+    <BasePageContent>
+      <Paper variant="outlined" sx={{ p: 3, m: 2 }}>
+        <Typography variant="h6" gutterBottom>
+          {i18n.t("groups.extractContacts")}
         </Typography>
-      </Box>
-      
-      <Snackbar
-        open={openSnackbar}
-        autoHideDuration={3000}
-        onClose={() => setOpenSnackbar(false)}
-        message={i18n.t("groups.linkCopied")}
-      />
-    </Paper>
+        
+        <Typography variant="body2" color="textSecondary" paragraph>
+          {i18n.t("groups.extractContactsDescription")}
+        </Typography>
+        
+        <Box sx={{ display: 'flex', mb: 3, gap: 1 }}>
+          <TextField
+            fullWidth
+            label={i18n.t("groups.groupInviteLink")}
+            placeholder="https://chat.whatsapp.com/..."
+            value={link}
+            onChange={(e) => setLink(e.target.value)}
+            disabled={loading}
+            variant="outlined"
+          />
+          <BaseButton
+            variant="contained"
+            color="primary"
+            startIcon={loading ? <CircularProgress size={20} /> : <ExtractIcon />}
+            onClick={handleExtractContacts}
+            disabled={loading || !link}
+            sx={{ minWidth: '180px' }}
+          >
+            {loading ? i18n.t("loading") : i18n.t("groups.extractContacts")}
+          </BaseButton>
+        </Box>
+        
+        {result && (
+          <>
+            <Divider sx={{ my: 2 }} />
+            
+            <Alert 
+              severity={result.status === "success" ? "success" : "error"}
+              sx={{ mb: 2 }}
+              action={
+                result.status === "success" && (
+                  <BaseButton
+                    variant="outlined"
+                    size="small"
+                    onClick={handleReset}
+                  >
+                    Nova Extração
+                  </BaseButton>
+                )
+              }
+            >
+              {result.message}
+            </Alert>
+            
+            {result.status === "success" && downloadUrl && (
+              <Box sx={{ display: 'flex', alignItems: 'center', mt: 2 }}>
+                <BaseButton
+                  variant="outlined"
+                  color="primary"
+                  startIcon={<DownloadIcon />}
+                  href={downloadUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  {i18n.t("groups.downloadExcel")}
+                </BaseButton>
+                
+                <Tooltip title={i18n.t("groups.copyDownloadLink")}>
+                  <IconButton onClick={handleCopyLink} sx={{ ml: 1 }}>
+                    <CopyIcon />
+                  </IconButton>
+                </Tooltip>
+              </Box>
+            )}
+          </>
+        )}
+        
+        <Box sx={{ mt: 3, display: 'flex', alignItems: 'center', bgcolor: 'info.light', p: 2, borderRadius: 1 }}>
+          <InfoIcon color="info" sx={{ mr: 1 }} />
+          <Typography variant="body2" color="textSecondary">
+            {i18n.t("groups.extractContactsInfo")}
+          </Typography>
+        </Box>
+        
+        <Snackbar
+          open={openSnackbar}
+          autoHideDuration={3000}
+          onClose={() => setOpenSnackbar(false)}
+          message={i18n.t("groups.linkCopied")}
+        />
+      </Paper>
+    </BasePageContent>
   );
 };
 
