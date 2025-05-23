@@ -819,7 +819,7 @@ const FlowBuilderList = () => {
               onClick={handleInactivityMonitor}
               size={isMobile ? "small" : "medium"}
             >
-              <HourglassEmptyIcon sx={{ color: theme.palette.primary.main }}/>
+              <InactivityIcon sx={{ color: theme.palette.primary.main }}/>
             </IconButton>
           </Tooltip>
         </MainHeaderButtonsWrapper>
