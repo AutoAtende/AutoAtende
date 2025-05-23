@@ -55,13 +55,13 @@ import {
   Analytics as AnalyticsIcon,
   Close as CloseIcon
 } from '@mui/icons-material';
-import api from '../../../services/api';
-import { toast } from '../../../helpers/toast';
-import { i18n } from '../../../translate/i18n';
-import MainContainer from '../../../components/MainContainer';
-import MainHeader from '../../../components/MainHeader';
-import MainHeaderButtonsWrapper from '../../../components/MainHeaderButtonsWrapper';
-import Title from '../../../components/Title';
+import api from '../../services/api';
+import { toast } from '../../helpers/toast';
+import { i18n } from '../../translate/i18n';
+import MainContainer from '../../components/MainContainer';
+import MainHeader from '../../components/MainHeader';
+import MainHeaderButtonsWrapper from '../../components/MainHeaderButtonsWrapper';
+import Title from '../../components/Title';
 
 const InactivityMonitorDashboard = () => {
   const theme = useTheme();
