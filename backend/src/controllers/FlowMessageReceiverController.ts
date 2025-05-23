@@ -79,6 +79,14 @@ export const handleFlowMessage = async (messageData: MessageWebhook): Promise<vo
     
     logger.info(`Processando resposta para execução ${execution.id}, contato ${contact.id}`);
     
+    // Atualizar timestamp de última interação na execução
+    await execution.update({
+      lastInteractionAt: new Date(),
+      inactivityStatus: 'active',
+      inactivityWarningsSent: 0,
+      lastWarningAt: null
+    });
+    
     // Buscar a mensagem completa para verificar se contém mídia
     const message = await Message.findOne({
       where: { id: messageId }

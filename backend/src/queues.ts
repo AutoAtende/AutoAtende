@@ -25,6 +25,8 @@ import MarkDeleteWhatsAppMessage from "./services/WbotServices/MarkDeleteWhatsAp
 import CampaignJob from "./workers/campaignJob";
 import ScheduledMessageJob from "./workers/scheduledMessageJob";
 import ScheduleMessageHandler from "./workers/handler/ScheduleMessageHandler";
+import InactivityMonitorService from "./services/FlowBuilderService/InactivityMonitorService";
+import CleanupInactiveFlowsService from "./services/FlowBuilderService/CleanupInactiveFlowsService";
 
 
 let connection: IORedis;
@@ -414,6 +416,38 @@ async function handleMessageJob(job) {
   }
 }
 
+async function handleInactivityMonitoring(job) {
+  logger.info("Iniciando monitoramento de inatividade de fluxos");
+  try {
+    // Executar monitoramento de inatividade
+    await InactivityMonitorService.checkInactiveExecutions();
+    logger.info("Monitoramento de inatividade concluído com sucesso");
+  } catch (error) {
+    logger.error("Erro no monitoramento de inatividade:", error);
+    throw error;
+  }
+}
+
+async function handleInactivityCleanup(job) {
+  logger.info("Iniciando limpeza de fluxos inativos");
+  try {
+    // Parâmetros padrão para limpeza
+    const maxInactiveTimeMinutes = 60; // 1 hora
+    const batchSize = 100;
+    
+    // Executar limpeza de fluxos inativos
+    const stats = await CleanupInactiveFlowsService.cleanupInactiveFlows(
+      maxInactiveTimeMinutes,
+      batchSize
+    );
+    
+    logger.info(`Limpeza de fluxos inativos concluída: ${JSON.stringify(stats)}`);
+  } catch (error) {
+    logger.error("Erro na limpeza de fluxos inativos:", error);
+    throw error;
+  }
+}
+
 async function messageUpdateJob(job) {
   const { data } = job;
   const companyId = data.companyId;
@@ -691,6 +725,10 @@ export async function startQueueProcess() {
               return handleCloseTicketsAutomatic();
             case "InvoiceCreate":
               return handleInvoiceAndCompanyStatus();
+            case "InactivityMonitoring":
+  return handleInactivityMonitoring(job);
+case "InactivityCleanup":
+  return handleInactivityCleanup(job);
             default:
               logger.warn(`[StartQueueProcess] Tipo de job desconhecido: ${job.name}`);
           }
@@ -841,6 +879,18 @@ export async function startQueueProcess() {
         name: "VerifyQueueStatus",
         every: 60 * 1000 * 2,
         timeout: 30000
+      },
+      {
+        queue: generalMonitor,
+        name: "InactivityMonitoring",
+        every: 60 * 1000, // A cada 1 minuto
+        timeout: 30000
+      },
+      {
+        queue: generalMonitor,
+        name: "InactivityCleanup", 
+        every: 30 * 60 * 1000, // A cada 30 minutos
+        timeout: 120000
       }
     ];
 

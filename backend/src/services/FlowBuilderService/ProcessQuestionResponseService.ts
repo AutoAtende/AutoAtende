@@ -39,6 +39,14 @@ const ProcessQuestionResponseService = async ({
       throw new AppError("Execução de fluxo não encontrada ou não está ativa");
     }
 
+    // Atualizar timestamp de interação quando há resposta do usuário
+    await execution.update({
+      lastInteractionAt: new Date(),
+      inactivityStatus: 'active',
+      inactivityWarningsSent: 0,
+      lastWarningAt: null
+    });
+
     // Verificar se está aguardando uma resposta
     if (!execution.variables.__awaitingResponse) {
       logger.warn(`Execução ${executionId} não está aguardando resposta`);

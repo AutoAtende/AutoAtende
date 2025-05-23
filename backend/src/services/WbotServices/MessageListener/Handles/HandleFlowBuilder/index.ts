@@ -144,6 +144,14 @@ export const handleFlowBuilder = async (
     if (execution) {
       logger.info(`[FLOWBUILDER] Execução ativa encontrada: ${execution.id}`);
       
+      // IMPORTANTE: Atualizar timestamp de interação sempre que há uma mensagem do usuário
+      await execution.update({
+        lastInteractionAt: new Date(),
+        inactivityStatus: 'active',
+        inactivityWarningsSent: 0,
+        lastWarningAt: null
+      });
+      
       // IMPORTANTE: Verificar timeout - se passou muito tempo desde a última pergunta
       if (execution.variables && execution.variables.__awaitingResponse) {
         const lastQuestionTime = execution.variables.__lastQuestionTimestamp;

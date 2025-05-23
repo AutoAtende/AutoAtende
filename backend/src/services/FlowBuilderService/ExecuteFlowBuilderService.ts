@@ -53,7 +53,9 @@ const updateInteractionTimestamp = async (execution: FlowBuilderExecution): Prom
   try {
     await execution.update({
       lastInteractionAt: new Date(),
-      inactivityStatus: 'active'
+      inactivityStatus: 'active',
+      inactivityWarningsSent: 0,
+      lastWarningAt: null
     });
     
     logger.info(`[FLOWBUILDER] Timestamp de interação atualizado para execução ${execution.id}`);
@@ -186,10 +188,6 @@ const ExecuteFlowBuilderService = async ({
     // Atualiza a execução existente
     await execution.update({
       currentNodeId,
-      lastInteractionAt: new Date(),
-      inactivityStatus: 'active',
-      inactivityWarningsSent: 0,
-      lastWarningAt: null,
       variables: {
         ...execution.variables,
         ...initialVariables,
@@ -198,6 +196,9 @@ const ExecuteFlowBuilderService = async ({
         contactNumber: ticket.contact.number
       }
     });
+    
+    // Atualizar o timestamp de interação
+    await updateInteractionTimestamp(execution);
   } else {
     // Cria uma nova execução
     execution = await FlowBuilderExecution.create({
@@ -346,9 +347,9 @@ const ExecuteFlowBuilderService = async ({
           }
           break;
 
-          case "inactivityNode":
-            await executeInactivityNode(currentNode.data, execution, ticket, ticket.contact, whatsappIdToUse);
-            break;
+        case "inactivityNode":
+          await executeInactivityNode(currentNode.data, execution, ticket, ticket.contact, whatsappIdToUse);
+          break;
 
         case "endNode":
           // Nó de fim - encerra o fluxo
@@ -677,10 +678,13 @@ const ExecuteFlowBuilderService = async ({
         break;
       }
 
-      // Atualiza o nó atual na execução
+      // Atualizar o nó atual na execução
       await execution.update({
         currentNodeId: nextNodeId
       });
+      
+      // Atualizar o timestamp de interação
+      await updateInteractionTimestamp(execution);
 
       // Define o próximo nó para o loop
       currentNode = nodes.find(node => node.id === nextNodeId);
@@ -888,7 +892,7 @@ const findNextNodeByCondition = (
         }
       }
 
-      // VERIFICAÇÃO #3: Se ainda está aguardando resposta
+// VERIFICAÇÃO #3: Se ainda está aguardando resposta
       // Não avançar para o próximo nó, pois ainda está aguardando input do usuário
       if (variables.__awaitingResponse) {
         logger.info(`[FLOWBUILDER] Ainda aguardando resposta para variável: ${variables.__awaitingResponseFor}`);
@@ -1011,7 +1015,7 @@ const findNextNodeByCondition = (
     // FIM DA NOVA IMPLEMENTAÇÃO
 
     case "inactivityNode":
-  // O nó de inatividade apenas aplica configurações, não altera o fluxo
+      // O nó de inatividade apenas aplica configurações, não altera o fluxo
       // Encontrar a primeira aresta de saída
       const inactivityNextEdge = edges.find(
         edge => edge.source === currentNode.id

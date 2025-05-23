@@ -71,7 +71,7 @@ class ReengagementService {
     // Estratégia para nó de fluxo travado
     {
       priority: 3,
-      condition: (execution) => execution.currentNodeId,
+      condition: (execution) => Boolean(execution.currentNodeId),
       execute: async (execution, ticket) => {
         try {
           // Tentar resetar variáveis de estado travadas
@@ -217,25 +217,25 @@ class ReengagementService {
     }
   }
   
-  /**
+/**
    * Envia uma mensagem para o usuário
    */
-  private static async sendMessage(ticket: Ticket, message: string): Promise<void> {
-    try {
-      const wbot = await getWbot(ticket.whatsappId);
-      const sentMessage = await wbot.sendMessage(
-        `${ticket.contact.number}@${ticket.isGroup ? "g.us" : "s.whatsapp.net"}`,
-        { text: formatBody(message, ticket) }
-      );
-      
-      // Registrar a mensagem no sistema
-      await verifyMessage(sentMessage, ticket, ticket.contact);
-      
-    } catch (error) {
-      logger.error(`[Reengagement] Erro ao enviar mensagem: ${error.message}`);
-      throw error;
-    }
+private static async sendMessage(ticket: Ticket, message: string): Promise<void> {
+  try {
+    const wbot = await getWbot(ticket.whatsappId);
+    const sentMessage = await wbot.sendMessage(
+      `${ticket.contact.number}@${ticket.isGroup ? "g.us" : "s.whatsapp.net"}`,
+      { text: formatBody(message, ticket) }
+    );
+    
+    // Registrar a mensagem no sistema
+    await verifyMessage(sentMessage, ticket, ticket.contact);
+    
+  } catch (error) {
+    logger.error(`[Reengagement] Erro ao enviar mensagem: ${error.message}`);
+    throw error;
   }
+}
 }
 
 export default ReengagementService;

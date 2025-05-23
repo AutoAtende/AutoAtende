@@ -1,4 +1,3 @@
-// services/FlowBuilderService/InactivityMonitorService.ts
 import { Op } from "sequelize";
 import { getIO } from "../../libs/socket";
 import { logger } from "../../utils/logger";
@@ -87,6 +86,15 @@ class InactivityMonitorService {
       maxInactivityWarnings: execution.flow?.maxInactivityWarnings || 2,
       warningInterval: execution.flow?.warningInterval || 60
     };
+    
+    // Verificar se há configuração específica no nível de execução (definida por nó de inatividade)
+    if (execution.variables && execution.variables.__inactivityConfig) {
+      // Sobrescrever config do fluxo com config específica do nó
+      const nodeConfig = execution.variables.__inactivityConfig;
+      for (const key in nodeConfig) {
+        flowConfig[key] = nodeConfig[key];
+      }
+    }
     
     // Determinar o tipo de timeout apropriado para o nó atual
     const timeoutSeconds = this.determineTimeout(execution, flowConfig);

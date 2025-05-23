@@ -14,7 +14,11 @@ import { logger } from "./utils/logger";
 import { StartAllWhatsAppsSessions } from "./services/WbotServices/StartAllWhatsAppsSessions";
 import Company from "./models/Company";
 import { payGatewayInitialize, checkOpenInvoices } from "./services/PaymentGatewayServices/PaymentGatewayServices";
-
+import {
+  initInactivityWorker,
+  scheduleInactivityJobs,
+  cleanupInactivityResources
+} from "./job/InactivityMonitoringJob";
 
 // Variável para armazenar o servidor
 let server;
@@ -41,6 +45,25 @@ const initialize = async () => {
     logger.info("Inicializando processamento de filas...");
     await startQueueProcess();
     logger.info("Processamento de filas iniciado com sucesso");
+
+    // 4.1. Inicializar sistema de monitoramento de inatividade
+    logger.info("Inicializando sistema de monitoramento de inatividade...");
+    try {
+      // Inicializar worker de inatividade
+      await initInactivityWorker();
+
+      // Agendar jobs de monitoramento e limpeza
+      await scheduleInactivityJobs(
+        60,  // Monitoramento a cada 60 segundos
+        30,  // Limpeza a cada 30 minutos
+        60   // Considerar inativo após 60 minutos
+      );
+
+      logger.info("Sistema de monitoramento de inatividade inicializado com sucesso");
+    } catch (error) {
+      logger.error("Erro ao inicializar sistema de monitoramento de inatividade:", error);
+      logger.warn("Continuando sem o sistema de monitoramento de inatividade");
+    }
 
     // 5. Só agora importamos o app, após as filas estarem inicializadas
     logger.info("Carregando aplicação...");
@@ -74,9 +97,9 @@ const initialize = async () => {
     const companies = await Company.findAll({
       where: { status: true }
     });
-    
+
     logger.info(`Inicializando sessões WhatsApp para ${companies.length} empresas`);
-    
+
     const allPromises = companies.map(company => {
       return StartAllWhatsAppsSessions(company.id)
         .catch(error => {
@@ -84,7 +107,7 @@ const initialize = async () => {
           return null;
         });
     });
-    
+
     await Promise.all(allPromises);
     logger.info("Todas as sessões WhatsApp foram iniciadas");
 
@@ -95,6 +118,9 @@ const initialize = async () => {
       onShutdown: async () => {
         logger.info("Iniciando desligamento...");
         await shutdownQueues();
+        logger.info("Finalizando sistema de monitoramento de inatividade...");
+        await cleanupInactivityResources();
+
       },
       finally: () => {
         logger.info("Desligamento concluído.");
