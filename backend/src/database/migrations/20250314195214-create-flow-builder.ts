@@ -40,13 +40,6 @@ module.exports = {
           onDelete: 'CASCADE',
           allowNull: false
         },
-        whatsappId: {
-          type: Sequelize.INTEGER,
-          references: { model: 'Whatsapps', key: 'id' },
-          onUpdate: 'CASCADE',
-          onDelete: 'SET NULL',
-          allowNull: false
-        },
         createdAt: {
           allowNull: false,
           type: Sequelize.DATE
@@ -65,7 +58,6 @@ module.exports = {
         { name: 'edges', type: Sequelize.JSONB, defaultValue: [] },
         { name: 'active', type: Sequelize.BOOLEAN, defaultValue: false },
         { name: 'companyId', type: Sequelize.INTEGER, references: { model: 'Companies', key: 'id' }, allowNull: false },
-        { name: 'whatsappId', type: Sequelize.INTEGER, references: { model: 'Whatsapps', key: 'id' }, allowNull: false },
         { name: 'createdAt', type: Sequelize.DATE, allowNull: false },
         { name: 'updatedAt', type: Sequelize.DATE, allowNull: false }
       ];
@@ -82,7 +74,6 @@ module.exports = {
 
     // Adicionar índices para melhorar a performance
     await queryInterface.addIndex('FlowBuilders', ['companyId']);
-    await queryInterface.addIndex('FlowBuilders', ['whatsappId']);
     await queryInterface.addIndex('FlowBuilders', ['active']);
   },
 
