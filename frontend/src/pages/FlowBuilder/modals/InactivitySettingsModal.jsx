@@ -45,7 +45,7 @@ import {
   Refresh as RefreshIcon
 } from '@mui/icons-material';
 import { alpha, useTheme } from '@mui/material/styles';
-import { AuthContext } from '../../../contexts/Auth/AuthContext';
+import { AuthContext } from '../../../context/Auth/AuthContext';
 import api from '../../../services/api';
 import { toast } from '../../../helpers/toast';
 import { i18n } from '../../../translate/i18n';

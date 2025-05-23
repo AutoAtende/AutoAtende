@@ -103,7 +103,7 @@ import QueueNode from './components/nodes/QueueNode';
 import DatabaseNode from './components/nodes/DatabaseNode';
 import InactivityNode from './components/nodes/InactivityNode';
 import CustomEdge from './components/CustomEdge';
-import NodeDrawer from './components/NodeDrawer';
+import NodeDrawer from './components/drawers/NodeDrawer';
 import FlowPreviewModal from './components/FlowPreviewModal';
 import NodeHelpModal from './components/NodeHelpModal';
 import DownloadButton from './components/DownloadButton';
