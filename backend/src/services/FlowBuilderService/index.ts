@@ -10,9 +10,11 @@ import ExecuteSwitchFlowNodeService from "./ExecuteSwitchFlowNodeService";
 import ExecuteConditionalNodeService from "./ExecuteConditionalNodeService";
 import ExecuteTagNodeService from "./ExecuteTagNodeService";
 import ExecuteMenuNodeService from "./ExecuteMenuNodeService";
+import ExecuteInactivityNodeService from "./ExecuteInactivityNodeService";
 import ExecuteOpenAINodeService from "./ExecuteOpenAINodeService";
 import ProcessQuestionResponseService from "./ProcessQuestionResponseService";
 import ExecuteQueueNodeService from "./ExecuteQueueNodeService";
+import ExecuteDatabaseOperationService from "./ExecuteDatabaseOperationService";
 import ProcessQuestionResponseMediaService from "./ProcessQuestionResponseMediaService";
 import ProcessMenuResponseService from "./ProcessMenuResponseService";
 import ActivateFlowBuilderService from "./ActivateFlowBuilderService";
@@ -73,8 +75,10 @@ export {
   ExecuteQueueNodeService,
   ExecuteMenuNodeService,
   ExecuteOpenAINodeService,
+  ExecuteInactivityNodeService,
   ProcessQuestionResponseService,
   ProcessQuestionResponseMediaService,
+  ExecuteDatabaseOperationService,
   ProcessMenuResponseService,
   ActivateFlowBuilderService,
   CreateFlowBuilderService,

@@ -1,4 +1,3 @@
-// controllers/InactivityStatsController.ts
 import { Request, Response } from "express";
 import { getIO } from "../libs/socket";
 import AppError from "../errors/AppError";

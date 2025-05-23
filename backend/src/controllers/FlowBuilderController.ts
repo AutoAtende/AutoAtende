@@ -6,9 +6,28 @@ import AppError from "../errors/AppError";
 import FlowBuilder from "../models/FlowBuilder";
 import InternalMessageNode from "../models/InternalMessageNode";
 import GetDefaultWhatsApp from "../helpers/GetDefaultWhatsApp";
+import GetDatabaseNodeService from "../services/FlowBuilderService/GetDatabaseNodeService";
+import SaveDatabaseNodeService from "../services/FlowBuilderService/SaveDatabaseNodeService";
+import TestDatabaseConnectionService from "../services/FlowBuilderService/TestDatabaseConnectionService";
+import ExecuteDatabaseOperationService from "../services/FlowBuilderService/ExecuteDatabaseOperationService";
+import GetInactivityNodeService from "../services/FlowBuilderService/GetInactivityNodeService";
+import SaveInactivityNodeService from "../services/FlowBuilderService/SaveInactivityNodeService";
 import { Op } from "sequelize";
 import fs from "fs";
 import path from "path";
+
+interface InactivityNodeData {
+  nodeId: string;
+  flowId: number;
+  label?: string;
+  timeout: number;
+  action: string;
+  warningMessage?: string;
+  endMessage?: string;
+  transferQueueId?: number;
+  maxWarnings?: number;
+  warningInterval?: number;
+}
 
 // Controller para nós de menu
 export const getMenuNodeData = async (req: Request, res: Response): Promise<Response> => {
@@ -614,6 +633,8 @@ export const getAttendantNodeData = async (req: Request, res: Response): Promise
   }
 };
 
+
+
 export const saveAttendantNodeData = async (req: Request, res: Response): Promise<Response> => {
   const { nodeId } = req.params;
   const { companyId } = req.user;
@@ -933,6 +954,155 @@ export const routeTestWebhookRequest = async (req: Request, res: Response): Prom
       data: null,
       headers: null
     });
+  }
+};
+
+export const getDatabaseNodeData = async (req: Request, res: Response): Promise<Response> => {
+  const { nodeId } = req.params;
+  const { companyId } = req.user;
+  
+  try {
+    const databaseNode = await GetDatabaseNodeService({
+      nodeId,
+      companyId
+    });
+    
+    return res.status(200).json(databaseNode);
+  } catch (error) {
+    if (error instanceof AppError) {
+      return res.status(error.statusCode).json({ error: error.message });
+    }
+    
+    logger.error(`Erro ao buscar dados do nó de banco de dados: ${error.message}`);
+    return res.status(500).json({ error: error.message });
+  }
+};
+
+export const saveDatabaseNodeData = async (req: Request, res: Response): Promise<Response> => {
+  const { nodeId } = req.params;
+  const { companyId } = req.user;
+  const nodeData = req.body;
+  
+  try {
+    const databaseNode = await SaveDatabaseNodeService({
+      ...nodeData,
+      nodeId,
+      companyId
+    });
+    
+    return res.status(200).json(databaseNode);
+  } catch (error) {
+    if (error instanceof AppError) {
+      return res.status(error.statusCode).json({ error: error.message });
+    }
+    
+    logger.error(`Erro ao salvar dados do nó de banco de dados: ${error.message}`);
+    return res.status(500).json({ error: error.message });
+  }
+};
+
+export const testDatabaseConnection = async (req: Request, res: Response): Promise<Response> => {
+  const { companyId } = req.user;
+  const testData = req.body;
+  
+  try {
+    const result = await TestDatabaseConnectionService({
+      ...testData,
+      companyId
+    });
+    
+    return res.status(200).json(result);
+  } catch (error) {
+    if (error instanceof AppError) {
+      return res.status(error.statusCode).json({ 
+        success: false, 
+        message: error.message,
+        status: error.statusCode || 500
+      });
+    }
+    
+    logger.error(`Erro ao testar conexão com banco de dados: ${error.message}`);
+    return res.status(500).json({ 
+      success: false, 
+      message: error.message,
+      status: 500
+    });
+  }
+};
+
+export const executeDatabaseOperation = async (req: Request, res: Response): Promise<Response> => {
+  const { nodeId } = req.params;
+  const { companyId } = req.user;
+  const { executionId, variables } = req.body;
+  
+  try {
+    const result = await ExecuteDatabaseOperationService({
+      nodeId,
+      companyId,
+      executionId,
+      variables
+    });
+    
+    return res.status(200).json(result);
+  } catch (error) {
+    if (error instanceof AppError) {
+      return res.status(error.statusCode).json({ 
+        success: false, 
+        error: error.message,
+        status: error.statusCode || 500
+      });
+    }
+    
+    logger.error(`Erro ao executar operação no banco de dados: ${error.message}`);
+    return res.status(500).json({ 
+      success: false, 
+      error: error.message,
+      status: 500 
+    });
+  }
+};
+
+export const getInactivityNodeData = async (req: Request, res: Response): Promise<Response> => {
+  const { nodeId } = req.params;
+  const { companyId } = req.user;
+  
+  try {
+    const inactivityNode = await FlowBuilderService.GetInactivityNodeService({
+      nodeId,
+      companyId
+    });
+    
+    return res.status(200).json(inactivityNode);
+  } catch (error) {
+    if (error instanceof AppError) {
+      return res.status(error.statusCode).json({ error: error.message });
+    }
+    
+    logger.error(`Erro ao buscar dados do nó de inatividade: ${error.message}`);
+    return res.status(500).json({ error: error.message });
+  }
+};
+
+export const saveInactivityNodeData = async (req: Request, res: Response): Promise<Response> => {
+  const { nodeId } = req.params;
+  const { companyId } = req.user;
+  const inactivityData = req.body;
+  
+  try {
+    const inactivityNode = await FlowBuilderService.SaveInactivityNodeService({
+      ...inactivityData,
+      nodeId,
+      companyId
+    });
+    
+    return res.status(200).json(inactivityNode);
+  } catch (error) {
+    if (error instanceof AppError) {
+      return res.status(error.statusCode).json({ error: error.message });
+    }
+    
+    logger.error(`Erro ao salvar dados do nó de inatividade: ${error.message}`);
+    return res.status(500).json({ error: error.message });
   }
 };
 

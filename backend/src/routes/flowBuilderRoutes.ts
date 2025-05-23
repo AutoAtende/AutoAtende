@@ -1,10 +1,7 @@
 import express from "express";
 import isAuth from "../middleware/isAuth";
-import * as DatabaseController from "../controllers/DatabaseController";
 import * as FlowBuilderController from "../controllers/FlowBuilderController";
 import * as FlowMessageReceiverController from "../controllers/FlowMessageReceiverController";
-import * as InactivityNodeController from "../controllers/InactivityNodeController";
-
 import multer from 'multer';
 import uploadConfig from '../config/upload';
 
@@ -29,13 +26,13 @@ flowBuilderRoutes.post(
 flowBuilderRoutes.get(
   "/flow-builder/inactivity-node/:nodeId",
   isAuth,
-  InactivityNodeController.show
+  FlowBuilderController.getInactivityNodeData
 );
 
 flowBuilderRoutes.post(
   "/flow-builder/inactivity-node",
   isAuth,
-  InactivityNodeController.store
+  FlowBuilderController.saveInactivityNodeData
 );
 
 flowBuilderRoutes.get("/flow-builder/media/check", isAuth, FlowBuilderController.checkMedia);
@@ -96,10 +93,10 @@ flowBuilderRoutes.get("/flow-builder/nodes/attendant/:nodeId", isAuth, FlowBuild
 flowBuilderRoutes.post("/flow-builder/nodes/attendant/:nodeId", isAuth, FlowBuilderController.saveAttendantNodeData);
 
 // Rotas para DatabaseNode
-flowBuilderRoutes.get("/flow-builder/nodes/database/:nodeId", isAuth, DatabaseController.getDatabaseNodeData);
-flowBuilderRoutes.post("/flow-builder/nodes/database/:nodeId", isAuth, DatabaseController.saveDatabaseNodeData);
-flowBuilderRoutes.post("/flow-builder/nodes/database/test", isAuth, DatabaseController.testDatabaseConnection);
-flowBuilderRoutes.post("/flow-builder/nodes/database/execute/:nodeId", isAuth, DatabaseController.executeDatabaseOperation);
+flowBuilderRoutes.get("/flow-builder/nodes/database/:nodeId", isAuth, FlowBuilderController.getDatabaseNodeData);
+flowBuilderRoutes.post("/flow-builder/nodes/database/:nodeId", isAuth, FlowBuilderController.saveDatabaseNodeData);
+flowBuilderRoutes.post("/flow-builder/nodes/database/test", isAuth, FlowBuilderController.testDatabaseConnection);
+flowBuilderRoutes.post("/flow-builder/nodes/database/execute/:nodeId", isAuth, FlowBuilderController.executeDatabaseOperation);
 
 // Rotas para ScheduleNode
 flowBuilderRoutes.get("/flow-builder/nodes/schedule/:nodeId", isAuth, FlowBuilderController.getScheduleNodeData);

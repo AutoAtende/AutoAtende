@@ -29,7 +29,7 @@ import ExecuteMenuNodeService from "./ExecuteMenuNodeService";
 import ExecuteOpenAINodeService from "./ExecuteOpenAINodeService";
 import ExecuteTagNodeService from "./ExecuteTagNodeService";
 import ExecuteQueueNodeService from "./ExecuteQueueNodeService";
-// Importando os novos serviços
+import ExecuteInactivityNodeService from "./ExecuteInactivityNodeService";
 import ExecuteDatabaseNodeService from "./ExecuteDatabaseNodeService";
 import ExecuteScheduleNodeService from "./ExecuteScheduleNodeService";
 import ExecuteAppointmentNodeService from "./ExecuteAppointmentNodeService";
@@ -57,7 +57,7 @@ const updateInteractionTimestamp = async (execution: FlowBuilderExecution): Prom
       inactivityWarningsSent: 0,
       lastWarningAt: null
     });
-    
+
     logger.info(`[FLOWBUILDER] Timestamp de interação atualizado para execução ${execution.id}`);
   } catch (error) {
     logger.error(`[FLOWBUILDER] Erro ao atualizar timestamp de interação: ${error.message}`);
@@ -200,7 +200,7 @@ const ExecuteFlowBuilderService = async ({
       inactivityWarningsSent: 0, // Resetar contador de avisos
       lastWarningAt: null // Limpar último aviso
     });
-    
+
     // Atualizar o timestamp de interação
     await updateInteractionTimestamp(execution);
   } else {
@@ -357,8 +357,62 @@ const ExecuteFlowBuilderService = async ({
           }
           break;
 
+
+
         case "inactivityNode":
-          await executeInactivityNode(currentNode.data, execution, ticket, ticket.contact, whatsappIdToUse);
+          // Executar nó de inatividade usando o serviço dedicado
+          const inactivityResult = await ExecuteInactivityNodeService({
+            nodeData: currentNode.data,
+            execution,
+            ticket,
+            contact: ticket.contact,
+            whatsappId: whatsappIdToUse
+          });
+
+          // Verificar qual saída usar com base no resultado
+          const inactivityEdge = edges.find(edge =>
+            edge.source === currentNode.id && edge.sourceHandle === inactivityResult.path
+          );
+
+          if (inactivityEdge) {
+            // Atualizar o nó atual na execução
+            await execution.update({
+              currentNodeId: inactivityEdge.target,
+              variables: {
+                ...execution.variables,
+                __lastInactivityAction: inactivityResult.action,
+                __lastInactivitySuccess: inactivityResult.success,
+                __lastInactivityError: inactivityResult.errorMessage || null
+              }
+            });
+
+            // Atualizar timestamp de interação
+            await updateInteractionTimestamp(execution);
+
+            // Definir o próximo nó para o loop
+            currentNode = nodes.find(node => node.id === inactivityEdge.target);
+            continue; // Continuar o loop com o próximo nó
+          } else {
+            // Se não encontrar a aresta específica, usar aresta default
+            const defaultInactivityEdge = edges.find(edge =>
+              edge.source === currentNode.id && edge.sourceHandle === "default"
+            );
+
+            if (defaultInactivityEdge) {
+              await execution.update({
+                currentNodeId: defaultInactivityEdge.target,
+                variables: {
+                  ...execution.variables,
+                  __lastInactivityAction: inactivityResult.action,
+                  __lastInactivitySuccess: inactivityResult.success
+                }
+              });
+
+              await updateInteractionTimestamp(execution);
+              currentNode = nodes.find(node => node.id === defaultInactivityEdge.target);
+              continue;
+            }
+          }
           break;
 
         case "endNode":
@@ -489,7 +543,7 @@ const ExecuteFlowBuilderService = async ({
             ticket,
             contact: ticket.contact,
             companyId,
-            
+
             executionId: execution.id
           });
 
@@ -702,7 +756,7 @@ const ExecuteFlowBuilderService = async ({
       await execution.update({
         currentNodeId: nextNodeId
       });
-      
+
       // Atualizar o timestamp de interação
       await updateInteractionTimestamp(execution);
 
@@ -733,10 +787,10 @@ const executeInactivityNode = async (
   ticket: Ticket,
   contact: Contact,
   whatsappId: number
-): Promise<void> => {
+): Promise<{ path: string; action: string }> => {
   try {
     logger.info(`[FLOWBUILDER] Executando nó de inatividade para execução ${execution.id}`);
-    
+
     // Buscar configuração específica do nó no banco de dados
     let inactivityConfig = nodeData;
     if (nodeData.nodeId) {
@@ -746,7 +800,7 @@ const executeInactivityNode = async (
           companyId: execution.companyId
         }
       });
-      
+
       if (inactivityNode) {
         inactivityConfig = {
           ...nodeData,
@@ -760,7 +814,14 @@ const executeInactivityNode = async (
         };
       }
     }
-    
+
+    // Determinar se a configuração foi aplicada com sucesso
+    const configurationApplied = !!(
+      inactivityConfig.timeout ||
+      inactivityConfig.action ||
+      inactivityConfig.warningMessage
+    );
+
     // Atualizar a configuração de inatividade no nível da execução
     const updatedVariables = {
       ...execution.variables,
@@ -774,15 +835,28 @@ const executeInactivityNode = async (
         warningInterval: inactivityConfig.warningInterval || 60
       }
     };
-    
+
     await execution.update({
       variables: updatedVariables,
       lastInteractionAt: new Date() // Atualizar timestamp para começar a monitorar a partir deste momento
     });
-    
+
     logger.info(`[FLOWBUILDER] Configuração de inatividade aplicada com sucesso à execução ${execution.id}`);
+
+    // Retornar qual caminho seguir
+    return {
+      path: configurationApplied ? "action-executed" : "default",
+      action: configurationApplied ? "applied" : "default"
+    };
+
   } catch (error) {
     logger.error(`[FLOWBUILDER] Erro ao executar nó de inatividade: ${error.message}`);
+
+    // Em caso de erro, seguir pelo caminho de timeout
+    return {
+      path: "timeout",
+      action: "timeout"
+    };
   }
 }
 
@@ -848,12 +922,12 @@ const findNextNodeByCondition = (
       // Log detalhado para depuração
       logger.info(`[FLOWBUILDER] Processando saída para nó de pergunta ID: ${currentNode.id}, tipo: ${currentNode.data.inputType}, variável: ${currentNode.data.variableName}`);
       logger.info(`[FLOWBUILDER] Estado atual: awaitingResponse=${variables.__awaitingResponse ? 'sim' : 'não'}, temValidação=${variables.__lastValidationError ? 'sim' : 'não'}`);
-      
+
       // VERIFICAÇÃO #1: Se a resposta foi validada (não está mais aguardando)
       // Essa é a principal condição para seguir o fluxo normal
       if (!variables.__awaitingResponse && variables[currentNode.data.variableName] !== undefined) {
         logger.info(`[FLOWBUILDER] Resposta validada para variável ${currentNode.data.variableName}, valor: ${typeof variables[currentNode.data.variableName] === 'object' ? 'objeto complexo' : variables[currentNode.data.variableName]}`);
-        
+
         // VERIFICAÇÃO ESPECIAL para respostas com opções (perguntas de múltipla escolha)
         if (currentNode.data.options && currentNode.data.options.length > 0 && variables.__lastQuestionResponse) {
           // Tentar encontrar a opção selecionada
@@ -891,12 +965,12 @@ const findNextNodeByCondition = (
           logger.warn(`[FLOWBUILDER] Nenhum caminho default encontrado para nó ${currentNode.id} após validação bem-sucedida`);
         }
       }
-      
+
       // VERIFICAÇÃO #2: Se houve erro de validação
       // Verifica se existe um caminho específico para erros de validação
       if (variables.__lastValidationError) {
         logger.info(`[FLOWBUILDER] Erro de validação detectado: ${JSON.stringify(variables.__lastValidationError)}`);
-        
+
         // Verificar se o nó tem saída específica para erro de validação
         const validationErrorEdge = edges.find(
           edge =>
@@ -912,7 +986,7 @@ const findNextNodeByCondition = (
         }
       }
 
-// VERIFICAÇÃO #3: Se ainda está aguardando resposta
+      // VERIFICAÇÃO #3: Se ainda está aguardando resposta
       // Não avançar para o próximo nó, pois ainda está aguardando input do usuário
       if (variables.__awaitingResponse) {
         logger.info(`[FLOWBUILDER] Ainda aguardando resposta para variável: ${variables.__awaitingResponseFor}`);
@@ -931,7 +1005,7 @@ const findNextNodeByCondition = (
         logger.info(`[FLOWBUILDER] Usando caminho default como fallback: ${defaultQuestionEdge.target}`);
         return defaultQuestionEdge.target;
       }
-      
+
       logger.warn(`[FLOWBUILDER] Nenhum caminho encontrado para o nó ${currentNode.id}`);
       return null;
 
@@ -1035,13 +1109,41 @@ const findNextNodeByCondition = (
     // FIM DA NOVA IMPLEMENTAÇÃO
 
     case "inactivityNode":
-      // O nó de inatividade apenas aplica configurações, não altera o fluxo
-      // Encontrar a primeira aresta de saída
-      const inactivityNextEdge = edges.find(
-        edge => edge.source === currentNode.id
+      // Verificar se há uma ação específica aplicada
+      if (variables.__lastInactivityAction) {
+        const action = variables.__lastInactivityAction;
+        const success = variables.__lastInactivitySuccess;
+
+        // Mapear resultado para handle de saída
+        let handleId = "default";
+
+        if (!success || action === "execution_error" || action === "config_error") {
+          handleId = "timeout";
+        } else if (action === "config_applied") {
+          handleId = "action-executed";
+        } else if (action === "default_config") {
+          handleId = "default";
+        }
+
+        const inactivityEdge = edges.find(
+          edge =>
+            edge.source === currentNode.id &&
+            edge.sourceHandle === handleId
+        );
+
+        if (inactivityEdge) {
+          return inactivityEdge.target;
+        }
+      }
+
+      // Fallback para saída padrão
+      const defaultInactivityEdge = edges.find(
+        edge =>
+          edge.source === currentNode.id &&
+          edge.sourceHandle === "default"
       );
-      
-      return inactivityNextEdge ? inactivityNextEdge.target : null;
+
+      return defaultInactivityEdge ? defaultInactivityEdge.target : null;
 
     default:
       // Para outros tipos de nós, encontrar a primeira aresta de saída
