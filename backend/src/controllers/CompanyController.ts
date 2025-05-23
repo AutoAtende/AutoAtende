@@ -298,37 +298,129 @@ export const checkEmail = async (req: Request, res: Response): Promise<Response>
 export const checkPhone = async (req: Request, res: Response): Promise<Response> => {
   const { phone } = req.params;
 
-  const [companyExists, userExists] = await Promise.all([
-    Company.findOne({ where: { phone } }),
-    User.findOne({ where: { number: phone } })
-  ]);
-
-  let whatsappValid = false;
-  
   try {
-    const defaultWhatsapp = await GetDefaultWhatsApp(1);
-    if (defaultWhatsapp) {
-      const wbot = getWbot(defaultWhatsapp.id, 1);
-      const cleanNumber = phone.replace(/[^\d]/g, ''); // Remove todos não dígitos
-      const formattedNumber = `${cleanNumber}@s.whatsapp.net`;
-      const [validNumber] = await wbot.onWhatsApp(formattedNumber);
-      whatsappValid = validNumber?.exists as boolean;
+    const [companyExists, userExists] = await Promise.all([
+      Company.findOne({ where: { phone } }),
+      User.findOne({ where: { number: phone } })
+    ]);
 
-      console.log("[checkPhone] Número formatado:", formattedNumber);
-      console.log("[checkPhone] Número válido no WhatsApp:", whatsappValid);
+    let whatsappValid = false;
+    let validNumber = "";
+
+    // Limpar o número mantendo apenas dígitos
+    const cleanNumber = phone.replace(/\D/g, "");
+    
+    if (cleanNumber.length < 8) {
+      throw new Error(`Número muito curto: deve ter pelo menos 8 dígitos`);
     }
+
+    // Adiciona código do país (55) se não tiver
+    let processedNumber = cleanNumber.startsWith('55') ? cleanNumber : '55' + cleanNumber;
+
+    console.log("[checkPhone] Número original processado:", processedNumber);
+
+    // Obter WhatsApp padrão para verificação
+    const defaultWhatsapp = await GetDefaultWhatsApp(1);
+    if (!defaultWhatsapp) {
+      console.error("[checkPhone] WhatsApp padrão não encontrado");
+      return res.json({ 
+        exists: false, 
+        error: "WhatsApp não configurado" 
+      });
+    }
+
+    const wbot = getWbot(defaultWhatsapp.id, 1);
+
+    // Função auxiliar para testar no WhatsApp
+    const testWhatsAppNumber = async (number: string): Promise<boolean> => {
+      try {
+        const chatId = `${number}@s.whatsapp.net`;
+        console.log("[checkPhone] Testando número:", chatId);
+        
+        const result = await wbot.onWhatsApp(chatId);
+        const isValid = result && Array.isArray(result) && result.length > 0 && result[0]?.exists === true;
+        
+        console.log("[checkPhone] Resultado da verificação:", { number, isValid, result });
+        return isValid;
+      } catch (error) {
+        console.error("[checkPhone] Erro ao testar número:", number, error);
+        return false;
+      }
+    };
+
+    // 1) Verificar o número original primeiro
+    console.log("[checkPhone] 1ª tentativa - Número original:", processedNumber);
+    if (await testWhatsAppNumber(processedNumber)) {
+      whatsappValid = true;
+      validNumber = processedNumber;
+      console.log("[checkPhone] ✓ Número original válido no WhatsApp");
+    }
+    
+    // 2) Se não for válido, tentar adicionar '9' após o DDD (se aplicável)
+    if (!whatsappValid && processedNumber.length >= 12) {
+      const ddd = processedNumber.substring(0, 4); // Ex: 5565 (55 + DDD)
+      const numberPart = processedNumber.substring(4); // Ex: 99246188
+      
+      // Adicionar '9' se o número não começar com '9' e tiver 8 dígitos
+      if (!numberPart.startsWith('9') && numberPart.length === 8) {
+        const numberWithNine = ddd + '9' + numberPart; // Ex: 5565999246188
+        console.log("[checkPhone] 2ª tentativa - Adicionando 9:", numberWithNine);
+        
+        if (await testWhatsAppNumber(numberWithNine)) {
+          whatsappValid = true;
+          validNumber = numberWithNine;
+          console.log("[checkPhone] ✓ Número com 9 adicionado válido no WhatsApp");
+        }
+      }
+    }
+
+    // 3) Se ainda não for válido, tentar remover '9' após o DDD
+    if (!whatsappValid && processedNumber.length >= 13) {
+      const ddd = processedNumber.substring(0, 4); // Ex: 5565
+      const numberPart = processedNumber.substring(4); // Ex: 999246188
+      
+      // Remover '9' se o número começar com '9' e tiver 9 dígitos
+      if (numberPart.startsWith('9') && numberPart.length === 9) {
+        const numberWithoutNine = ddd + numberPart.substring(1); // Ex: 556599246188
+        console.log("[checkPhone] 3ª tentativa - Removendo 9:", numberWithoutNine);
+        
+        if (await testWhatsAppNumber(numberWithoutNine)) {
+          whatsappValid = true;
+          validNumber = numberWithoutNine;
+          console.log("[checkPhone] ✓ Número sem 9 válido no WhatsApp");
+        }
+      }
+    }
+
+    // Se nenhuma das tentativas funcionou
+    if (!whatsappValid) {
+      console.log("[checkPhone] ✗ Número não encontrado no WhatsApp em nenhuma variação");
+    }
+
+    // Verificar se o número está disponível (não existe empresa nem usuário com este número)
+    const isAvailable = !companyExists && !userExists && whatsappValid;
+
+    console.log("[checkPhone] Resultado final:", {
+      phone,
+      processedNumber,
+      validNumber,
+      whatsappValid,
+      companyExists: !!companyExists,
+      userExists: !!userExists,
+      isAvailable
+    });
+
+    return res.json({ 
+      exists: isAvailable,
+    });
+
   } catch (error) {
-    console.error("[checkPhone] Erro na verificação do WhatsApp:", error);
-    whatsappValid = false;
+    console.error("[checkPhone] Erro geral:", error);
+    return res.status(500).json({ 
+      exists: false, 
+      error: error.message || "Erro interno do servidor" 
+    });
   }
-
-  const exists = (
-    !companyExists && 
-    !userExists && 
-    whatsappValid
-  );
-
-  return res.json({ exists });
 };
 
 export const apiCnpj = async (req: Request, res: Response): Promise<Response> => {
