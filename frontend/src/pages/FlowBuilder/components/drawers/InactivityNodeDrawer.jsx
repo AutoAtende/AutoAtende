@@ -32,11 +32,11 @@ import {
   Help as HelpIcon,
   Timer as TimerIcon
 } from '@mui/icons-material';
-import { i18n } from '../../../translate/i18n';
-import { AuthContext } from '../../../context/Auth/AuthContext';
-import api from '../../../services/api';
-import { toast } from '../../../helpers/toast';
-import { VariablesReferencePanel } from './VariablesReferencePanel';
+import { i18n } from '../../../../translate/i18n';
+import { AuthContext } from '../../../../context/Auth/AuthContext';
+import api from '../../../../services/api';
+import { toast } from '../../../../helpers/toast';
+import { VariablesReferencePanel } from '../VariablesReferencePanel';
 
 const InactivityNodeDrawer = ({ nodeData, onChange, flowVariables }) => {
   const { user } = useContext(AuthContext);

@@ -18,7 +18,7 @@ import {
   Paper
 } from '@mui/material';
 import { Visibility, VisibilityOff, Psychology as PsychologyIcon, Info as InfoIcon, Code as CodeIcon } from '@mui/icons-material';
-import { i18n } from '../../../translate/i18n';
+import { i18n } from '../../../../translate/i18n';
 
 const OpenAINodeDrawer = ({ nodeData, onChange, flowVariables }) => {
   const [showApiKey, setShowApiKey] = useState(false);

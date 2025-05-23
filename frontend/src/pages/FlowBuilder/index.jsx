@@ -75,6 +75,7 @@ import {
   Comment as CommentIcon,
   HourglassEmpty as InactivityIcon,
   Settings as SettingsIcon
+
 } from '@mui/icons-material';
 import api from '../../services/api';
 import { toast } from '../../helpers/toast';
@@ -108,6 +109,8 @@ import NodeHelpModal from './components/NodeHelpModal';
 import DownloadButton from './components/DownloadButton';
 import ScheduleNode from './components/nodes/ScheduleNode';
 import AppointmentNode from './components/nodes/AppointmentNode';
+import InactivitySettingsModal from './modals/InactivitySettingsModal';
+
 
 // Definição de tipos de nós disponíveis
 const nodeTypes = {
@@ -408,6 +411,10 @@ const FlowBuilder = () => {
   // Estado para controle da inicialização do fluxo
   const [flowInitialized, setFlowInitialized] = useState(false);
 
+  // Estado para controle do modal de configurações de inatividade
+  const [inactivitySettingsOpen, setInactivitySettingsOpen] = useState(false);
+
+
   // Definindo as categorias de nós com descrições
   const messageNodes = [
     {
@@ -653,150 +660,150 @@ const FlowBuilder = () => {
 
   }, [setNodes, setEdges, onEdgeRemove]);
 
-const loadFlow = useCallback(async (flowId) => {
-  try {
-    setLoading(true);
-    console.log('Carregando fluxo:', flowId);
+  const loadFlow = useCallback(async (flowId) => {
+    try {
+      setLoading(true);
+      console.log('Carregando fluxo:', flowId);
 
-    const { data } = await api.get(`/flow-builder/${flowId}`);
+      const { data } = await api.get(`/flow-builder/${flowId}`);
 
-    if (data) {
-      setFlowName(data.name || '');
-      setFlowDescription(data.description || '');
+      if (data) {
+        setFlowName(data.name || '');
+        setFlowDescription(data.description || '');
 
-      // Processar nós
-      if (Array.isArray(data.nodes) && data.nodes.length > 0) {
-        console.log('Nodes encontrados:', data.nodes.length);
+        // Processar nós
+        if (Array.isArray(data.nodes) && data.nodes.length > 0) {
+          console.log('Nodes encontrados:', data.nodes.length);
 
-        // Processar arestas
-        let processedEdges = [];
-        if (Array.isArray(data.edges)) {
-          console.log('Edges encontrados:', data.edges.length);
-          processedEdges = data.edges.map(edge => ({
-            ...edge,
-            type: 'custom',
-            data: { onEdgeRemove }
-          }));
-        }
-
-        // Verificar se o fluxo precisa de otimização
-        const needsOptimize = FlowOptimizer.needsOptimization({
-          nodes: data.nodes,
-          edges: data.edges
-        });
-
-        if (needsOptimize) {
-          console.log('Fluxo necessita otimização, executando otimização automática...');
-
-          // Realizar a otimização do fluxo
-          const optimizationResult = FlowOptimizer.optimizeFlow({
-            nodes: data.nodes,
-            edges: data.edges
-          });
-
-          if (optimizationResult.optimized) {
-            console.log(`Fluxo otimizado automaticamente: ${optimizationResult.totalOptimized} nós atualizados.`);
-          
-            // Guardar nome e descrição em variáveis locais para garantir preservação
-            const currentName = data.name || '';
-            const currentDescription = data.description || '';
-          
-            // Usar os nós otimizados
-            setNodes(optimizationResult.flow.nodes);
-          
-            // Processar as arestas otimizadas
-            const updatedEdges = optimizationResult.flow.edges.map(edge => ({
+          // Processar arestas
+          let processedEdges = [];
+          if (Array.isArray(data.edges)) {
+            console.log('Edges encontrados:', data.edges.length);
+            processedEdges = data.edges.map(edge => ({
               ...edge,
               type: 'custom',
               data: { onEdgeRemove }
             }));
-          
-            setEdges(updatedEdges);
-          
-            // Garantir que nome e descrição sejam preservados
-            setFlowName(currentName);
-            setFlowDescription(currentDescription);
-          
-            // Exibir notificação
-            setNotification({
-              open: true,
-              message: `Fluxo otimizado automaticamente (${optimizationResult.totalOptimized} nós atualizados).`,
-              type: 'info'
+          }
+
+          // Verificar se o fluxo precisa de otimização
+          const needsOptimize = FlowOptimizer.needsOptimization({
+            nodes: data.nodes,
+            edges: data.edges
+          });
+
+          if (needsOptimize) {
+            console.log('Fluxo necessita otimização, executando otimização automática...');
+
+            // Realizar a otimização do fluxo
+            const optimizationResult = FlowOptimizer.optimizeFlow({
+              nodes: data.nodes,
+              edges: data.edges
             });
-          
-            // Salvar com uma função que use os valores corretos
-            setTimeout(() => {
-              // Usar uma função separada que capture os valores atuais
-              const saveOptimizedFlow = async () => {
-                try {
-                  setLoading(true);
-                  
-                  const flowData = {
-                    name: currentName, // Usar as variáveis locais
-                    description: currentDescription, // Usar as variáveis locais  
-                    nodes: optimizationResult.flow.nodes || [],
-                    edges: optimizationResult.flow.edges.map(edge => ({
-                      ...edge,
-                      data: edge.data ? { ...edge.data, onEdgeRemove: undefined } : {}
-                    })) || []
-                  };
-          
-                  if (id) {
-                    await api.put(`/flow-builder/${id}`, flowData);
+
+            if (optimizationResult.optimized) {
+              console.log(`Fluxo otimizado automaticamente: ${optimizationResult.totalOptimized} nós atualizados.`);
+
+              // Guardar nome e descrição em variáveis locais para garantir preservação
+              const currentName = data.name || '';
+              const currentDescription = data.description || '';
+
+              // Usar os nós otimizados
+              setNodes(optimizationResult.flow.nodes);
+
+              // Processar as arestas otimizadas
+              const updatedEdges = optimizationResult.flow.edges.map(edge => ({
+                ...edge,
+                type: 'custom',
+                data: { onEdgeRemove }
+              }));
+
+              setEdges(updatedEdges);
+
+              // Garantir que nome e descrição sejam preservados
+              setFlowName(currentName);
+              setFlowDescription(currentDescription);
+
+              // Exibir notificação
+              setNotification({
+                open: true,
+                message: `Fluxo otimizado automaticamente (${optimizationResult.totalOptimized} nós atualizados).`,
+                type: 'info'
+              });
+
+              // Salvar com uma função que use os valores corretos
+              setTimeout(() => {
+                // Usar uma função separada que capture os valores atuais
+                const saveOptimizedFlow = async () => {
+                  try {
+                    setLoading(true);
+
+                    const flowData = {
+                      name: currentName, // Usar as variáveis locais
+                      description: currentDescription, // Usar as variáveis locais  
+                      nodes: optimizationResult.flow.nodes || [],
+                      edges: optimizationResult.flow.edges.map(edge => ({
+                        ...edge,
+                        data: edge.data ? { ...edge.data, onEdgeRemove: undefined } : {}
+                      })) || []
+                    };
+
+                    if (id) {
+                      await api.put(`/flow-builder/${id}`, flowData);
+                    }
+
+                  } catch (err) {
+                    console.error("Erro ao salvar fluxo otimizado:", err);
+                  } finally {
+                    setLoading(false);
                   }
-          
-                } catch (err) {
-                  console.error("Erro ao salvar fluxo otimizado:", err);
-                } finally {
-                  setLoading(false);
-                }
-              };
-          
-              saveOptimizedFlow();
-            }, 1500);
+                };
+
+                saveOptimizedFlow();
+              }, 1500);
+            } else {
+              // Se não houve otimização, usar os nós e arestas originais
+              setNodes(data.nodes);
+              setEdges(processedEdges);
+            }
           } else {
-            // Se não houve otimização, usar os nós e arestas originais
+            // Se não precisa de otimização, usar os nós e arestas originais
             setNodes(data.nodes);
             setEdges(processedEdges);
           }
-        } else {
-          // Se não precisa de otimização, usar os nós e arestas originais
-          setNodes(data.nodes);
-          setEdges(processedEdges);
-        }
 
-        // Definir fluxo como inicializado
-        setFlowInitialized(true);
+          // Definir fluxo como inicializado
+          setFlowInitialized(true);
+        } else {
+          console.log('Criando fluxo básico por falta de nodes');
+          // Se não houver nós, inicializar fluxo básico
+          initializeBasicFlow();
+        }
       } else {
-        console.log('Criando fluxo básico por falta de nodes');
-        // Se não houver nós, inicializar fluxo básico
+        // Se não houver dados, inicializar fluxo básico
+        console.log('Nenhum dado retornado, inicializando fluxo básico');
         initializeBasicFlow();
       }
-    } else {
-      // Se não houver dados, inicializar fluxo básico
-      console.log('Nenhum dado retornado, inicializando fluxo básico');
+
+      // Importante: sempre definir loading como false no final
+      setLoading(false);
+    } catch (err) {
+      console.error("Erro ao carregar fluxo:", err);
+      setLoadError(`Erro ao carregar fluxo: ${err.message || 'Erro desconhecido'}`);
+      toast.error(i18n.t('flowBuilder.errors.loadFailed'));
+
+      // Em caso de erro na otimização, registrar o erro
+      if (err.message && err.message.includes('otimização')) {
+        console.error("Erro específico na otimização:", err);
+      }
+
+      // Em caso de erro, tentar inicializar fluxo básico
       initializeBasicFlow();
+
+      // Sempre definir loading como false, mesmo em caso de erro
+      setLoading(false);
     }
-
-    // Importante: sempre definir loading como false no final
-    setLoading(false);
-  } catch (err) {
-    console.error("Erro ao carregar fluxo:", err);
-    setLoadError(`Erro ao carregar fluxo: ${err.message || 'Erro desconhecido'}`);
-    toast.error(i18n.t('flowBuilder.errors.loadFailed'));
-
-    // Em caso de erro na otimização, registrar o erro
-    if (err.message && err.message.includes('otimização')) {
-      console.error("Erro específico na otimização:", err);
-    }
-
-    // Em caso de erro, tentar inicializar fluxo básico
-    initializeBasicFlow();
-
-    // Sempre definir loading como false, mesmo em caso de erro
-    setLoading(false);
-  }
-}, [initializeBasicFlow, setNodes, setEdges, onEdgeRemove, setNotification]);
+  }, [initializeBasicFlow, setNodes, setEdges, onEdgeRemove, setNotification]);
 
   // Efeito principal para controle de carregamento/inicialização do fluxo
   useEffect(() => {
@@ -1128,7 +1135,7 @@ const loadFlow = useCallback(async (flowId) => {
           queryParams: {}
         } : {}),
         ...(nodeType === 'tagNode' ? { tag: '' } : {}),
-          // Adicionar callback para edição
+        // Adicionar callback para edição
         onEdit: (nodeId) => {
           const node = nodes.find(n => n.id === nodeId);
           if (node) {
@@ -1255,75 +1262,95 @@ const loadFlow = useCallback(async (flowId) => {
     switch (type) {
       case 'startNode':
         return 'Início';
+
       case 'messageNode':
         return 'Mensagem';
+
       case 'conditionalNode':
         return 'Condição';
+
       case 'questionNode':
         return 'Pergunta';
       case 'attendantNode':
+
         return 'Usuário';
       case 'imageNode':
+
         return 'Imagem';
       case 'webhookNode':
+
         return 'WebHook';
+
       case 'switchFlowNode':
         return 'Trocar fluxo';
+
       case 'scheduleNode':
         return 'Horários';
+
       case 'apiNode':
         return 'API';
+
       case 'tagNode':
         return 'Tag';
+
       case 'endNode':
         return 'Fim';
+
       case 'menuNode':
         return 'Menu';
+
       case 'databaseNode':
         return 'Banco de Dados';
+
       case 'openaiNode':
         return 'OpenAI';
+
       case 'typebotNode':
         return 'Typebot';
+
       case 'queueNode':
         return 'Fila';
+
       case 'appointmentNode':
         return 'Agendamento';
+
       case 'internalMessageNode':
         return 'Mensagem Interna';
+
       case 'inactivityNode':
         return 'Inatividade';
+
       default:
         return 'Novo Nó';
     }
   };
 
   // Função para validar o fluxo
-const saveFlow = useCallback(async () => {
-  try {
-    setLoading(true);
+  const saveFlow = useCallback(async () => {
+    try {
+      setLoading(true);
 
-    // Os dados nome e descrição já estão definidos, então não precisamos abrir modal
-    const flowData = {
-      name: flowName,
-      description: flowDescription,
-      nodes: nodes || [],
-      edges: edges.map(edge => ({
-        ...edge,
-        data: edge.data ? { ...edge.data, onEdgeRemove: undefined } : {}
-      })) || []
-    };
+      // Os dados nome e descrição já estão definidos, então não precisamos abrir modal
+      const flowData = {
+        name: flowName,
+        description: flowDescription,
+        nodes: nodes || [],
+        edges: edges.map(edge => ({
+          ...edge,
+          data: edge.data ? { ...edge.data, onEdgeRemove: undefined } : {}
+        })) || []
+      };
 
-    if (id) {
-      // Atualizar fluxo existente
-      await api.put(`/flow-builder/${id}`, flowData);
+      if (id) {
+        // Atualizar fluxo existente
+        await api.put(`/flow-builder/${id}`, flowData);
+      }
+    } catch (err) {
+      console.error("Erro ao salvar fluxo:", err);
+    } finally {
+      setLoading(false);
     }
-  } catch (err) {
-    console.error("Erro ao salvar fluxo:", err);
-  } finally {
-    setLoading(false);
-  }
-}, [id, flowName, flowDescription, nodes, edges, setLoading]);
+  }, [id, flowName, flowDescription, nodes, edges, setLoading]);
 
   // Manipulador para seleção de nós
   const onNodeClick = useCallback((event, node) => {
@@ -1758,6 +1785,26 @@ const saveFlow = useCallback(async () => {
                 </Tooltip>
               )}
 
+              <Tooltip title="Configurações de Inatividade">
+                <IconButton
+                  color="primary"
+                  onClick={() => setInactivitySettingsOpen(true)}
+                  disabled={loading || !id}
+                >
+                  <SettingsIcon sx={{ color: customTheme.palette.primary.main }} />
+                </IconButton>
+              </Tooltip>
+
+              <Tooltip title="Monitor de Inatividade">
+                <IconButton
+                  color="primary"
+                  onClick={() => history.push('/flow-builder/inactivity-monitor')}
+                  disabled={loading}
+                >
+                  <InactivityIcon sx={{ color: customTheme.palette.primary.main }} />
+                </IconButton>
+              </Tooltip>
+
               <Tooltip title={i18n.t('flowBuilder.help.title', 'Ajuda')}>
                 <IconButton
                   color="primary"
@@ -2010,6 +2057,14 @@ const saveFlow = useCallback(async () => {
             onClose={() => setHelpModalOpen(false)}
             nodeTypes={helpNodeTypes}
           />
+
+          <InactivitySettingsModal
+            open={inactivitySettingsOpen}
+            onClose={() => setInactivitySettingsOpen(false)}
+            flowId={id}
+          />
+
+
         </Box>
       </ThemeProvider>
     </StyledEngineProvider>

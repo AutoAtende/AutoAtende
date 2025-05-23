@@ -27,8 +27,8 @@ import {
 } from '@mui/icons-material';
 import { DragDropContext, Droppable, Draggable } from 'react-beautiful-dnd';
 import EmojiPicker from 'emoji-picker-react';
-import { i18n } from '../../../translate/i18n';
-import { VariablesReferencePanel } from './VariablesReferencePanel';
+import { i18n } from '../../../../translate/i18n';
+import { VariablesReferencePanel } from '../VariablesReferencePanel';
 
 // Componente memoizado para melhor performance
 const MemoizedEmojiPicker = React.memo(EmojiPicker);

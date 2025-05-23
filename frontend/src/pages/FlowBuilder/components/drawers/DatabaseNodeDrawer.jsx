@@ -32,9 +32,9 @@ import {
     PlayArrow as TestIcon,
     InfoOutlined as InfoIcon
 } from '@mui/icons-material';
-import { i18n } from '../../../translate/i18n';
-import api from '../../../services/api';
-import { VariablesReferencePanel } from './VariablesReferencePanel';
+import { i18n } from '../../../../translate/i18n';
+import api from '../../../../services/api';
+import { VariablesReferencePanel } from '../VariablesReferencePanel';
 const TabPanel = (props) => {
     const { children, value, index, ...other } = props;
     return (

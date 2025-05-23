@@ -22,8 +22,8 @@ import {
   Code as CodeIcon,
   Help as HelpIcon
 } from '@mui/icons-material';
-import { i18n } from '../../../translate/i18n';
-import api from '../../../services/api';
+import { i18n } from '../../../../translate/i18n';
+import api from '../../../../services/api';
 
 const AppointmentNodeDrawer = ({ nodeData, onChange, flowVariables }) => {
   const [loading, setLoading] = useState(false);

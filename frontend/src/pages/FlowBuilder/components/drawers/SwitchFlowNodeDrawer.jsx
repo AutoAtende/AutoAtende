@@ -10,8 +10,8 @@ import {
   Alert,
   CircularProgress
 } from '@mui/material';
-import { i18n } from '../../../translate/i18n';
-import api from '../../../services/api';
+import { i18n } from '../../../../translate/i18n';
+import api from '../../../../services/api';
 
 const SwitchFlowNodeDrawer = ({ nodeData, onChange, companyId, flowVariables }) => {
   const [flows, setFlows] = useState([]);

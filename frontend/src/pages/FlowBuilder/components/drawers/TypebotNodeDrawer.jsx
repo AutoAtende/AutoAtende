@@ -11,8 +11,8 @@ import {
   Alert
 } from '@mui/material';
 import { Visibility, VisibilityOff, PlayArrow as PlayArrowIcon, Code as CodeIcon } from '@mui/icons-material';
-import { i18n } from '../../../translate/i18n';
-import { VariablesReferencePanel } from './VariablesReferencePanel';
+import { i18n } from '../../../../translate/i18n';
+import { VariablesReferencePanel } from '../VariablesReferencePanel';
 
 const TypebotNodeDrawer = ({ nodeData, onChange, flowVariables }) => {
   const [showToken, setShowToken] = useState(false);

@@ -20,12 +20,12 @@ import {
   Info as InfoIcon,
   Close as CloseIcon
 } from '@mui/icons-material';
-import { i18n } from "../../../translate/i18n";
-import api from '../../../services/api';
-import { toast } from '../../../helpers/toast';
-import useAuth from '../../../hooks/useAuth';
-import HorarioManager from './HorarioManager';
-import HorarioGroupManager from './HorarioGroupManager';
+import { i18n } from "../../../../translate/i18n";
+import api from '../../../../services/api';
+import { toast } from '../../../../helpers/toast';
+import useAuth from '../../../../hooks/useAuth';
+import HorarioManager from '../HorarioManager';
+import HorarioGroupManager from '../HorarioGroupManager';
 
 // Interface para TabPanel
 const TabPanel = (props) => {

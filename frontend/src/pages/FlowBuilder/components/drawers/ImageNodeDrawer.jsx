@@ -16,9 +16,9 @@ import {
   Delete as DeleteIcon,
   Code as CodeIcon
 } from '@mui/icons-material';
-import { i18n } from '../../../translate/i18n';
-import api from '../../../services/api';
-import { handleApiError } from '../../../utils/api-error-handler';
+import { i18n } from '../../../../translate/i18n';
+import api from '../../../../services/api';
+import { handleApiError } from '../../../../utils/api-error-handler';
 
 const ImageNodeDrawer = ({ nodeData, onChange, flowVariables }) => {
   const [uploading, setUploading] = useState(false);

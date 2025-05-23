@@ -34,9 +34,9 @@ import {
   Comment as CommentIcon,
   HourglassEmpty as InactivityIcon
 } from '@mui/icons-material';
-import { i18n } from '../../../translate/i18n';
-import { toast } from '../../../helpers/toast';
-import api from '../../../services/api';
+import { i18n } from '../../../../translate/i18n';
+import { toast } from '../../../../helpers/toast';
+import api from '../../../../services/api';
 
 import AttendantNodeDrawer from './AttendantNodeDrawer';
 import ConditionalNodeDrawer from './ConditionalNodeDrawer';
@@ -57,7 +57,7 @@ import AppointmentNodeDrawer from './AppointmentNodeDrawer';
 import InternalMessageNodeDrawer from './InternalMessageNodeDrawer';
 import InactivityNodeDrawer from './InactivityNodeDrawer';
 
-import { validateUrl, validateVariableName } from '../../../utils/api-error-handler';
+import { validateUrl, validateVariableName } from '../../../../utils/api-error-handler';
 
 const NodeDrawer = ({ open, onClose, node, updateNodeData, companyId, nodes }) => {
   const theme = useTheme();

@@ -26,8 +26,8 @@ import {
   Code as CodeIcon
 } from '@mui/icons-material';
 import { DragDropContext, Droppable, Draggable } from 'react-beautiful-dnd';
-import { i18n } from '../../../translate/i18n';
-import { VariablesReferencePanel } from './VariablesReferencePanel';
+import { i18n } from '../../../../translate/i18n';
+import { VariablesReferencePanel } from '../VariablesReferencePanel';
 const QuestionNodeDrawer = ({ nodeData, onChange, flowVariables }) => {
   const [newOption, setNewOption] = useState('');
   const [validationErrors, setValidationErrors] = useState({});

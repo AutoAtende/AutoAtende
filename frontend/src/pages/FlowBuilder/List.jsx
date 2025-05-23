@@ -59,7 +59,8 @@ import {
   SwapCalls as SwitchFlowIcon,
   AccessTime as ScheduleIcon,
   PlayArrow as StartIcon,
-  Stop as EndIcon
+  Stop as EndIcon,
+  HourglassEmpty as InactivityIcon,
 } from '@mui/icons-material';
 import api from '../../services/api';
 import { toast } from '../../helpers/toast';
@@ -109,6 +110,8 @@ const StatsModal = ({ open, onClose, flow, nodes = [], edges = [] }) => {
       case 'typebotNode': return <CodeIcon {...iconProps} />;
       case 'switchFlowNode': return <SwitchFlowIcon {...iconProps} />;
       case 'scheduleNode': return <ScheduleIcon {...iconProps} />;
+
+      case 'inactivityNode': return <InactivityIcon {...iconProps} />;
       default: return <InfoIcon {...iconProps} />;
     }
   };
@@ -131,7 +134,8 @@ const StatsModal = ({ open, onClose, flow, nodes = [], edges = [] }) => {
       'openaiNode': i18n.t('flowBuilder.nodes.openai') || 'OpenAI',
       'typebotNode': i18n.t('flowBuilder.nodes.typebot') || 'Typebot',
       'switchFlowNode': i18n.t('flowBuilder.nodes.switchFlow') || 'Troca de Fluxo',
-      'scheduleNode': 'Agendamento'
+      'scheduleNode': 'Agendamento',
+      'inactivityNode': 'Inatividade'
     };
     return typeMap[type] || type.replace('Node', '');
   };
@@ -154,7 +158,8 @@ const StatsModal = ({ open, onClose, flow, nodes = [], edges = [] }) => {
       'openaiNode': theme.palette.info.dark,
       'typebotNode': theme.palette.secondary.main,
       'switchFlowNode': theme.palette.info.main,
-      'scheduleNode': theme.palette.info.main
+      'scheduleNode': theme.palette.info.main,
+      'inactivityNode': theme.palette.info.main
     };
     return colorMap[type] || theme.palette.grey[500];
   };
@@ -699,6 +704,11 @@ const FlowBuilderList = () => {
       setLoading(false);
     }
   };
+
+  const handleInactivityMonitor = async () => {
+    history.push('/flow-builder/inactivity-monitor');
+  };
+
   const handleImportFlow = async () => {
     if (!importFile) {
       toast.error(i18n.t('flowBuilder.import.noFileSelected'));
@@ -802,6 +812,14 @@ const FlowBuilderList = () => {
               size={isMobile ? "small" : "medium"}
             >
               <AddIcon sx={{ color: theme.palette.primary.main }}/>
+            </IconButton>
+          </Tooltip>
+          <Tooltip title={i18n.t('flowBuilder.list.inactivityMonitor')} arrow>
+            <IconButton
+              onClick={handleInactivityMonitor}
+              size={isMobile ? "small" : "medium"}
+            >
+              <HourglassEmptyIcon sx={{ color: theme.palette.primary.main }}/>
             </IconButton>
           </Tooltip>
         </MainHeaderButtonsWrapper>

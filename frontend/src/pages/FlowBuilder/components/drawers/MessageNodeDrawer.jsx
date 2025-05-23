@@ -31,10 +31,10 @@ import {
   InfoOutlined as InfoIcon,
   Code as CodeIcon
 } from '@mui/icons-material';
-import { i18n } from '../../../translate/i18n';
-import api from '../../../services/api';
-import { VariablesReferencePanel } from './VariablesReferencePanel';
-import { handleApiError } from '../../../utils/api-error-handler';
+import { i18n } from '../../../../translate/i18n';
+import api from '../../../../services/api';
+import { VariablesReferencePanel } from '../VariablesReferencePanel';
+import { handleApiError } from '../../../../utils/api-error-handler';
 
 const VariableHelperAdornment = ({ variables, onInsert }) => {
   const [anchorEl, setAnchorEl] = useState(null);

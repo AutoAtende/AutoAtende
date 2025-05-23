@@ -2,6 +2,7 @@ import express from "express";
 import isAuth from "../middleware/isAuth";
 import * as FlowBuilderController from "../controllers/FlowBuilderController";
 import * as FlowMessageReceiverController from "../controllers/FlowMessageReceiverController";
+import * as InactivityStatsController from "../controllers/InactivityStatsController";
 import multer from 'multer';
 import uploadConfig from '../config/upload';
 
@@ -33,6 +34,77 @@ flowBuilderRoutes.post(
   "/flow-builder/inactivity-node",
   isAuth,
   FlowBuilderController.saveInactivityNodeData
+);
+
+flowBuilderRoutes.get(
+  "/flow-builder/inactivity/dashboard-stats",
+  isAuth,
+  InactivityStatsController.getDashboardStats
+);
+
+// Rotas para obter execuções com filtros
+flowBuilderRoutes.get(
+  "/flow-builder/inactivity/executions",
+  isAuth,
+  InactivityStatsController.getFilteredExecutions
+);
+
+// Rotas para obter lista de fluxos (simplificada)
+flowBuilderRoutes.get(
+  "/flow-builder/flows/list",
+  isAuth,
+  InactivityStatsController.getFlowsList
+);
+
+// Rotas para ações de execução
+flowBuilderRoutes.post(
+  "/flow-builder/execution/:executionId/force-end",
+  isAuth,
+  FlowMessageReceiverController.forceEndExecution
+);
+
+flowBuilderRoutes.post(
+  "/flow-builder/execution/:executionId/reengage",
+  isAuth,
+  InactivityStatsController.reengageExecution
+);
+
+// Rota para limpeza geral de execuções inativas
+flowBuilderRoutes.post(
+  "/flow-builder/inactivity/cleanup-all",
+  isAuth,
+  InactivityStatsController.cleanupAllInactiveExecutions
+);
+
+// Rotas específicas de configuração de inatividade por fluxo
+flowBuilderRoutes.get(
+  "/flow-builder/:flowId/inactivity/settings",
+  isAuth,
+  InactivityStatsController.getFlowInactivitySettings
+);
+
+flowBuilderRoutes.put(
+  "/flow-builder/:flowId/inactivity/settings",
+  isAuth,
+  InactivityStatsController.updateFlowInactivitySettings
+);
+
+flowBuilderRoutes.get(
+  "/flow-builder/:flowId/inactivity/active-executions",
+  isAuth,
+  InactivityStatsController.getActiveExecutionsByFlow
+);
+
+flowBuilderRoutes.get(
+  "/flow-builder/:flowId/inactivity/stats",
+  isAuth,
+  InactivityStatsController.getFlowInactivityStats
+);
+
+flowBuilderRoutes.post(
+  "/flow-builder/:flowId/inactivity/cleanup",
+  isAuth,
+  InactivityStatsController.cleanupFlowInactiveExecutions
 );
 
 flowBuilderRoutes.get("/flow-builder/media/check", isAuth, FlowBuilderController.checkMedia);

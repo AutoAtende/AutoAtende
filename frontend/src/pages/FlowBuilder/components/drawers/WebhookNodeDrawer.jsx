@@ -30,9 +30,9 @@ import {
   Code as CodeIcon,
   PlayArrow as TestIcon
 } from '@mui/icons-material';
-import { i18n } from '../../../translate/i18n';
-import api from '../../../services/api';
-import { toast } from '../../../helpers/toast';
+import { i18n } from '../../../../translate/i18n';
+import api from '../../../../services/api';
+import { toast } from '../../../../helpers/toast';
 
 const WebhookNodeDrawer = ({ nodeData, onChange, flowVariables }) => {
   const [headers, setHeaders] = useState(nodeData.headers || {});

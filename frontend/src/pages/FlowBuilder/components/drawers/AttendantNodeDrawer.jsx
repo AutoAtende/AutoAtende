@@ -14,9 +14,9 @@ import {
   CircularProgress
 } from '@mui/material';
 import { PersonAdd as PersonAddIcon, Info as InfoIcon, Code as CodeIcon } from '@mui/icons-material';
-import { i18n } from '../../../translate/i18n';
-import api from '../../../services/api';
-import { toast } from '../../../helpers/toast';
+import { i18n } from '../../../../translate/i18n';
+import api from '../../../../services/api';
+import { toast } from '../../../../helpers/toast';
 
 const AttendantNodeDrawer = ({ nodeData, onChange, flowVariables }) => {
   const [users, setUsers] = useState([]);

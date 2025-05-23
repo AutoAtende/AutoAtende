@@ -19,8 +19,8 @@ import {
   Code as CodeIcon,
   ContentPaste as ContentPasteIcon
 } from '@mui/icons-material';
-import { i18n } from '../../../translate/i18n';
-import { VariablesReferencePanel } from './VariablesReferencePanel';
+import { i18n } from '../../../../translate/i18n';
+import { VariablesReferencePanel } from '../VariablesReferencePanel';
 
 const InternalMessageNodeDrawer = ({ nodeData, onChange, flowVariables }) => {
   const [validationErrors, setValidationErrors] = useState({});
