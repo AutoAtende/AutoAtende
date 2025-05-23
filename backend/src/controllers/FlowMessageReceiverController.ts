@@ -484,3 +484,95 @@ export const getFlowExecution = async (req: Request, res: Response): Promise<Res
     return res.status(500).json({ error: error.message });
   }
 };
+
+// Adicionar esta função ao FlowMessageReceiverController.ts
+
+export const forceEndExecution = async (req: Request, res: Response): Promise<Response> => {
+  const { executionId } = req.params;
+  const { companyId } = req.user;
+  const { reason = "Encerramento forçado pelo administrador" } = req.body;
+  
+  try {
+    // Buscar execução
+    const execution = await FlowBuilderExecution.findOne({
+      where: { id: executionId, companyId }
+    });
+    
+    if (!execution) {
+      return res.status(404).json({ error: "Execução não encontrada" });
+    }
+    
+    // Verificar status atual
+    if (execution.status === "completed" || execution.status === "canceled") {
+      return res.status(400).json({ error: `A execução já está finalizada (${execution.status})` });
+    }
+    
+    // Atualizar variáveis e status
+    const updatedVariables = {
+      ...execution.variables,
+      __forceEndReason: reason,
+      __forceEndAt: Date.now(),
+      __forceEndBy: req.user.id
+    };
+    
+    await execution.update({
+      status: "completed",
+      variables: updatedVariables,
+      inactivityStatus: 'inactive',
+      inactivityReason: reason
+    });
+    
+    // Buscar ticket associado à execução
+    const ticket = await Ticket.findOne({
+      where: {
+        flowExecutionId: execution.id,
+        contactId: execution.contactId,
+        companyId
+      }
+    });
+    
+    // Se houver um ticket associado, enviar mensagem de encerramento e finalizar
+    if (ticket && (ticket.status === "open" || ticket.status === "pending")) {
+      await SendWhatsAppMessage({
+        body: "O atendimento automatizado foi encerrado pelo sistema.",
+        ticket: ticket as any
+      });
+      
+      // Finalizar o fluxo usando o serviço apropriado
+      await FinishFlowService({
+        ticketId: ticket.id,
+        companyId: ticket.companyId,
+        executionId: execution.id,
+        ticketStatus: "pending",
+        flowStatus: "completed"
+      });
+    }
+    
+    // Notificar clientes conectados sobre o encerramento
+    const io = getIO();
+    io.to(`company-${companyId}-notification`).emit("flowExecution", {
+      action: "force-end",
+      execution: {
+        id: execution.id,
+        status: "completed",
+        contactId: execution.contactId,
+        flowId: execution.flowId,
+        reason: reason
+      }
+    });
+    
+    logger.info(`[ForceEndExecution] Execução ${executionId} encerrada forçadamente: ${reason}`);
+    
+    return res.status(200).json({ 
+      message: "Execução encerrada com sucesso",
+      execution: {
+        id: execution.id,
+        status: "completed",
+        reason: reason
+      }
+    });
+  } catch (error) {
+    logger.error(`Erro ao encerrar execução forçadamente: ${error.message}`);
+    return res.status(500).json({ error: error.message });
+  }
+};
