@@ -10,6 +10,7 @@ import ProcessQuestionResponseMediaService from "../services/FlowBuilderService/
 import ProcessMenuResponseService from "../services/FlowBuilderService/ProcessMenuResponseService";
 import ExecuteFlowBuilderService from "../services/FlowBuilderService/ExecuteFlowBuilderService";
 import SendWhatsAppMessage from "../services/WbotServices/SendWhatsAppMessage";
+import FinishFlowService from "../services/FlowBuilderService/FinishFlowService";
 import { Op } from "sequelize";
 import Ticket from "../models/Ticket";
 import AppError from "../errors/AppError";
