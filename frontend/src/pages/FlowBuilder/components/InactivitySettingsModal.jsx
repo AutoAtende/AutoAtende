@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useContext } from 'react';
 import {
   Dialog,
   DialogTitle,
@@ -45,6 +45,7 @@ import {
   Refresh as RefreshIcon
 } from '@mui/icons-material';
 import { alpha, useTheme } from '@mui/material/styles';
+import { AuthContext } from '../../contexts/Auth/AuthContext';
 import api from '../../services/api';
 import { toast } from '../../helpers/toast';
 import { i18n } from '../../translate/i18n';
@@ -71,6 +72,7 @@ const TabPanel = (props) => {
 
 const InactivitySettingsModal = ({ open, onClose, flowId }) => {
   const theme = useTheme();
+  const { user } = useContext(AuthContext);
   const [tabValue, setTabValue] = useState(0);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
