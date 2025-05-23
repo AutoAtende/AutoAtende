@@ -27,7 +27,7 @@ const ProcessQuestionResponseService = async ({
   nextNodeId?: string;
   variableName?: string;
   variableValue?: any;
-  forceAdvance?: boolean; // Nova propriedade para forçar o avanço após 3 tentativas
+  forceAdvance?: boolean;
 }> => {
   try {
     // Obter execução atual do fluxo
@@ -39,7 +39,8 @@ const ProcessQuestionResponseService = async ({
       throw new AppError("Execução de fluxo não encontrada ou não está ativa");
     }
 
-    // Atualizar timestamp de interação quando há resposta do usuário
+    // CRÍTICO: Atualizar timestamp de interação quando há resposta do usuário
+    // Esta atualização deve acontecer imediatamente para resetar o monitoramento de inatividade
     await execution.update({
       lastInteractionAt: new Date(),
       inactivityStatus: 'active',

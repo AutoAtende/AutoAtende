@@ -5,6 +5,7 @@ import FlowBuilderExecution from "../../models/FlowBuilderExecution";
 import FlowBuilder from "../../models/FlowBuilder";
 import Ticket from "../../models/Ticket";
 import Contact from "../../models/Contact";
+import Queue from "../../models/Queue";
 import { getWbot } from "../../libs/wbot";
 import formatBody from "../../helpers/Mustache";
 import { verifyMessage } from "../WbotServices/MessageListener/Verifiers/VerifyMessage";
@@ -33,7 +34,7 @@ class InactivityMonitorService {
     try {
       logger.info("[InactivityMonitor] Iniciando verificação de execuções inativas");
       
-      // Buscar todas as execuções ativas
+      // Buscar todas as execuções ativas com includes corretos
       const activeExecutions = await FlowBuilderExecution.findAll({
         where: {
           status: "active"
@@ -41,11 +42,18 @@ class InactivityMonitorService {
         include: [
           {
             model: FlowBuilder,
-            as: "flow"
+            as: "flow",
+            attributes: [
+              'id', 'name', 'generalInactivityTimeout', 'questionInactivityTimeout', 
+              'menuInactivityTimeout', 'inactivityAction', 'inactivityWarningMessage',
+              'inactivityEndMessage', 'inactivityTransferQueueId', 'maxInactivityWarnings',
+              'warningInterval'
+            ]
           },
           {
             model: Contact,
-            as: "contact"
+            as: "contact",
+            attributes: ['id', 'name', 'number']
           }
         ]
       });
@@ -73,8 +81,19 @@ class InactivityMonitorService {
     if (execution.status !== "active") {
       return;
     }
+
+    // Verificar se a execução tem lastInteractionAt, se não, definir como agora para evitar processamento desnecessário
+    if (!execution.lastInteractionAt) {
+      await execution.update({
+        lastInteractionAt: new Date(),
+        inactivityStatus: 'active',
+        inactivityWarningsSent: 0,
+        lastWarningAt: null
+      });
+      return;
+    }
     
-    // Extrair configurações do fluxo ou usar valores padrão
+    // Extrair configurações do fluxo ou usar valores padrão mais seguros
     const flowConfig: FlowConfig = {
       generalInactivityTimeout: execution.flow?.generalInactivityTimeout || 300,
       questionInactivityTimeout: execution.flow?.questionInactivityTimeout || 180,
@@ -92,7 +111,9 @@ class InactivityMonitorService {
       // Sobrescrever config do fluxo com config específica do nó
       const nodeConfig = execution.variables.__inactivityConfig;
       for (const key in nodeConfig) {
-        flowConfig[key] = nodeConfig[key];
+        if (nodeConfig.hasOwnProperty(key) && flowConfig.hasOwnProperty(key)) {
+          flowConfig[key] = nodeConfig[key];
+        }
       }
     }
     
@@ -109,12 +130,13 @@ class InactivityMonitorService {
       where: {
         contactId: execution.contactId,
         status: ["pending", "open"],
-        flowExecutionId: execution.id
+        companyId: execution.companyId
       },
       include: [
         {
           model: Contact,
-          as: "contact"
+          as: "contact",
+          attributes: ['id', 'name', 'number']
         }
       ]
     });
@@ -211,6 +233,14 @@ class InactivityMonitorService {
     secondsSinceLastInteraction: number,
     config: FlowConfig
   ): Promise<void> {
+    if (!execution.lastWarningAt) {
+      // Se não tiver lastWarningAt, definir como agora para evitar problemas
+      await execution.update({
+        lastWarningAt: new Date()
+      });
+      return;
+    }
+
     const secondsSinceLastWarning = (new Date().getTime() - execution.lastWarningAt.getTime()) / 1000;
     
     // Verificar se é hora de enviar outro aviso
@@ -253,7 +283,7 @@ class InactivityMonitorService {
     config: FlowConfig
   ): Promise<void> {
     // Verificar se houve interação após tentativa de reengajamento
-    if (execution.lastInteractionAt > execution.lastWarningAt) {
+    if (execution.lastWarningAt && execution.lastInteractionAt > execution.lastWarningAt) {
       logger.info(`[InactivityMonitor] Usuário respondeu após reengajamento para execução ${execution.id}`);
       
       // Resetar estado para ativo

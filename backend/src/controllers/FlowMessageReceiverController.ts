@@ -79,7 +79,8 @@ export const handleFlowMessage = async (messageData: MessageWebhook): Promise<vo
     
     logger.info(`Processando resposta para execução ${execution.id}, contato ${contact.id}`);
     
-    // Atualizar timestamp de última interação na execução
+    // IMPORTANTE: Atualizar timestamp de última interação na execução
+    // Isso é fundamental para o sistema de inatividade
     await execution.update({
       lastInteractionAt: new Date(),
       inactivityStatus: 'active',
@@ -243,7 +244,11 @@ export const resumeFlow = async (req: Request, res: Response): Promise<Response>
     // Se a execução estiver pausada, atualizar para ativa
     if (execution.status === "paused") {
       await execution.update({
-        status: "active"
+        status: "active",
+        lastInteractionAt: new Date(), // Atualizar timestamp de interação
+        inactivityStatus: 'active', // Resetar status de inatividade
+        inactivityWarningsSent: 0, // Resetar contador de avisos
+        lastWarningAt: null // Limpar último aviso
       });
     }
     
@@ -305,7 +310,9 @@ export const pauseFlow = async (req: Request, res: Response): Promise<Response> 
     
     await execution.update({
       status: "paused",
-      variables: updatedVariables
+      variables: updatedVariables,
+      inactivityStatus: 'inactive', // Marcar como inativo quando pausado
+      inactivityReason: reason || "Pausa manual"
     });
     
     // Notificar clientes conectados sobre a pausa
@@ -362,7 +369,9 @@ export const cancelFlow = async (req: Request, res: Response): Promise<Response>
     
     await execution.update({
       status: "canceled",
-      variables: updatedVariables
+      variables: updatedVariables,
+      inactivityStatus: 'inactive', // Marcar como inativo quando cancelado
+      inactivityReason: reason || "Cancelamento manual"
     });
     
     // Buscar ticket associado à execução

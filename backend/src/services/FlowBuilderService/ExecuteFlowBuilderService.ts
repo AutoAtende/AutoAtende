@@ -194,7 +194,11 @@ const ExecuteFlowBuilderService = async ({
         __ticketId: ticket.id, // Armazena o ID do ticket nas variáveis
         contactName: ticket.contact.name,
         contactNumber: ticket.contact.number
-      }
+      },
+      lastInteractionAt: new Date(), // Atualizar timestamp de interação
+      inactivityStatus: 'active', // Resetar status de inatividade
+      inactivityWarningsSent: 0, // Resetar contador de avisos
+      lastWarningAt: null // Limpar último aviso
     });
     
     // Atualizar o timestamp de interação
@@ -309,6 +313,9 @@ const ExecuteFlowBuilderService = async ({
                 currentNodeId: conditionalEdge.target
               });
 
+              // Atualizar timestamp de interação
+              await updateInteractionTimestamp(execution);
+
               // Definir o próximo nó para o loop
               currentNode = nodes.find(node => node.id === conditionalEdge.target);
               continue; // Continuar o loop com o próximo nó
@@ -322,6 +329,9 @@ const ExecuteFlowBuilderService = async ({
                 await execution.update({
                   currentNodeId: defaultEdge.target
                 });
+
+                // Atualizar timestamp de interação
+                await updateInteractionTimestamp(execution);
 
                 currentNode = nodes.find(node => node.id === defaultEdge.target);
                 continue;
@@ -495,6 +505,9 @@ const ExecuteFlowBuilderService = async ({
                 currentNodeId: errorEdge.target
               });
 
+              // Atualizar timestamp de interação
+              await updateInteractionTimestamp(execution);
+
               // Definir o próximo nó para o loop
               currentNode = nodes.find(node => node.id === errorEdge.target);
               continue; // Continuar o loop com o próximo nó
@@ -585,6 +598,9 @@ const ExecuteFlowBuilderService = async ({
               }
             });
 
+            // Atualizar timestamp de interação
+            await updateInteractionTimestamp(execution);
+
             // Definir o próximo nó para o loop
             currentNode = nodes.find(node => node.id === scheduleEdge.target);
 
@@ -600,6 +616,9 @@ const ExecuteFlowBuilderService = async ({
               await execution.update({
                 currentNodeId: defaultScheduleEdge.target
               });
+
+              // Atualizar timestamp de interação
+              await updateInteractionTimestamp(execution);
 
               currentNode = nodes.find(node => node.id === defaultScheduleEdge.target);
 
