@@ -34,9 +34,9 @@ import {
   Timer as TimerIcon
 } from '@mui/icons-material';
 import { useTheme } from '@mui/material/styles';
-import { i18n } from '../../../translate/i18n';
-import api from '../../../services/api';
-import { toast } from '../../../helpers/toast';
+import { i18n } from '../../../../translate/i18n';
+import api from '../../../../services/api';
+import { toast } from '../../../../helpers/toast';
 
 // Componente para exibir o conteúdo de acordo com a aba selecionada
 const TabPanel = (props) => {
