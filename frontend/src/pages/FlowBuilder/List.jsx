@@ -706,7 +706,7 @@ const FlowBuilderList = () => {
   };
 
   const handleInactivityMonitor = async () => {
-    history.push('/flow-builder/inactivity-monitor');
+    history.push('/flow-builder/imonitor');
   };
 
   const handleImportFlow = async () => {

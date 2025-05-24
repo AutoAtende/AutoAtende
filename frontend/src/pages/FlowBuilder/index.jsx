@@ -1798,7 +1798,7 @@ const FlowBuilder = () => {
               <Tooltip title="Monitor de Inatividade">
                 <IconButton
                   color="primary"
-                  onClick={() => history.push('/flow-builder/inactivity-monitor')}
+                  onClick={() => history.push('/flow-builder/imonitor')}
                   disabled={loading}
                 >
                   <InactivityIcon sx={{ color: customTheme.palette.primary.main }} />

@@ -55,6 +55,7 @@ import {
   Analytics as AnalyticsIcon,
   Close as CloseIcon
 } from '@mui/icons-material';
+import { AuthContext } from '../../context/Auth/AuthContext';
 import api from '../../services/api';
 import { toast } from '../../helpers/toast';
 import { i18n } from '../../translate/i18n';
@@ -65,6 +66,7 @@ import Title from '../../components/Title';
 
 const InactivityMonitorDashboard = () => {
   const theme = useTheme();
+  const { user } = useContext(AuthContext);
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
 
   // Estados principais
