@@ -438,7 +438,6 @@ export const handleRating = async (
     rate: finalRate
   });
 
-  // Verifica se é uma integração com Omie antes de enviar a mensagem de avaliação
   const queue = await Queue.findByPk(ticket.queueId);
 
   if (complationMessage) {
@@ -954,14 +953,21 @@ if (
     `${ticket.contact.number}@${ticket.isGroup ? "g.us" : "s.whatsapp.net"}`
   );
 
-  const sentMessage = await wbot.sendMessage(
-    `${ticket.contact.number}@${ticket.isGroup ? "g.us" : "s.whatsapp.net"}`,
-    {
-      text: "*Você encerrou este atendimento usando o comando SAIR*.\n\n\nSe você finalizou o atendimento *ANTES* de receber um retorno do operador, ele *NÃO* irá visualizar sua solicitação!\n\nVocê deve aguardar o retorno do operador e que ele encerre seu atendimento quando necessário.\n\nUse a opção *SAIR* somente em casos de emergência ou se ficou preso em algum setor.\n\n\nPara iniciar um novo atendimento basta enviar uma nova mensagem!"
-    }
-  );
-
-  
+  const sentMessage = await   wbot.sendMessage(`${ticket.contact.number}@${ticket.isGroup ? "g.us" : "s.whatsapp.net"}`, {
+    text: "*Você encerrou este atendimento usando o comando SAIR*.\n\n\nSe você finalizou o atendimento *ANTES* de receber um retorno do operador, ele *NÃO* irá visualizar sua solicitação!\n\nVocê deve aguardar o retorno do operador e que ele encerre seu atendimento quando necessário.\n\nUse a opção *SAIR* somente em casos de emergência ou se ficou preso em algum setor.\n\n\nPara iniciar um novo atendimento basta enviar uma nova mensagem!",
+    footer: "AutoAtende - 2025",
+    buttons: [
+        {
+            buttonId: `1`, 
+            buttonText: {
+                displayText: 'OK'
+            },
+            type: 1 
+        }
+    ],
+    headerType: 1,
+    viewOnce: true
+},{ quoted: null })
 
   // Buscar todas execuções ativas do FlowBuilder para este contato
   const activeExecutions = await FlowBuilderExecution.findAll({
