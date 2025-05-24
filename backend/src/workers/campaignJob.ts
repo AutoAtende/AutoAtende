@@ -751,35 +751,32 @@ export default class CampaignJob {
           }
         });
 
-        // Enviar presença de digitação para tornar a interação mais natural
-        await SendPresenceStatus(wbot, chatId, 0, 20000);
+                // Enviar presença de digitação para tornar a interação mais natural
+                await SendPresenceStatus(wbot, chatId, 0, 20000);
 
-        console.log(`[LOG DETALHADO] Verificando fileListId: ${campaign.fileListId}`);
-        if (campaign.fileListId) {
-          console.log(`[LOG DETALHADO] Enviando arquivos da lista ID=${campaign.fileListId}`);
-          await this.sendCampaignFiles(wbot, campaign, chatId);
-          console.log(`[LOG DETALHADO] Arquivos da lista enviados com sucesso`);
-        }
-
-        console.log(`[LOG DETALHADO] Verificando mediaPath: ${campaign.mediaPath}`);
-        if (campaign.mediaPath) {
-          console.log(`[LOG DETALHADO] Enviando mídia da campanha`);
-          await this.sendCampaignMedia(wbot, campaign, chatId, body);
-          console.log(`[LOG DETALHADO] Mídia da campanha enviada com sucesso`);
-        } else {
-          console.log(`[LOG DETALHADO] Enviando apenas mensagem de texto`);
-          body = formatBody(body, contact);
-          await wbot.sendMessage(chatId, { text: body });
-          console.log(`[LOG DETALHADO] Mensagem de texto enviada com sucesso`);
-
-          if (campaign.confirmation && campaignShipping.confirmation === null) {
-            console.log(`[LOG DETALHADO] Atualizando confirmationRequestedAt`);
-            await campaignShipping.update({ confirmationRequestedAt: moment() });
-          }
-        }
-
-        // Tratamento para integração com tickets
-        // Substituir a parte do handleDispatchCampaign em campaignJob.ts que trata da criação de tickets:
+                console.log(`[LOG DETALHADO] Verificando fileListId: ${campaign.fileListId}`);
+                if (campaign.fileListId) {
+                  console.log(`[LOG DETALHADO] Enviando arquivos da lista ID=${campaign.fileListId}`);
+                  await this.sendCampaignFiles(wbot, campaign, chatId);
+                  console.log(`[LOG DETALHADO] Arquivos da lista enviados com sucesso`);
+                }
+        
+                console.log(`[LOG DETALHADO] Verificando mediaPath: ${campaign.mediaPath}`);
+                if (campaign.mediaPath) {
+                  console.log(`[LOG DETALHADO] Enviando mídia da campanha`);
+                  await this.sendCampaignMedia(wbot, campaign, chatId, body);
+                  console.log(`[LOG DETALHADO] Mídia da campanha enviada com sucesso`);
+                } else {
+                  console.log(`[LOG DETALHADO] Enviando apenas mensagem de texto`);
+                  body = formatBody(body, contact);
+                  await wbot.sendMessage(chatId, { text: body });
+                  console.log(`[LOG DETALHADO] Mensagem de texto enviada com sucesso`);
+        
+                  if (campaign.confirmation && campaignShipping.confirmation === null) {
+                    console.log(`[LOG DETALHADO] Atualizando confirmationRequestedAt`);
+                    await campaignShipping.update({ confirmationRequestedAt: moment() });
+                  }
+                }
 
         // Tratamento para integração com tickets
         if (campaign.openTicket === "enabled") {
@@ -796,7 +793,7 @@ export default class CampaignJob {
                 contactId: contact.id,
                 companyId: campaign.companyId,
                 whatsappId: campaign.whatsappId,
-                status: { [Op.in]: ["open", "pending"] }
+                status: { [Op.in]: ["open", "pending","close"] }
               }
             });
 
@@ -841,10 +838,10 @@ export default class CampaignJob {
 
               const newTicket = await Ticket.create({
                 contactId: contact.id,
-                status: campaign.statusTicket || "pending",
+                status: "open",
                 whatsappId: wppId,
                 userId: campaign.userId || null,
-                queueId: campaign.queueId || null,
+                queueId: campaign.queueId,
                 companyId: campaign.companyId,
                 isGroup: false
               });
