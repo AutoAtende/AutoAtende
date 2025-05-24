@@ -249,29 +249,6 @@ const InactivityNode = ({ data, selected }) => {
       {/* **HANDLES DINÂMICOS** - Renderizar apenas os necessários */}
       {handles.map((handle, index) => (
         <React.Fragment key={handle.id}>
-          {/* Indicador visual do handle */}
-          <Box
-            sx={{
-              position: 'absolute',
-              bottom: -10,
-              left: handle.position,
-              transform: 'translateX(-50%)',
-              bgcolor: alpha('#fff', 0.9),
-              color: handle.color,
-              fontSize: '0.6rem',
-              fontWeight: 'bold',
-              padding: '2px 6px',
-              borderRadius: '4px',
-              border: `1px solid ${handle.color}`,
-              zIndex: 20,
-              userSelect: 'none',
-              pointerEvents: 'none',
-              whiteSpace: 'nowrap'
-            }}
-          >
-            {handle.label}
-          </Box>
-
           {/* Handle de saída */}
           <Handle
             type="source"
