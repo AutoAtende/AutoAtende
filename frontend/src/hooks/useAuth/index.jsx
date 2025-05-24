@@ -15,29 +15,17 @@ const useAuth = () => {
   const [isAuth, setIsAuth] = useState(false);
   const [loading, setLoading] = useState(true);
   const [user, setUser] = useState({});
-  const [currentSessionId, setCurrentSessionId] = useState(null);
 
   // Usar o hook usePublicSettings para carregar configurações públicas
   const { publicSettings, loadPublicSettings } = usePublicSettings();
 
   const socketManager = useContext(SocketContext);
 
-  // Gerar um ID único para esta sessão
-  useEffect(() => {
-    if (!currentSessionId) {
-      const sessionId = `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-      setCurrentSessionId(sessionId);
-      localStorage.setItem("currentSessionId", sessionId);
-    }
-  }, [currentSessionId]);
-
   api.interceptors.request.use(
     (config) => {
       const token = localStorage.getItem("token");
-      const sessionId = localStorage.getItem("currentSessionId");
       if (token) {
         config.headers["Authorization"] = `Bearer ${JSON.parse(token)}`;
-        config.headers["X-Session-Id"] = sessionId;
         setIsAuth(true);
       }
       return config;
@@ -70,48 +58,61 @@ const useAuth = () => {
           throw new Error("Falha ao renovar token");
         } catch (err) {
           refreshTokenPromise = null;
-          handleSessionExpired();
+          // Salvar lastCompanyId antes de limpar o localStorage
+          const companyId = localStorage.getItem("companyId");
+          if (companyId) {
+            localStorage.setItem("lastCompanyId", companyId);
+          }
+          localStorage.clear();
+          // Restaurar lastCompanyId após limpar localStorage para manter a referência
+          const lastCompanyId = localStorage.getItem("lastCompanyId");
+          if (lastCompanyId) {
+            localStorage.setItem("companyId", lastCompanyId);
+          } else {
+            localStorage.setItem("companyId", "1");
+          }
+          
+          setUser({});
+          setIsAuth(false);
+          
+          // Carregar configurações públicas após logout para a tela de login
+          loadPublicSettings(true);
+          
+          window.location.href = "/login";
           throw err;
         }
       }
 
       if (error?.response?.status === 401) {
-        handleSessionExpired();
+        // Salvar lastCompanyId antes de limpar o localStorage
+        const companyId = localStorage.getItem("companyId");
+        if (companyId) {
+          localStorage.setItem("lastCompanyId", companyId);
+        }
+        localStorage.clear();
+        // Restaurar lastCompanyId após limpar localStorage para manter a referência
+        const lastCompanyId = localStorage.getItem("lastCompanyId");
+        if (lastCompanyId) {
+          localStorage.setItem("companyId", lastCompanyId);
+        } else {
+          localStorage.setItem("companyId", "1");
+        }
+        
+        setUser({});
+        setIsAuth(false);
+        
+        // Carregar configurações públicas após erro de autenticação
+        loadPublicSettings(true);
+        
+        window.location.href = "/login";
       }
       return Promise.reject(error);
     }
   );
 
-  const handleSessionExpired = () => {
-    // Salvar lastCompanyId antes de limpar o localStorage
-    const companyId = localStorage.getItem("companyId");
-    if (companyId) {
-      localStorage.setItem("lastCompanyId", companyId);
-    }
-    localStorage.clear();
-    // Restaurar lastCompanyId após limpar localStorage para manter a referência
-    const lastCompanyId = localStorage.getItem("lastCompanyId");
-    if (lastCompanyId) {
-      localStorage.setItem("companyId", lastCompanyId);
-    } else {
-      localStorage.setItem("companyId", "1");
-    }
-    
-    setUser({});
-    setIsAuth(false);
-    
-    // Carregar configurações públicas após logout para a tela de login
-    loadPublicSettings(true);
-    
-    window.location.href = "/login";
-  };
-
   async function refreshToken() {
     try {
-      const sessionId = localStorage.getItem("currentSessionId");
-      const { data } = await api.post("/auth/refresh_token", {
-        sessionId: sessionId
-      });
+      const { data } = await api.post("/auth/refresh_token");
       if (data?.token) {
         localStorage.setItem("token", JSON.stringify(data.token));
         localStorage.setItem("companyId", data.user.companyId);
@@ -125,7 +126,26 @@ const useAuth = () => {
       }
       throw new Error("Token de atualização inválido");
     } catch (err) {
-      handleSessionExpired();
+      // Salvar lastCompanyId antes de limpar o localStorage
+      const companyId = localStorage.getItem("companyId");
+      if (companyId) {
+        localStorage.setItem("lastCompanyId", companyId);
+      }
+      localStorage.clear();
+      // Restaurar lastCompanyId após limpar localStorage para manter a referência
+      const lastCompanyId = localStorage.getItem("lastCompanyId");
+      if (lastCompanyId) {
+        localStorage.setItem("companyId", lastCompanyId);
+      } else {
+        localStorage.setItem("companyId", "1");
+      }
+      
+      setUser({});
+      setIsAuth(false);
+      
+      // Carregar configurações públicas após falha no refresh token
+      loadPublicSettings(true);
+      
       throw err;
     }
   }
@@ -197,9 +217,8 @@ const useAuth = () => {
   useEffect(() => {
     const companyId = localStorage.getItem("companyId");
     const userId = localStorage.getItem("userId");
-    const sessionId = localStorage.getItem("currentSessionId");
 
-    if (!companyId || !socketManager?.GetSocket || !sessionId) {
+    if (!companyId || !socketManager?.GetSocket) {
       return () => {};
     }
 
@@ -207,39 +226,36 @@ const useAuth = () => {
       const socket = socketManager.GetSocket(companyId);
       
       const onCompanyAuthLayout = (data) => {
-        // Verificar se é uma notificação de logout forçado para ESTA sessão
-        if (data.user.id === +userId && data.sessionId === sessionId && data.action === "force_logout") {
-          toast.error("Sua conta foi acessada em outro computador.");
-          setTimeout(() => {
-            // Salvar lastCompanyId antes de limpar o localStorage  
-            localStorage.setItem("lastCompanyId", companyId);
-            localStorage.clear();
-            // Restaurar lastCompanyId após limpar localStorage para manter a referência
-            localStorage.setItem("companyId", localStorage.getItem("lastCompanyId") || "1");
-            
-            // Carregar configurações públicas após logout forçado
-            loadPublicSettings(true);
-            
-            window.location.reload();
-          }, 1000);
+        if (data.user.id === +userId) {
+          // CORREÇÃO: Verificar se não é o próprio login atual
+          const currentTime = Date.now();
+          const loginTime = data.timestamp || 0;
+          const timeDiff = Math.abs(currentTime - loginTime);
+          
+          // Só desconectar se não for o próprio login (diferença > 5 segundos)
+          if (timeDiff > 5000) {
+            toast.error("Sua conta foi acessada em outro computador.");
+            setTimeout(() => {
+              // Salvar lastCompanyId antes de limpar o localStorage
+              localStorage.setItem("lastCompanyId", companyId);
+              localStorage.clear();
+              // Restaurar lastCompanyId após limpar localStorage para manter a referência
+              localStorage.setItem("companyId", localStorage.getItem("lastCompanyId") || "1");
+              
+              // Carregar configurações públicas após logout forçado
+              loadPublicSettings(true);
+              
+              window.location.reload();
+            }, 1000);
+          }
         }
       };
 
       socket.on(`company-${companyId}-auth`, onCompanyAuthLayout);
-      
-      // Emitir status com informações da sessão
-      socket.emit("userStatus", { 
-        userId: +userId, 
-        sessionId: sessionId,
-        timestamp: Date.now()
-      });
+      socket.emit("userStatus");
       
       const interval = setInterval(() => {
-        socket.emit("userStatus", { 
-          userId: +userId, 
-          sessionId: sessionId,
-          timestamp: Date.now()
-        });
+        socket.emit("userStatus");
       }, 1000 * 60 * 5);
 
       return () => {
@@ -256,11 +272,7 @@ const useAuth = () => {
     setLoading(true);
   
     try {
-      const sessionId = localStorage.getItem("currentSessionId");
-      const { data } = await api.post("/auth/login", {
-        ...userData,
-        sessionId: sessionId
-      });
+      const { data } = await api.post("/auth/login", userData);
       
       if (!data || !data.token || !data.user) {
         throw new Error("Resposta do servidor inválida");
@@ -279,9 +291,11 @@ const useAuth = () => {
       
       setUser(user);
       setIsAuth(true);
+  
 
       try {
         const enableMetaPixel = publicSettings.enableMetaPixel === 'enabled';
+
         
         if (enableMetaPixel) {
           // Verificar se company tem as configurações do Pixel
@@ -368,10 +382,7 @@ const useAuth = () => {
   const handleLogout = async () => {
     setLoading(true);
     try {
-      const sessionId = localStorage.getItem("currentSessionId");
-      await api.delete("/auth/logout", {
-        data: { sessionId }
-      });
+      await api.delete("/auth/logout");
       
       // Salvar lastCompanyId antes de limpar o localStorage
       const companyId = localStorage.getItem("companyId");
