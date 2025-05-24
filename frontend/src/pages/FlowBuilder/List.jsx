@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useContext } from 'react';
 import { useHistory } from 'react-router-dom';
 import {
   Box,
@@ -62,6 +62,7 @@ import {
   Stop as EndIcon,
   HourglassEmpty as InactivityIcon,
 } from '@mui/icons-material';
+import { AuthContext } from '../../context/Auth/AuthContext';
 import api from '../../services/api';
 import { toast } from '../../helpers/toast';
 import { i18n } from '../../translate/i18n';
@@ -516,6 +517,7 @@ const StatsModal = ({ open, onClose, flow, nodes = [], edges = [] }) => {
   );
 };
 const FlowBuilderList = () => {
+  const { user } = useContext(AuthContext);
   const history = useHistory();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
