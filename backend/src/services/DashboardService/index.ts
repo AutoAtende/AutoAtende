@@ -33,6 +33,11 @@ interface MessageByDay {
   count: number;
 }
 
+interface ContactMetrics {
+  total: number;
+  byState: Record<string, { count: number }>;
+}
+
 interface OverviewMetrics {
   totalMessages: number;
   averageFirstResponseTime: number;
@@ -40,6 +45,7 @@ interface OverviewMetrics {
   messageTrend: number;
   responseTrend: number;
   clientTrend: number;
+  contactMetrics: ContactMetrics;
 }
 
 interface OverviewResponse extends OverviewMetrics {
@@ -114,6 +120,74 @@ interface UserQueueComparison {
   };
 }
 
+const statesDDD = {
+  SP: ["11", "12", "13", "14", "15", "16", "17", "18", "19"],
+  RJ: ["21", "22", "24"],
+  ES: ["27", "28"],
+  MG: ["31", "32", "33", "34", "35", "37", "38"],
+  PR: ["41", "42", "43", "44", "45", "46"],
+  SC: ["47", "48", "49"],
+  RS: ["51", "53", "54", "55"],
+  DF: ["61"],
+  GO: ["62", "64"],
+  TO: ["63"],
+  MT: ["65", "66"],
+  MS: ["67"],
+  AC: ["68"],
+  RO: ["69"],
+  BA: ["71", "73", "74", "75", "77"],
+  SE: ["79"],
+  PE: ["81", "87"],
+  AL: ["82"],
+  PB: ["83"],
+  RN: ["84"],
+  CE: ["85", "88"],
+  PI: ["86", "89"],
+  PA: ["91", "93", "94"],
+  AM: ["92", "97"],
+  RR: ["95"],
+  AP: ["96"],
+  MA: ["98", "99"]
+};
+
+export const stateNames = {
+  AC: "Acre",
+  AL: "Alagoas",
+  AP: "Amapá",
+  AM: "Amazonas",
+  BA: "Bahia",
+  CE: "Ceará",
+  DF: "Distrito Federal",
+  ES: "Espírito Santo",
+  GO: "Goiás",
+  MA: "Maranhão",
+  MT: "Mato Grosso",
+  MS: "Mato Grosso do Sul",
+  MG: "Minas Gerais",
+  PA: "Pará",
+  PB: "Paraíba",
+  PR: "Paraná",
+  PE: "Pernambuco",
+  PI: "Piauí",
+  RJ: "Rio de Janeiro",
+  RN: "Rio Grande do Norte",
+  RS: "Rio Grande do Sul",
+  RO: "Rondônia",
+  RR: "Roraima",
+  SC: "Santa Catarina",
+  SP: "São Paulo",
+  SE: "Sergipe",
+  TO: "Tocantins"
+};
+
+// Mapeamento inverso de DDD para estado
+const dddToState = Object.entries(statesDDD).reduce((acc, [state, ddds]) => {
+  ddds.forEach(ddd => {
+    acc[ddd] = state;
+  });
+  return acc;
+}, {} as Record<string, string>);
+
 class DashboardService {
   private getDateRange(startDate?: Date, endDate?: Date): TimeRange {
     const now = new Date();
@@ -183,8 +257,8 @@ class DashboardService {
           break;
 
         case 'responseTime':
-// Para o período atual
-const currentTimeResult = await sequelize.query(`
+          // Para o período atual
+          const currentTimeResult = await sequelize.query(`
   SELECT AVG(
     CASE 
       WHEN EXTRACT(EPOCH FROM (m."createdAt" - t."createdAt")) / 60 > 1440 
@@ -207,17 +281,17 @@ const currentTimeResult = await sequelize.query(`
   AND (m."createdAt" - t."createdAt") > interval '1 second'
   AND (m."createdAt" - t."createdAt") < interval '24 hours'
 `, {
-  replacements: {
-    companyId,
-    startDate: currentStartDate,
-    endDate: currentEndDate
-  },
-  type: QueryTypes.SELECT,
-  plain: true
-}) as any;
+            replacements: {
+              companyId,
+              startDate: currentStartDate,
+              endDate: currentEndDate
+            },
+            type: QueryTypes.SELECT,
+            plain: true
+          }) as any;
 
-// Para o período anterior
-const previousTimeResult = await sequelize.query(`
+          // Para o período anterior
+          const previousTimeResult = await sequelize.query(`
   SELECT AVG(
     CASE 
       WHEN EXTRACT(EPOCH FROM (m."createdAt" - t."createdAt")) / 60 > 1440 
@@ -240,14 +314,14 @@ const previousTimeResult = await sequelize.query(`
   AND (m."createdAt" - t."createdAt") > interval '1 second'
   AND (m."createdAt" - t."createdAt") < interval '24 hours'
 `, {
-  replacements: {
-    companyId,
-    startDate: previousStartDate,
-    endDate: previousEndDate
-  },
-  type: QueryTypes.SELECT,
-  plain: true
-}) as any;
+            replacements: {
+              companyId,
+              startDate: previousStartDate,
+              endDate: previousEndDate
+            },
+            type: QueryTypes.SELECT,
+            plain: true
+          }) as any;
 
           currentValue = currentTimeResult?.avgTime ? parseFloat(currentTimeResult.avgTime) : 0;
           previousValue = previousTimeResult?.avgTime ? parseFloat(previousTimeResult.avgTime) : 0;
@@ -317,8 +391,8 @@ const previousTimeResult = await sequelize.query(`
       });
 
       // Tempo médio de primeira resposta
-// Tempo médio de primeira resposta
-const avgFirstResponseResult = await sequelize.query<{ avgTime: string | null }>(`
+      // Tempo médio de primeira resposta
+      const avgFirstResponseResult = await sequelize.query<{ avgTime: string | null }>(`
   SELECT AVG(
     CASE 
       WHEN EXTRACT(EPOCH FROM (m."createdAt" - t."createdAt")) / 60 > 1440 
@@ -341,14 +415,14 @@ const avgFirstResponseResult = await sequelize.query<{ avgTime: string | null }>
   AND (m."createdAt" - t."createdAt") > interval '1 second'
   AND (m."createdAt" - t."createdAt") < interval '24 hours'
 `, {
-  replacements: {
-    companyId,
-    startDate: start,
-    endDate: end
-  },
-  type: QueryTypes.SELECT,
-  plain: true
-});
+        replacements: {
+          companyId,
+          startDate: start,
+          endDate: end
+        },
+        type: QueryTypes.SELECT,
+        plain: true
+      });
 
       const averageFirstResponseTime = avgFirstResponseResult?.avgTime ?
         parseFloat(avgFirstResponseResult.avgTime) : 0;
@@ -410,6 +484,8 @@ const avgFirstResponseResult = await sequelize.query<{ avgTime: string | null }>
         count: parseInt(day.count)
       }));
 
+      const contactMetrics = await this.getContactsByState(companyId);
+
       // Preparar resposta final
       const response: OverviewResponse = {
         totalMessages,
@@ -418,7 +494,8 @@ const avgFirstResponseResult = await sequelize.query<{ avgTime: string | null }>
         messageTrend,
         responseTrend,
         clientTrend,
-        messagesByDay: formattedMessagesByDay
+        messagesByDay: formattedMessagesByDay,
+        contactMetrics
       };
 
       logger.info("Visão geral formatada com sucesso", {
@@ -427,7 +504,8 @@ const avgFirstResponseResult = await sequelize.query<{ avgTime: string | null }>
         newContacts,
         messageTrend,
         responseTrend,
-        clientTrend
+        clientTrend,
+        contactMetrics
       });
 
       return response;
@@ -1039,6 +1117,65 @@ SELECT COUNT(DISTINCT c.id) as count
     } catch (error) {
       logger.error("Erro em getUserQueuesComparison", { error });
       throw new AppError("Erro ao obter comparativo do usuário entre filas", 500);
+    }
+  }
+
+  // Método auxiliar para buscar métricas de contatos por estado
+  public async getContactsByState(companyId: number): Promise<ContactMetrics> {
+    try {
+      logger.info("DashboardService.getContactsByState - Iniciando consulta", { companyId });
+
+      const contacts = await Contact.findAll({
+        where: {
+          companyId,
+          number: {
+            [Op.and]: [
+              { [Op.like]: '55%' },
+              { [Op.ne]: null },
+              { [Op.ne]: '' }
+            ]
+          }
+        },
+        attributes: ['number']
+      });
+
+      const stateCount: Record<string, { count: number }> = {};
+
+      // Inicializa contadores para todos os estados
+      Object.keys(statesDDD).forEach(state => {
+        stateCount[state] = { count: 0 };
+      });
+
+      // Processa cada contato
+      contacts.forEach(contact => {
+        if (!contact.number || !contact.number.startsWith('55') || contact.number.length < 12) {
+          return;
+        }
+
+        const ddd = contact.number.substring(2, 4);
+        const state = dddToState[ddd];
+
+        if (state && stateCount[state]) {
+          stateCount[state].count++;
+        }
+      });
+
+      const total = contacts.length;
+
+      const result: ContactMetrics = {
+        total,
+        byState: stateCount
+      };
+
+      logger.info("Contatos por estado calculados", {
+        total,
+        statesWithContacts: Object.keys(stateCount).filter(state => stateCount[state].count > 0).length
+      });
+
+      return result;
+    } catch (error) {
+      logger.error("Erro em getContactsByState", { error });
+      throw new AppError("Erro ao buscar contatos por estado", 500);
     }
   }
 

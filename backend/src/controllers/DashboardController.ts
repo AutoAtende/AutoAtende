@@ -102,6 +102,24 @@ class DashboardController {
     }
   };
 
+  public getContactsByState = async (req: Request, res: Response): Promise<Response> => {
+    const { companyId } = req.user;
+
+    try {
+      logger.info("Iniciando getContactsByState", { companyId });
+
+      const data = await this.dashboardService.getContactsByState(companyId);
+
+      return res.status(200).json(data);
+    } catch (error) {
+      logger.error("Erro em getContactsByState", { error });
+      if (error instanceof AppError) {
+        return res.status(error.statusCode).json({ error: error.message });
+      }
+      return res.status(500).json({ error: "Erro interno do servidor" });
+    }
+  };
+
   public getAgentProspection = async (req: Request, res: Response): Promise<Response> => {
     const { companyId } = req.user;
     const { period } = req.query as { period?: string };

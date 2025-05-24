@@ -60,7 +60,8 @@ const DashboardConfigModal = ({ open, onClose }) => {
       messagesByDayChart: true,
       messagesByUserChart: true,
       comparativeTable: true,
-      prospectionTable: true
+      prospectionTable: true,
+      brazilMap: true,
     }
   });
 
@@ -236,6 +237,14 @@ const DashboardConfigModal = ({ open, onClose }) => {
                 edge="end"
                 checked={localSettings.componentVisibility.prospectionTable}
                 onChange={handleVisibilityChange('prospectionTable')}
+              />
+            </ListItem>
+            <ListItem>
+              <ListItemText primary="Mapa de Atendimento por Estado" />
+              <Switch
+                edge="end"
+                checked={localSettings.componentVisibility.brazilMap}
+                onChange={handleVisibilityChange('brazilMap')}
               />
             </ListItem>
           </List>

@@ -1,4 +1,4 @@
-import { useState, useEffect, useContext } from 'react';
+import { useState, useEffect, useContext, useCallback } from 'react';
 import { AuthContext } from '../../../context/Auth/AuthContext';
 import api from '../../../services/api';
 import { toast } from '../../../helpers/toast';
@@ -25,7 +25,11 @@ const useDashboardData = () => {
     messagesByDay: [],
     messagesByUser: [],
     comparativeData: [],
-    prospectionData: []
+    prospectionData: [],
+    contactMetrics: { 
+      total: 0, 
+      byState: {} 
+    }
   });
 
   // Carregar dados iniciais
@@ -107,6 +111,7 @@ const useDashboardData = () => {
       let responseTimeTrend = overviewData.responseTrend || 0;
       let clientsTrend = overviewData.clientTrend || 0;
       let messagesByDay = overviewData.messagesByDay || [];
+      let contactMetrics = overviewData.contactMetrics || { total: 0, byState: {} };
       
       // Se temos uma fila selecionada e dados disponíveis para ela, atualizamos os valores
       if (queueId && queueMetricsData.ticketsByQueue && queueMetricsData.ticketsByQueue.length > 0) {
@@ -115,8 +120,8 @@ const useDashboardData = () => {
         avgResponseTime = queueData.firstContactTime || 0;
         clientsCount = queueData.clients || 0;
         
-        // Para as tendências, deixar os valores do overview geral caso não tenhamos dados específicos
-        // Idealmente, o backend deveria calcular tendências específicas por fila também
+        // Para filas específicas, não temos dados de contatos por estado
+        contactMetrics = { total: 0, byState: {} };
       }
       
       const ticketsByUser = queueMetricsData.ticketsByUser || [];
@@ -134,7 +139,8 @@ const useDashboardData = () => {
         messagesByDay: formatMessagesByDay(messagesByDay),
         messagesByUser: formatMessagesByUser(ticketsByUser),
         comparativeData: formatComparativeData(ticketsByQueue),
-        prospectionData: prospectionResponse.data || []
+        prospectionData: prospectionResponse.data || [],
+        contactMetrics
       };
       
       setDashboardData(newData);
@@ -147,6 +153,13 @@ const useDashboardData = () => {
       setIsLoading(false);
     }
   };
+
+  const getColorScale = useCallback((value, max) => {
+    const intensity = Math.pow(value / max, 0.5);
+    const minIntensity = 0.4;
+    const maxIntensity = 0.9;
+    return `rgba(25, 118, 210, ${minIntensity + (intensity * (maxIntensity - minIntensity))})`;
+  }, []);
 
   // Funções para formatação de dados
   const formatResponseTime = (minutes) => {

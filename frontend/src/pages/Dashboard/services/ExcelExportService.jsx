@@ -1,5 +1,36 @@
 import * as XLSX from 'xlsx';
 
+// Nomes dos estados brasileiros
+const stateNames = {
+  AC: "Acre",
+  AL: "Alagoas",
+  AP: "Amapá",
+  AM: "Amazonas",
+  BA: "Bahia",
+  CE: "Ceará",
+  DF: "Distrito Federal",
+  ES: "Espírito Santo",
+  GO: "Goiás",
+  MA: "Maranhão",
+  MT: "Mato Grosso",
+  MS: "Mato Grosso do Sul",
+  MG: "Minas Gerais",
+  PA: "Pará",
+  PB: "Paraíba",
+  PR: "Paraná",
+  PE: "Pernambuco",
+  PI: "Piauí",
+  RJ: "Rio de Janeiro",
+  RN: "Rio Grande do Norte",
+  RS: "Rio Grande do Sul",
+  RO: "Rondônia",
+  RR: "Roraima",
+  SC: "Santa Catarina",
+  SP: "São Paulo",
+  SE: "Sergipe",
+  TO: "Tocantins"
+};
+
 class ExcelExportService {
   /**
    * Exporta dados para um arquivo Excel
@@ -167,15 +198,28 @@ class ExcelExportService {
       Desempenho: item.performance
     }));
 
+    // Dados do mapa do Brasil (contatos por estado)
+    const brazilMapData = dashboardData.contactMetrics?.byState ? 
+      Object.entries(dashboardData.contactMetrics.byState)
+        .filter(([_, data]) => data.count > 0)
+        .map(([stateCode, data]) => ({
+          Estado: stateNames[stateCode] || stateCode,
+          Código: stateCode,
+          Contatos: data.count,
+          Percentual: dashboardData.contactMetrics.total > 0 ? 
+            `${((data.count / dashboardData.contactMetrics.total) * 100).toFixed(2)}%` : '0%'
+        }))
+        .sort((a, b) => b.Contatos - a.Contatos)
+      : [];
+
     // Certificar-se de que todas as células estão preenchidas para exportação
-    Object.keys(dashboardData.comparativeData).forEach(key => {
+    dashboardData.comparativeData.forEach((queue, index) => {
       comparativeData.forEach(row => {
-        const queueName = dashboardData.comparativeData[key].name;
-        if (!row[queueName]) {
-          row[queueName] = '-';
+        if (!row[queue.name]) {
+          row[queue.name] = '-';
         }
-        if (!row[`${queueName} %`]) {
-          row[`${queueName} %`] = '-';
+        if (!row[`${queue.name} %`]) {
+          row[`${queue.name} %`] = '-';
         }
       });
     });
@@ -185,7 +229,8 @@ class ExcelExportService {
       Mensagens_por_Dia: messagesByDay,
       Mensagens_por_Agente: messagesByUser,
       Comparativo_Setores: comparativeData,
-      Prospecção_por_Agente: prospectionData
+      Prospecção_por_Agente: prospectionData,
+      Contatos_por_Estado: brazilMapData
     };
   }
 
@@ -223,6 +268,40 @@ class ExcelExportService {
       return this.exportToExcel(data, filename, 'Comparativo de Usuário');
     } catch (error) {
       console.error('Erro ao exportar comparativo de usuário:', error);
+      return false;
+    }
+  }
+
+  /**
+   * Exporta especificamente os dados do mapa do Brasil
+   * @param {Object} contactMetrics - Dados de contatos por estado
+   * @param {string} filename - Nome do arquivo (sem extensão)
+   */
+  static exportBrazilMapData(contactMetrics, filename = 'contatos-por-estado') {
+    try {
+      if (!contactMetrics?.byState) return false;
+      
+      const brazilMapData = Object.entries(contactMetrics.byState)
+        .map(([stateCode, data]) => ({
+          Estado: stateNames[stateCode] || stateCode,
+          Código: stateCode,
+          Contatos: data.count,
+          Percentual: contactMetrics.total > 0 ? 
+            `${((data.count / contactMetrics.total) * 100).toFixed(2)}%` : '0%'
+        }))
+        .sort((a, b) => b.Contatos - a.Contatos);
+
+      // Adicionar linha de total
+      brazilMapData.push({
+        Estado: 'TOTAL GERAL',
+        Código: '-',
+        Contatos: contactMetrics.total,
+        Percentual: '100.00%'
+      });
+      
+      return this.exportToExcel(brazilMapData, filename, 'Contatos por Estado');
+    } catch (error) {
+      console.error('Erro ao exportar dados do mapa do Brasil:', error);
       return false;
     }
   }

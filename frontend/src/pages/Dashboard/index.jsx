@@ -10,6 +10,7 @@ import BarChartComponent from './components/BarChartComponent';
 import DonutChartComponent from './components/DonutChartComponent';
 import ComparativeTable from './components/ComparativeTable';
 import ProspectionTable from './components/ProspectionTable';
+import BrazilMap from './components/BrazilMap';
 import ComponentVisibilityControl from './components/ComponentVisibilityControl';
 import DashboardConfigModal from './components/DashboardConfigModal';
 import { useDashboardContext } from './context/DashboardContext';
@@ -277,45 +278,44 @@ const Dashboard = () => {
           <Grid container spacing={2.5} sx={{ mb: 2.5 }}>
             {isComponentVisible('messagesCard') && (
               <Grid item xs={12} md={4}>
-<DashboardCard
-  icon="paper-plane"
-  title="Mensagens Enviadas"
-  value={dashboardData.messagesCount.toLocaleString()}
-  subtitle="Total no período"
-  trend={dashboardData.messagesTrend}
-  trendText={`${Math.abs(dashboardData.messagesTrend)}% em relação à ${getComparisonPeriodText(dateRange)}`}
-  visibilityControl={<ComponentVisibilityControl componentKey="messagesCard" />}
-/>
+                <DashboardCard
+                  icon="paper-plane"
+                  title="Mensagens Enviadas"
+                  value={dashboardData.messagesCount.toLocaleString()}
+                  subtitle="Total no período"
+                  trend={dashboardData.messagesTrend}
+                  trendText={`${Math.abs(dashboardData.messagesTrend)}% em relação à ${getComparisonPeriodText(dateRange)}`}
+                  visibilityControl={<ComponentVisibilityControl componentKey="messagesCard" />}
+                />
               </Grid>
             )}
             
             {isComponentVisible('responseTimeCard') && (
               <Grid item xs={12} md={4}>
-<DashboardCard
-  icon="clock"
-  title="Tempo Médio de Resposta"
-  value={dashboardData.avgResponseTime}
-  subtitle="Após primeira mensagem do cliente"
-  trend={dashboardData.responseTimeTrend}
-  trendText={`${Math.abs(dashboardData.responseTimeTrend)}% em relação à ${getComparisonPeriodText(dateRange)}`}
-  invertTrend={true}
-  visibilityControl={<ComponentVisibilityControl componentKey="responseTimeCard" />}
-/>
-
+                <DashboardCard
+                  icon="clock"
+                  title="Tempo Médio de Resposta"
+                  value={dashboardData.avgResponseTime}
+                  subtitle="Após primeira mensagem do cliente"
+                  trend={dashboardData.responseTimeTrend}
+                  trendText={`${Math.abs(dashboardData.responseTimeTrend)}% em relação à ${getComparisonPeriodText(dateRange)}`}
+                  invertTrend={true}
+                  visibilityControl={<ComponentVisibilityControl componentKey="responseTimeCard" />}
+                />
               </Grid>
             )}
             
             {isComponentVisible('clientsCard') && (
               <Grid item xs={12} md={4}>
-<DashboardCard
-  icon="users"
-  title="Clientes Interagidos"
-  value={dashboardData.clientsCount.toLocaleString()}
-  subtitle="No período selecionado"
-  trend={dashboardData.clientsTrend}
-  trendText={`${Math.abs(dashboardData.clientsTrend)}% em relação à ${getComparisonPeriodText(dateRange)}`}
-  visibilityControl={<ComponentVisibilityControl componentKey="clientsCard" />}
-/>
+                <DashboardCard
+                  icon="users"
+                  title="Clientes Interagidos"
+                  value={dashboardData.clientsCount.toLocaleString()}
+                  subtitle="No período selecionado"
+                  trend={dashboardData.clientsTrend}
+                  trendText={`${Math.abs(dashboardData.clientsTrend)}% em relação à ${getComparisonPeriodText(dateRange)}`}
+                  visibilityControl={<ComponentVisibilityControl componentKey="clientsCard" />}
+                />
               </Grid>
             )}
           </Grid>
@@ -350,6 +350,26 @@ const Dashboard = () => {
               </Grid>
             )}
           </Grid>
+
+          {/* Mapa do Brasil - Apenas para aba "TODOS" */}
+          {selectedQueue === 'all' && isComponentVisible('brazilMap') && (
+            <Grid container spacing={2.5} sx={{ mb: 2.5 }}>
+              <Grid item xs={12}>
+                <ChartsPaper>
+                  <ChartHeader>
+                    <Typography variant="h6">
+                      Distribuição de Contatos por Estado
+                    </Typography>
+                    <ComponentVisibilityControl componentKey="brazilMap" />
+                  </ChartHeader>
+                  <BrazilMap 
+                    contactMetrics={dashboardData.contactMetrics}
+                    title=""
+                  />
+                </ChartsPaper>
+              </Grid>
+            </Grid>
+          )}
 
           {/* Tabelas */}
           <Grid container spacing={2.5} sx={{ mb: 2.5 }}>

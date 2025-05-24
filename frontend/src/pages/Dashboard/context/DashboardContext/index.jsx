@@ -23,7 +23,8 @@ export const DashboardProvider = ({ children }) => {
       messagesByDayChart: true,
       messagesByUserChart: true,
       comparativeTable: true,
-      prospectionTable: true
+      prospectionTable: true,
+      brazilMap: true
     }
   });
   
@@ -35,7 +36,11 @@ export const DashboardProvider = ({ children }) => {
         if (response.data) {
           setDashboardSettings(prevSettings => ({
             ...prevSettings,
-            ...response.data
+            ...response.data,
+            componentVisibility: {
+              ...prevSettings.componentVisibility,
+              ...response.data.componentVisibility
+            }
           }));
           
           // Aplicar as configurações carregadas
@@ -63,7 +68,11 @@ export const DashboardProvider = ({ children }) => {
       if (response.data) {
         setDashboardSettings(prevSettings => ({
           ...prevSettings,
-          ...newSettings
+          ...newSettings,
+          componentVisibility: {
+            ...prevSettings.componentVisibility,
+            ...newSettings.componentVisibility
+          }
         }));
         toast.success('Configurações do dashboard atualizadas');
       }
@@ -105,15 +114,31 @@ export const DashboardProvider = ({ children }) => {
     try {
       const response = await api.post('/dashboard/settings/reset');
       if (response.data) {
-        setDashboardSettings(response.data);
+        const defaultSettings = {
+          defaultDateRange: 7,
+          defaultQueue: 'all',
+          componentVisibility: {
+            messagesCard: true,
+            responseTimeCard: true,
+            clientsCard: true,
+            messagesByDayChart: true,
+            messagesByUserChart: true,
+            comparativeTable: true,
+            prospectionTable: true,
+            brazilMap: true
+          },
+          ...response.data
+        };
+        
+        setDashboardSettings(defaultSettings);
         
         // Aplicar as configurações padrão
-        if (response.data.defaultDateRange) {
-          dashboardData.setDateRange(response.data.defaultDateRange);
+        if (defaultSettings.defaultDateRange) {
+          dashboardData.setDateRange(defaultSettings.defaultDateRange);
         }
         
-        if (response.data.defaultQueue) {
-          dashboardData.setSelectedQueue(response.data.defaultQueue);
+        if (defaultSettings.defaultQueue) {
+          dashboardData.setSelectedQueue(defaultSettings.defaultQueue);
         }
         
         toast.success('Configurações do dashboard resetadas');
