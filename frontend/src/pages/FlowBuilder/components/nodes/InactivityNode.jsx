@@ -1,4 +1,4 @@
-import React, { memo } from 'react';
+import React, { memo, useMemo } from 'react';
 import { Handle, Position } from '@xyflow/react';
 import { 
   Box, 
@@ -14,7 +14,9 @@ import {
   Stop as StopIcon,
   PersonAdd as TransferIcon,
   Refresh as ReengageIcon,
-  Timer as TimerIcon
+  Timer as TimerIcon,
+  CheckCircle as SuccessIcon,
+  Error as ErrorIcon
 } from '@mui/icons-material';
 
 const InactivityNode = ({ data, selected }) => {
@@ -26,6 +28,55 @@ const InactivityNode = ({ data, selected }) => {
     ? alpha(nodeColor, 0.15) 
     : alpha(nodeColor, 0.08);
   const borderColor = selected ? nodeColor : alpha(nodeColor, 0.3);
+
+  // Configuração de inatividade
+  const inactivityConfig = data?.inactivityConfig || {};
+  const action = inactivityConfig.action || 'warning';
+  const timeout = inactivityConfig.timeoutMinutes || 5;
+  const useGlobal = inactivityConfig.useGlobalSettings !== false;
+
+  // **NOVA LÓGICA**: Determinar quais handles exibir baseado na configuração
+  const handles = useMemo(() => {
+    const handlesList = [];
+    
+    // Handle padrão (sempre presente para fluxo normal)
+    handlesList.push({
+      id: 'default',
+      label: 'Continuar',
+      color: theme.palette.success.main,
+      position: '30%'
+    });
+
+    // Se há configuração específica, adicionar handle de sucesso
+    if (!useGlobal || action !== 'warning' || timeout !== 5) {
+      handlesList.push({
+        id: 'action-executed', 
+        label: 'Config. Aplicada',
+        color: nodeColor,
+        position: '60%'
+      });
+    }
+
+    // Se a ação pode falhar (ex: transferência sem fila), adicionar handle de erro
+    if (action === 'transfer' && !inactivityConfig.transferQueueId) {
+      handlesList.push({
+        id: 'timeout',
+        label: 'Erro Config.',
+        color: theme.palette.error.main,
+        position: '90%'
+      });
+    } else if (action === 'transfer' || action === 'reengage') {
+      // Para ações que podem falhar
+      handlesList.push({
+        id: 'timeout',
+        label: 'Falha',
+        color: theme.palette.error.main,
+        position: '90%'
+      });
+    }
+
+    return handlesList;
+  }, [inactivityConfig, useGlobal, action, timeout, nodeColor, theme]);
 
   // Obter ícone baseado na ação configurada
   const getActionIcon = (action) => {
@@ -59,12 +110,6 @@ const InactivityNode = ({ data, selected }) => {
         return 'Detectar';
     }
   };
-
-  // Configuração de inatividade
-  const inactivityConfig = data?.inactivityConfig || {};
-  const action = inactivityConfig.action || 'warning';
-  const timeout = inactivityConfig.timeoutMinutes || 5;
-  const useGlobal = inactivityConfig.useGlobalSettings !== false;
 
   return (
     <Paper
@@ -168,14 +213,17 @@ const InactivityNode = ({ data, selected }) => {
           />
         )}
 
-        {action === 'transfer' && inactivityConfig.transferQueueId && (
+        {action === 'transfer' && (
           <Chip
             size="small"
-            label="Para fila"
+            label={inactivityConfig.transferQueueId ? "Fila OK" : "Sem fila"}
             variant="outlined"
             sx={{ 
-              borderColor: alpha(nodeColor, 0.3),
-              color: nodeColor,
+              borderColor: alpha(
+                inactivityConfig.transferQueueId ? theme.palette.success.main : theme.palette.error.main, 
+                0.3
+              ),
+              color: inactivityConfig.transferQueueId ? theme.palette.success.main : theme.palette.error.main,
               fontSize: '0.7rem',
               height: 20
             }}
@@ -198,47 +246,49 @@ const InactivityNode = ({ data, selected }) => {
         )}
       </Box>
 
-      {/* Handles de saída - baseados na ação */}
-      <Handle
-        type="source"
-        position={Position.Bottom}
-        id="default"
-        style={{
-          background: theme.palette.success.main,
-          border: `2px solid ${theme.palette.background.paper}`,
-          width: 12,
-          height: 12,
-          left: '25%',
-        }}
-      />
+      {/* **HANDLES DINÂMICOS** - Renderizar apenas os necessários */}
+      {handles.map((handle, index) => (
+        <React.Fragment key={handle.id}>
+          {/* Indicador visual do handle */}
+          <Box
+            sx={{
+              position: 'absolute',
+              bottom: -10,
+              left: handle.position,
+              transform: 'translateX(-50%)',
+              bgcolor: alpha('#fff', 0.9),
+              color: handle.color,
+              fontSize: '0.6rem',
+              fontWeight: 'bold',
+              padding: '2px 6px',
+              borderRadius: '4px',
+              border: `1px solid ${handle.color}`,
+              zIndex: 20,
+              userSelect: 'none',
+              pointerEvents: 'none',
+              whiteSpace: 'nowrap'
+            }}
+          >
+            {handle.label}
+          </Box>
 
-      {/* Handle para quando a ação é executada */}
-      <Handle
-        type="source"
-        position={Position.Bottom}
-        id="action-executed"
-        style={{
-          background: nodeColor,
-          border: `2px solid ${theme.palette.background.paper}`,
-          width: 12,
-          height: 12,
-          left: '50%',
-        }}
-      />
-
-      {/* Handle para timeout/inatividade */}
-      <Handle
-        type="source"
-        position={Position.Bottom}
-        id="timeout"
-        style={{
-          background: theme.palette.error.main,
-          border: `2px solid ${theme.palette.background.paper}`,
-          width: 12,
-          height: 12,
-          left: '75%',
-        }}
-      />
+          {/* Handle de saída */}
+          <Handle
+            type="source"
+            position={Position.Bottom}
+            id={handle.id}
+            style={{
+              background: handle.color,
+              border: `2px solid ${theme.palette.background.paper}`,
+              width: 12,
+              height: 12,
+              left: handle.position,
+              bottom: -6,
+              zIndex: 10
+            }}
+          />
+        </React.Fragment>
+      ))}
 
       {/* Indicador de configuração personalizada */}
       {!useGlobal && (

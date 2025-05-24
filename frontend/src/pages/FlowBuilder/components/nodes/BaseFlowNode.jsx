@@ -44,6 +44,14 @@ const BaseFlowNode = ({
       return i18n.t('flowBuilder.outputs.default', 'Padrão');
     }
 
+    if (handle.id === 'action-executed') {
+      return 'Configuração Aplicada';
+    }
+    
+    if (handle.id === 'timeout') {
+      return 'Erro/Timeout';
+    }
+
     if (handle.id === 'error') {
       return i18n.t('flowBuilder.outputs.error', 'Erro');
     }
