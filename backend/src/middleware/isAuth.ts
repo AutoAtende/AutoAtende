@@ -3,7 +3,6 @@ import { Request, Response, NextFunction } from "express";
 import { logger } from "../utils/logger";
 import AppError from "../errors/AppError";
 import { getJwtConfig } from "../config/auth";
-import { updateSessionActivity } from "../controllers/SessionController";
 import { TokenPayload, RequestUser } from "../@types/User";
 import User from "../models/User";
 
@@ -75,10 +74,6 @@ const asyncAuth = async (req: Request, res: Response, next: NextFunction) => {
       // Atualizar status online
       await dbUser.update({ online: true });
 
-      // Atualizar atividade da sessão
-      if (sessionId) {
-        updateSessionActivity(Number(user.id), sessionId);
-      } 
     } catch (error) {
       if (error instanceof AppError) {
         throw error;
