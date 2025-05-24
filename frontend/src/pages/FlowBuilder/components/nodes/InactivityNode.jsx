@@ -6,7 +6,7 @@ import {
   Chip,
   Tooltip
 } from '@mui/material';
-import { useTheme } from '@mui/material/styles';
+import { alpha, useTheme } from '@mui/material/styles';
 import {
   HourglassEmpty as InactivityIcon,
   Notifications as NotificationIcon,
