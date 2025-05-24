@@ -83,14 +83,14 @@ export const getDashboardStats = async (req: Request, res: Response): Promise<Re
         where: {
           companyId,
           updatedAt: {
-            [Op.between]: [today, tomorrow]
-          } as any,
+            [Op.between]: [today.getTime(), tomorrow.getTime()]
+          },
           variables: {
             [Op.and]: [
               Sequelize.literal("variables ? '__reengagementAttempts'"),
               Sequelize.literal("(variables->>'__reengagementAttempts')::int > 0")
             ]
-          } as any
+          }
         }
       }),
 
@@ -99,8 +99,8 @@ export const getDashboardStats = async (req: Request, res: Response): Promise<Re
         where: {
           companyId,
           updatedAt: {
-            [Op.between]: [today, tomorrow]
-          } as any,
+            [Op.between]: [today.getTime(), tomorrow.getTime()]
+          },
           inactivityReason: {
             [Op.iLike]: '%transferido%'
           }
@@ -112,8 +112,8 @@ export const getDashboardStats = async (req: Request, res: Response): Promise<Re
         where: {
           companyId,
           updatedAt: {
-            [Op.between]: [today, tomorrow]
-          } as any,
+            [Op.between]: [today.getTime(), tomorrow.getTime()]
+          },
           status: 'completed',
           inactivityReason: {
             [Op.not]: null
@@ -123,7 +123,7 @@ export const getDashboardStats = async (req: Request, res: Response): Promise<Re
 
       // Tempo médio de inatividade
       sequelize.query(`
-        SELECT AVG(EXTRACT(EPOCH FROM (updatedAt - lastInteractionAt)) / 60) as "averageMinutes"
+        SELECT AVG(EXTRACT(EPOCH FROM ("updatedAt" - "lastInteractionAt")) / 60) as "averageMinutes"
         FROM "FlowBuilderExecutions" 
         WHERE "companyId" = :companyId 
           AND "inactivityStatus" = 'inactive'
@@ -236,7 +236,7 @@ export const getFilteredExecutions = async (req: Request, res: Response): Promis
       }
     ];
 
-    // Ordenação
+    // Ordenação - corrigir referências de colunas
     const orderBy: any[] = [];
     if (sortBy === 'lastActivity') {
       orderBy.push(['lastInteractionAt', sortOrder]);
@@ -244,12 +244,13 @@ export const getFilteredExecutions = async (req: Request, res: Response): Promis
       orderBy.push(['createdAt', sortOrder]);
     } else if (sortBy === 'durationMinutes') {
       orderBy.push([
-        Sequelize.literal(`EXTRACT(EPOCH FROM (COALESCE(updatedAt, NOW()) - createdAt)) / 60`),
+        Sequelize.literal(`EXTRACT(EPOCH FROM (COALESCE("updatedAt", NOW()) - "createdAt")) / 60`),
         sortOrder
       ]);
     } else if (sortBy === 'warningsSent') {
       orderBy.push(['inactivityWarningsSent', sortOrder]);
     } else {
+      // Para outros casos, usar a coluna diretamente
       orderBy.push([sortBy, sortOrder]);
     }
 
@@ -266,11 +267,11 @@ export const getFilteredExecutions = async (req: Request, res: Response): Promis
       attributes: {
         include: [
           [
-            Sequelize.literal(`EXTRACT(EPOCH FROM (COALESCE(updatedAt, NOW()) - createdAt)) / 60`),
+            Sequelize.literal(`EXTRACT(EPOCH FROM (COALESCE("updatedAt", NOW()) - "createdAt")) / 60`),
             'durationMinutes'
           ],
           [
-            Sequelize.literal(`EXTRACT(EPOCH FROM (COALESCE(updatedAt, NOW()) - COALESCE(lastInteractionAt, createdAt))) / 60`),
+            Sequelize.literal(`EXTRACT(EPOCH FROM (COALESCE("updatedAt", NOW()) - COALESCE("lastInteractionAt", "createdAt"))) / 60`),
             'inactiveMinutes'
           ]
         ]
