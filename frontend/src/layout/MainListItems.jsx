@@ -461,11 +461,12 @@ const MainListItems = (props) => {
   const socketManager = useContext(SocketContext);
   const { makeRequestSettings, notifications, makeRequestTagTotalTicketPending } = useContext(GlobalContext);
 
-  const { settings, loading } = useWhitelabelSettings();
+  const { settings, loading, loadSettings } = useWhitelabelSettings();
 
   // Carregar versão
   useEffect(() => {
     async function fetchVersion() {
+      await loadSettings();
       const _version = await getVersion();
       setVersion(_version.version);
     }
