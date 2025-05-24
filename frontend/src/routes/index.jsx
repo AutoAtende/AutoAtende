@@ -112,6 +112,7 @@ const Routes = () => {
                         <DashboardProvider>
                           <CustomRoute exact path="/dashboard" component={Dashboard} isPrivate />
                         </DashboardProvider>
+                        <CustomRoute exact path="/flow-builder/inactivity-monitor" component={InactivityMonitorDashboard} isPrivate />
                         <CustomRoute
                           exact
                           path="/landing-pages/edit/:id"
@@ -250,7 +251,7 @@ const Routes = () => {
                         <CustomRoute exact path="/flow-builder" component={FlowBuilderList} isPrivate />
                         <CustomRoute exact path="/flow-builder/new" component={FlowBuilder} isPrivate />
                         <CustomRoute exact path="/flow-builder/:id" component={FlowBuilder} isPrivate />
-                        <CustomRoute exact path="/flow-builder/inactivity-monitor" component={InactivityMonitorDashboard} isPrivate />
+                        
                         <CustomRoute
                           exact
                           path="/subscription"
