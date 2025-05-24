@@ -43,7 +43,6 @@ const OpenAINode = ({ id, data, selected }) => {
   return (
     <BaseFlowNode
       id={id}
-      nodeType="openai"
       type={i18n.t('flowBuilder.nodes.openai')}
       data={data}
       selected={selected}
@@ -107,7 +106,6 @@ const OpenAINode = ({ id, data, selected }) => {
         )}
       </Box>
 
-      {/* Informação sobre ser terminal */}
       <Box sx={{ mt: 2, pt: 1, borderTop: `1px dashed ${theme.palette.divider}` }}>
         <Typography variant="caption" color="text.secondary" sx={{ fontStyle: 'italic' }}>
           {i18n.t('flowBuilder.nodes.terminalNode', 'Este é um nó terminal - o fluxo encerra aqui')}

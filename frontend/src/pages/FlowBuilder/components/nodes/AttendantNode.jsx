@@ -96,10 +96,12 @@ const AttendantNode = ({ id, data, selected }) => {
   const selectedQueue = data.queueId ? 
     queues.find(queue => queue.id === data.queueId) : null;
   
+  // Sempre garantir que o nó é terminal
+  const endFlowAfterAttendant = true;
+  
   return (
     <BaseFlowNode
       id={id}
-      nodeType="attendant"
       type={i18n.t('flowBuilder.nodes.attendant')}
       data={data}
       selected={selected}
@@ -159,11 +161,23 @@ const AttendantNode = ({ id, data, selected }) => {
           </Typography>
         )}
         
-        {/* Informação sobre ser terminal */}
-        <Box sx={{ mt: 2, pt: 1, borderTop: `1px dashed ${theme.palette.divider}` }}>
-          <Typography variant="caption" color="text.secondary" sx={{ fontStyle: 'italic' }}>
-            {i18n.t('flowBuilder.nodes.terminalNode', 'Este é um nó terminal - o fluxo encerra aqui')}
-          </Typography>
+        <Box 
+          sx={{ 
+            mt: 2,
+            pt: 1,
+            borderTop: `1px dashed ${theme.palette.divider}`,
+            display: 'flex',
+            alignItems: 'center',
+            gap: 0.5
+          }}
+        >
+          <Chip
+            label={i18n.t('flowBuilder.attendant.endFlow', 'Encerra o fluxo')}
+            size="small"
+            color="error"
+            variant="outlined"
+            sx={{ height: '20px', fontSize: '0.7rem' }}
+          />
         </Box>
       </Box>
     </BaseFlowNode>

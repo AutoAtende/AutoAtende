@@ -99,10 +99,6 @@ const QuestionNode = ({ id, data, selected }) => {
   
   const activeValidationType = getActiveValidationType();
   
-  // Contar total de saídas
-  const validationErrorOutput = data.useValidationErrorOutput && activeValidationType ? 1 : 0;
-  const totalOutputs = options.length + validationErrorOutput + 1; // +1 para a saída padrão
-  
   return (
     <BaseFlowNode
       id={id}
@@ -138,22 +134,21 @@ const QuestionNode = ({ id, data, selected }) => {
       )}
       
       {data.variableName && (
-        <Typography variant="caption" color="text.secondary" sx={{ 
-          display: 'block', 
-          mb: 1,
-          bgcolor: alpha(theme.palette.info.light, 0.2),
-          px: 1,
-          py: 0.5,
-          borderRadius: 0.5,
-          display: 'flex',
-          alignItems: 'center',
-          width: 'fit-content'
-        }}>
-          <CodeIcon fontSize="inherit" sx={{ mr: 0.5, opacity: 0.7 }} />
-          {i18n.t('flowBuilder.properties.variable')}: <Box component="span" sx={{ fontWeight: 'bold', ml: 0.5 }}>${data.variableName}</Box>
-        </Typography>
-      )}
-      
+  <Typography variant="caption" color="text.secondary" sx={{ 
+    display: 'block', 
+    mb: 1,
+    bgcolor: alpha(theme.palette.info.light, 0.2),
+    px: 1,
+    py: 0.5,
+    borderRadius: 0.5,
+    display: 'flex',
+    alignItems: 'center',
+    width: 'fit-content'
+  }}>
+    <CodeIcon fontSize="inherit" sx={{ mr: 0.5, opacity: 0.7 }} />
+    {i18n.t('flowBuilder.properties.variable')}: <Box component="span" sx={{ fontWeight: 'bold', ml: 0.5 }}>${data.variableName}</Box>
+  </Typography>
+)}
       {/* Informação de tipo de entrada/validação */}
       <Box sx={{ display: 'flex', gap: 0.5, mb: 1, flexWrap: 'wrap' }}>
         <Chip
@@ -226,10 +221,9 @@ const QuestionNode = ({ id, data, selected }) => {
         </Box>
       )}
       
-      {/* Informação sobre saídas */}
       <Box sx={{ mt: 2, pt: 1, borderTop: `1px dashed ${theme.palette.divider}` }}>
         <Typography variant="caption" color="text.secondary">
-          ↳ Este nó tem {totalOutputs} saídas:
+          ↳ {i18n.t('flowBuilder.outputs.title', 'Saídas')}:
         </Typography>
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, mt: 0.5 }}>
           {options.map((option, idx) => (

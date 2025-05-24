@@ -52,7 +52,6 @@ const AppointmentNode = ({ id, data, selected }) => {
   return (
     <BaseFlowNode
       id={id}
-      nodeType="appointment"
       type={i18n.t('flowBuilder.nodes.appointment', 'Agendamento')}
       data={data}
       selected={selected}
@@ -98,11 +97,23 @@ const AppointmentNode = ({ id, data, selected }) => {
         }}
       />
       
-      {/* Informação sobre ser terminal */}
-      <Box sx={{ mt: 2, pt: 1, borderTop: `1px dashed ${theme.palette.divider}` }}>
-        <Typography variant="caption" color="text.secondary" sx={{ fontStyle: 'italic' }}>
-          {i18n.t('flowBuilder.nodes.terminalNode', 'Este é um nó terminal - inicia agendamento')}
-        </Typography>
+      <Box 
+        sx={{ 
+          mt: 2,
+          pt: 1,
+          borderTop: `1px dashed ${theme.palette.divider}`,
+          display: 'flex',
+          alignItems: 'center',
+          gap: 0.5
+        }}
+      >
+        <Chip
+          label={i18n.t('flowBuilder.appointment.endFlow', 'Inicia agendamento')}
+          size="small"
+          color="success"
+          variant="outlined"
+          sx={{ height: '20px', fontSize: '0.7rem' }}
+        />
       </Box>
     </BaseFlowNode>
   );

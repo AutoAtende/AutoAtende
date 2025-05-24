@@ -1,5 +1,5 @@
-import React, { memo, useMemo, useCallback } from 'react';
-import { Position, useReactFlow } from '@xyflow/react';
+import React, { memo, useMemo } from 'react';
+import { Position } from '@xyflow/react';
 import { 
   Box, 
   Typography,
@@ -21,7 +21,6 @@ import { i18n } from "../../../../translate/i18n";
 const InactivityNode = ({ id, data, selected }) => {
   const theme = useTheme();
   const nodeColor = theme.palette.warning?.main || '#f59e0b';
-  const reactFlowInstance = useReactFlow();
   
   // Configuração de inatividade
   const inactivityConfig = data?.inactivityConfig || {};
@@ -29,47 +28,24 @@ const InactivityNode = ({ id, data, selected }) => {
   const timeout = inactivityConfig.timeoutMinutes || 5;
   const useGlobal = inactivityConfig.useGlobalSettings !== false;
 
-  // Handlers para interação com o nó
-  const handleDelete = useCallback((event) => {
-    event.stopPropagation();
-    reactFlowInstance.deleteElements({ nodes: [{ id }] });
-  }, [id, reactFlowInstance]);
-  
-  const handleDuplicate = useCallback((event) => {
-    event.stopPropagation();
-    
-    // Clone the current node
-    const position = reactFlowInstance.getNode(id).position;
-    const newNode = {
-      id: `inactivity_${Date.now()}`,
-      type: 'inactivityNode',
-      position: {
-        x: position.x + 20,
-        y: position.y + 20
-      },
-      data: { ...data, label: `${data.label || i18n.t('flowBuilder.nodes.inactivity')} (${i18n.t('flowBuilder.actions.duplicate')})` }
-    };
-    
-    reactFlowInstance.addNodes(newNode);
-  }, [id, data, reactFlowInstance]);
-  
-  const handleEdit = useCallback((event) => {
-    event.stopPropagation();
-    if (data.onEdit) {
-      data.onEdit(id);
-    }
-  }, [id, data]);
-
   // Determinar quais handles exibir baseado na configuração
   const additionalHandles = useMemo(() => {
     const handlesList = [];
+    
+    // Handle padrão (sempre presente para fluxo normal)
+    handlesList.push({
+      id: 'default',
+      type: 'source',
+      position: Position.Bottom,
+      data: { label: 'Continuar', type: 'success' }
+    });
 
     // Se há configuração específica, adicionar handle de sucesso
     if (!useGlobal || action !== 'warning' || timeout !== 5) {
       handlesList.push({
         id: 'action-executed', 
         type: 'source',
-        position: Position.Right,
+        position: Position.Bottom,
         data: { label: 'Config. Aplicada', type: 'warning' }
       });
     }
@@ -79,7 +55,7 @@ const InactivityNode = ({ id, data, selected }) => {
       handlesList.push({
         id: 'timeout',
         type: 'source',
-        position: Position.Right,
+        position: Position.Bottom,
         data: { label: 'Erro Config.', type: 'error' }
       });
     } else if (action === 'transfer' || action === 'reengage') {
@@ -87,7 +63,7 @@ const InactivityNode = ({ id, data, selected }) => {
       handlesList.push({
         id: 'timeout',
         type: 'source',
-        position: Position.Right,
+        position: Position.Bottom,
         data: { label: 'Falha', type: 'error' }
       });
     }
@@ -128,9 +104,6 @@ const InactivityNode = ({ id, data, selected }) => {
     }
   };
 
-  // Contar total de saídas
-  const totalOutputs = additionalHandles.length + 1; // +1 para a saída padrão
-
   return (
     <BaseFlowNode
       id={id}
@@ -140,10 +113,11 @@ const InactivityNode = ({ id, data, selected }) => {
       selected={selected}
       icon={InactivityIcon}
       color={nodeColor}
-      onDelete={handleDelete}
-      onDuplicate={handleDuplicate}
-      onEdit={handleEdit}
       additionalHandles={additionalHandles}
+      handles={{
+        source: { enabled: false }, // Desabilitamos o handle source padrão pois usamos os adicionais
+        target: { enabled: true, position: Position.Top }
+      }}
     >
       {/* Configuração de tempo */}
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
@@ -211,37 +185,6 @@ const InactivityNode = ({ id, data, selected }) => {
           }}
         />
       )}
-
-      {/* Informação sobre saídas */}
-      <Box sx={{ mt: 2, pt: 1, borderTop: `1px dashed ${theme.palette.divider}` }}>
-        <Typography variant="caption" color="text.secondary">
-          ↳ Este nó tem {totalOutputs} saídas:
-        </Typography>
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, mt: 0.5 }}>
-          {additionalHandles.map((handle, idx) => (
-            <Typography key={idx} variant="caption" sx={{ display: 'flex', alignItems: 'center' }}>
-              <Box component="span" sx={{ 
-                width: 8, 
-                height: 8, 
-                borderRadius: '50%', 
-                bgcolor: handle.data?.type === 'error' ? theme.palette.error.main : theme.palette.warning.main,
-                mr: 0.5 
-              }} />
-              {handle.data?.label || handle.id} ({i18n.t('flowBuilder.outputs.right')})
-            </Typography>
-          ))}
-          <Typography variant="caption" sx={{ display: 'flex', alignItems: 'center' }}>
-            <Box component="span" sx={{ 
-              width: 8, 
-              height: 8, 
-              borderRadius: '50%', 
-              bgcolor: theme.palette.info.main,
-              mr: 0.5 
-            }} />
-            {i18n.t('flowBuilder.outputs.default')} ({i18n.t('flowBuilder.outputs.below')})
-          </Typography>
-        </Box>
-      </Box>
 
       {/* Indicador de configuração personalizada */}
       {!useGlobal && (

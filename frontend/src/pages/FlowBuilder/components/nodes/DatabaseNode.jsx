@@ -95,7 +95,6 @@ const DatabaseNode = ({ id, data, selected }) => {
     return (
         <BaseFlowNode
             id={id}
-            nodeType="database"
             type={i18n.t('flowBuilder.nodes.database', 'Banco de Dados')}
             data={data}
             selected={selected}
@@ -229,10 +228,9 @@ const DatabaseNode = ({ id, data, selected }) => {
                 </Box>
             )}
 
-            {/* Informação sobre saídas */}
             <Box sx={{ mt: 2, pt: 1, borderTop: `1px dashed ${theme.palette.divider}` }}>
                 <Typography variant="caption" color="text.secondary">
-                    ↳ Este nó tem 2 saídas:
+                    ↳ {i18n.t('flowBuilder.outputs.title', 'Saídas')}:
                 </Typography>
                 <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, mt: 0.5 }}>
                     <Typography variant="caption" sx={{ display: 'flex', alignItems: 'center' }}>
@@ -258,6 +256,7 @@ const DatabaseNode = ({ id, data, selected }) => {
                 </Box>
             </Box>
         </BaseFlowNode>
-    )
+    );
 };
+
 export default memo(DatabaseNode);

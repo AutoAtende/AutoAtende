@@ -43,7 +43,6 @@ const SwitchFlowNode = ({ id, data, selected }) => {
   return (
     <BaseFlowNode
       id={id}
-      nodeType="switchFlow"
       type={i18n.t('flowBuilder.nodes.switchFlow')}
       data={data}
       selected={selected}
@@ -56,7 +55,6 @@ const SwitchFlowNode = ({ id, data, selected }) => {
         source: { enabled: false },
         target: { enabled: true, position: Position.Top }
       }}
-      isTerminal={true} // SwitchFlow é um nó terminal
     >
       {data.targetFlowId && (
         <Box 
@@ -91,13 +89,6 @@ const SwitchFlowNode = ({ id, data, selected }) => {
             }}
           />
         )}
-      </Box>
-      
-      {/* Informação sobre terminal */}
-      <Box sx={{ mt: 2, pt: 1, borderTop: `1px dashed ${theme.palette.divider}` }}>
-        <Typography variant="caption" color="text.secondary" sx={{ fontStyle: 'italic' }}>
-          {i18n.t('flowBuilder.nodes.terminalNode', 'Este é um nó terminal - redireciona para outro fluxo')}
-        </Typography>
       </Box>
     </BaseFlowNode>
   );
