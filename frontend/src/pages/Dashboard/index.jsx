@@ -351,26 +351,6 @@ const Dashboard = () => {
             )}
           </Grid>
 
-          {/* Mapa do Brasil - Apenas para aba "TODOS" */}
-          {selectedQueue === 'all' && isComponentVisible('brazilMap') && (
-            <Grid container spacing={2.5} sx={{ mb: 2.5 }}>
-              <Grid item xs={12}>
-                <ChartsPaper>
-                  <ChartHeader>
-                    <Typography variant="h6">
-                      Distribuição de Contatos por Estado
-                    </Typography>
-                    <ComponentVisibilityControl componentKey="brazilMap" />
-                  </ChartHeader>
-                  <BrazilMap 
-                    contactMetrics={dashboardData.contactMetrics}
-                    title=""
-                  />
-                </ChartsPaper>
-              </Grid>
-            </Grid>
-          )}
-
           {/* Tabelas */}
           <Grid container spacing={2.5} sx={{ mb: 2.5 }}>
             {isComponentVisible('comparativeTable') && (
@@ -403,6 +383,28 @@ const Dashboard = () => {
                 </ChartsPaper>
               </Grid>
             )}
+
+          {/* Mapa do Brasil - Apenas para aba "TODOS" */}
+          {selectedQueue === 'all' && isComponentVisible('brazilMap') && (
+            <Grid container spacing={2.5} sx={{ mb: 2.5 }}>
+              <Grid item xs={12}>
+                <ChartsPaper>
+                  <ChartHeader>
+                    <Typography variant="h6">
+                      Distribuição de Contatos por Estado
+                    </Typography>
+                    <ComponentVisibilityControl componentKey="brazilMap" />
+                  </ChartHeader>
+                  <BrazilMap 
+                    contactMetrics={dashboardData.contactMetrics}
+                    title=""
+                  />
+                </ChartsPaper>
+              </Grid>
+            </Grid>
+          )}
+
+
           </Grid>
 
           {/* Footer com Botão de Exportação */}
