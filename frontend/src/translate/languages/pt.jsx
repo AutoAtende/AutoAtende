@@ -6705,6 +6705,17 @@ const messages = {
           helpText: "Nota: O nó de setor transfere a conversa para um setor específico. O fluxo será encerrado e o ticket ficará pendente no setor selecionado."
         },
 
+        inactivity: {
+          globalSettings: "Global",
+          warnings: "avisos",
+          queueConfigured: "Fila de transferência configurada",
+          noQueue: "Nenhuma fila configurada para transferência",
+          queueOk: "Fila OK",
+          questionsOnly: "Somente perguntas",
+          menusOnly: "Somente menus",
+          customConfiguration: "Configuração personalizada"
+        },
+
         // Nós  //
         nodes: {
           start: "Início",
@@ -6715,6 +6726,7 @@ const messages = {
           switchFlow: "Trocar fluxo",
           user: "Usuário",
           location: "Localização",
+          inactivity: "Inatividade",
           outputs: "Este nó tem {{count}} saídas",
           openai: "OpenAI",
           typebot: "Typebot",
