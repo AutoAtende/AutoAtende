@@ -123,11 +123,11 @@ export const getDashboardStats = async (req: Request, res: Response): Promise<Re
 
       // Tempo médio de inatividade
       sequelize.query(`
-        SELECT AVG(EXTRACT(EPOCH FROM ("updatedAt" - "lastInteractionAt")) / 60) as "averageMinutes"
+        SELECT AVG(EXTRACT(EPOCH FROM ("FlowBuilderExecutions"."updatedAt" - "FlowBuilderExecutions"."lastInteractionAt")) / 60) as "averageMinutes"
         FROM "FlowBuilderExecutions" 
-        WHERE "companyId" = :companyId 
-          AND "inactivityStatus" = 'inactive'
-          AND "lastInteractionAt" IS NOT NULL
+        WHERE "FlowBuilderExecutions"."companyId" = :companyId 
+          AND "FlowBuilderExecutions"."inactivityStatus" = 'inactive'
+          AND "FlowBuilderExecutions"."lastInteractionAt" IS NOT NULL
       `, {
         replacements: { companyId },
         type: QueryTypes.SELECT
@@ -139,7 +139,7 @@ export const getDashboardStats = async (req: Request, res: Response): Promise<Re
           COUNT(*) FILTER (WHERE variables->>'__lastReengagementSuccess' = 'true') as successful,
           COUNT(*) as total
         FROM "FlowBuilderExecutions" 
-        WHERE "companyId" = :companyId 
+        WHERE "FlowBuilderExecutions"."companyId" = :companyId 
           AND variables ? '__reengagementAttempts'
           AND (variables->>'__reengagementAttempts')::int > 0
       `, {
@@ -236,7 +236,7 @@ export const getFilteredExecutions = async (req: Request, res: Response): Promis
       }
     ];
 
-    // Ordenação - corrigir referências de colunas
+    // Ordenação - corrigir referências de colunas especificando a tabela
     const orderBy: any[] = [];
     if (sortBy === 'lastActivity') {
       orderBy.push(['lastInteractionAt', sortOrder]);
@@ -244,7 +244,7 @@ export const getFilteredExecutions = async (req: Request, res: Response): Promis
       orderBy.push(['createdAt', sortOrder]);
     } else if (sortBy === 'durationMinutes') {
       orderBy.push([
-        Sequelize.literal(`EXTRACT(EPOCH FROM (COALESCE("updatedAt", NOW()) - "createdAt")) / 60`),
+        Sequelize.literal(`EXTRACT(EPOCH FROM (COALESCE("FlowBuilderExecution"."updatedAt", NOW()) - "FlowBuilderExecution"."createdAt")) / 60`),
         sortOrder
       ]);
     } else if (sortBy === 'warningsSent') {
@@ -267,11 +267,11 @@ export const getFilteredExecutions = async (req: Request, res: Response): Promis
       attributes: {
         include: [
           [
-            Sequelize.literal(`EXTRACT(EPOCH FROM (COALESCE("updatedAt", NOW()) - "createdAt")) / 60`),
+            Sequelize.literal(`EXTRACT(EPOCH FROM (COALESCE("FlowBuilderExecution"."updatedAt", NOW()) - "FlowBuilderExecution"."createdAt")) / 60`),
             'durationMinutes'
           ],
           [
-            Sequelize.literal(`EXTRACT(EPOCH FROM (COALESCE("updatedAt", NOW()) - COALESCE("lastInteractionAt", "createdAt"))) / 60`),
+            Sequelize.literal(`EXTRACT(EPOCH FROM (COALESCE("FlowBuilderExecution"."updatedAt", NOW()) - COALESCE("FlowBuilderExecution"."lastInteractionAt", "FlowBuilderExecution"."createdAt"))) / 60`),
             'inactiveMinutes'
           ]
         ]
@@ -586,10 +586,10 @@ export const cleanupFlowInactiveExecutions = async (req: Request, res: Response)
       SET status = 'completed', 
           "inactivityStatus" = 'inactive',
           "inactivityReason" = 'Limpeza manual do fluxo'
-      WHERE "flowId" = :flowId 
-        AND "companyId" = :companyId 
-        AND status = 'active'
-        AND "lastInteractionAt" < NOW() - INTERVAL '1 hour'
+      WHERE "FlowBuilderExecutions"."flowId" = :flowId 
+        AND "FlowBuilderExecutions"."companyId" = :companyId 
+        AND "FlowBuilderExecutions".status = 'active'
+        AND "FlowBuilderExecutions"."lastInteractionAt" < NOW() - INTERVAL '1 hour'
       RETURNING id
     `, {
       replacements: { flowId, companyId },
