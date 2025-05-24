@@ -24,9 +24,8 @@ import Whitelabel from "../../components/Settings/Whitelabel";
 import PaymentGateway from "../../components/Settings/PaymentGateway";
 import { i18n } from "../../translate/i18n";
 import { toast } from "../../helpers/toast";
-
+import { AuthContext } from "../../context/Auth/AuthContext";
 import useCompanies from "../../hooks/useCompanies";
-import useAuth from "../../hooks/useAuth";
 import useSettings from "../../hooks/useSettings";
 import OnlyForSuperUser from "../../components/OnlyForSuperUser";
 import usePlans from "../../hooks/usePlans";
@@ -69,16 +68,16 @@ const useStyles = makeStyles((theme) => ({
 
 const Settings = () => {
   const classes = useStyles();
+  const { user } = useContext(AuthContext);
   const [tab, setTab] = useState("options");
   const [schedules, setSchedules] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [currentUser, setCurrentUser] = useState({});
   const [settings, setSettings] = useState({});
 
   const [schedulesEnabled, setSchedulesEnabled] = useState(false);
   const [reasonEnabled, setReasonEnabled] = useState("disabled");
 
-  const { getCurrentUserInfo } = useAuth();
+ 
   const { find, updateSchedules } = useCompanies();
   const { getAll: getAllSettings } = useSettings();
   const { getPlanCompany } = usePlans();
@@ -102,8 +101,6 @@ const Settings = () => {
         setShowWhiteLabel(planConfigs.plan.whiteLabel);
         setReasonEnabled(settingList.enableReasonWhenCloseTicket?.value || "disabled");
         setSchedulesEnabled(settingList.scheduleType === "company");
-        const user = await getCurrentUserInfo();
-        setCurrentUser(user);
       } catch (e) {
         toast.error(e);
       } finally {
@@ -132,7 +129,7 @@ const Settings = () => {
   };
 
   const isSuper = () => {
-    return currentUser.super;
+    return user.super;
   };
 
   const actions = [
@@ -166,7 +163,7 @@ const Settings = () => {
         </TabPanel>
       )}
 
-      <OnlyForSuperUser user={currentUser} yes={() => (
+      <OnlyForSuperUser user={user} yes={() => (
         <>
           <TabPanel className={classes.container} value={tab} name="plans">
             <PlansManager />

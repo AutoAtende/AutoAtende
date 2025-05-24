@@ -64,7 +64,7 @@ export default function StripeSettings() {
   useEffect(() => {
     const loadInitialSettings = async () => {
       try {
-        const settings = await getAllSettings();
+        const settings = await getAll();
         const initialSettings = settings.reduce((acc, setting) => {
           if (setting.key.startsWith("_stripe")) {
             acc[setting.key.substring(1)] = setting.value;
