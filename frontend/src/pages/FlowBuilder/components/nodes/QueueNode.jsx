@@ -65,6 +65,7 @@ const QueueNode = ({ id, data, selected }) => {
   return (
     <BaseFlowNode
       id={id}
+      nodeType="queue"
       type={i18n.t('flowBuilder.nodes.queue')}
       data={data}
       selected={selected}
@@ -106,23 +107,11 @@ const QueueNode = ({ id, data, selected }) => {
           </Box>
         )}
         
-        <Box 
-          sx={{ 
-            mt: 2,
-            pt: 1,
-            borderTop: `1px dashed ${theme.palette.divider}`,
-            display: 'flex',
-            alignItems: 'center',
-            gap: 0.5
-          }}
-        >
-          <Chip
-            label={i18n.t('flowBuilder.queue.endFlow', 'Encerra o fluxo')}
-            size="small"
-            color="error"
-            variant="outlined"
-            sx={{ height: '20px', fontSize: '0.7rem' }}
-          />
+        {/* Informação sobre ser terminal */}
+        <Box sx={{ mt: 2, pt: 1, borderTop: `1px dashed ${theme.palette.divider}` }}>
+          <Typography variant="caption" color="text.secondary" sx={{ fontStyle: 'italic' }}>
+            {i18n.t('flowBuilder.nodes.terminalNode', 'Este é um nó terminal - o fluxo encerra aqui')}
+          </Typography>
         </Box>
       </Box>
     </BaseFlowNode>

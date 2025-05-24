@@ -67,6 +67,7 @@ const ScheduleNode = ({ id, data, selected }) => {
   return (
     <BaseFlowNode
       id={id}
+      nodeType="schedule"
       type="Verificação de Horário"
       data={data}
       selected={selected}
@@ -77,7 +78,7 @@ const ScheduleNode = ({ id, data, selected }) => {
       onEdit={handleEdit}
       additionalHandles={getAdditionalHandles()}
       handles={{
-        source: { enabled: false, position: null }, // Desativa a saída padrão na parte inferior
+        source: { enabled: false }, // Desativa a saída padrão na parte inferior
         target: { enabled: true, position: Position.Top } // Mantém a entrada na parte superior
       }}
     >
@@ -97,9 +98,10 @@ const ScheduleNode = ({ id, data, selected }) => {
           }}
         />
         
+        {/* Informação sobre saídas */}
         <Box sx={{ mt: 2, pt: 1, borderTop: `1px dashed ${theme.palette.divider}` }}>
           <Typography variant="caption" color="text.secondary">
-            ↳ {i18n.t('flowBuilder.outputs.title', 'Saídas')}:
+            ↳ Este nó tem 2 saídas:
           </Typography>
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, mt: 0.5 }}>
             <Typography variant="caption" sx={{ display: 'flex', alignItems: 'center' }}>

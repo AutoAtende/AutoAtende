@@ -298,6 +298,24 @@ const MessageNode = ({ id, data, selected }) => {
     >
       {renderContent()}
       <MessageTypeIndicator />
+      
+      {/* Informação sobre saídas */}
+      <Box sx={{ mt: 2, pt: 1, borderTop: `1px dashed`, borderColor: 'divider' }}>
+        <Typography variant="caption" color="text.secondary">
+          ↳ Este nó tem 1 saída:
+        </Typography>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mt: 0.5 }}>
+          <Box component="span" sx={{ 
+            width: 8, 
+            height: 8, 
+            borderRadius: '50%', 
+            bgcolor: 'info.main'
+          }} />
+          <Typography variant="caption">
+            {i18n.t('flowBuilder.outputs.default')} ({i18n.t('flowBuilder.outputs.below')})
+          </Typography>
+        </Box>
+      </Box>
     </BaseFlowNode>
   );
 };

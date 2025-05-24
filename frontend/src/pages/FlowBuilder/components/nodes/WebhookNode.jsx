@@ -1,11 +1,14 @@
 import React, { memo, useCallback } from 'react';
 import { Position, useReactFlow } from '@xyflow/react';
 import { Box, Typography, Chip } from '@mui/material';
+import { useTheme } from '@mui/material/styles';
 import { Http as HttpIcon, DataObject as DataObjectIcon, Code as CodeIcon } from '@mui/icons-material';
 import BaseFlowNode from './BaseFlowNode';
 import { i18n } from "../../../../translate/i18n";
 
 const WebhookNode = ({ id, data, selected }) => {
+  const theme = useTheme();
+  const nodeColor = theme.palette.secondary?.main || '#9333ea';
   const reactFlowInstance = useReactFlow();
   
   const handleDelete = useCallback((event) => {
@@ -37,6 +40,16 @@ const WebhookNode = ({ id, data, selected }) => {
     console.log('Edit node', id);
   }, [id]);
   
+  // Webhook Node pode ter handle de erro
+  const getAdditionalHandles = () => {
+    return [{
+      id: 'error',
+      type: 'source',
+      position: Position.Right,
+      data: { type: 'error' }
+    }];
+  };
+  
   return (
     <BaseFlowNode
       id={id}
@@ -45,14 +58,16 @@ const WebhookNode = ({ id, data, selected }) => {
       data={data}
       selected={selected}
       icon={HttpIcon}
+      color={nodeColor}
       onDelete={handleDelete}
       onDuplicate={handleDuplicate}
       onEdit={handleEdit}
+      additionalHandles={getAdditionalHandles()}
     >
       {data.url && (
         <Box 
           sx={{
-            bgcolor: 'rgba(0, 0, 0, 0.05)',
+            bgcolor: theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.05)',
             borderRadius: 1,
             p: 1,
             fontSize: '0.75rem',
@@ -74,8 +89,8 @@ const WebhookNode = ({ id, data, selected }) => {
           label={data.method || 'GET'}
           size="small"
           sx={{ 
-            bgcolor: 'rgba(0, 0, 0, 0.07)',
-            color: 'text.primary',
+            bgcolor: theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.07)',
+            color: theme.palette.text.primary,
             height: '22px',
             fontSize: '0.75rem'
           }}
@@ -87,13 +102,42 @@ const WebhookNode = ({ id, data, selected }) => {
             label={data.variableName}
             size="small"
             sx={{ 
-              bgcolor: 'rgba(0, 0, 0, 0.07)',
-              color: 'text.primary',
+              bgcolor: theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.07)',
+              color: theme.palette.text.primary,
               height: '22px',
               fontSize: '0.75rem'
             }}
           />
         )}
+      </Box>
+      
+      {/* Informação sobre saídas */}
+      <Box sx={{ mt: 2, pt: 1, borderTop: `1px dashed ${theme.palette.divider}` }}>
+        <Typography variant="caption" color="text.secondary">
+          ↳ Este nó tem 2 saídas:
+        </Typography>
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, mt: 0.5 }}>
+          <Typography variant="caption" sx={{ display: 'flex', alignItems: 'center' }}>
+            <Box component="span" sx={{ 
+              width: 8, 
+              height: 8, 
+              borderRadius: '50%', 
+              bgcolor: theme.palette.success.main,
+              mr: 0.5 
+            }} />
+            {i18n.t('flowBuilder.outputs.success')} ({i18n.t('flowBuilder.outputs.below')})
+          </Typography>
+          <Typography variant="caption" sx={{ display: 'flex', alignItems: 'center' }}>
+            <Box component="span" sx={{ 
+              width: 8, 
+              height: 8, 
+              borderRadius: '50%', 
+              bgcolor: theme.palette.error.main,
+              mr: 0.5 
+            }} />
+            {i18n.t('flowBuilder.outputs.error')} ({i18n.t('flowBuilder.outputs.right')})
+          </Typography>
+        </Box>
       </Box>
     </BaseFlowNode>
   );

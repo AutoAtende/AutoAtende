@@ -69,6 +69,9 @@ const ConditionalNode = ({ id, data, selected }) => {
     return condition.value || '';
   };
   
+  // Contar total de saídas
+  const totalOutputs = conditions.length + 1; // +1 para a saída padrão
+  
   return (
     <BaseFlowNode
       id={id}
@@ -77,28 +80,28 @@ const ConditionalNode = ({ id, data, selected }) => {
       data={data}
       selected={selected}
       icon={CallSplitIcon}
-      color={theme.palette.warning?.main || '#f59e0b'} // Usando cor consistente
+      color={theme.palette.warning?.main || '#f59e0b'}
       onDelete={handleDelete}
       onDuplicate={handleDuplicate}
       onEdit={handleEdit}
       additionalHandles={getAdditionalHandles()}
     >
       {data.variableName && (
-  <Typography variant="caption" color="text.secondary" sx={{ 
-    display: 'block', 
-    mb: 1,
-    bgcolor: alpha(theme.palette.info.light, 0.2),
-    px: 1,
-    py: 0.5,
-    borderRadius: 0.5,
-    display: 'flex',
-    alignItems: 'center',
-    width: 'fit-content'
-  }}>
-    <CodeIcon fontSize="inherit" sx={{ mr: 0.5, opacity: 0.7 }} />
-    {i18n.t('flowBuilder.properties.variable')}: <Box component="span" sx={{ fontWeight: 'bold', ml: 0.5 }}>${data.variableName}</Box>
-  </Typography>
-)}
+        <Typography variant="caption" color="text.secondary" sx={{ 
+          display: 'block', 
+          mb: 1,
+          bgcolor: alpha(theme.palette.info.light, 0.2),
+          px: 1,
+          py: 0.5,
+          borderRadius: 0.5,
+          display: 'flex',
+          alignItems: 'center',
+          width: 'fit-content'
+        }}>
+          <CodeIcon fontSize="inherit" sx={{ mr: 0.5, opacity: 0.7 }} />
+          {i18n.t('flowBuilder.properties.variable')}: <Box component="span" sx={{ fontWeight: 'bold', ml: 0.5 }}>${data.variableName}</Box>
+        </Typography>
+      )}
       
       <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
         {i18n.t('flowBuilder.properties.conditions')}:
@@ -139,9 +142,10 @@ const ConditionalNode = ({ id, data, selected }) => {
         </Typography>
       )}
       
+      {/* Informação sobre saídas */}
       <Box sx={{ mt: 2, pt: 1, borderTop: `1px dashed ${theme.palette.divider}` }}>
         <Typography variant="caption" color="text.secondary">
-          ↳ {i18n.t('flowBuilder.outputs.title', 'Saídas')}:
+          ↳ Este nó tem {totalOutputs} saídas:
         </Typography>
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, mt: 0.5 }}>
           {conditions.map((condition, idx) => (

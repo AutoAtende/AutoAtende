@@ -55,6 +55,7 @@ const ApiNode = ({ id, data, selected }) => {
   return (
     <BaseFlowNode
       id={id}
+      nodeType="api"
       type={i18n.t('flowBuilder.nodes.api')}
       data={data}
       selected={selected}
@@ -111,9 +112,11 @@ const ApiNode = ({ id, data, selected }) => {
           />
         )}
       </Box>
+      
+      {/* Informação sobre saídas */}
       <Box sx={{ mt: 2, pt: 1, borderTop: `1px dashed ${theme.palette.divider}` }}>
         <Typography variant="caption" color="text.secondary">
-          ↳ {i18n.t('flowBuilder.outputs.title', 'Saídas')}:
+          ↳ Este nó tem 2 saídas:
         </Typography>
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, mt: 0.5 }}>
           <Typography variant="caption" sx={{ display: 'flex', alignItems: 'center' }}>

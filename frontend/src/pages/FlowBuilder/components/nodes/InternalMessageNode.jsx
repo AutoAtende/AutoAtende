@@ -78,6 +78,7 @@ const InternalMessageNode = ({ id, data, selected }) => {
   return (
     <BaseFlowNode
       id={id}
+      nodeType="internalMessage"
       type="Mensagem Interna"
       data={data}
       selected={selected}
@@ -121,6 +122,24 @@ const InternalMessageNode = ({ id, data, selected }) => {
           />
         </Box>
       )}
+      
+      {/* Informação sobre saídas */}
+      <Box sx={{ mt: 2, pt: 1, borderTop: `1px dashed ${theme.palette.divider}` }}>
+        <Typography variant="caption" color="text.secondary">
+          ↳ Este nó tem 1 saída:
+        </Typography>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mt: 0.5 }}>
+          <Box component="span" sx={{ 
+            width: 8, 
+            height: 8, 
+            borderRadius: '50%', 
+            bgcolor: theme.palette.info.main
+          }} />
+          <Typography variant="caption">
+            {i18n.t('flowBuilder.outputs.default')} ({i18n.t('flowBuilder.outputs.below')})
+          </Typography>
+        </Box>
+      </Box>
     </BaseFlowNode>
   );
 };
