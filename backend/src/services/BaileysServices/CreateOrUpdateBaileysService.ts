@@ -68,7 +68,7 @@ const createOrUpdateBaileysService = async ({
     chats: JSON.stringify(chats || [])
   });
 
-  return bail-lite;
+  return baileys;
 };
 
 export default createOrUpdateBaileysService;
