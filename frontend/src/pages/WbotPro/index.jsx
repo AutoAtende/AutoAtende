@@ -50,7 +50,7 @@ import {
   Cancel as DisconnectedIcon
 } from '@mui/icons-material';
 import { styled } from '@mui/material/styles';
-import StandardPageLayout from '../components/StandardPageLayout';
+import StandardPageLayout from '../../components/StandardPageLayout';
 import api from '../../services/api';
 import { toast } from '../../helpers/toast';
 import { AuthContext } from '../../context/Auth/AuthContext';
