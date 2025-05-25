@@ -21,7 +21,16 @@ import {
   TableContainer,
   Paper,
   useMediaQuery,
-  useTheme
+  useTheme,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  Button,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem
 } from "@mui/material";
 
 import {
@@ -30,22 +39,14 @@ import {
   WhatsApp as WhatsAppIcon,
   Receipt as ReceiptIcon,
   DeleteSweep as DeleteSweepIcon,
-  Add as AddIcon,
   FilterList as FilterListIcon
 } from "@mui/icons-material";
 
-// Componentes Base
-import BasePage from "../../components/BasePage";
-import BasePageHeader from "../../components/BasePageHeader";
-import BasePageContent from "../../components/BasePageContent";
-import BasePageFooter from "../../components/BasePageFooter";
-import BaseButton from "../../components/BaseButton";
-import BaseModal from "../../components/BaseModal";
-import BaseEmptyState from "../../components/BaseEmptyState";
-
-// Componentes específicos da aplicação
+// Componentes
+import StandardPageLayout from "../../components/StandardPageLayout";
 import SubscriptionModal from "../../components/SubscriptionModal";
 import InvoicePreview from "../../components/InvoicePreview";
+import ConfirmationModal from "../../components/ConfirmationModal";
 import api from "../../services/api";
 
 const Financeiro = () => {
@@ -242,22 +243,25 @@ const Financeiro = () => {
     return date && moment(date, "DD-MM-YYYY").isValid();
   };
 
-  // Botões para o cabeçalho da página
-  const headerActions = [
+  // Configuração das ações do cabeçalho
+  const pageActions = [
     ...(isAdmin && selectedInvoices.length > 0 ? [
       {
         label: i18n.t("financial.deleteSelected"),
         onClick: () => setBulkDeleteModalOpen(true),
         icon: <DeleteSweepIcon />,
         variant: "contained",
-        color: "error"
+        color: "error",
+        tooltip: `Excluir ${selectedInvoices.length} fatura(s) selecionada(s)`
       }
     ] : []),
     {
       label: i18n.t("financial.filter"),
       onClick: () => setFilterModalOpen(true),
       icon: <FilterListIcon />,
-      variant: "outlined"
+      variant: "outlined",
+      color: "primary",
+      tooltip: "Filtrar faturas"
     }
   ];
 
@@ -316,46 +320,55 @@ const Financeiro = () => {
       </Typography>
       
       <Box sx={{ display: 'flex', gap: 1, mt: 2, justifyContent: 'flex-end' }}>
-        <IconButton 
-          onClick={() => handleViewInvoice(invoice)}
-          color="primary"
-          size="small"
-        >
-          <ReceiptIcon />
-        </IconButton>
+        <Tooltip title={i18n.t("financial.viewInvoice")}>
+          <IconButton 
+            onClick={() => handleViewInvoice(invoice)}
+            color="primary"
+            size="small"
+          >
+            <ReceiptIcon />
+          </IconButton>
+        </Tooltip>
         
         {isAdmin ? (
           <>
-            <IconButton
-              onClick={() => handleSendEmail(invoice)}
-              color="primary"
-              size="small"
-            >
-              <EmailIcon />
-            </IconButton>
-            <IconButton
-              onClick={() => handleSendWhatsapp(invoice)}
-              color="primary"
-              size="small"
-            >
-              <WhatsAppIcon />
-            </IconButton>
-            <IconButton
-              onClick={() => handleDeleteClick(invoice)}
-              color="error"
-              size="small"
-            >
-              <DeleteIcon />
-            </IconButton>
+            <Tooltip title={i18n.t("financial.sendEmail")}>
+              <IconButton
+                onClick={() => handleSendEmail(invoice)}
+                color="primary"
+                size="small"
+              >
+                <EmailIcon />
+              </IconButton>
+            </Tooltip>
+            <Tooltip title={i18n.t("financial.sendWhatsapp")}>
+              <IconButton
+                onClick={() => handleSendWhatsapp(invoice)}
+                color="primary"
+                size="small"
+              >
+                <WhatsAppIcon />
+              </IconButton>
+            </Tooltip>
+            <Tooltip title={i18n.t("financial.deleteInvoice")}>
+              <IconButton
+                onClick={() => handleDeleteClick(invoice)}
+                color="error"
+                size="small"
+              >
+                <DeleteIcon />
+              </IconButton>
+            </Tooltip>
           </>
         ) : invoice.status !== "paid" && (
-          <BaseButton
+          <Button
             variant="contained"
             size="small"
             onClick={() => handlePayment(invoice)}
+            color="primary"
           >
             {i18n.t("financial.pay")}
-          </BaseButton>
+          </Button>
         )}
       </Box>
     </Paper>
@@ -420,62 +433,84 @@ const Financeiro = () => {
             </IconButton>
           </Tooltip>
           {invoice.status !== "paid" && (
-            <BaseButton
+            <Button
               variant="contained"
               color="primary"
               size="small"
               onClick={() => handlePayment(invoice)}
             >
               {i18n.t("financial.pay")}
-            </BaseButton>
+            </Button>
           )}
         </Box>
       );
     }
   };
 
-  // Conteúdo da tabela para desktop
-  const renderTableContent = () => (
-    <TableContainer>
-      <Table stickyHeader size="small">
-        <TableHead>
-          <TableRow>
-            {isAdmin && (
-              <TableCell padding="checkbox">
-                <Checkbox
-                  indeterminate={
-                    selectedInvoices.length > 0 && 
-                    selectedInvoices.length < filteredInvoices.filter(inv => inv.status !== "paid").length
-                  }
-                  checked={
-                    selectedInvoices.length > 0 && 
-                    selectedInvoices.length === filteredInvoices.filter(inv => inv.status !== "paid").length &&
-                    filteredInvoices.filter(inv => inv.status !== "paid").length > 0
-                  }
-                  onChange={handleSelectAll}
-                  color="primary"
-                />
-              </TableCell>
-            )}
-            <TableCell>{i18n.t("financial.id")}</TableCell>
-            {isAdmin && <TableCell>{i18n.t("financial.company")}</TableCell>}
-            <TableCell>{i18n.t("financial.value")}</TableCell>
-            <TableCell>{i18n.t("financial.dueDate")}</TableCell>
-            <TableCell>{i18n.t("financial.status.tableHeader")}</TableCell>
-            <TableCell align="center">{i18n.t("financial.actions")}</TableCell>
-          </TableRow>
-        </TableHead>
-        <TableBody>
-          {filteredInvoices.length === 0 ? (
+  // Conteúdo da tabela para desktop e mobile
+  const renderContent = () => {
+    if (loading) {
+      return (
+        <Box display="flex" justifyContent="center" p={3}>
+          <CircularProgress />
+        </Box>
+      );
+    }
+
+    if (filteredInvoices.length === 0) {
+      return (
+        <Box display="flex" flexDirection="column" alignItems="center" justifyContent="center" p={5}>
+          <ReceiptIcon sx={{ fontSize: 40, color: 'text.secondary', mb: 2 }} />
+          <Typography variant="h6" color="textSecondary" gutterBottom>
+            {searchValue ? "Nenhuma fatura encontrada" : i18n.t("financial.noInvoicesTitle")}
+          </Typography>
+          <Typography variant="body2" color="textSecondary">
+            {searchValue ? "Tente ajustar sua pesquisa" : i18n.t("financial.noInvoicesMessage")}
+          </Typography>
+        </Box>
+      );
+    }
+
+    if (isMobile) {
+      return (
+        <Box sx={{ p: 2 }}>
+          {filteredInvoices.map(invoice => renderMobileCard(invoice))}
+        </Box>
+      );
+    }
+
+    return (
+      <TableContainer sx={{ height: '100%', overflow: 'auto' }}>
+        <Table stickyHeader size="small">
+          <TableHead>
             <TableRow>
-              <TableCell colSpan={isAdmin ? 7 : 6} align="center" sx={{ py: 3 }}>
-                <Typography color="text.secondary">
-                  {i18n.t("financial.noInvoices")}
-                </Typography>
-              </TableCell>
+              {isAdmin && (
+                <TableCell padding="checkbox">
+                  <Checkbox
+                    indeterminate={
+                      selectedInvoices.length > 0 && 
+                      selectedInvoices.length < filteredInvoices.filter(inv => inv.status !== "paid").length
+                    }
+                    checked={
+                      selectedInvoices.length > 0 && 
+                      selectedInvoices.length === filteredInvoices.filter(inv => inv.status !== "paid").length &&
+                      filteredInvoices.filter(inv => inv.status !== "paid").length > 0
+                    }
+                    onChange={handleSelectAll}
+                    color="primary"
+                  />
+                </TableCell>
+              )}
+              <TableCell>{i18n.t("financial.id")}</TableCell>
+              {isAdmin && <TableCell>{i18n.t("financial.company")}</TableCell>}
+              <TableCell>{i18n.t("financial.value")}</TableCell>
+              <TableCell>{i18n.t("financial.dueDate")}</TableCell>
+              <TableCell>{i18n.t("financial.status.tableHeader")}</TableCell>
+              <TableCell align="center">{i18n.t("financial.actions")}</TableCell>
             </TableRow>
-          ) : (
-            filteredInvoices.map((invoice) => (
+          </TableHead>
+          <TableBody>
+            {filteredInvoices.map((invoice) => (
               <TableRow key={invoice.id} hover>
                 {isAdmin && (
                   <TableCell padding="checkbox">
@@ -516,117 +551,103 @@ const Financeiro = () => {
                   {renderActionButtons(invoice)}
                 </TableCell>
               </TableRow>
-            ))
-          )}
-        </TableBody>
-      </Table>
-    </TableContainer>
-  );
-
-  // Componente de estado vazio
-  const emptyStateProps = {
-    icon: <ReceiptIcon sx={{ fontSize: 40 }} />,
-    title: i18n.t("financial.noInvoicesTitle"),
-    message: i18n.t("financial.noInvoicesMessage"),
-    showButton: false
+            ))}
+          </TableBody>
+        </Table>
+      </TableContainer>
+    );
   };
 
   if (!user) {
     return (
-      <BasePage>
-        <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%' }}>
+      <StandardPageLayout title={i18n.t("financial.title")}>
+        <Box display="flex" justifyContent="center" alignItems="center" height="100%">
           <CircularProgress />
         </Box>
-      </BasePage>
+      </StandardPageLayout>
     );
   }
 
   return (
-    <BasePage
-      title={i18n.t("financial.title")}
-      headerContent={
-        <BasePageHeader
-          onSearch={handleSearch}
-          searchValue={searchValue}
-          searchPlaceholder={i18n.t("financial.searchPlaceholder")}
-          showSearch={true}
-          actions={headerActions}
-        />
-      }
-    >
-      <BasePageContent
+    <>
+      <StandardPageLayout
+        title={i18n.t("financial.title")}
+        actions={pageActions}
+        searchValue={searchValue}
+        onSearchChange={handleSearch}
+        searchPlaceholder={i18n.t("financial.searchPlaceholder")}
+        showSearch={true}
         loading={loading}
-        empty={!loading && filteredInvoices.length === 0}
-        emptyProps={emptyStateProps}
       >
-        {isMobile ? (
-          <Box sx={{ p: 2 }}>
-            {filteredInvoices.map(invoice => renderMobileCard(invoice))}
-          </Box>
-        ) : (
-          renderTableContent()
-        )}
-      </BasePageContent>
+        {renderContent()}
+      </StandardPageLayout>
 
-      {/* Filtro Modal */}
-      <BaseModal
+      {/* Modal de Filtros */}
+      <Dialog
         open={filterModalOpen}
         onClose={() => setFilterModalOpen(false)}
-        title={i18n.t("financial.filterTitle")}
-        actions={[
-          {
-            label: i18n.t("financial.apply"),
-            onClick: handleFilterApply,
-            variant: "contained",
-            color: "primary"
-          },
-          {
-            label: i18n.t("financial.cancel"),
-            onClick: () => setFilterModalOpen(false),
-            variant: "outlined",
-            color: "inherit"
+        maxWidth="sm"
+        fullWidth
+        PaperProps={{
+          sx: {
+            borderRadius: 2,
+            boxShadow: '0 8px 24px rgba(0, 0, 0, 0.1)'
           }
-        ]}
+        }}
       >
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-          <FormControlLabel
-            control={
-              <Checkbox 
-                checked={statusFilter === "all"} 
-                onChange={() => setStatusFilter("all")}
-              />
-            }
-            label={i18n.t("financial.filterAllStatus")}
-          />
-          <FormControlLabel
-            control={
-              <Checkbox 
-                checked={statusFilter === "pending"} 
-                onChange={() => setStatusFilter("pending")}
-              />
-            }
-            label={i18n.t("financial.status.pending")}
-          />
-          <FormControlLabel
-            control={
-              <Checkbox 
-                checked={statusFilter === "paid"} 
-                onChange={() => setStatusFilter("paid")}
-              />
-            }
-            label={i18n.t("financial.status.paid")}
-          />
-          <FormControlLabel
-            control={
-              <Checkbox 
-                checked={statusFilter === "overdue"} 
-                onChange={() => setStatusFilter("overdue")}
-              />
-            }
-            label={i18n.t("financial.status.overdue")}
-          />
-        </Box>
-      </BaseModal>
+        <DialogTitle sx={{ borderBottom: 1 }}>
+          {i18n.t("financial.filterTitle")}
+        </DialogTitle>
+        <DialogContent sx={{ pt: 3 }}>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+            {/* Filtro de Status */}
+            <FormControl fullWidth>
+              <InputLabel>{i18n.t("financial.status.tableHeader")}</InputLabel>
+              <Select
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value)}
+                label={i18n.t("financial.status.tableHeader")}
+              >
+                <MenuItem value="all">{i18n.t("financial.filterAllStatus")}</MenuItem>
+                <MenuItem value="pending">{i18n.t("financial.status.pending")}</MenuItem>
+                <MenuItem value="paid">{i18n.t("financial.status.paid")}</MenuItem>
+                <MenuItem value="overdue">{i18n.t("financial.status.overdue")}</MenuItem>
+              </Select>
+            </FormControl>
+
+            {/* Filtro de Empresa (apenas para admins) */}
+            {isAdmin && (
+              <FormControl fullWidth>
+                <InputLabel>{i18n.t("financial.company")}</InputLabel>
+                <Select
+                  value={selectedCompany || ""}
+                  onChange={(e) => setSelectedCompany(e.target.value || null)}
+                  label={i18n.t("financial.company")}
+                >
+                  <MenuItem value="">{i18n.t("financial.allCompanies")}</MenuItem>
+                  {companies.map((company) => (
+                    <MenuItem key={company.id} value={company.id}>
+                      {company.name}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            )}
+          </Box>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, py: 2, borderTop: 1 }}>
+          <Button onClick={() => setFilterModalOpen(false)} color="inherit">
+            {i18n.t("financial.cancel")}
+          </Button>
+          <Button
+            onClick={handleFilterApply}
+            variant="contained"
+            color="primary"
+          >
+            {i18n.t("financial.apply")}
+          </Button>
+        </DialogActions>
+      </Dialog>
 
       {/* Modal de Pagamento */}
       {selectedInvoice && (
@@ -655,90 +676,60 @@ const Financeiro = () => {
       )}
 
       {/* Modal de Confirmação de Exclusão */}
-      <BaseModal
-        open={deleteModalOpen}
-        onClose={() => setDeleteModalOpen(false)}
-        title={i18n.t("financial.confirmDelete")}
-        actions={[
-          {
-            label: i18n.t("financial.confirmDelete"),
-            onClick: handleConfirmDelete,
-            variant: "contained",
-            color: "error",
-            disabled: confirmLoading,
-            icon: confirmLoading ? <CircularProgress size={20} /> : <DeleteIcon />
-          },
-          {
-            label: i18n.t("financial.cancel"),
-            onClick: () => setDeleteModalOpen(false),
-            variant: "outlined",
-            color: "inherit",
-            disabled: confirmLoading
-          }
-        ]}
-        maxWidth="sm"
-      >
-        <Alert severity="error" sx={{ mb: 2 }}>
-          <Typography>{i18n.t("financial.deleteWarning")}</Typography>
-        </Alert>
-        
-        <Typography variant="body1" gutterBottom>
-          {i18n.t("financial.deleteConfirmation")}
-        </Typography>
-        
-        <Typography variant="body2" color="text.secondary">
-          {i18n.t("financial.invoice")}: #{selectedInvoice?.id}
-        </Typography>
-        
-        <Typography variant="body2" color="text.secondary">
-          {i18n.t("financial.value")}:{" "}
-          {selectedInvoice &&
-            new Intl.NumberFormat("pt-BR", {
-              style: "currency",
-              currency: "BRL",
-            }).format(selectedInvoice.value)}
-        </Typography>
-      </BaseModal>
+      {deleteModalOpen && (
+        <ConfirmationModal
+          title={i18n.t("financial.confirmDelete")}
+          open={deleteModalOpen}
+          onClose={() => setDeleteModalOpen(false)}
+          onConfirm={handleConfirmDelete}
+        >
+          <Alert severity="error" sx={{ mb: 2 }}>
+            <Typography>{i18n.t("financial.deleteWarning")}</Typography>
+          </Alert>
+          
+          <Typography variant="body1" gutterBottom>
+            {i18n.t("financial.deleteConfirmation")}
+          </Typography>
+          
+          <Typography variant="body2" color="text.secondary">
+            {i18n.t("financial.invoice")}: #{selectedInvoice?.id}
+          </Typography>
+          
+          <Typography variant="body2" color="text.secondary">
+            {i18n.t("financial.value")}:{" "}
+            {selectedInvoice &&
+              new Intl.NumberFormat("pt-BR", {
+                style: "currency",
+                currency: "BRL",
+              }).format(selectedInvoice.value)}
+          </Typography>
+        </ConfirmationModal>
+      )}
 
       {/* Modal de Confirmação de Exclusão em Massa */}
-      <BaseModal
-        open={bulkDeleteModalOpen}
-        onClose={() => setBulkDeleteModalOpen(false)}
-        title={i18n.t("financial.confirmBulkDelete")}
-        actions={[
-          {
-            label: i18n.t("financial.confirmBulkDelete"),
-            onClick: handleBulkDelete,
-            variant: "contained",
-            color: "error",
-            disabled: confirmLoading,
-            icon: confirmLoading ? <CircularProgress size={20} /> : <DeleteSweepIcon />
-          },
-          {
-            label: i18n.t("financial.cancel"),
-            onClick: () => setBulkDeleteModalOpen(false),
-            variant: "outlined",
-            color: "inherit",
-            disabled: confirmLoading
-          }
-        ]}
-        maxWidth="sm"
-      >
-        <Alert severity="error" sx={{ mb: 2 }}>
-          <Typography>
-            {i18n.t("financial.bulkDeleteWarning", { count: selectedInvoices.length })}
+      {bulkDeleteModalOpen && (
+        <ConfirmationModal
+          title={i18n.t("financial.confirmBulkDelete")}
+          open={bulkDeleteModalOpen}
+          onClose={() => setBulkDeleteModalOpen(false)}
+          onConfirm={handleBulkDelete}
+        >
+          <Alert severity="error" sx={{ mb: 2 }}>
+            <Typography>
+              {i18n.t("financial.bulkDeleteWarning", { count: selectedInvoices.length })}
+            </Typography>
+          </Alert>
+          
+          <Typography variant="body1" gutterBottom>
+            {i18n.t("financial.bulkDeleteConfirmation")}
           </Typography>
-        </Alert>
-        
-        <Typography variant="body1" gutterBottom>
-          {i18n.t("financial.bulkDeleteConfirmation")}
-        </Typography>
-        
-        <Typography variant="body2" color="text.secondary">
-          {i18n.t("financial.selectedInvoices")}: {selectedInvoices.length}
-        </Typography>
-      </BaseModal>
-    </BasePage>
+          
+          <Typography variant="body2" color="text.secondary">
+            {i18n.t("financial.selectedInvoices")}: {selectedInvoices.length}
+          </Typography>
+        </ConfirmationModal>
+      )}
+    </>
   );
 };
 
