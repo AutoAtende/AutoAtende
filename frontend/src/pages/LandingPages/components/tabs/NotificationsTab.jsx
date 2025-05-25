@@ -30,7 +30,9 @@ import {
   Image as ImageIcon,
   Edit as EditIcon,
   Delete as DeleteIcon,
-  Add as AddIcon
+  Add as AddIcon,
+  Save as SaveIcon,
+  Preview as PreviewIcon
 } from '@mui/icons-material';
 import { useSpring, animated } from 'react-spring';
 import { isValidPhoneNumber } from '../../../../utils/stringUtils';
