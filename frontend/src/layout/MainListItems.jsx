@@ -42,8 +42,7 @@ import {
   DeviceHubOutlined,
   EmailRounded,
   RotateRight,
-  WebOutlined,
-  WhatsApp,
+  WebOutlined
 } from '@mui/icons-material';
 
 // Importações de contexto e utilitários
@@ -922,7 +921,7 @@ const MainListItems = (props) => {
 <ListItemLink
   to="/wbotpro"
   primary={i18n.t("mainDrawer.listItems.wbotpro")}
-  icon={<BlinkingWhatsAppIcon />}  {/* Ícone com animação */}
+  icon={<BlinkingWhatsAppIcon />}
   tooltip={collapsed}
   drawerClose={drawerClose}
   level={1}

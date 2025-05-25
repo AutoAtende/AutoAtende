@@ -37,7 +37,7 @@ import {
   ContactPhone as ContactIcon,
   SmartButton as ButtonIcon,
   List as ListIcon,
-  InteractiveVideo as InteractiveIcon,
+  SignalWifiStatusbarConnectedNoInternet4Outlined as InteractiveIcon,
   Poll as PollIcon,
   Payment as PaymentIcon,
   PhotoLibrary as AlbumIcon,
