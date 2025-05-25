@@ -1,30 +1,39 @@
 import React, { useState, useEffect } from "react";
 import {
   Box,
-  Paper,
-  Typography,
   CircularProgress,
   FormControl,
   InputLabel,
   MenuItem,
   Select,
-  Alert,
-  Divider,
   FormHelperText,
-  Tooltip,
-  IconButton
+  Grid,
+  Card,
+  CardContent,
+  List,
+  ListItem,
+  ListItemIcon,
+  ListItemText,
+  Stepper,
+  Step,
+  StepLabel,
+  StepContent
 } from "@mui/material";
 import {
   CloudUpload as UploadIcon,
   FilePresent as FileIcon,
   Help as HelpIcon,
-  Download as DownloadIcon
+  Download as DownloadIcon,
+  Group as GroupIcon,
+  CheckCircle as CheckIcon,
+  Error as ErrorIcon,
+  Info as InfoIcon
 } from "@mui/icons-material";
 import { toast } from "../../../helpers/toast";
 import { i18n } from "../../../translate/i18n";
 import api from "../../../services/api";
 import BaseButton from "../../../components/shared/BaseButton";
-import BasePageContent from "../../../components/shared/BasePageContent";
+import StandardTabContent from "../../../components/shared/StandardTabContent";
 
 const ImportContactsTab = () => {
   const [groups, setGroups] = useState([]);
@@ -34,6 +43,7 @@ const ImportContactsTab = () => {
   const [loadingGroups, setLoadingGroups] = useState(false);
   const [result, setResult] = useState(null);
   const [uploadProgress, setUploadProgress] = useState(null);
+  const [activeStep, setActiveStep] = useState(0);
   
   useEffect(() => {
     fetchGroups();
@@ -55,11 +65,17 @@ const ImportContactsTab = () => {
   
   const handleGroupChange = (e) => {
     setSelectedGroup(e.target.value);
+    if (e.target.value) {
+      setActiveStep(1);
+    }
   };
   
   const handleFileChange = (e) => {
     if (e.target.files && e.target.files[0]) {
       setSelectedFile(e.target.files[0]);
+      if (selectedGroup) {
+        setActiveStep(2);
+      }
     }
   };
   
@@ -81,6 +97,8 @@ const ImportContactsTab = () => {
     }
     
     setLoading(true);
+    setActiveStep(3);
+    
     try {
       const formData = new FormData();
       formData.append('file', selectedFile);
@@ -98,9 +116,11 @@ const ImportContactsTab = () => {
               valid: data.result.whatsappValids,
               invalid: data.result.whatsappInValids.length
             }),
+            validCount: data.result.whatsappValids,
             invalidNumbers: data.result.whatsappInValids
           });
           setUploadProgress(null);
+          setActiveStep(4);
         }
       };
       
@@ -122,6 +142,7 @@ const ImportContactsTab = () => {
         status: "error",
         message: i18n.t("groups.errors.importFailed")
       });
+      setActiveStep(4);
     } finally {
       setLoading(false);
     }
@@ -144,157 +165,289 @@ const ImportContactsTab = () => {
     setSelectedFile(null);
     setResult(null);
     setUploadProgress(null);
+    setActiveStep(0);
   };
-  
+
+  // Configuração dos alertas
+  const alerts = [];
+
+  if (uploadProgress) {
+    alerts.push({
+      severity: "info",
+      title: "Processando Importação",
+      message: uploadProgress
+    });
+  }
+
+  if (result) {
+    alerts.push({
+      severity: result.status === "success" ? "success" : "error",
+      title: result.status === "success" ? "Importação Concluída" : "Erro na Importação",
+      message: result.message,
+      action: result.status === "success" ? (
+        <BaseButton
+          variant="outlined"
+          size="small"
+          onClick={handleReset}
+        >
+          Nova Importação
+        </BaseButton>
+      ) : null
+    });
+  }
+
+  // Estatísticas
+  const stats = [];
+  if (groups.length > 0) {
+    stats.push({
+      label: `${groups.length} grupos disponíveis`,
+      icon: <GroupIcon />,
+      color: 'primary'
+    });
+  }
+
+  if (result?.status === "success") {
+    stats.push(
+      {
+        label: `${result.validCount} contatos válidos`,
+        icon: <CheckIcon />,
+        color: 'success'
+      },
+      {
+        label: `${result.invalidNumbers?.length || 0} inválidos`,
+        icon: <ErrorIcon />,
+        color: 'error'
+      }
+    );
+  }
+
+  // Ações do cabeçalho
+  const actions = (
+    <BaseButton
+      variant="outlined"
+      startIcon={<DownloadIcon />}
+      onClick={handleDownloadTemplate}
+    >
+      {i18n.t("groups.template")}
+    </BaseButton>
+  );
+
+  // Steps do processo
+  const steps = [
+    {
+      label: 'Selecionar Grupo',
+      description: 'Escolha o grupo onde os contatos serão importados'
+    },
+    {
+      label: 'Carregar Arquivo',
+      description: 'Faça upload do arquivo CSV ou Excel com os contatos'
+    },
+    {
+      label: 'Confirmar Importação',
+      description: 'Revise as informações e inicie o processo'
+    },
+    {
+      label: 'Processamento',
+      description: 'Aguarde o processamento dos contatos'
+    },
+    {
+      label: 'Concluído',
+      description: 'Importação finalizada com sucesso'
+    }
+  ];
+
   return (
-    <BasePageContent>
-      <Paper variant="outlined" sx={{ p: 3, m: 2 }}>
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-          <Typography variant="h6">
-            {i18n.t("groups.importContacts")}
-          </Typography>
-          
-          <Tooltip title={i18n.t("groups.downloadTemplate")}>
-            <BaseButton
-              variant="outlined"
-              size="small"
-              startIcon={<DownloadIcon />}
-              onClick={handleDownloadTemplate}
-            >
-              {i18n.t("groups.template")}
-            </BaseButton>
-          </Tooltip>
-        </Box>
-        
-        <Typography variant="body2" color="textSecondary" paragraph>
-          {i18n.t("groups.importContactsDescription")}
-        </Typography>
-        
-        <Box sx={{ mb: 3 }}>
-          <FormControl fullWidth sx={{ mb: 2 }}>
-            <InputLabel>{i18n.t("groups.selectGroup")}</InputLabel>
-            <Select
-              value={selectedGroup}
-              onChange={handleGroupChange}
-              label={i18n.t("groups.selectGroup")}
-              disabled={loading || loadingGroups}
-            >
-              {loadingGroups ? (
-                <MenuItem value="" disabled>
-                  <CircularProgress size={20} /> {i18n.t("loading")}
-                </MenuItem>
-              ) : (
-                groups.map((group) => (
-                  <MenuItem key={group.id} value={group.id}>
-                    {group.subject || group.name}
-                  </MenuItem>
-                ))
-              )}
-            </Select>
-            <FormHelperText>
-              {i18n.t("groups.selectGroupHelp")}
-            </FormHelperText>
-          </FormControl>
-          
-          <Box sx={{ display: 'flex', alignItems: 'center', mb: 2, gap: 1 }}>
-            <BaseButton
-              variant="outlined"
-              component="label"
-              startIcon={selectedFile ? <FileIcon /> : <UploadIcon />}
-              disabled={loading}
-              sx={{ flex: 1 }}
-            >
-              {selectedFile ? selectedFile.name : i18n.t("groups.selectFile")}
-              <input
-                type="file"
-                hidden
-                accept=".csv,.xlsx,.xls"
-                onChange={handleFileChange}
-              />
-            </BaseButton>
-            
-            <Tooltip title={i18n.t("groups.fileFormatInfo")}>
-              <IconButton size="small">
-                <HelpIcon fontSize="small" />
-              </IconButton>
-            </Tooltip>
-          </Box>
-          
-          <BaseButton
-            variant="contained"
-            color="primary"
-            startIcon={loading ? <CircularProgress size={20} /> : <UploadIcon />}
-            onClick={handleImportContacts}
-            disabled={loading || !selectedGroup || !selectedFile}
-            fullWidth
-          >
-            {loading ? i18n.t("loading") : i18n.t("groups.importContacts")}
-          </BaseButton>
-        </Box>
-        
-        {uploadProgress && (
-          <Alert severity="info" sx={{ mb: 2 }}>
-            {uploadProgress}
-          </Alert>
-        )}
-        
-        {result && (
-          <>
-            <Divider sx={{ my: 2 }} />
-            
-            <Alert 
-              severity={result.status === "success" ? "success" : "error"}
-              sx={{ mb: 2 }}
-              action={
-                result.status === "success" && (
-                  <BaseButton
-                    variant="outlined"
-                    size="small"
-                    onClick={handleReset}
-                  >
-                    Nova Importação
-                  </BaseButton>
-                )
-              }
-            >
-              {result.message}
-            </Alert>
-            
-            {result.status === "success" && result.invalidNumbers && result.invalidNumbers.length > 0 && (
-              <Box sx={{ mt: 2 }}>
-                <Typography variant="subtitle2" gutterBottom>
-                  {i18n.t("groups.invalidNumbers")}:
+    <StandardTabContent
+      title={i18n.t("groups.importContacts")}
+      description={i18n.t("groups.importContactsDescription")}
+      icon={<UploadIcon />}
+      stats={stats}
+      alerts={alerts}
+      actions={actions}
+      variant="default"
+    >
+      <Grid container spacing={3}>
+        {/* Formulário Principal */}
+        <Grid item xs={12} md={8}>
+          <Card variant="outlined" sx={{ height: 'fit-content' }}>
+            <CardContent sx={{ p: 3 }}>
+              <Stepper activeStep={activeStep} orientation="vertical">
+                {steps.map((step, index) => (
+                  <Step key={step.label}>
+                    <StepLabel>
+                      {step.label}
+                    </StepLabel>
+                    <StepContent>
+                      <Box sx={{ mb: 2 }}>
+                        <Typography variant="body2" color="textSecondary">
+                          {step.description}
+                        </Typography>
+                      </Box>
+
+                      {/* Step 0: Seleção do Grupo */}
+                      {index === 0 && (
+                        <FormControl fullWidth sx={{ mb: 2 }}>
+                          <InputLabel>{i18n.t("groups.selectGroup")}</InputLabel>
+                          <Select
+                            value={selectedGroup}
+                            onChange={handleGroupChange}
+                            label={i18n.t("groups.selectGroup")}
+                            disabled={loading || loadingGroups}
+                          >
+                            {loadingGroups ? (
+                              <MenuItem value="" disabled>
+                                <CircularProgress size={20} /> {i18n.t("loading")}
+                              </MenuItem>
+                            ) : (
+                              groups.map((group) => (
+                                <MenuItem key={group.id} value={group.id}>
+                                  <Box display="flex" alignItems="center" gap={1}>
+                                    <GroupIcon fontSize="small" />
+                                    {group.subject || group.name}
+                                  </Box>
+                                </MenuItem>
+                              ))
+                            )}
+                          </Select>
+                          <FormHelperText>
+                            {i18n.t("groups.selectGroupHelp")}
+                          </FormHelperText>
+                        </FormControl>
+                      )}
+
+                      {/* Step 1: Upload do Arquivo */}
+                      {index === 1 && selectedGroup && (
+                        <Box sx={{ mb: 2 }}>
+                          <BaseButton
+                            variant="outlined"
+                            component="label"
+                            fullWidth
+                            startIcon={selectedFile ? <FileIcon /> : <UploadIcon />}
+                            disabled={loading}
+                            sx={{ 
+                              py: 2,
+                              borderStyle: 'dashed',
+                              borderWidth: 2
+                            }}
+                          >
+                            {selectedFile ? selectedFile.name : i18n.t("groups.selectFile")}
+                            <input
+                              type="file"
+                              hidden
+                              accept=".csv,.xlsx,.xls"
+                              onChange={handleFileChange}
+                            />
+                          </BaseButton>
+                          <FormHelperText sx={{ mt: 1 }}>
+                            Formatos aceitos: CSV, XLSX, XLS
+                          </FormHelperText>
+                        </Box>
+                      )}
+
+                      {/* Step 2: Confirmação */}
+                      {index === 2 && selectedGroup && selectedFile && (
+                        <Box sx={{ mb: 2 }}>
+                          <BaseButton
+                            variant="contained"
+                            color="primary"
+                            size="large"
+                            fullWidth
+                            startIcon={loading ? <CircularProgress size={20} color="inherit" /> : <UploadIcon />}
+                            onClick={handleImportContacts}
+                            disabled={loading}
+                            sx={{ py: 1.5 }}
+                          >
+                            {loading ? i18n.t("loading") : i18n.t("groups.importContacts")}
+                          </BaseButton>
+                        </Box>
+                      )}
+                    </StepContent>
+                  </Step>
+                ))}
+              </Stepper>
+            </CardContent>
+          </Card>
+        </Grid>
+
+        {/* Painel Lateral */}
+        <Grid item xs={12} md={4}>
+          <Card variant="outlined">
+            <CardContent>
+              <Box display="flex" alignItems="center" gap={1} mb={2}>
+                <InfoIcon color="primary" />
+                <Typography variant="h6">
+                  Dicas de Importação
                 </Typography>
-                <Paper variant="outlined" sx={{ p: 2, maxHeight: '150px', overflow: 'auto' }}>
+              </Box>
+
+              <List dense>
+                <ListItem>
+                  <ListItemIcon>
+                    <CheckIcon fontSize="small" color="success" />
+                  </ListItemIcon>
+                  <ListItemText 
+                    primary="Formato correto"
+                    secondary="Use números com código do país (5511999999999)"
+                  />
+                </ListItem>
+                
+                <ListItem>
+                  <ListItemIcon>
+                    <CheckIcon fontSize="small" color="success" />
+                  </ListItemIcon>
+                  <ListItemText 
+                    primary="Arquivo organizado"
+                    secondary="Coluna 'numero' no cabeçalho do CSV/Excel"
+                  />
+                </ListItem>
+                
+                <ListItem>
+                  <ListItemIcon>
+                    <CheckIcon fontSize="small" color="success" />
+                  </ListItemIcon>
+                  <ListItemText 
+                    primary="Validação automática"
+                    secondary="O sistema valida automaticamente os números"
+                  />
+                </ListItem>
+              </List>
+            </CardContent>
+          </Card>
+
+          {/* Números Inválidos */}
+          {result?.invalidNumbers && result.invalidNumbers.length > 0 && (
+            <Card variant="outlined" sx={{ mt: 2 }}>
+              <CardContent>
+                <Typography variant="h6" gutterBottom color="error">
+                  Números Inválidos ({result.invalidNumbers.length})
+                </Typography>
+                <Box 
+                  sx={{ 
+                    maxHeight: 200, 
+                    overflow: 'auto',
+                    bgcolor: 'grey.50',
+                    p: 1,
+                    borderRadius: 1
+                  }}
+                >
                   {result.invalidNumbers.map((number, index) => (
-                    <Typography key={index} variant="body2" component="div">
+                    <Typography 
+                      key={index} 
+                      variant="body2" 
+                      component="div"
+                      color="error"
+                      sx={{ fontFamily: 'monospace' }}
+                    >
                       {number}
                     </Typography>
                   ))}
-                </Paper>
-              </Box>
-            )}
-          </>
-        )}
-        
-        <Box sx={{ mt: 3, p: 2, bgcolor: 'info.light', borderRadius: 1 }}>
-          <Typography variant="subtitle2" gutterBottom>
-            {i18n.t("groups.importTips")}:
-          </Typography>
-          <Box component="ul" sx={{ margin: '8px 0', paddingLeft: '20px' }}>
-            <Typography component="li" variant="body2">
-              {i18n.t("groups.importTip1")}
-            </Typography>
-            <Typography component="li" variant="body2">
-              {i18n.t("groups.importTip2")}
-            </Typography>
-            <Typography component="li" variant="body2">
-              {i18n.t("groups.importTip3")}
-            </Typography>
-          </Box>
-        </Box>
-      </Paper>
-    </BasePageContent>
+                </Box>
+              </CardContent>
+            </Card>
+          )}
+        </Grid>
+      </Grid>
+    </StandardTabContent>
   );
 };
 

@@ -1,27 +1,28 @@
 import React, { useState } from "react";
 import {
   Box,
-  Paper,
-  Typography,
   TextField,
   CircularProgress,
-  Divider,
-  Alert,
-  IconButton,
-  Tooltip,
-  Snackbar
+  InputAdornment,
+  Snackbar,
+  FormControl,
+  FormLabel,
+  FormHelperText
 } from "@mui/material";
 import {
   CloudDownload as ExtractIcon,
   ContentCopy as CopyIcon,
   Download as DownloadIcon,
-  Info as InfoIcon
+  Info as InfoIcon,
+  Link as LinkIcon,
+  CheckCircle as SuccessIcon,
+  Error as ErrorIcon
 } from "@mui/icons-material";
 import { toast } from "../../../helpers/toast";
 import { i18n } from "../../../translate/i18n";
 import api from "../../../services/api";
 import BaseButton from "../../../components/shared/BaseButton";
-import BasePageContent from "../../../components/shared/BasePageContent";
+import StandardTabContent from "../../../components/shared/StandardTabContent";
 
 const ExtractContactsTab = () => {
   const [link, setLink] = useState("");
@@ -103,99 +104,159 @@ const ExtractContactsTab = () => {
     setDownloadUrl("");
   };
 
+  // Configuração dos alertas
+  const alerts = [];
+
+  if (result) {
+    alerts.push({
+      severity: result.status === "success" ? "success" : "error",
+      title: result.status === "success" ? "Extração Concluída" : "Erro na Extração",
+      message: result.message,
+      action: result.status === "success" ? (
+        <BaseButton
+          variant="outlined"
+          size="small"
+          onClick={handleReset}
+        >
+          Nova Extração
+        </BaseButton>
+      ) : null
+    });
+  }
+
+  // Ações do cabeçalho
+  const actions = (
+    <Box display="flex" gap={1}>
+      {result?.status === "success" && downloadUrl && (
+        <>
+          <BaseButton
+            variant="outlined"
+            color="primary"
+            startIcon={<DownloadIcon />}
+            href={downloadUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            {i18n.t("groups.downloadExcel")}
+          </BaseButton>
+          
+          <BaseButton
+            variant="outlined"
+            size="small"
+            startIcon={<CopyIcon />}
+            onClick={handleCopyLink}
+          >
+            Copiar Link
+          </BaseButton>
+        </>
+      )}
+    </Box>
+  );
+
   return (
-    <BasePageContent>
-      <Paper variant="outlined" sx={{ p: 3, m: 2 }}>
-        <Typography variant="h6" gutterBottom>
-          {i18n.t("groups.extractContacts")}
-        </Typography>
-        
-        <Typography variant="body2" color="textSecondary" paragraph>
-          {i18n.t("groups.extractContactsDescription")}
-        </Typography>
-        
-        <Box sx={{ display: 'flex', mb: 3, gap: 1 }}>
+    <StandardTabContent
+      title={i18n.t("groups.extractContacts")}
+      description={i18n.t("groups.extractContactsDescription")}
+      icon={<ExtractIcon />}
+      alerts={alerts}
+      actions={result?.status === "success" ? actions : null}
+      variant="padded"
+    >
+      <Box sx={{ maxWidth: 600 }}>
+        {/* Formulário de Extração */}
+        <FormControl fullWidth sx={{ mb: 3 }}>
+          <FormLabel sx={{ mb: 1 }}>
+            {i18n.t("groups.groupInviteLink")}
+          </FormLabel>
           <TextField
             fullWidth
-            label={i18n.t("groups.groupInviteLink")}
             placeholder="https://chat.whatsapp.com/..."
             value={link}
             onChange={(e) => setLink(e.target.value)}
             disabled={loading}
             variant="outlined"
-          />
-          <BaseButton
-            variant="contained"
-            color="primary"
-            startIcon={loading ? <CircularProgress size={20} /> : <ExtractIcon />}
-            onClick={handleExtractContacts}
-            disabled={loading || !link}
-            sx={{ minWidth: '180px' }}
-          >
-            {loading ? i18n.t("loading") : i18n.t("groups.extractContacts")}
-          </BaseButton>
-        </Box>
-        
-        {result && (
-          <>
-            <Divider sx={{ my: 2 }} />
-            
-            <Alert 
-              severity={result.status === "success" ? "success" : "error"}
-              sx={{ mb: 2 }}
-              action={
-                result.status === "success" && (
-                  <BaseButton
-                    variant="outlined"
-                    size="small"
-                    onClick={handleReset}
-                  >
-                    Nova Extração
-                  </BaseButton>
-                )
+            InputProps={{
+              startAdornment: (
+                <InputAdornment position="start">
+                  <LinkIcon color="action" />
+                </InputAdornment>
+              ),
+            }}
+            sx={{
+              '& .MuiOutlinedInput-root': {
+                borderRadius: 2
               }
-            >
-              {result.message}
-            </Alert>
-            
-            {result.status === "success" && downloadUrl && (
-              <Box sx={{ display: 'flex', alignItems: 'center', mt: 2 }}>
-                <BaseButton
-                  variant="outlined"
-                  color="primary"
-                  startIcon={<DownloadIcon />}
-                  href={downloadUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  {i18n.t("groups.downloadExcel")}
-                </BaseButton>
-                
-                <Tooltip title={i18n.t("groups.copyDownloadLink")}>
-                  <IconButton onClick={handleCopyLink} sx={{ ml: 1 }}>
-                    <CopyIcon />
-                  </IconButton>
-                </Tooltip>
+            }}
+          />
+          <FormHelperText>
+            Cole aqui o link de convite do grupo do WhatsApp
+          </FormHelperText>
+        </FormControl>
+
+        {/* Botão de Extração */}
+        <BaseButton
+          variant="contained"
+          color="primary"
+          size="large"
+          fullWidth
+          startIcon={loading ? <CircularProgress size={20} color="inherit" /> : <ExtractIcon />}
+          onClick={handleExtractContacts}
+          disabled={loading || !link}
+          sx={{ 
+            py: 1.5,
+            borderRadius: 2,
+            textTransform: 'none',
+            fontSize: '1rem',
+            fontWeight: 600
+          }}
+        >
+          {loading ? i18n.t("loading") : i18n.t("groups.extractContacts")}
+        </BaseButton>
+
+        {/* Informações Adicionais */}
+        <Box 
+          sx={{ 
+            mt: 4, 
+            p: 3, 
+            bgcolor: 'info.light', 
+            borderRadius: 2,
+            border: '1px solid',
+            borderColor: 'info.main'
+          }}
+        >
+          <Box display="flex" alignItems="flex-start" gap={1}>
+            <InfoIcon color="info" sx={{ mt: 0.5 }} />
+            <Box>
+              <Typography variant="subtitle2" color="info.dark" gutterBottom>
+                Como funciona a extração:
+              </Typography>
+              <Box component="ul" sx={{ 
+                margin: 0, 
+                paddingLeft: 2,
+                '& li': {
+                  fontSize: '0.875rem',
+                  color: 'info.dark',
+                  mb: 0.5
+                }
+              }}>
+                <li>Cole o link de convite do grupo do WhatsApp</li>
+                <li>O sistema extrairá automaticamente todos os contatos</li>
+                <li>Você receberá um arquivo Excel com os números</li>
+                <li>O processo pode levar alguns minutos dependendo do tamanho do grupo</li>
               </Box>
-            )}
-          </>
-        )}
-        
-        <Box sx={{ mt: 3, display: 'flex', alignItems: 'center', bgcolor: 'info.light', p: 2, borderRadius: 1 }}>
-          <InfoIcon color="info" sx={{ mr: 1 }} />
-          <Typography variant="body2" color="textSecondary">
-            {i18n.t("groups.extractContactsInfo")}
-          </Typography>
+            </Box>
+          </Box>
         </Box>
-        
-        <Snackbar
-          open={openSnackbar}
-          autoHideDuration={3000}
-          onClose={() => setOpenSnackbar(false)}
-          message={i18n.t("groups.linkCopied")}
-        />
-      </Paper>
-    </BasePageContent>
+      </Box>
+
+      <Snackbar
+        open={openSnackbar}
+        autoHideDuration={3000}
+        onClose={() => setOpenSnackbar(false)}
+        message={i18n.t("groups.linkCopied")}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      />
+    </StandardTabContent>
   );
 };
 
