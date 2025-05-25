@@ -1,7 +1,5 @@
 import React, { useState, useEffect, useReducer, useCallback } from "react";
-import { styled } from "@mui/material/styles";
 import {
-  Paper,
   Button,
   Table,
   TableBody,
@@ -14,20 +12,14 @@ import {
   Box,
   Chip,
   Typography,
-  TextField,
-  InputAdornment,
   FormControl,
   Select,
   MenuItem,
   InputLabel,
-  Card,
-  CardContent,
-  Grid,
-  Divider,
   CircularProgress,
   useMediaQuery,
   useTheme,
-  Fade,
+  TablePagination,
 } from "@mui/material";
 import {
   Delete as DeleteIcon,
@@ -37,18 +29,17 @@ import {
   Code as CodeIcon,
   Functions as FunctionsIcon,
   Extension as ExtensionIcon,
-  SearchOutlined as SearchOutlinedIcon,
   Add as AddIcon,
-  NavigateBefore as NavigateBeforeIcon,
-  NavigateNext as NavigateNextIcon,
-  VolumeUp as VolumeUpIcon
+  HelpOutline as HelpIcon,
+  VolumeUp as VolumeUpIcon,
+  SmartToy as SmartToyIcon,
+  CheckCircle as ActiveIcon,
+  Cancel as InactiveIcon
 } from "@mui/icons-material";
-import { useSpring, animated } from "react-spring";
-import MainContainer from "../../components/MainContainer";
-import MainHeader from "../../components/MainHeader";
-import Title from "../../components/Title";
+
+// Componentes
+import StandardPageLayout from "../../components/StandardPageLayout";
 import api from "../../services/api";
-import TableRowSkeleton from "../../components/TableRowSkeleton";
 import AssistantModal from "./components/AssistantModal";
 import AssistantsHelpButton from './components/AssistantsHelpButton';
 import VoiceSettingsButton from './components/VoiceSettingsButton';
@@ -56,104 +47,6 @@ import ImportAssistantsModal from "./components/ImportAssistantsModal";
 import ConfirmationModal from "../../components/ConfirmationModal";
 import { toast } from "../../helpers/toast";
 import { i18n } from "../../translate/i18n";
-
-// Estilos
-const PREFIX = "Assistants";
-
-const classes = {
-  mainPaper: `${PREFIX}-mainPaper`,
-  searchContainer: `${PREFIX}-searchContainer`,
-  tableContainer: `${PREFIX}-tableContainer`,
-  filterChip: `${PREFIX}-filterChip`,
-  emptyState: `${PREFIX}-emptyState`,
-  mobileCard: `${PREFIX}-mobileCard`,
-  actionButton: `${PREFIX}-actionButton`,
-  pagination: `${PREFIX}-pagination`,
-  statusChip: `${PREFIX}-statusChip`,
-  toolChip: `${PREFIX}-toolChip`,
-};
-
-const Root = styled("div")(({ theme }) => ({
-  [`& .${classes.mainPaper}`]: {
-    flex: 1,
-    padding: theme.spacing(2),
-    overflowY: "auto",
-    boxShadow: "0 4px 20px rgba(0, 0, 0, 0.05)",
-    borderRadius: 12,
-    [theme.breakpoints.down("sm")]: {
-      padding: theme.spacing(1),
-    },
-  },
-  [`& .${classes.searchContainer}`]: {
-    display: "flex",
-    flexWrap: "wrap",
-    gap: theme.spacing(1.5),
-    padding: theme.spacing(2, 0),
-    marginBottom: theme.spacing(2),
-    [theme.breakpoints.down("sm")]: {
-      flexDirection: "column",
-      padding: theme.spacing(1, 0),
-    },
-  },
-  [`& .${classes.tableContainer}`]: {
-    maxHeight: "calc(100vh - 280px)",
-    [theme.breakpoints.down("sm")]: {
-      maxHeight: "none",
-    },
-  },
-  [`& .${classes.filterChip}`]: {
-    margin: theme.spacing(0.5),
-    backgroundColor: theme.palette.background.default,
-  },
-  [`& .${classes.emptyState}`]: {
-    display: "flex",
-    flexDirection: "column",
-    alignItems: "center",
-    justifyContent: "center",
-    padding: theme.spacing(6),
-    textAlign: "center",
-  },
-  [`& .${classes.mobileCard}`]: {
-    marginBottom: theme.spacing(2),
-    borderRadius: 8,
-    transition: "transform 0.2s",
-    "&:hover": {
-      transform: "translateY(-4px)",
-      boxShadow: "0 8px 24px rgba(0, 0, 0, 0.1)",
-    },
-  },
-  [`& .${classes.actionButton}`]: {
-    borderRadius: 8,
-    textTransform: "none",
-    boxShadow: "none",
-    fontWeight: 600,
-    fontSize: "0.875rem",
-    padding: theme.spacing(1, 2),
-    [theme.breakpoints.down("sm")]: {
-      padding: theme.spacing(0.75, 1.5),
-      fontSize: "0.8125rem",
-    },
-  },
-  [`& .${classes.pagination}`]: {
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "center",
-    padding: theme.spacing(2, 0),
-    marginTop: theme.spacing(2),
-  },
-  [`& .${classes.statusChip}`]: {
-    borderRadius: 12,
-    fontWeight: 600,
-    height: 24,
-  },
-  [`& .${classes.toolChip}`]: {
-    borderRadius: 8,
-    margin: theme.spacing(0.5),
-    "& .MuiChip-icon": {
-      marginLeft: theme.spacing(0.5),
-    },
-  },
-}));
 
 // Reducer para gerenciar estado dos assistentes
 const reducer = (state, action) => {
@@ -179,106 +72,6 @@ const reducer = (state, action) => {
   }
 };
 
-// Componente AssistantListItem para visualização mobile
-const AssistantListItem = ({ assistant, onEdit, onDelete, theme }) => {
-  return (
-    <Fade in={true} timeout={500}>
-      <Card className={classes.mobileCard} variant="outlined">
-        <CardContent>
-          <Grid container spacing={1}>
-            <Grid item xs={12}>
-              <Box display="flex" justifyContent="space-between" alignItems="center">
-                <Typography variant="h6" component="h2">
-                  {assistant.name}
-                </Typography>
-                <Chip
-                  label={assistant.active ? i18n.t("assistants.status.active") : i18n.t("assistants.status.inactive")}
-                  color={assistant.active ? "success" : "default"}
-                  size="small"
-                  className={classes.statusChip}
-                />
-              </Box>
-            </Grid>
-            <Grid item xs={12}>
-              <Box display="flex" alignItems="center" mb={1}>
-                <Typography variant="body2" color="textSecondary" mr={1}>
-                  {i18n.t("assistants.labels.model")}:
-                </Typography>
-                <Typography variant="body2" fontWeight="medium">
-                  {assistant.model}
-                </Typography>
-              </Box>
-            </Grid>
-            <Grid item xs={12}>
-              <Typography variant="body2" color="textSecondary" mb={0.5}>
-                {i18n.t("assistants.labels.tools")}:
-              </Typography>
-              <Box display="flex" flexWrap="wrap" gap={0.5}>
-                {assistant.tools && assistant.tools.length > 0 ? (
-                  assistant.tools.map((tool) => (
-                    <Chip
-                      key={tool.type}
-                      size="small"
-                      className={classes.toolChip}
-                      icon={
-                        tool.type === "file_search" ? (
-                          <SearchIcon fontSize="small" />
-                        ) : tool.type === "code_interpreter" ? (
-                          <CodeIcon fontSize="small" />
-                        ) : tool.type === "function" ? (
-                          <FunctionsIcon fontSize="small" />
-                        ) : (
-                          <ExtensionIcon fontSize="small" />
-                        )
-                      }
-                      label={
-                        tool.type === "file_search"
-                          ? i18n.t("assistants.tools.fileSearch")
-                          : tool.type === "code_interpreter"
-                          ? i18n.t("assistants.tools.codeInterpreter")
-                          : tool.type === "function"
-                          ? i18n.t("assistants.tools.function")
-                          : tool.type
-                      }
-                      variant="outlined"
-                    />
-                  ))
-                ) : (
-                  <Typography variant="caption" color="textSecondary">
-                    {i18n.t("assistants.labels.noTools")}
-                  </Typography>
-                )}
-              </Box>
-            </Grid>
-            <Grid item xs={12}>
-              <Divider sx={{ my: 1 }} />
-              <Box display="flex" justifyContent="flex-end" gap={1}>
-                <Button
-                  size="small"
-                  startIcon={<EditIcon />}
-                  onClick={() => onEdit(assistant)}
-                  variant="outlined"
-                >
-                  {i18n.t("assistants.buttons.edit")}
-                </Button>
-                <Button
-                  size="small"
-                  startIcon={<DeleteIcon />}
-                  onClick={() => onDelete(assistant)}
-                  variant="outlined"
-                  color="error"
-                >
-                  {i18n.t("assistants.buttons.delete")}
-                </Button>
-              </Box>
-            </Grid>
-          </Grid>
-        </CardContent>
-      </Card>
-    </Fade>
-  );
-};
-
 const Assistants = () => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
@@ -292,16 +85,10 @@ const Assistants = () => {
   const [searchParam, setSearchParam] = useState("");
   const [filterModel, setFilterModel] = useState("");
   const [filterTool, setFilterTool] = useState("");
-  const [page, setPage] = useState(1);
-  const [hasMore, setHasMore] = useState(false);
+  const [page, setPage] = useState(0);
+  const [rowsPerPage, setRowsPerPage] = useState(10);
   const [count, setCount] = useState(0);
-
-  // Configuração da animação com react-spring
-  const springProps = useSpring({
-    opacity: 1,
-    from: { opacity: 0 },
-    config: { duration: 500 },
-  });
+  const [activeTab, setActiveTab] = useState(0);
 
   // Buscar assistentes com todos os filtros aplicados
   const fetchAssistants = useCallback(async () => {
@@ -309,7 +96,8 @@ const Assistants = () => {
     try {
       const params = {
         searchParam,
-        pageNumber: page,
+        pageNumber: page + 1,
+        pageSize: rowsPerPage,
       };
 
       if (filterModel) {
@@ -322,7 +110,6 @@ const Assistants = () => {
 
       const { data } = await api.get("/assistants", { params });
       dispatch({ type: "LOAD_ASSISTANTS", payload: data.assistants });
-      setHasMore(data.hasMore);
       setCount(data.count);
     } catch (err) {
       console.error(err);
@@ -330,17 +117,17 @@ const Assistants = () => {
     } finally {
       setLoading(false);
     }
-  }, [searchParam, page, filterModel, filterTool]);
+  }, [searchParam, page, rowsPerPage, filterModel, filterTool]);
 
-  // Carregar assistentes ao iniciar e quando mudar a página
+  // Carregar assistentes ao iniciar e quando mudar os filtros
   useEffect(() => {
     fetchAssistants();
-  }, [fetchAssistants, page]);
+  }, [fetchAssistants]);
 
   // Handlers para diversas ações
-  const handleSearch = () => {
-    setPage(1);
-    fetchAssistants();
+  const handleSearch = (event) => {
+    setSearchParam(event.target.value);
+    setPage(0);
   };
 
   const handleOpenAssistantModal = () => {
@@ -380,14 +167,6 @@ const Assistants = () => {
     setImportModalOpen(true);
   };
 
-  const handleNextPage = () => {
-    setPage((prevPage) => prevPage + 1);
-  };
-
-  const handlePreviousPage = () => {
-    setPage((prevPage) => Math.max(prevPage - 1, 1));
-  };
-
   const handleImportComplete = () => {
     fetchAssistants();
   };
@@ -395,6 +174,31 @@ const Assistants = () => {
   const handleAssistantUpdated = () => {
     fetchAssistants();
   };
+
+  const handlePageChange = (event, newPage) => {
+    setPage(newPage);
+  };
+
+  const handleRowsPerPageChange = (event) => {
+    setRowsPerPage(parseInt(event.target.value, 10));
+    setPage(0);
+  };
+
+  // Filtrar assistentes baseado na aba ativa
+  const getFilteredAssistants = () => {
+    switch (activeTab) {
+      case 1: // Ativos
+        return assistants.filter(assistant => assistant.active);
+      case 2: // Inativos
+        return assistants.filter(assistant => !assistant.active);
+      case 3: // Por Modelo
+        return assistants; // Filtro aplicado via estado filterModel
+      default: // Todos
+        return assistants;
+    }
+  };
+
+  const filteredAssistants = getFilteredAssistants();
 
   // Opções para filtro de ferramentas
   const filteredTools = [
@@ -413,393 +217,361 @@ const Assistants = () => {
     { value: "gpt-3.5-turbo", label: "GPT-3.5 Turbo" },
   ];
 
-  return (
-    <Root>
-      <MainContainer>
-        {/* Modal de confirmação para exclusão */}
-        <ConfirmationModal
-          title={selectedAssistant && `${i18n.t("assistants.confirmationModal.deleteTitle")} ${selectedAssistant.name}?`}
-          open={confirmModalOpen}
-          onClose={() => setConfirmModalOpen(false)}
-          onConfirm={() => handleDeleteAssistant(selectedAssistant.id)}
-        >
-          {i18n.t("assistants.confirmationModal.deleteMessage")}
-        </ConfirmationModal>
+  // Configuração das ações do cabeçalho
+  const pageActions = [
+    {
+      label: "Ajuda",
+      icon: <HelpIcon />,
+      onClick: () => {}, // AssistantsHelpButton será renderizado separadamente
+      variant: "outlined",
+      color: "primary",
+      tooltip: i18n.t("assistants.buttons.help"),
+      component: AssistantsHelpButton
+    },
+    {
+      label: "Voz",
+      icon: <VolumeUpIcon />,
+      onClick: () => {}, // VoiceSettingsButton será renderizado separadamente
+      variant: "outlined",
+      color: "primary",
+      tooltip: "Configurações de Voz",
+      component: VoiceSettingsButton
+    },
+    {
+      label: "Importar",
+      icon: <CloudDownloadIcon />,
+      onClick: handleImportAssistants,
+      variant: "outlined",
+      color: "primary",
+      tooltip: i18n.t("assistants.buttons.import")
+    },
+    {
+      label: "Adicionar",
+      icon: <AddIcon />,
+      onClick: handleOpenAssistantModal,
+      variant: "contained",
+      color: "primary",
+      tooltip: i18n.t("assistants.buttons.add")
+    }
+  ];
 
-        {/* Modal para adicionar/editar assistente */}
-        <AssistantModal
-          open={assistantModalOpen}
-          onClose={handleCloseAssistantModal}
-          assistantId={selectedAssistant?.id}
-          onAssistantUpdated={handleAssistantUpdated}
-        />
+  // Configuração das abas
+  const tabs = [
+    {
+      label: `Todos (${assistants.length})`,
+      icon: <SmartToyIcon />
+    },
+    {
+      label: `Ativos (${assistants.filter(a => a.active).length})`,
+      icon: <ActiveIcon />
+    },
+    {
+      label: `Inativos (${assistants.filter(a => !a.active).length})`,
+      icon: <InactiveIcon />
+    },
+    {
+      label: "Filtros",
+      icon: <SearchIcon />
+    }
+  ];
 
-        {/* Modal para importar assistentes */}
-        <ImportAssistantsModal
-          open={importModalOpen}
-          onClose={() => setImportModalOpen(false)}
-          onImportComplete={handleImportComplete}
-        />
+  const handleTabChange = (event, newValue) => {
+    setActiveTab(newValue);
+  };
 
-        {/* Cabeçalho */}
-        <MainHeader>
-          <Box
-            display="flex"
-            justifyContent="space-between"
-            alignItems="center"
-            width="100%"
-            sx={{ marginTop: 2 }}
-          >
-            <Box display="flex" alignItems="center">
-              <Title>{i18n.t("assistants.title")}</Title>
-            </Box>
-            <Box display="flex" gap={1}>
-              <Tooltip title={i18n.t("assistants.buttons.help")}>
-                <span>
-                  <AssistantsHelpButton />
-                </span>
-              </Tooltip>
-              
-              <Tooltip title="Configurações de Voz">
-                <span>
-                  <VoiceSettingsButton />
-                </span>
-              </Tooltip>
-              
-              <Tooltip title={i18n.t("assistants.buttons.import")}>
-                <IconButton
-                  color="primary"
-                  onClick={handleImportAssistants}
-                  size="large"
-                >
-                  <CloudDownloadIcon />
-                </IconButton>
-              </Tooltip>
+  // Renderizar ícone da ferramenta
+  const renderToolIcon = (toolType) => {
+    switch (toolType) {
+      case "file_search":
+        return <SearchIcon fontSize="small" />;
+      case "code_interpreter":
+        return <CodeIcon fontSize="small" />;
+      case "function":
+        return <FunctionsIcon fontSize="small" />;
+      default:
+        return <ExtensionIcon fontSize="small" />;
+    }
+  };
 
-              <Tooltip title={i18n.t("assistants.buttons.add")}>
-                <IconButton
-                  color="primary"
-                  onClick={handleOpenAssistantModal}
-                  size="large"
-                >
-                  <AddIcon />
-                </IconButton>
-              </Tooltip>
-            </Box>
-          </Box>
-        </MainHeader>
+  // Renderizar label da ferramenta
+  const renderToolLabel = (toolType) => {
+    switch (toolType) {
+      case "file_search":
+        return i18n.t("assistants.tools.fileSearch");
+      case "code_interpreter":
+        return i18n.t("assistants.tools.codeInterpreter");
+      case "function":
+        return i18n.t("assistants.tools.function");
+      default:
+        return toolType;
+    }
+  };
 
-        {/* Conteúdo principal */}
-        <Paper className={classes.mainPaper} variant="outlined">
-          {/* Barra de pesquisa e filtros */}
-          <Box className={classes.searchContainer}>
-            <TextField
-              placeholder={i18n.t("assistants.searchPlaceholder")}
-              value={searchParam}
-              onChange={(e) => setSearchParam(e.target.value)}
-              InputProps={{
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <SearchOutlinedIcon />
-                  </InputAdornment>
-                ),
+  // Renderizar conteúdo da página
+  const renderContent = () => {
+    // Aba de filtros
+    if (activeTab === 3) {
+      return (
+        <Box sx={{ p: 3 }}>
+          <Typography variant="h6" gutterBottom>
+            Filtros Avançados
+          </Typography>
+          <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', mb: 3 }}>
+            <FormControl variant="outlined" size="small" sx={{ minWidth: 200 }}>
+              <InputLabel>{i18n.t("assistants.filters.modelLabel")}</InputLabel>
+              <Select
+                value={filterModel}
+                onChange={(e) => setFilterModel(e.target.value)}
+                label={i18n.t("assistants.filters.modelLabel")}
+              >
+                {modelOptions.map((option) => (
+                  <MenuItem key={option.value} value={option.value}>
+                    {option.label}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+
+            <FormControl variant="outlined" size="small" sx={{ minWidth: 200 }}>
+              <InputLabel>{i18n.t("assistants.filters.toolLabel")}</InputLabel>
+              <Select
+                value={filterTool}
+                onChange={(e) => setFilterTool(e.target.value)}
+                label={i18n.t("assistants.filters.toolLabel")}
+              >
+                {filteredTools.map((tool) => (
+                  <MenuItem key={tool.value} value={tool.value}>
+                    {tool.label}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+
+            <Button
+              variant="contained"
+              color="primary"
+              onClick={() => {
+                setPage(0);
+                fetchAssistants();
               }}
-              onKeyPress={(e) => {
-                if (e.key === "Enter") {
-                  handleSearch();
-                }
-              }}
-              fullWidth
-              size={isMobile ? "small" : "medium"}
-              variant="outlined"
-            />
-
-            <Box display="flex" gap={1.5} flexWrap="wrap" width={isMobile ? "100%" : "auto"}>
-              <FormControl
-                variant="outlined"
-                size="small"
-                style={{
-                  minWidth: isMobile ? "100%" : 150,
-                  flex: isMobile ? 1 : "0 0 auto",
-                }}
-              >
-                <InputLabel>{i18n.t("assistants.filters.modelLabel")}</InputLabel>
-                <Select
-                  value={filterModel}
-                  onChange={(e) => setFilterModel(e.target.value)}
-                  label={i18n.t("assistants.filters.modelLabel")}
-                >
-                  {modelOptions.map((option) => (
-                    <MenuItem key={option.value} value={option.value}>
-                      {option.label}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-
-              <FormControl
-                variant="outlined"
-                size="small"
-                style={{
-                  minWidth: isMobile ? "100%" : 180,
-                  flex: isMobile ? 1 : "0 0 auto",
-                }}
-              >
-                <InputLabel>{i18n.t("assistants.filters.toolLabel")}</InputLabel>
-                <Select
-                  value={filterTool}
-                  onChange={(e) => setFilterTool(e.target.value)}
-                  label={i18n.t("assistants.filters.toolLabel")}
-                >
-                  {filteredTools.map((tool) => (
-                    <MenuItem key={tool.value} value={tool.value}>
-                      {tool.label}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-
-              <Button
-                variant="contained"
-                color="primary"
-                onClick={handleSearch}
-                style={{ minWidth: isMobile ? "100%" : 100 }}
-                fullWidth={isMobile}
-              >
-                {i18n.t("assistants.buttons.search")}
-              </Button>
-            </Box>
-          </Box>
-
-          {loading ? (
-            // Estado de carregamento
-            <Box
-              display="flex"
-              justifyContent="center"
-              alignItems="center"
-              py={4}
             >
+              Aplicar Filtros
+            </Button>
+          </Box>
+        </Box>
+      );
+    }
+
+    // Estado vazio
+    if (filteredAssistants.length === 0 && !loading) {
+      return (
+        <Box 
+          display="flex" 
+          flexDirection="column" 
+          alignItems="center" 
+          justifyContent="center" 
+          sx={{ height: '100%', p: 4 }}
+        >
+          <SmartToyIcon sx={{ fontSize: 64, color: 'text.secondary', mb: 2 }} />
+          <Typography variant="h6" gutterBottom>
+            {activeTab === 0 
+              ? i18n.t("assistants.emptyState.title")
+              : activeTab === 1 
+                ? "Nenhum assistente ativo"
+                : "Nenhum assistente inativo"
+            }
+          </Typography>
+          <Typography variant="body2" color="text.secondary" align="center" sx={{ mb: 3 }}>
+            {searchParam 
+              ? "Tente usar outros termos na busca"
+              : activeTab === 0
+                ? i18n.t("assistants.emptyState.description")
+                : "Não há assistentes nesta categoria"
+            }
+          </Typography>
+          {activeTab === 0 && (
+            <Button
+              variant="contained"
+              startIcon={<AddIcon />}
+              onClick={handleOpenAssistantModal}
+              sx={{ borderRadius: '28px', px: 3 }}
+            >
+              {i18n.t("assistants.buttons.addEmpty")}
+            </Button>
+          )}
+        </Box>
+      );
+    }
+
+    // Tabela de assistentes
+    return (
+      <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+        <TableContainer sx={{ flex: 1, overflow: 'auto' }}>
+          {loading ? (
+            <Box display="flex" justifyContent="center" alignItems="center" py={4}>
               <CircularProgress />
             </Box>
-          ) : assistants.length > 0 ? (
-            // Lista de assistentes
-            isMobile ? (
-              // Visualização em cards para mobile
-              <Box>
-                {assistants.map((assistant) => (
-                  <AssistantListItem
-                    key={assistant.id}
-                    assistant={assistant}
-                    onEdit={handleEditAssistant}
-                    onDelete={handleConfirmDelete}
-                    theme={theme}
-                  />
-                ))}
-              </Box>
-            ) : (
-              // Visualização em tabela para desktop
-              <TableContainer className={classes.tableContainer}>
-                <Table size="medium" stickyHeader>
-                  <TableHead>
-                    <TableRow>
-                      <TableCell align="left">
-                        {i18n.t("assistants.table.name")}
-                      </TableCell>
-                      <TableCell align="center">
-                        {i18n.t("assistants.table.model")}
-                      </TableCell>
-                      <TableCell align="center">{i18n.t("assistants.table.tools")}</TableCell>
-                      <TableCell align="center">{i18n.t("assistants.table.status")}</TableCell>
-                      <TableCell align="center">
-                        {i18n.t("assistants.table.actions")}
-                      </TableCell>
-                    </TableRow>
-                  </TableHead>
-                  <TableBody>
-                    {assistants.map((assistant) => (
-                      <TableRow
-                        key={assistant.id}
-                        hover
-                        sx={{
-                          "&:last-child td, &:last-child th": { border: 0 },
-                          transition: "background-color 0.2s",
-                        }}
-                      >
-                        <TableCell component="th" scope="row">
-                          <Typography variant="body1" fontWeight={500}>
-                            {assistant.name}
-                          </Typography>
-                        </TableCell>
-                        <TableCell align="center">{assistant.model}</TableCell>
-                        <TableCell align="center">
-                          <Box
-                            display="flex"
-                            justifyContent="center"
-                            flexWrap="wrap"
-                            gap={0.5}
-                          >
-                            {assistant.tools?.map((tool) => (
-                              <Tooltip
-                                key={tool.type}
-                                title={
-                                  tool.type === "file_search"
-                                    ? i18n.t("assistants.tools.fileSearchFull")
-                                    : tool.type === "code_interpreter"
-                                    ? i18n.t("assistants.tools.codeInterpreterFull")
-                                    : tool.type === "function"
-                                    ? i18n.t("assistants.tools.functionFull")
-                                    : tool.type
-                                }
-                              >
-                                <Chip
-                                  icon={
-                                    tool.type === "file_search" ? (
-                                      <SearchIcon fontSize="small" />
-                                    ) : tool.type === "code_interpreter" ? (
-                                      <CodeIcon fontSize="small" />
-                                    ) : tool.type === "function" ? (
-                                      <FunctionsIcon fontSize="small" />
-                                    ) : (
-                                      <ExtensionIcon fontSize="small" />
-                                    )
-                                  }
-                                  label={
-                                    tool.type === "file_search"
-                                      ? i18n.t("assistants.tools.fileSearch")
-                                      : tool.type === "code_interpreter"
-                                      ? i18n.t("assistants.tools.codeInterpreter")
-                                      : tool.type === "function"
-                                      ? i18n.t("assistants.tools.function")
-                                      : tool.type
-                                  }
-                                  size="small"
-                                  variant="outlined"
-                                  className={classes.toolChip}
-                                />
-                              </Tooltip>
-                            ))}
-                            {(!assistant.tools ||
-                              assistant.tools.length === 0) && (
-                              <Typography
-                                variant="caption"
-                                color="textSecondary"
-                              >
-                                {i18n.t("assistants.labels.none")}
-                              </Typography>
-                            )}
-                          </Box>
-                        </TableCell>
-                        <TableCell align="center">
-                          {assistant.active ? (
-                            <Chip
-                              label={i18n.t("assistants.status.active")}
-                              color="success"
-                              size="small"
-                              className={classes.statusChip}
-                            />
-                          ) : (
-                            <Chip
-                              label={i18n.t("assistants.status.inactive")}
-                              color="default"
-                              size="small"
-                              className={classes.statusChip}
-                            />
-                          )}
-                        </TableCell>
-                        <TableCell align="center">
-                          <Box display="flex" justifyContent="center" gap={1}>
-                            <Tooltip
-                              title={i18n.t("assistants.buttons.edit")}
-                            >
-                              <IconButton
-                                size="small"
-                                onClick={() => handleEditAssistant(assistant)}
-                                color="primary"
-                              >
-                                <EditIcon />
-                              </IconButton>
-                            </Tooltip>
-
-                            <Tooltip
-                              title={i18n.t("assistants.buttons.delete")}
-                            >
-                              <IconButton
-                                size="small"
-                                onClick={() => handleConfirmDelete(assistant)}
-                                color="error"
-                              >
-                                <DeleteIcon />
-                              </IconButton>
-                            </Tooltip>
-                          </Box>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </TableContainer>
-            )
           ) : (
-            // Estado vazio
-            <Box className={classes.emptyState}>
-              <ExtensionIcon style={{ fontSize: 60, color: theme.palette.text.secondary, marginBottom: theme.spacing(2) }} />
-              <Typography variant="h6" align="center" gutterBottom>
-                {i18n.t("assistants.emptyState.title")}
-              </Typography>
-              <Typography variant="body2" align="center" color="textSecondary" mb={2}>
-                {i18n.t("assistants.emptyState.description")}
-              </Typography>
-              <Button
-                variant="contained"
-                color="primary"
-                startIcon={<AddIcon />}
-                onClick={handleOpenAssistantModal}
-                sx={{
-                  borderRadius: 28,
-                  padding: '10px 24px',
-                  fontWeight: 500,
-                  textTransform: 'uppercase',
-                }}
-              >
-                {i18n.t("assistants.buttons.addEmpty")}
-              </Button>
-            </Box>
+            <Table size="medium" stickyHeader>
+              <TableHead>
+                <TableRow>
+                  <TableCell>{i18n.t("assistants.table.name")}</TableCell>
+                  <TableCell align="center">{i18n.t("assistants.table.model")}</TableCell>
+                  <TableCell align="center">{i18n.t("assistants.table.tools")}</TableCell>
+                  <TableCell align="center">{i18n.t("assistants.table.status")}</TableCell>
+                  <TableCell align="center">{i18n.t("assistants.table.actions")}</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {filteredAssistants.map((assistant) => (
+                  <TableRow key={assistant.id} hover>
+                    <TableCell>
+                      <Typography variant="body1" fontWeight={500}>
+                        {assistant.name}
+                      </Typography>
+                    </TableCell>
+                    <TableCell align="center">
+                      <Chip 
+                        label={assistant.model} 
+                        size="small" 
+                        color="primary" 
+                        variant="outlined"
+                      />
+                    </TableCell>
+                    <TableCell align="center">
+                      <Box display="flex" justifyContent="center" flexWrap="wrap" gap={0.5}>
+                        {assistant.tools?.map((tool) => (
+                          <Tooltip
+                            key={tool.type}
+                            title={
+                              tool.type === "file_search"
+                                ? i18n.t("assistants.tools.fileSearchFull")
+                                : tool.type === "code_interpreter"
+                                ? i18n.t("assistants.tools.codeInterpreterFull")
+                                : tool.type === "function"
+                                ? i18n.t("assistants.tools.functionFull")
+                                : tool.type
+                            }
+                          >
+                            <Chip
+                              icon={renderToolIcon(tool.type)}
+                              label={renderToolLabel(tool.type)}
+                              size="small"
+                              variant="outlined"
+                              sx={{ margin: 0.25 }}
+                            />
+                          </Tooltip>
+                        ))}
+                        {(!assistant.tools || assistant.tools.length === 0) && (
+                          <Typography variant="caption" color="textSecondary">
+                            {i18n.t("assistants.labels.none")}
+                          </Typography>
+                        )}
+                      </Box>
+                    </TableCell>
+                    <TableCell align="center">
+                      <Chip
+                        label={assistant.active ? i18n.t("assistants.status.active") : i18n.t("assistants.status.inactive")}
+                        color={assistant.active ? "success" : "default"}
+                        size="small"
+                        sx={{ borderRadius: 12, fontWeight: 600 }}
+                      />
+                    </TableCell>
+                    <TableCell align="center">
+                      <Box display="flex" justifyContent="center" gap={1}>
+                        <Tooltip title={i18n.t("assistants.buttons.edit")}>
+                          <IconButton
+                            size="small"
+                            onClick={() => handleEditAssistant(assistant)}
+                            color="primary"
+                          >
+                            <EditIcon />
+                          </IconButton>
+                        </Tooltip>
+                        <Tooltip title={i18n.t("assistants.buttons.delete")}>
+                          <IconButton
+                            size="small"
+                            onClick={() => handleConfirmDelete(assistant)}
+                            color="error"
+                          >
+                            <DeleteIcon />
+                          </IconButton>
+                        </Tooltip>
+                      </Box>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
           )}
+        </TableContainer>
 
-          {/* Paginação */}
-          {assistants.length > 0 && (
-            <Box className={classes.pagination}>
-              <Typography variant="body2" color="textSecondary">
-                {i18n.t("assistants.pagination.showing", { 
-                  visible: assistants.length, 
-                  total: count 
-                })}
-              </Typography>
-              <Box display="flex" gap={1}>
-                <Button
-                  variant="outlined"
-                  size="small"
-                  startIcon={<NavigateBeforeIcon />}
-                  onClick={handlePreviousPage}
-                  disabled={page === 1}
-                >
-                  {i18n.t("assistants.pagination.previous")}
-                </Button>
-                <Button
-                  variant="outlined"
-                  size="small"
-                  endIcon={<NavigateNextIcon />}
-                  onClick={handleNextPage}
-                  disabled={!hasMore}
-                >
-                  {i18n.t("assistants.pagination.next")}
-                </Button>
-              </Box>
-            </Box>
-          )}
-        </Paper>
-      </MainContainer>
-    </Root>
+        {/* Paginação */}
+        {count > 0 && activeTab !== 3 && (
+          <Box sx={{ borderTop: '1px solid', borderColor: 'divider' }}>
+            <TablePagination
+              component="div"
+              count={count}
+              page={page}
+              onPageChange={handlePageChange}
+              rowsPerPage={rowsPerPage}
+              onRowsPerPageChange={handleRowsPerPageChange}
+              rowsPerPageOptions={[5, 10, 25, 50]}
+              labelRowsPerPage="Itens por página:"
+              labelDisplayedRows={({ from, to, count }) => `${from}-${to} de ${count}`}
+            />
+          </Box>
+        )}
+      </Box>
+    );
+  };
+
+  return (
+    <>
+      <StandardPageLayout
+        title={i18n.t("assistants.title")}
+        actions={pageActions}
+        searchValue={searchParam}
+        onSearchChange={handleSearch}
+        searchPlaceholder={i18n.t("assistants.searchPlaceholder")}
+        showSearch={activeTab !== 3}
+        tabs={tabs}
+        activeTab={activeTab}
+        onTabChange={handleTabChange}
+        loading={loading && assistants.length === 0}
+      >
+        {/* Componentes especiais para botões */}
+        <Box sx={{ position: 'absolute', top: -50, right: 100, display: 'none' }}>
+          <AssistantsHelpButton />
+          <VoiceSettingsButton />
+        </Box>
+        
+        {renderContent()}
+      </StandardPageLayout>
+
+      {/* Modais */}
+      <ConfirmationModal
+        title={selectedAssistant && `${i18n.t("assistants.confirmationModal.deleteTitle")} ${selectedAssistant.name}?`}
+        open={confirmModalOpen}
+        onClose={() => setConfirmModalOpen(false)}
+        onConfirm={() => handleDeleteAssistant(selectedAssistant.id)}
+      >
+        {i18n.t("assistants.confirmationModal.deleteMessage")}
+      </ConfirmationModal>
+
+      <AssistantModal
+        open={assistantModalOpen}
+        onClose={handleCloseAssistantModal}
+        assistantId={selectedAssistant?.id}
+        onAssistantUpdated={handleAssistantUpdated}
+      />
+
+      <ImportAssistantsModal
+        open={importModalOpen}
+        onClose={() => setImportModalOpen(false)}
+        onImportComplete={handleImportComplete}
+      />
+    </>
   );
 };
 
