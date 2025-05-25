@@ -1,95 +1,25 @@
+import "./database";
+import "reflect-metadata";
+import "express-async-errors";
 import express, {Request, Response, NextFunction} from "express";
 import cors from "cors";
 import compression from "compression";
 import cookieParser from "cookie-parser";
 import multer from "multer";
-import path from "path";
-import fs from "fs";
 import uploadConfig from "./config/upload";
 import AppError from "./errors/AppError";
 import routes from "./routes";
 import {logger} from "./utils/logger";
 import {getMessageQueue} from "./queues";
-import { staticCorsMiddleware } from "./middleware/staticCorsMiddleware";
+
+
+if (process.env.DEBUG_TRACE == 'false') {
+  console.trace = function () {
+    return;
+  }
+}
 
 const app = express();
-app.set('trust proxy', 1);
-
-// CORS deve vir primeiro
-app.use(
-  cors({
-    credentials: true,
-    origin: process.env.FRONTEND_URL || '*',
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-    allowedHeaders: ['Origin', 'X-Requested-With', 'Content-Type', 'Accept', 'Authorization', 'Cache-Control'],
-    exposedHeaders: ['Content-Length', 'Content-Range', 'Content-Type']
-  })
-);
-
-// Middleware específico para arquivos estáticos ANTES das rotas
-app.use('/public', staticCorsMiddleware, express.static(path.join(__dirname, '..', 'public'), {
-  maxAge: '1y',
-  etag: true,
-  lastModified: true,
-  setHeaders: (res, filePath) => {
-    // Content-Type correto é crucial para ORB
-    const ext = path.extname(filePath).toLowerCase();
-    switch(ext) {
-      case '.svg':
-        res.setHeader('Content-Type', 'image/svg+xml');
-        break;
-      case '.jpg':
-      case '.jpeg':
-        res.setHeader('Content-Type', 'image/jpeg');
-        break;
-      case '.png':
-        res.setHeader('Content-Type', 'image/png');
-        break;
-      case '.gif':
-        res.setHeader('Content-Type', 'image/gif');
-        break;
-      case '.webp':
-        res.setHeader('Content-Type', 'image/webp');
-        break;
-      default:
-        // Deixar o Express detectar automaticamente
-        break;
-    }
-    
-    // Headers ORB essenciais
-    res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
-    res.setHeader('Cross-Origin-Embedder-Policy', 'unsafe-none');
-  }
-}));
-
-// Rota para verificar arquivos (debug)
-app.get('/public/health/:companyId/:type/:filename', (req, res) => {
-  const { companyId, type, filename } = req.params;
-  const filePath = path.join(__dirname, '..', 'public', `company${companyId}`, type, filename);
-  
-  if (fs.existsSync(filePath)) {
-    const stats = fs.statSync(filePath);
-    res.json({ 
-      exists: true, 
-      path: `/public/company${companyId}/${type}/${filename}`,
-      size: stats.size,
-      modified: stats.mtime
-    });
-  } else {
-    res.status(404).json({ 
-      exists: false, 
-      searchPath: filePath 
-    });
-  }
-});
-
-app.use(express.json({limit: '10mb'}));
-app.use(express.urlencoded({limit: '10mb', extended: true}));
-app.use(compression()); 
-app.use(cookieParser());
-
-// Rotas da API
-app.use(routes);
 
 process.on("uncaughtException", err => {
   logger.error(`Uncaught Exception: ${err.message}`);
@@ -107,7 +37,27 @@ app.set("queues", {
   }
 });
 
+app.use(
+  cors({
+    credentials: true,
+    origin: process.env.FRONTEND_URL,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+    allowedHeaders: [
+      'Content-Type',
+      'Authorization',
+      'Accept',
+      'X-Requested-With',
+      'Cache-Control',  // Adicionado para resolver problema CORS
+      'Pragma',         // Adicionado para resolver problema CORS
+      'Expires'         // Adicionado para resolver problema CORS
+    ],
+  })
+);
 
+app.use(compression()); 
+app.use(express.json({limit: '10mb'}));
+app.use(express.urlencoded({limit: '10mb', extended: true}));
+app.use(cookieParser());
 
 // Middleware para capturar erros de multer
 app.use((err, req, res, next) => {
@@ -140,19 +90,13 @@ app.use((err, req, res, next) => {
   next();
 });
 
-app.use('/public', staticCorsMiddleware, express.static(path.join(__dirname, '..', 'public'), {
-  maxAge: '1y', // Cache por 1 ano
-  etag: true,
-  lastModified: true,
-  setHeaders: (res, filePath) => {
-    // Headers específicos por tipo de arquivo
-    if (filePath.endsWith('.svg')) {
-      res.setHeader('Content-Type', 'image/svg+xml');
-    } else if (filePath.match(/\.(jpg|jpeg|png|gif)$/)) {
-      res.setHeader('Content-Type', 'image/' + path.extname(filePath).slice(1));
-    }
-  }
-}));
+app.use(routes);
+
+app.use("/public", (req, res, next) => {
+  res.header('Cache-Control', 'public, max-age=31557600');
+  logger.debug(`Static file request: ${req.path}`);
+  next();
+}, express.static(uploadConfig.directory));
 
 // Middleware para lidar com rotas não encontradas
 app.use((req: Request, res: Response, next: NextFunction) => {
