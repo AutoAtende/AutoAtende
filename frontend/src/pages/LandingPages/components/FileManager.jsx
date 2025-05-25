@@ -39,7 +39,8 @@ import {
   Refresh as RefreshIcon,
   Close as CloseIcon,
   FilterList as FilterListIcon,
-  CheckOutlined as CheckIcon
+  CheckOutlined as CheckIcon,
+  Save as SaveIcon
 } from '@mui/icons-material';
 import { toast } from "../../../helpers/toast";
 import { useSpring, animated } from 'react-spring';

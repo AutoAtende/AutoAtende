@@ -37,7 +37,8 @@ import {
   PeopleAlt as PeopleIcon,
   PersonAddDisabled as LimitIcon,
   KeyboardTab as TabIcon,
-  Info as InfoIcon
+  Info as InfoIcon,
+  Save as SaveIcon
 } from '@mui/icons-material';
 import { DragDropContext, Droppable, Draggable } from 'react-beautiful-dnd';
 import { useSpring, animated } from 'react-spring';

@@ -17,7 +17,8 @@ import {
   Photo as PhotoIcon,
   Delete as DeleteIcon,
   Image as ImageIcon,
-  Info as InfoIcon
+  Info as InfoIcon,
+  Save as SaveIcon
 } from '@mui/icons-material';
 import { toast } from "../../../helpers/toast";
 import { useSpring, animated } from 'react-spring';
