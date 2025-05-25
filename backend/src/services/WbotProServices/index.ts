@@ -1,13 +1,10 @@
-import { default as makeWASocket, DisconnectReason, useMultiFileAuthState, downloadMediaMessage, getContentType } from 'bail-lite';
-import { Boom } from '@hapi/boom';
-import * as fs from 'fs';
-import * as path from 'path';
 import { logger } from '../../utils/logger';
+import Whatsapp from '../../models/Whatsapp';
+import ShowWhatsAppService from '../../services/WhatsappService/ShowWhatsAppService';
+import { getWbot, Session } from '../../libs/wbot';
 
-interface WhatsAppConfig {
-  sessionName: string;
-  printQRInTerminal?: boolean;
-  markOnlineOnConnect?: boolean;
+interface WbotProConfig {
+  whatsappId: number;
 }
 
 interface MessageContent {
@@ -16,85 +13,47 @@ interface MessageContent {
   options?: any;
 }
 
-class WhatsAppService {
-  private sock: any = null;
-  private sessionPath: string;
-  private isConnected: boolean = false;
-  private qrCode: string | null = null;
-  private reconnectAttempts: number = 0;
-  private maxReconnectAttempts: number = 5;
+class WbotProService {
+  private sock: Session | null = null;
+  private whatsapp: Whatsapp | null = null;
 
-  constructor(private config: WhatsAppConfig) {
-    this.sessionPath = path.join(__dirname, '../../sessions', config.sessionName);
-    this.ensureSessionDirectory();
-  }
-
-  private ensureSessionDirectory(): void {
-    if (!fs.existsSync(this.sessionPath)) {
-      fs.mkdirSync(this.sessionPath, { recursive: true });
-    }
-  }
+  constructor(private config: WbotProConfig) {}
 
   async initialize(): Promise<{ success: boolean; qrCode?: string; message: string }> {
     try {
-      const { state, saveCreds } = await useMultiFileAuthState(this.sessionPath);
+      // Carrega a instância do WhatsApp do banco de dados
+      this.whatsapp = await ShowWhatsAppService(this.config.whatsappId.toString());
+
+      if (!this.whatsapp) {
+        return {
+          success: false,
+          message: 'Conexão WhatsApp não encontrada'
+        };
+      }
+
+      // Verifica se está conectado
+      if (this.whatsapp.status !== 'CONNECTED') {
+        return {
+          success: false,
+          message: `WhatsApp não está conectado. Status atual: ${this.whatsapp.status}`
+        };
+      }
+
+      // Obtém a sessão existente do wbot
+      this.sock = getWbot(this.whatsapp.id);
       
-      this.sock = makeWASocket({
-        auth: state,
-        printQRInTerminal: this.config.printQRInTerminal || false,
-        markOnlineOnConnect: this.config.markOnlineOnConnect || false,
-        logger: logger.child({ level: 'silent' })
-      });
-
-      this.setupEventHandlers(saveCreds);
-
-      return new Promise((resolve) => {
-        const timeout = setTimeout(() => {
-          resolve({
-            success: false,
-            message: 'Timeout na conexão'
-          });
-        }, 30000);
-
-        this.sock.ev.on('connection.update', (update: any) => {
-          const { connection, lastDisconnect, qr } = update;
-
-          if (qr) {
-            this.qrCode = qr;
-            resolve({
-              success: false,
-              qrCode: qr,
-              message: 'QR Code gerado. Escaneie para conectar.'
-            });
-          }
-
-          if (connection === 'close') {
-            clearTimeout(timeout);
-            const shouldReconnect = (lastDisconnect?.error as Boom)?.output?.statusCode !== DisconnectReason.loggedOut;
-            
-            if (shouldReconnect && this.reconnectAttempts < this.maxReconnectAttempts) {
-              this.reconnectAttempts++;
-              logger.info(`Tentando reconectar... (${this.reconnectAttempts}/${this.maxReconnectAttempts})`);
-              setTimeout(() => this.initialize(), 3000);
-            } else {
-              this.isConnected = false;
-              resolve({
-                success: false,
-                message: 'Conexão perdida e não foi possível reconectar'
-              });
-            }
-          } else if (connection === 'open') {
-            clearTimeout(timeout);
-            this.isConnected = true;
-            this.reconnectAttempts = 0;
-            logger.info('WhatsApp conectado com sucesso');
-            resolve({
-              success: true,
-              message: 'WhatsApp conectado com sucesso'
-            });
-          }
-        });
-      });
+      if (!this.sock) {
+        return {
+          success: false,
+          message: 'Sessão WhatsApp não encontrada ou não está ativa'
+        };
+      }
+      
+      return {
+        success: true,
+        message: "WhatsApp inicializado com sucesso"
+      };
+      
     } catch (error) {
       logger.error('Erro ao inicializar WhatsApp:', error);
       return {
@@ -104,38 +63,13 @@ class WhatsAppService {
     }
   }
 
-  private setupEventHandlers(saveCreds: () => void): void {
-    this.sock.ev.on('creds.update', saveCreds);
-
-    this.sock.ev.on('messages.upsert', async (event: any) => {
-      for (const message of event.messages) {
-        if (!message.key.fromMe) {
-          logger.info('Mensagem recebida:', {
-            from: message.key.remoteJid,
-            type: getContentType(message),
-            timestamp: message.messageTimestamp
-          });
-        }
-      }
-    });
-
-    this.sock.ev.on('presence.update', (update: any) => {
-      logger.debug('Presença atualizada:', update);
-    });
-  }
-
-  async disconnect(): Promise<void> {
-    if (this.sock) {
-      await this.sock.logout();
-      this.sock = null;
-      this.isConnected = false;
-      logger.info('WhatsApp desconectado');
-    }
-  }
-
   async sendMessage(jid: string, messageContent: MessageContent): Promise<any> {
-    if (!this.isConnected || !this.sock) {
-      throw new Error('WhatsApp não está conectado');
+    if (!this.sock) {
+      throw new Error('WhatsApp não está conectado. Execute initialize() primeiro.');
+    }
+    
+    if (!this.whatsapp) {
+      throw new Error('WhatsApp não foi inicializado. Execute initialize() primeiro');
     }
 
     try {
@@ -152,14 +86,14 @@ class WhatsAppService {
 
         case 'image':
           content = {
-            image: messageContent.content.image,
+            image: messageContent.content.url ? { url: messageContent.content.url } : messageContent.content.image,
             caption: messageContent.content.caption || ''
           };
           break;
 
         case 'video':
           content = {
-            video: messageContent.content.video,
+            video: messageContent.content.url ? { url: messageContent.content.url } : messageContent.content.video,
             caption: messageContent.content.caption || '',
             ptv: messageContent.content.ptv || false,
             gifPlayback: messageContent.content.gifPlayback || false
@@ -168,14 +102,14 @@ class WhatsAppService {
 
         case 'audio':
           content = {
-            audio: messageContent.content.audio,
+            audio: messageContent.content.url ? { url: messageContent.content.url } : messageContent.content.audio,
             mimetype: messageContent.content.mimetype || 'audio/mp4'
           };
           break;
 
         case 'document':
           content = {
-            document: messageContent.content.document,
+            document: messageContent.content.url ? { url: messageContent.content.url } : messageContent.content.document,
             mimetype: messageContent.content.mimetype,
             fileName: messageContent.content.fileName
           };
@@ -220,13 +154,30 @@ class WhatsAppService {
           break;
 
         case 'interactive':
-          content = {
-            text: messageContent.content.text,
-            title: messageContent.content.title || '',
-            subtitle: messageContent.content.subtitle || '',
-            footer: messageContent.content.footer || '',
-            interactiveButtons: messageContent.content.buttons
-          };
+          // Tratamento especial para diferentes tipos de mensagens interativas
+          if (messageContent.content.requestPayment) {
+            // Solicitação de pagamento
+            content = {
+              requestPayment: messageContent.content.requestPayment
+            };
+          } else if (messageContent.content.cards) {
+            // Carrossel
+            content = {
+              text: messageContent.content.text || 'Carrossel',
+              footer: messageContent.content.footer || '',
+              cards: messageContent.content.cards,
+              viewOnce: messageContent.content.viewOnce || false
+            };
+          } else {
+            // Mensagem interativa padrão
+            content = {
+              text: messageContent.content.text,
+              title: messageContent.content.title || '',
+              subtitle: messageContent.content.subtitle || '',
+              footer: messageContent.content.footer || '',
+              interactiveButtons: messageContent.content.buttons
+            };
+          }
           break;
 
         case 'poll':
@@ -234,7 +185,8 @@ class WhatsAppService {
             poll: {
               name: messageContent.content.name,
               values: messageContent.content.values,
-              selectableCount: messageContent.content.selectableCount || 1
+              selectableCount: messageContent.content.selectableCount || 1,
+              toAnnouncementGroup: messageContent.content.toAnnouncementGroup || false
             }
           };
           break;
@@ -245,7 +197,8 @@ class WhatsAppService {
 
       const result = await this.sock.sendMessage(jid, content, options);
       
-      logger.info('Mensagem enviada:', {
+      logger.info('Mensagem enviada via WbotPro:', {
+        whatsappId: this.whatsapp.id,
         to: jid,
         type: messageContent.type,
         messageId: result.key.id
@@ -253,14 +206,18 @@ class WhatsAppService {
 
       return result;
     } catch (error) {
-      logger.error('Erro ao enviar mensagem:', error);
+      logger.error('Erro ao enviar mensagem via WbotPro:', error);
       throw error;
     }
   }
 
   async checkPhoneNumber(phoneNumber: string): Promise<{ exists: boolean; jid?: string }> {
-    if (!this.isConnected || !this.sock) {
-      throw new Error('WhatsApp não está conectado');
+    if (!this.sock) {
+      throw new Error('WhatsApp não está conectado. Execute initialize() primeiro.');
+    }
+    
+    if (!this.whatsapp) {
+      throw new Error('WhatsApp não foi inicializado. Execute initialize() primeiro');
     }
 
     try {
@@ -270,69 +227,122 @@ class WhatsAppService {
         jid: result?.jid
       };
     } catch (error) {
-      logger.error('Erro ao verificar número:', error);
+      logger.error('Erro ao verificar número via WbotPro:', error);
       throw error;
     }
   }
 
   async getProfilePicture(jid: string): Promise<string | null> {
-    if (!this.isConnected || !this.sock) {
-      throw new Error('WhatsApp não está conectado');
+    if (!this.sock) {
+      throw new Error('WhatsApp não está conectado. Execute initialize() primeiro.');
+    }
+    
+    if (!this.whatsapp) {
+      throw new Error('WhatsApp não foi inicializado. Execute initialize() primeiro');
     }
 
     try {
       return await this.sock.profilePictureUrl(jid, 'image');
     } catch (error) {
-      logger.warn('Erro ao buscar foto de perfil:', error);
+      logger.warn('Erro ao buscar foto de perfil via WbotPro:', error);
       return null;
     }
   }
 
   async updatePresence(jid: string, presence: 'available' | 'unavailable' | 'composing' | 'recording'): Promise<void> {
-    if (!this.isConnected || !this.sock) {
-      throw new Error('WhatsApp não está conectado');
+    if (!this.sock) {
+      throw new Error('WhatsApp não está conectado. Execute initialize() primeiro.');
+    }
+    
+    if (!this.whatsapp) {
+      throw new Error('WhatsApp não foi inicializado. Execute initialize() primeiro');
     }
 
     try {
       await this.sock.sendPresenceUpdate(presence, jid);
     } catch (error) {
-      logger.error('Erro ao atualizar presença:', error);
+      logger.error('Erro ao atualizar presença via WbotPro:', error);
       throw error;
     }
   }
 
-  getConnectionStatus(): { isConnected: boolean; qrCode?: string } {
+  getConnectionStatus(): { isConnected: boolean; status?: string } {
     return {
-      isConnected: this.isConnected,
-      qrCode: this.qrCode
+      isConnected: !!this.sock && this.whatsapp?.status === 'CONNECTED',
+      status: this.whatsapp?.status
+    };
+  }
+
+  getWhatsAppInfo(): { id?: number; name?: string; number?: string; status?: string } | null {
+    if (!this.whatsapp) {
+      return null;
+    }
+
+    return {
+      id: this.whatsapp.id,
+      name: this.whatsapp.name,
+      number: this.whatsapp.number,
+      status: this.whatsapp.status
     };
   }
 
   async readMessages(messageKeys: any[]): Promise<void> {
-    if (!this.isConnected || !this.sock) {
-      throw new Error('WhatsApp não está conectado');
+    if (!this.sock) {
+      throw new Error('WhatsApp não está conectado. Execute initialize() primeiro.');
     }
 
     try {
       await this.sock.readMessages(messageKeys);
     } catch (error) {
-      logger.error('Erro ao marcar mensagens como lidas:', error);
+      logger.error('Erro ao marcar mensagens como lidas via WbotPro:', error);
       throw error;
     }
   }
 
   async deleteMessage(jid: string, messageKey: any): Promise<void> {
-    if (!this.isConnected || !this.sock) {
-      throw new Error('WhatsApp não está conectado');
+    if (!this.sock) {
+      throw new Error('WhatsApp não está conectado. Execute initialize() primeiro.');
     }
 
     try {
       await this.sock.sendMessage(jid, { delete: messageKey });
     } catch (error) {
-      logger.error('Erro ao deletar mensagem:', error);
+      logger.error('Erro ao deletar mensagem via WbotPro:', error);
       throw error;
     }
   }
+
+  // Método para enviar múltiplas mensagens (álbum)
+  async sendAlbum(jid: string, files: Array<{ type: 'image' | 'video'; url: string; caption?: string }>, delay: number = 2000): Promise<any[]> {
+    const results = [];
+    
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+      
+      if (i > 0) {
+        // Delay entre envios
+        await new Promise(resolve => setTimeout(resolve, delay));
+      }
+      
+      const result = await this.sendMessage(jid, {
+        type: file.type,
+        content: {
+          url: file.url,
+          caption: file.caption || ''
+        }
+      });
+      
+      results.push(result);
+    }
+    
+    return results;
+  }
+
+  // Método para limpar recursos
+  cleanup(): void {
+    this.sock = null;
+    this.whatsapp = null;
+  }
 }
 
-export default WhatsAppService;
+export default WbotProService;

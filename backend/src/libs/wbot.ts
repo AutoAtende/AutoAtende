@@ -389,9 +389,6 @@ export const initWASocket = async (whatsapp: Whatsapp): Promise<Session> => {
 
         wsocket.cacheMessage = (msg: proto.IWebMessageInfo): void => {
           if (!msg.key.fromMe) return;
-
-          logger.debug({ message: msg.message }, "cacheMessage: saved");
-
           store.set(msg.key.id, msg.message);
         }
 
