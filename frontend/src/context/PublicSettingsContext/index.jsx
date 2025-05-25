@@ -1,75 +1,34 @@
-// context/PublicSettingsContext/index.jsx
 import React, { createContext, useState, useContext, useEffect, useCallback } from "react";
-import openApi from "../../services/api";
+import { openApi } from "../../services/api";
 
+// Criação do contexto
 const PublicSettingsContext = createContext({});
 
+// Configuração do tempo de expiração do cache
 const CACHE_EXPIRATION_TIME = 86400000; // 24 horas em milissegundos
+
+// Valores padrão para configurações críticas
+const DEFAULT_SETTINGS = {
+  appName: "AutoAtende",
+  allowSignup: "enabled",
+  copyright: "AutoAtende",
+  loginPosition: "right",
+  signupPosition: "right",
+  iconColorLight: "#0693E3",
+  iconColorDark: "#39ACE7",
+  primaryColorLight: "#0000FF",
+  primaryColorDark: "#39ACE7",
+  secondaryColorLight: "#0000FF",
+  secondaryColorDark: "#39ACE7",
+  chatlistLight: "#eeeeee",
+  chatlistDark: "#1C2E36",
+};
 
 export const PublicSettingsProvider = ({ children }) => {
   const [settings, setSettings] = useState({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-
-  // Função para normalizar URLs
-  const normalizeUrl = useCallback((baseUrl, path) => {
-    if (!path) return '';
-    
-    // Remove barras duplas e normaliza a URL
-    const cleanBaseUrl = baseUrl.replace(/\/+$/, ''); // Remove barras finais
-    const cleanPath = path.replace(/^\/+/, ''); // Remove barras iniciais
-    
-    return `${cleanBaseUrl}/${cleanPath}`;
-  }, []);
-
-  // Função para verificar se arquivo existe
-  const checkFileExists = useCallback(async (url) => {
-    try {
-      const response = await fetch(url, { method: 'HEAD' });
-      return response.ok;
-    } catch (error) {
-      console.warn('Erro ao verificar arquivo:', url, error);
-      return false;
-    }
-  }, []);
-
-  // Função para processar as configurações recebidas
-  const processSettings = useCallback(async (settingsArray) => {
-    if (!Array.isArray(settingsArray)) return {};
-    
-    const processed = {};
-    const baseUrl = process.env.REACT_APP_BACKEND_URL;
-    
-    for (const setting of settingsArray) {
-      if (setting && setting.key && setting.value !== undefined) {
-        // Processar URLs de imagens
-        if (setting.key.includes("Logo") || setting.key.includes("Background")) {
-          const fullUrl = normalizeUrl(baseUrl, `/public/${setting.value}`);
-          
-          // Verificar se o arquivo existe antes de definir
-          const exists = await checkFileExists(fullUrl);
-          if (exists) {
-            processed[setting.key] = fullUrl;
-          } else {
-            console.warn(`Arquivo não encontrado: ${fullUrl}`);
-            // Usar imagem padrão se o arquivo não existir
-            if (setting.key.includes("Logo")) {
-              processed[setting.key] = normalizeUrl(baseUrl, '/public/assets/vector/logo.svg');
-            }
-          }
-        } else {
-          processed[setting.key] = setting.value;
-        }
-        
-        // Configurar título da página se appName estiver presente
-        if (setting.key === "appName" && setting.value) {
-          document.title = setting.value;
-        }
-      }
-    }
-    
-    return processed;
-  }, [normalizeUrl, checkFileExists]);
+  const [fetchAttempts, setFetchAttempts] = useState(0);
 
   // Função para armazenar configurações em cache
   const cacheSettings = useCallback((companyId, settingsData) => {
@@ -79,6 +38,7 @@ export const PublicSettingsProvider = ({ children }) => {
         settings: settingsData
       };
       localStorage.setItem(`public_settings_${companyId}`, JSON.stringify(cacheData));
+      console.log(`Configurações públicas armazenadas em cache para companyId ${companyId}`);
     } catch (error) {
       console.error('Erro ao armazenar configurações públicas no cache:', error);
     }
@@ -98,11 +58,32 @@ export const PublicSettingsProvider = ({ children }) => {
         return null;
       }
       
+      console.log(`Configurações públicas recuperadas do cache para companyId ${companyId}`);
       return settings;
     } catch (error) {
       console.error('Erro ao recuperar configurações públicas do cache:', error);
       return null;
     }
+  }, []);
+
+  // Função para processar as configurações recebidas
+  const processSettings = useCallback((settingsArray) => {
+    if (!Array.isArray(settingsArray)) return DEFAULT_SETTINGS;
+    
+    const processed = {...DEFAULT_SETTINGS};
+    
+    settingsArray.forEach(setting => {
+      if (setting && setting.key && setting.value !== undefined) {
+        // Processar URLs de imagens
+        if (setting.key.includes("Logo") || setting.key.includes("Background")) {
+          processed[setting.key] = process.env.REACT_APP_BACKEND_URL + "/public/" + setting.value;
+        } else {
+          processed[setting.key] = setting.value;
+        }
+      }
+    });
+    
+    return processed;
   }, []);
 
   // Função principal para carregar as configurações públicas
@@ -124,30 +105,45 @@ export const PublicSettingsProvider = ({ children }) => {
         }
       }
       
+      console.log(`Buscando configurações públicas para companyId ${companyId} via API`);
+      
       // Buscar da API
-      const { data } = await openApi.get(`/public-settings/c/${companyId}`);
-      
-      // Processar e armazenar as configurações
-      const processedSettings = await processSettings(data);
-      setSettings(processedSettings);
-      
-      // Armazenar em cache
-      cacheSettings(companyId, processedSettings);
-      
-      setLoading(false);
-      return processedSettings;
+      try {
+        const { data } = await openApi.get(`/public-settings/c/${companyId}`);
+        
+        // Processar e armazenar as configurações
+        const processedSettings = processSettings(data);
+        setSettings(processedSettings);
+        
+        // Armazenar em cache
+        cacheSettings(companyId, processedSettings);
+        
+        // Configurar título da página se appName estiver presente
+        if (processedSettings.appName) {
+          document.title = processedSettings.appName;
+        }
+        
+        setFetchAttempts(0); // Resetar contagem após sucesso
+        setLoading(false);
+        return processedSettings;
+      } catch (err) {
+        // Se houve erro na API, incrementar contador e usar valores padrão
+        setFetchAttempts(prev => prev + 1);
+        console.warn(`Erro ao buscar configurações públicas (tentativa ${fetchAttempts + 1}): ${err.message}`);
+        
+        // Usar valores padrão
+        setSettings(DEFAULT_SETTINGS);
+        setLoading(false);
+        return DEFAULT_SETTINGS;
+      }
     } catch (err) {
       console.error("Erro ao carregar configurações públicas:", err);
       setError(err);
+      setSettings(DEFAULT_SETTINGS);
       setLoading(false);
-      return {};
+      return DEFAULT_SETTINGS;
     }
-  }, [cacheSettings, getSettingsFromCache, processSettings]);
-
-  // Carregar configurações iniciais
-  useEffect(() => {
-    loadPublicSettings();
-  }, [loadPublicSettings]);
+  }, [cacheSettings, getSettingsFromCache, processSettings, fetchAttempts]);
 
   // Monitorar mudanças no companyId no localStorage
   useEffect(() => {
@@ -162,6 +158,28 @@ export const PublicSettingsProvider = ({ children }) => {
       window.removeEventListener('storage', handleStorageChange);
     };
   }, [loadPublicSettings]);
+
+  // Carregar configurações iniciais
+  useEffect(() => {
+    loadPublicSettings().catch(error => {
+      console.error("Erro no carregamento inicial de configurações públicas:", error);
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Implementar lógica de retry com backoff exponencial para casos onde a API falha
+  useEffect(() => {
+    if (fetchAttempts > 0 && fetchAttempts < 5) {
+      const delay = Math.min(30000, 1000 * Math.pow(2, fetchAttempts - 1));
+      console.log(`Agendando nova tentativa de buscar configurações públicas em ${delay}ms`);
+      
+      const retryTimeout = setTimeout(() => {
+        loadPublicSettings(true);
+      }, delay);
+      
+      return () => clearTimeout(retryTimeout);
+    }
+  }, [fetchAttempts, loadPublicSettings]);
 
   return (
     <PublicSettingsContext.Provider
