@@ -109,10 +109,10 @@ const ImportContactsService = async (companyId: number, whatsappId: number): Pro
       let phoneContactsList = null;
     
       try {
-        phoneContactsList = bail-lite.contacts && JSON.parse(bail-lite.contacts);
+        phoneContactsList = baileys.contacts && JSON.parse(baileys.contacts);
       } catch (error) {
         logger.warn(
-          { bail-lite },
+          { baileys },
           `Could not get whatsapp contacts from database. Err: ${error}`
         );
         throw new AppError("Could not get whatsapp contacts from database.", 500);
