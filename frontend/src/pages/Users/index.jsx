@@ -1,25 +1,20 @@
 import React, { useCallback, useContext, useEffect, useState, useRef } from "react";
 import { toast } from "../../helpers/toast";
-import { styled } from "@mui/material/styles";
 import {
   Avatar,
   Box,
-  Button,
   CircularProgress,
   IconButton,
-  InputAdornment,
-  Paper,
   Table,
   TableBody,
   TableCell,
   TableContainer,
   TableHead,
   TableRow,
-  TextField,
   Typography,
   Tooltip,
   useTheme,
-  useMediaQuery
+  Chip
 } from "@mui/material";
 
 // Ícones
@@ -27,101 +22,20 @@ import StarIcon from "@mui/icons-material/Star";
 import PersonAddIcon from '@mui/icons-material/PersonAdd';
 import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
 import EditIcon from "@mui/icons-material/Edit";
-import SearchIcon from "@mui/icons-material/Search";
+import PeopleIcon from '@mui/icons-material/People';
+import PersonOffIcon from '@mui/icons-material/PersonOff';
 
 // Componentes
+import StandardPageLayout from "../../components/StandardPageLayout";
 import ConfirmationModal from "../../components/ConfirmationModal";
-import MainContainer from "../../components/MainContainer";
-import Title from "../../components/Title";
 import UserModal from "./components/UserModal";
 import { AuthContext } from "../../context/Auth/AuthContext";
 import { SocketContext } from "../../context/Socket/SocketContext";
 import api from "../../services/api";
 import { i18n } from "../../translate/i18n";
 
-// Styled Components
-const PageWrapper = styled(Box)(({ theme }) => ({
-  marginTop: theme.spacing(2),
-  paddingTop: theme.spacing(2),
-  width: '100%',
-  display: 'flex',
-  flexDirection: 'column',
-  flex: 1
-}));
-
-const PageHeader = styled(Box)(({ theme }) => ({
-  display: 'flex',
-  justifyContent: 'space-between',
-  alignItems: 'flex-start',
-  flexWrap: 'wrap',
-  gap: theme.spacing(2),
-  marginBottom: theme.spacing(2),
-  width: '100%',
-  [theme.breakpoints.down('sm')]: {
-    flexDirection: 'column',
-    alignItems: 'stretch',
-  }
-}));
-
-const HeaderTitle = styled(Box)(({ theme }) => ({
-  display: 'flex',
-  flexDirection: 'column',
-  gap: theme.spacing(1)
-}));
-
-const StatusBadge = styled(Box)(({ theme, online }) => ({
-  display: 'inline-flex',
-  alignItems: 'center',
-  padding: theme.spacing(0.5, 1.5),
-  borderRadius: theme.shape.borderRadius,
-  backgroundColor: online ? theme.palette.success.light : theme.palette.grey[200],
-  color: online ? theme.palette.success.dark : theme.palette.grey[700],
-  '& .dot': {
-    width: 8,
-    height: 8,
-    borderRadius: '50%',
-    backgroundColor: online ? theme.palette.success.main : theme.palette.grey[500],
-    marginRight: theme.spacing(1)
-  }
-}));
-
-const HeaderActions = styled(Box)(({ theme }) => ({
-  display: 'flex',
-  gap: theme.spacing(2),
-  [theme.breakpoints.down('sm')]: {
-    width: '100%',
-    flexDirection: 'column'
-  }
-}));
-
-const ContentArea = styled(Paper)(({ theme }) => ({
-  flex: 1,
-  padding: theme.spacing(2),
-  display: 'flex',
-  flexDirection: 'column',
-  [theme.breakpoints.down('sm')]: {
-    padding: theme.spacing(1)
-  }
-}));
-
-const ScrollableContainer = styled(Box)(({ theme }) => ({
-  flex: 1,
-  overflowY: 'auto',
-  maxHeight: 'calc(100vh - 250px)'
-}));
-
-const FooterArea = styled(Box)(({ theme }) => ({
-  display: 'flex',
-  justifyContent: 'center',
-  alignItems: 'center',
-  padding: theme.spacing(2),
-  backgroundColor: theme.palette.background.paper,
-  borderTop: `1px solid ${theme.palette.divider}`,
-}));
-
 const Users = () => {
   const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const { user } = useContext(AuthContext);
   const [loading, setLoading] = useState(false);
   const [page, setPage] = useState(1);
@@ -134,17 +48,16 @@ const Users = () => {
   const [confirmModalOpen, setConfirmModalOpen] = useState(false);
   const [searchParam, setSearchParam] = useState("");
   const [userCounts, setUserCounts] = useState({ online: 0, offline: 0 });
+  const [activeTab, setActiveTab] = useState(0);
 
   // Ref para o container de rolagem
   const scrollRef = useRef(null);
-  // Flag para evitar chamadas duplicadas
   const isLoadingRef = useRef(false);
 
   const socketManager = useContext(SocketContext);
 
   // Função para buscar usuários
   const fetchUsers = useCallback(async (pageNum = page, shouldReset = false) => {
-    // Evita múltiplas chamadas simultâneas
     if (isLoadingRef.current) return;
     isLoadingRef.current = true;
     
@@ -158,14 +71,12 @@ const Users = () => {
   
       const { data } = await api.get("/users", { params });
       
-      // Se for a primeira página ou shouldReset for true, substitui os dados, senão, concatena
       if (pageNum === 1 || shouldReset) {
         setUsers(Array.isArray(data.users) ? data.users : []);
       } else {
         setUsers(prev => [...prev, ...(Array.isArray(data.users) ? data.users : [])]);
       }
       
-      // Verifica se há mais dados para carregar
       setHasMore(data.users && data.users.length === perPage);
       
       setUserCounts({ 
@@ -185,12 +96,10 @@ const Users = () => {
     }
   }, [searchParam, perPage]);
 
-  // Effect para carregar usuários quando a página mudar
   useEffect(() => {
     fetchUsers(page, false);
   }, [fetchUsers, page]);
 
-  // Efeito para resetar e recarregar quando o termo de busca mudar
   useEffect(() => {
     setPage(1);
     fetchUsers(1, true);
@@ -203,7 +112,6 @@ const Users = () => {
   
     const handleUserUpdate = (data) => {
       if (data.action === "update" || data.action === "create" || data.action === "delete") {
-        // Resetar para a primeira página quando houver atualização via socket
         setPage(1);
         fetchUsers(1, true);
       }
@@ -217,32 +125,6 @@ const Users = () => {
       };
     }
   }, [socketManager, fetchUsers, user]);
-  
-  // Handler de rolagem para carregar mais dados
-  const handleScroll = useCallback(() => {
-    if (!hasMore || loading || isLoadingRef.current) return;
-    
-    const container = scrollRef.current;
-    if (!container) return;
-    
-    const { scrollTop, scrollHeight, clientHeight } = container;
-    
-    // Carrega mais dados quando chegar a 80% do scroll
-    if (scrollHeight - scrollTop - clientHeight < clientHeight * 0.2) {
-      setPage(prevPage => prevPage + 1);
-    }
-  }, [hasMore, loading]);
-  
-  // Adiciona e remove o event listener de scroll
-  useEffect(() => {
-    const container = scrollRef.current;
-    if (container) {
-      container.addEventListener("scroll", handleScroll);
-      return () => {
-        container.removeEventListener("scroll", handleScroll);
-      };
-    }
-  }, [handleScroll]);
 
   // Handler para pesquisa
   const handleSearch = (event) => {
@@ -295,7 +177,7 @@ const Users = () => {
       admin: { name: "Administrador", color: "secondary" },
       superv: { name: "Supervisor", color: "warning" },
     };
-    return profiles[profile]?.name || profile;
+    return profiles[profile] || { name: profile, color: "default" };
   };
 
   // Função para obter URL da imagem de perfil
@@ -306,144 +188,168 @@ const Users = () => {
     return null;
   };
 
+  // Filtrar usuários baseado na aba ativa
+  const getFilteredUsers = () => {
+    switch (activeTab) {
+      case 1: // Online
+        return users.filter(u => u.online);
+      case 2: // Offline
+        return users.filter(u => !u.online);
+      default: // Todos
+        return users;
+    }
+  };
+
+  const filteredUsers = getFilteredUsers();
+
+  // Configuração das ações do cabeçalho
+  const pageActions = [
+    {
+      label: i18n.t("users.buttons.add"),
+      icon: <PersonAddIcon />,
+      onClick: handleOpenUserModal,
+      variant: "contained",
+      color: "primary",
+      tooltip: "Adicionar novo usuário"
+    }
+  ];
+
+  // Configuração das abas
+  const tabs = [
+    {
+      label: `Todos (${users.length})`,
+      icon: <PeopleIcon />
+    },
+    {
+      label: `Online (${userCounts.online})`,
+      icon: <PeopleIcon />
+    },
+    {
+      label: `Offline (${userCounts.offline})`,
+      icon: <PersonOffIcon />
+    }
+  ];
+
+  const handleTabChange = (event, newValue) => {
+    setActiveTab(newValue);
+  };
+
   return (
-    <MainContainer>
-      <PageWrapper>
-        <PageHeader>
-          <HeaderTitle>
-            <Title color="primary">
-              {i18n.t("users.title")}
-            </Title>
-            <Box display="flex" gap={2}>
-              <StatusBadge online>
-                <span className="dot" />
-                {i18n.t("users.status.online")}: {userCounts.online}
-              </StatusBadge>
-              <StatusBadge>
-                <span className="dot" />
-                {i18n.t("users.status.offline")}: {userCounts.offline}
-              </StatusBadge>
-            </Box>
-          </HeaderTitle>
-
-          <HeaderActions>
-            <TextField
-              placeholder={i18n.t("contacts.searchPlaceholder")}
-              value={searchParam}
-              onChange={handleSearch}
-              size="small"
-              fullWidth={isMobile}
-              InputProps={{
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <SearchIcon color="action" />
-                  </InputAdornment>
-                ),
-              }}
-            />
-            <Button
-              variant="contained"
-              color="primary"
-              onClick={handleOpenUserModal}
-              startIcon={<PersonAddIcon />}
-              fullWidth={isMobile}
-            >
-              {i18n.t("users.buttons.add")}
-            </Button>
-          </HeaderActions>
-        </PageHeader>
-
-        <ContentArea>
-          <ScrollableContainer ref={scrollRef}>
-            {loading && page === 1 ? (
-              <Box display="flex" justifyContent="center" p={3}>
-                <CircularProgress />
-              </Box>
-            ) : (
-              <TableContainer>
-                <Table>
-                  <TableHead>
-                    <TableRow>
-                      <TableCell>ID</TableCell>
-                      <TableCell>Nome</TableCell>
-                      <TableCell>Email</TableCell>
-                      <TableCell>Perfil</TableCell>
-                      <TableCell>Status</TableCell>
-                      <TableCell align="right">Ações</TableCell>
-                    </TableRow>
-                  </TableHead>
-                  <TableBody>
-                    {users.length > 0 ? (
-                      users.map((user) => (
-                        <TableRow key={user.id}>
-                          <TableCell>{user.id}</TableCell>
-                          <TableCell>
-                            <Box display="flex" alignItems="center" gap={1}>
-                              <Avatar
-                                src={getProfileImage(user)}
-                                sx={{ 
-                                  width: 40, 
-                                  height: 40,
-                                  bgcolor: user.color || theme.palette.grey[300]
-                                }}
-                              >
-                                {user.name && user.name[0] ? user.name[0].toUpperCase() : '?'}
-                              </Avatar>
-                              <Typography>
-                                {user.name}
-                                {user.super && (
-                                  <StarIcon 
-                                    fontSize="small" 
-                                    sx={{ color: theme.palette.warning.main, ml: 0.5 }} 
-                                  />
-                                )}
-                              </Typography>
-                            </Box>
-                          </TableCell>
-                          <TableCell>{user.email}</TableCell>
-                          <TableCell>{getProfileChip(user.profile)}</TableCell>
-                          <TableCell>
-                            <StatusBadge online={user.online}>
-                              <span className="dot" />
-                              {user.online ? 'Online' : 'Offline'}
-                            </StatusBadge>
-                          </TableCell>
-                          <TableCell align="right">
-                            <Tooltip title={i18n.t("users.buttons.edit")}>
-                              <IconButton
-                                size="small"
-                                onClick={() => handleEditUser(user)}
-                              >
-                                <EditIcon />
-                              </IconButton>
-                            </Tooltip>
-                            <Tooltip title={i18n.t("users.buttons.delete")}>
-                              <IconButton
-                                size="small"
-                                onClick={() => {
-                                  setDeletingUser(user);
-                                  setConfirmModalOpen(true);
-                                }}
-                              >
-                                <DeleteOutlineIcon />
-                              </IconButton>
-                            </Tooltip>
-                          </TableCell>
-                        </TableRow>
-                      ))
-                    ) : (
-                      <TableRow>
-                        <TableCell colSpan={6} align="center">
-                          <Typography variant="body2" color="textSecondary">
-                            Nenhum usuário encontrado
+    <>
+      <StandardPageLayout
+        title={i18n.t("users.title")}
+        actions={pageActions}
+        searchValue={searchParam}
+        onSearchChange={handleSearch}
+        searchPlaceholder={i18n.t("contacts.searchPlaceholder")}
+        showSearch={true}
+        tabs={tabs}
+        activeTab={activeTab}
+        onTabChange={handleTabChange}
+        loading={loading && page === 1}
+      >
+        {loading && page === 1 ? (
+          <Box display="flex" justifyContent="center" p={3}>
+            <CircularProgress />
+          </Box>
+        ) : (
+          <TableContainer ref={scrollRef} sx={{ height: '100%', overflow: 'auto' }}>
+            <Table stickyHeader>
+              <TableHead>
+                <TableRow>
+                  <TableCell>ID</TableCell>
+                  <TableCell>Nome</TableCell>
+                  <TableCell>Email</TableCell>
+                  <TableCell>Perfil</TableCell>
+                  <TableCell>Status</TableCell>
+                  <TableCell align="right">Ações</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {filteredUsers.length > 0 ? (
+                  filteredUsers.map((user) => (
+                    <TableRow key={user.id} hover>
+                      <TableCell>{user.id}</TableCell>
+                      <TableCell>
+                        <Box display="flex" alignItems="center" gap={1}>
+                          <Avatar
+                            src={getProfileImage(user)}
+                            sx={{ 
+                              width: 40, 
+                              height: 40,
+                              bgcolor: user.color || theme.palette.grey[300]
+                            }}
+                          >
+                            {user.name && user.name[0] ? user.name[0].toUpperCase() : '?'}
+                          </Avatar>
+                          <Typography>
+                            {user.name}
+                            {user.super && (
+                              <StarIcon 
+                                fontSize="small" 
+                                sx={{ color: theme.palette.warning.main, ml: 0.5 }} 
+                              />
+                            )}
                           </Typography>
-                        </TableCell>
-                      </TableRow>
-                    )}
-                  </TableBody>
-                </Table>
-              </TableContainer>
-            )}
+                        </Box>
+                      </TableCell>
+                      <TableCell>{user.email}</TableCell>
+                      <TableCell>
+                        <Chip
+                          label={getProfileChip(user.profile).name}
+                          color={getProfileChip(user.profile).color}
+                          size="small"
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <Chip
+                          label={user.online ? 'Online' : 'Offline'}
+                          color={user.online ? 'success' : 'default'}
+                          size="small"
+                          variant={user.online ? 'filled' : 'outlined'}
+                        />
+                      </TableCell>
+                      <TableCell align="right">
+                        <Tooltip title={i18n.t("users.buttons.edit")}>
+                          <IconButton
+                            size="small"
+                            onClick={() => handleEditUser(user)}
+                            color="primary"
+                          >
+                            <EditIcon />
+                          </IconButton>
+                        </Tooltip>
+                        <Tooltip title={i18n.t("users.buttons.delete")}>
+                          <IconButton
+                            size="small"
+                            onClick={() => {
+                              setDeletingUser(user);
+                              setConfirmModalOpen(true);
+                            }}
+                            color="error"
+                          >
+                            <DeleteOutlineIcon />
+                          </IconButton>
+                        </Tooltip>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                ) : (
+                  <TableRow>
+                    <TableCell colSpan={6} align="center">
+                      <Typography variant="body2" color="textSecondary">
+                        {activeTab === 0 
+                          ? "Nenhum usuário encontrado" 
+                          : activeTab === 1 
+                            ? "Nenhum usuário online"
+                            : "Nenhum usuário offline"
+                        }
+                      </Typography>
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
             
             {/* Indicador de carregamento para rolagem infinita */}
             {loading && page > 1 && (
@@ -451,18 +357,11 @@ const Users = () => {
                 <CircularProgress size={24} />
               </Box>
             )}
-          </ScrollableContainer>
-          
-          {hasMore && !loading && users.length > 0 && (
-            <FooterArea>
-              <Typography variant="body2" color="textSecondary">
-                Role para baixo para carregar mais
-              </Typography>
-            </FooterArea>
-          )}
-        </ContentArea>
-      </PageWrapper>
+          </TableContainer>
+        )}
+      </StandardPageLayout>
 
+      {/* Modais */}
       {userModalOpen && (
         <UserModal
           open={userModalOpen}
@@ -481,7 +380,7 @@ const Users = () => {
           {i18n.t("users.confirmationModal.deleteMessage")}
         </ConfirmationModal>
       )}
-    </MainContainer>
+    </>
   );
 };
 
