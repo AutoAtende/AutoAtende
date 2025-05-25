@@ -2,7 +2,7 @@ import {
   delay,
   WAMessage,
   AnyMediaMessageContent
-} from "baileys";
+} from "bail-lite";
 import AppError from "../../errors/AppError";
 import GetTicketWbot from "../../helpers/GetTicketWbot";
 import Ticket from "../../models/Ticket";

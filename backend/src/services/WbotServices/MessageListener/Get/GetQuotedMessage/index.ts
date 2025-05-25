@@ -1,4 +1,4 @@
-import { extractMessageContent, proto } from "baileys";
+import { extractMessageContent, proto } from "bail-lite";
 
 export const getQuotedMessage = (msg: proto.IWebMessageInfo): any => {
     const body =

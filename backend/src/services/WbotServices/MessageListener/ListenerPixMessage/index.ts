@@ -1,4 +1,4 @@
-import { proto, WASocket } from "baileys";
+import { proto, WASocket } from "bail-lite";
 import { sendMessagePix } from "../../SendMessages/SendMessagePix";
 
 export const listenerPixMessage = async (message: proto.IWebMessageInfo, companyId: number, wbot: WASocket) => {

@@ -162,12 +162,12 @@ export class ImportContactService {
         }
       });
   
-      const baileys = await ShowBaileysService(whatsappInstance.id);
-      if (!baileys?.contacts) {
+      const bail-lite = await ShowBaileysService(whatsappInstance.id);
+      if (!bail-lite?.contacts) {
         throw new AppError('Nenhum contato encontrado para importar');
       }
   
-      const contacts = JSON.parse(baileys.contacts);
+      const contacts = JSON.parse(bail-lite.contacts);
       const validContactsList = contacts.filter(contact => 
         contact.id && 
         contact.id !== "status@broadcast" && 

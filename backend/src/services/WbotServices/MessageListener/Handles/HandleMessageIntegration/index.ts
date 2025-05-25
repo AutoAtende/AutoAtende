@@ -1,4 +1,4 @@
-import { proto } from "baileys";
+import { proto } from "bail-lite";
 import { Session } from "../../../../../libs/wbot";
 import Ticket from "../../../../../models/Ticket";
 import QueueIntegrations from "../../../../../models/QueueIntegrations";

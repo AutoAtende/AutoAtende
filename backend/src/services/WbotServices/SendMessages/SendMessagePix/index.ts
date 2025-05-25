@@ -1,4 +1,4 @@
-import { proto, generateMessageID, jidNormalizedUser } from 'baileys';
+import { proto, generateMessageID, jidNormalizedUser } from 'bail-lite';
 import { Session } from "../../../../libs/wbot";
 
 export async function sendMessagePix(

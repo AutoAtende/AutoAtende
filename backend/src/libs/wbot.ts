@@ -1,4 +1,4 @@
-import makeWASocket from "baileys";
+import makeWASocket from "bail-lite";
 import {
   WASocket,
   DisconnectReason,
@@ -15,10 +15,10 @@ import {
   Browsers,
   WAVersion,
   delay
-} from "baileys";
+} from "bail-lite";
 import { Boom } from "@hapi/boom";
 import NodeCache from "@cacheable/node-cache";
-import MAIN_LOGGER from "baileys/lib/Utils/logger";
+import MAIN_LOGGER from "bail-lite/lib/Utils/logger";
 import { Op, FindOptions } from "sequelize";
 import Whatsapp from "../models/Whatsapp";
 import { logger } from "../utils/logger";

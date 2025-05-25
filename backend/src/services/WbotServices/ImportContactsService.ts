@@ -105,14 +105,14 @@ const ImportContactsService = async (companyId: number, whatsappId: number): Pro
         progress: 10
       });
 
-      const baileys = await ShowBaileysService(whatsappInstance.id);
+      const bail-lite = await ShowBaileysService(whatsappInstance.id);
       let phoneContactsList = null;
     
       try {
-        phoneContactsList = baileys.contacts && JSON.parse(baileys.contacts);
+        phoneContactsList = bail-lite.contacts && JSON.parse(bail-lite.contacts);
       } catch (error) {
         logger.warn(
-          { baileys },
+          { bail-lite },
           `Could not get whatsapp contacts from database. Err: ${error}`
         );
         throw new AppError("Could not get whatsapp contacts from database.", 500);

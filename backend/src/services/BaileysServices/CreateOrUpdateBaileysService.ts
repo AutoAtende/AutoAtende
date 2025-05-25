@@ -1,4 +1,4 @@
-import { Chat, Contact } from "baileys";
+import { Chat, Contact } from "bail-lite";
 import Baileys from "../../models/Baileys";
 
 interface Request {
@@ -62,13 +62,13 @@ const createOrUpdateBaileysService = async ({
   }
 
   // Criar novo registro se não existir
-  const baileys = await Baileys.create({
+  const bail-lite = await Baileys.create({
     whatsappId,
     contacts: JSON.stringify(contacts || []),
     chats: JSON.stringify(chats || [])
   });
 
-  return baileys;
+  return bail-lite;
 };
 
 export default createOrUpdateBaileysService;

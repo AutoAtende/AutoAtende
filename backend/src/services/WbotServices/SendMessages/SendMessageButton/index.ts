@@ -2,7 +2,7 @@ import {
     generateWAMessageFromContent,
     proto,
     WASocket
-  } from "baileys";
+  } from "bail-lite";
   
   export const SendMessageButton = async (wbot, msg, buttons, title) => {
     const message = generateWAMessageFromContent(
