@@ -1,9 +1,8 @@
-import React, { useState, useEffect, useCallback, useContext } from 'react';
+import React, { useState, useEffect, useContext, useCallback } from 'react';
 import { useHistory } from 'react-router-dom';
 import {
   Box,
   Chip,
-  Paper,
   Typography,
   IconButton,
   Table,
@@ -21,11 +20,12 @@ import {
   DialogActions,
   Button,
   TextField,
-  Fab,
+  Paper,
   useMediaQuery,
   Grid,
   Divider,
-  Avatar
+  Avatar,
+  Alert
 } from '@mui/material';
 import { alpha, useTheme } from '@mui/material/styles';
 import {
@@ -66,13 +66,9 @@ import { AuthContext } from '../../context/Auth/AuthContext';
 import api from '../../services/api';
 import { toast } from '../../helpers/toast';
 import { i18n } from '../../translate/i18n';
-import MainContainer from '../../components/MainContainer';
-import MainHeader from '../../components/MainHeader';
-import MainHeaderButtonsWrapper from '../../components/MainHeaderButtonsWrapper';
-import Title from '../../components/Title';
+import StandardPageLayout from '../../components/StandardPageLayout';
 import ConfirmationModal from '../../components/ConfirmationModal';
 import FlowPreviewModal from './components/FlowPreviewModal';
-
 
 // Componente de modal de estatísticas
 const StatsModal = ({ open, onClose, flow, nodes = [], edges = [] }) => {
@@ -111,7 +107,6 @@ const StatsModal = ({ open, onClose, flow, nodes = [], edges = [] }) => {
       case 'typebotNode': return <CodeIcon {...iconProps} />;
       case 'switchFlowNode': return <SwitchFlowIcon {...iconProps} />;
       case 'scheduleNode': return <ScheduleIcon {...iconProps} />;
-
       case 'inactivityNode': return <InactivityIcon {...iconProps} />;
       default: return <InfoIcon {...iconProps} />;
     }
@@ -223,6 +218,7 @@ const StatsModal = ({ open, onClose, flow, nodes = [], edges = [] }) => {
       ['endNode', 'attendantNode', 'queueNode', 'openaiNode'].includes(node.type)
     ).length;
   }, [nodes]);
+  
   return (
     <Dialog
       open={open}
@@ -516,6 +512,7 @@ const StatsModal = ({ open, onClose, flow, nodes = [], edges = [] }) => {
     </Dialog>
   );
 };
+
 const FlowBuilderList = () => {
   const { user } = useContext(AuthContext);
   const history = useHistory();
@@ -541,6 +538,8 @@ const FlowBuilderList = () => {
     nodes: [],
     edges: []
   });
+  const [searchParam, setSearchParam] = useState("");
+
   const fetchFlows = useCallback(async () => {
     try {
       setLoading(true);
@@ -555,19 +554,24 @@ const FlowBuilderList = () => {
       setLoading(false);
     }
   }, [page]);
+
   useEffect(() => {
     fetchFlows();
   }, [fetchFlows]);
+
   const handleOpenFlow = (id) => {
     history.push(`/flow-builder/${id}`);
   };
+
   const handleCreateFlow = () => {
     setCreateModalOpen(true);
   };
+
   const handleEditFlow = (flow) => {
     setSelectedFlow(flow);
     setEditModalOpen(true);
   };
+
   const handleEditFlowSubmit = async (flowData) => {
     try {
       setLoading(true);
@@ -587,6 +591,7 @@ const FlowBuilderList = () => {
       setLoading(false);
     }
   };
+
   const handleCreateFlowSubmit = async (flowData) => {
     try {
       setLoading(true);
@@ -644,6 +649,7 @@ const FlowBuilderList = () => {
       setCreateModalOpen(false);
     }
   };
+
   const handleDeleteFlow = async (flowId) => {
     try {
       await api.delete(`/flow-builder/${flowId}`);
@@ -654,10 +660,12 @@ const FlowBuilderList = () => {
     }
     setConfirmModalOpen(false);
   };
+
   const handleConfirmDelete = (flow) => {
     setSelectedFlow(flow);
     setConfirmModalOpen(true);
   };
+
   const handleTestFlow = async (flowId) => {
     try {
       await api.post(`/flow-builder/${flowId}/test`);
@@ -666,6 +674,7 @@ const FlowBuilderList = () => {
       toast.error(i18n.t('flowBuilder.list.testError'));
     }
   };
+
   const handlePreviewFlow = async (flowId) => {
     try {
       setLoading(true);
@@ -682,6 +691,7 @@ const FlowBuilderList = () => {
       setLoading(false);
     }
   };
+
   const handleToggleActive = async (flowId, active) => {
     try {
       await api.patch(`/flow-builder/${flowId}/activate`, { active: !active });
@@ -690,6 +700,7 @@ const FlowBuilderList = () => {
       toast.error(i18n.t('flowBuilder.list.toggleError'));
     }
   };
+
   const handleDuplicateFlow = async (flowId) => {
     try {
       setLoading(true);
@@ -741,6 +752,7 @@ const FlowBuilderList = () => {
       setImportLoading(false);
     }
   };
+
   // Nova função para abrir modal de estatísticas
   const handleShowStats = async (flowId) => {
     try {
@@ -762,105 +774,99 @@ const FlowBuilderList = () => {
       setLoading(false);
     }
   };
-  // Renderização condicional para estado vazio
-  const renderEmptyState = () => (
-    <Box sx={{
-      display: 'flex',
-      flexDirection: 'column',
-      alignItems: 'center',
-      justifyContent: 'center',
-      padding: theme.spacing(5),
-      textAlign: 'center'
-    }}>
-      <ContentCopyIcon sx={{
-        fontSize: '4rem',
-        color: theme.palette.text.secondary,
-        marginBottom: theme.spacing(2),
-        opacity: 0.7
-      }} />
-      <Typography variant="h6" gutterBottom color="textSecondary">
-        {i18n.t('flowBuilder.list.noFlows')}
-      </Typography>
-      <Typography variant="body2" color="textSecondary" paragraph>
-        {i18n.t('flowBuilder.list.createFirst')}
-      </Typography>
-      <Button
-        variant="contained"
-        color="primary"
-        startIcon={<AddIcon />}
-        onClick={handleCreateFlow}
-      >
-        {i18n.t('flowBuilder.list.newFlow')}
-      </Button>
-    </Box>
-  );
-  return (
-    <MainContainer>
-      <MainHeader>
-        <Title>{i18n.t('flowBuilder.list.title')}</Title>
-        <MainHeaderButtonsWrapper>
-          <Tooltip title={i18n.t('flowBuilder.list.importFlow')} arrow>
-            <IconButton
-              sx={{ marginRight: theme.spacing(1) }}
-              onClick={() => setImportModalOpen(true)}
-              size={isMobile ? "small" : "medium"}
-            >
-              <CloudUploadIcon sx={{ color: theme.palette.primary.main }}/>
-            </IconButton>
-          </Tooltip>
-          <Tooltip title={i18n.t('flowBuilder.list.newFlow')} arrow>
-            <IconButton
-              onClick={handleCreateFlow}
-              size={isMobile ? "small" : "medium"}
-            >
-              <AddIcon sx={{ color: theme.palette.primary.main }}/>
-            </IconButton>
-          </Tooltip>
-          <Tooltip title={i18n.t('flowBuilder.list.inactivityMonitor')} arrow>
-            <IconButton
-              onClick={handleInactivityMonitor}
-              size={isMobile ? "small" : "medium"}
-            >
-              <InactivityIcon sx={{ color: theme.palette.primary.main }}/>
-            </IconButton>
-          </Tooltip>
-        </MainHeaderButtonsWrapper>
-      </MainHeader>
 
-      <Paper sx={{
-        flex: 1,
-        padding: theme.spacing(1),
-        margin: theme.spacing(1),
-        overflowY: 'auto',
-        borderRadius: theme.shape.borderRadius,
-        boxShadow: '0 2px 10px rgba(0, 0, 0, 0.05)',
-        [theme.breakpoints.down('sm')]: {
-          margin: theme.spacing(1, 0),
-        }
-      }} variant="outlined">
+  const handleSearch = (event) => {
+    setSearchParam(event.target.value.toLowerCase());
+  };
+
+  // Filtrar fluxos baseado na pesquisa
+  const getFilteredFlows = () => {
+    if (!searchParam) return flows;
+    
+    return flows.filter(flow =>
+      flow.name?.toLowerCase().includes(searchParam) ||
+      flow.description?.toLowerCase().includes(searchParam)
+    );
+  };
+
+  const filteredFlows = getFilteredFlows();
+
+  // Configuração das ações do cabeçalho
+  const pageActions = [
+    {
+      label: i18n.t('flowBuilder.list.importFlow'),
+      icon: <CloudUploadIcon />,
+      onClick: () => setImportModalOpen(true),
+      variant: "outlined",
+      color: "primary",
+      tooltip: "Importar fluxo"
+    },
+    {
+      label: i18n.t('flowBuilder.list.newFlow'),
+      icon: <AddIcon />,
+      onClick: handleCreateFlow,
+      variant: "contained",
+      color: "primary",
+      tooltip: "Novo fluxo"
+    },
+    {
+      label: i18n.t('flowBuilder.list.inactivityMonitor'),
+      icon: <InactivityIcon />,
+      onClick: handleInactivityMonitor,
+      variant: "outlined",
+      color: "primary",
+      tooltip: "Monitor de inatividade"
+    }
+  ];
+
+  return (
+    <>
+      <StandardPageLayout
+        title={i18n.t('flowBuilder.list.title')}
+        actions={pageActions}
+        searchValue={searchParam}
+        onSearchChange={handleSearch}
+        searchPlaceholder="Pesquisar fluxos..."
+        showSearch={true}
+        loading={loading}
+      >
         {loading ? (
-          <Box sx={{ p: 2, display: 'flex', justifyContent: 'center' }}>
-            <CircularProgress sx={{ color: theme.palette.primary.main }}/>
+          <Box display="flex" justifyContent="center" p={3}>
+            <CircularProgress />
           </Box>
-        ) : flows.length === 0 ? (
-          renderEmptyState()
+        ) : filteredFlows.length === 0 ? (
+          <Box display="flex" flexDirection="column" alignItems="center" justifyContent="center" p={5}>
+            <ContentCopyIcon sx={{
+              fontSize: '4rem',
+              color: 'text.secondary',
+              marginBottom: 2,
+              opacity: 0.7
+            }} />
+            <Typography variant="h6" gutterBottom color="textSecondary">
+              {searchParam ? "Nenhum fluxo encontrado" : i18n.t('flowBuilder.list.noFlows')}
+            </Typography>
+            <Typography variant="body2" color="textSecondary" paragraph>
+              {searchParam ? "Tente ajustar sua pesquisa" : i18n.t('flowBuilder.list.createFirst')}
+            </Typography>
+            {!searchParam && (
+              <Button
+                variant="contained"
+                color="primary"
+                startIcon={<AddIcon />}
+                onClick={handleCreateFlow}
+              >
+                {i18n.t('flowBuilder.list.newFlow')}
+              </Button>
+            )}
+          </Box>
         ) : (
-          <TableContainer sx={{
-            overflowX: 'auto',
-            '&::-webkit-scrollbar': {
-              height: '6px',
-            },
-            '&::-webkit-scrollbar-thumb': {
-              backgroundColor: theme.palette.divider,
-              borderRadius: '3px',
-            }
-          }}>
-            <Table size={isMobile ? "small" : "medium"}>
+          <TableContainer sx={{ height: '100%', overflow: 'auto' }}>
+            <Table stickyHeader size={isMobile ? "small" : "medium"}>
               <TableHead sx={{
-                backgroundColor: theme.palette.background.default,
+                backgroundColor: 'background.default',
                 '& .MuiTableCell-head': {
                   fontWeight: 'bold',
-                  color: theme.palette.text.secondary,
+                  color: 'text.secondary',
                 }
               }}>
                 <TableRow>
@@ -885,7 +891,7 @@ const FlowBuilderList = () => {
                 </TableRow>
               </TableHead>
               <TableBody>
-                {flows.map((flow) => (
+                {filteredFlows.map((flow) => (
                   <TableRow
                     key={flow.id}
                     hover
@@ -924,7 +930,7 @@ const FlowBuilderList = () => {
                         size="small"
                         checked={flow.active}
                         onChange={() => handleToggleActive(flow.id, flow.active)}
-                        color="theme.palette.primary.main"
+                        color="primary"
                       />
                     </TableCell>
                     {!isMobile && (
@@ -943,8 +949,9 @@ const FlowBuilderList = () => {
                           <IconButton
                             size="small"
                             onClick={() => handleShowStats(flow.id)}
+                            color="primary"
                           >
-                            <InfoIcon fontSize="small" sx={{ color: theme.palette.primary.main }}/>
+                            <InfoIcon fontSize="small" />
                           </IconButton>
                         </Tooltip>
 
@@ -953,8 +960,9 @@ const FlowBuilderList = () => {
                           <IconButton
                             size="small"
                             onClick={() => handleEditFlow(flow)}
+                            color="primary"
                           >
-                            <EditIcon fontSize="small" sx={{ color: theme.palette.primary.main }}/>
+                            <EditIcon fontSize="small" />
                           </IconButton>
                         </Tooltip>
 
@@ -963,8 +971,9 @@ const FlowBuilderList = () => {
                           <IconButton
                             size="small"
                             onClick={() => handleOpenFlow(flow.id)}
+                            color="primary"
                           >
-                            <DesignServicesIcon fontSize="small" sx={{ color: theme.palette.primary.main }}/>
+                            <DesignServicesIcon fontSize="small" />
                           </IconButton>
                         </Tooltip>
 
@@ -974,8 +983,9 @@ const FlowBuilderList = () => {
                             <IconButton
                               size="small"
                               onClick={() => handlePreviewFlow(flow.id)}
+                              color="primary"
                             >
-                              <VisibilityIcon fontSize="small" sx={{ color: theme.palette.primary.main }}/>
+                              <VisibilityIcon fontSize="small" />
                             </IconButton>
                           </Tooltip>
                         )}
@@ -985,8 +995,9 @@ const FlowBuilderList = () => {
                             <IconButton
                               size="small"
                               onClick={() => handleDuplicateFlow(flow.id)}
+                              color="primary"
                             >
-                              <ContentCopyIcon fontSize="small" sx={{ color: theme.palette.primary.main }}/>
+                              <ContentCopyIcon fontSize="small" />
                             </IconButton>
                           </Tooltip>
                         )}
@@ -995,8 +1006,9 @@ const FlowBuilderList = () => {
                           <IconButton
                             size="small"
                             onClick={() => handleConfirmDelete(flow)}
+                            color="error"
                           >
-                            <DeleteIcon fontSize="small" sx={{ color: theme.palette.primary.main }}/>
+                            <DeleteIcon fontSize="small" />
                           </IconButton>
                         </Tooltip>
                       </Box>
@@ -1007,25 +1019,7 @@ const FlowBuilderList = () => {
             </Table>
           </TableContainer>
         )}
-      </Paper>
-
-      {/* FAB para dispositivos móveis */}
-      {isMobile && (
-        <Fab
-          color="primary"
-          aria-label={i18n.t('flowBuilder.list.newFlow')}
-          sx={{
-            position: 'fixed',
-            bottom: theme.spacing(2),
-            right: theme.spacing(2),
-            zIndex: 1000,
-            boxShadow: '0 4px 10px rgba(0, 0, 0, 0.15)',
-          }}
-          onClick={handleCreateFlow}
-        >
-          <AddIcon />
-        </Fab>
-      )}
+      </StandardPageLayout>
 
       <ConfirmationModal
         title={i18n.t('flowBuilder.list.confirmDelete')}
@@ -1155,14 +1149,16 @@ const FlowBuilderList = () => {
         nodes={statsFlowData.nodes}
         edges={statsFlowData.edges}
       />
-    </MainContainer>
+    </>
   );
 };
+
 const CreateFlowModal = ({ open, onClose, onSubmit }) => {
   const [flowName, setFlowName] = useState('');
   const [flowDescription, setFlowDescription] = useState('');
   const [loading, setLoading] = useState(false);
   const theme = useTheme();
+  
   // Limpar campos ao fechar o modal
   useEffect(() => {
     if (!open) {
@@ -1170,6 +1166,7 @@ const CreateFlowModal = ({ open, onClose, onSubmit }) => {
       setFlowDescription('');
     }
   }, [open]);
+  
   const handleSubmit = () => {
     if (!flowName) {
       toast.error(i18n.t('flowBuilder.validation.nameRequired'));
@@ -1183,11 +1180,13 @@ const CreateFlowModal = ({ open, onClose, onSubmit }) => {
       description: flowDescription
     });
   };
+  
   const handleClose = () => {
     setFlowName('');
     setFlowDescription('');
     onClose();
   };
+  
   return (
     <Dialog
       open={open}
@@ -1244,11 +1243,13 @@ const CreateFlowModal = ({ open, onClose, onSubmit }) => {
     </Dialog>
   );
 };
+
 const EditFlowModal = ({ open, onClose, onSubmit, flow }) => {
   const [flowName, setFlowName] = useState('');
   const [flowDescription, setFlowDescription] = useState('');
   const [loading, setLoading] = useState(false);
   const theme = useTheme();
+  
   // Atualizar campos quando o modal abrir ou o fluxo mudar
   useEffect(() => {
     if (open && flow) {
@@ -1256,6 +1257,7 @@ const EditFlowModal = ({ open, onClose, onSubmit, flow }) => {
       setFlowDescription(flow.description || '');
     }
   }, [open, flow]);
+  
   const handleSubmit = () => {
     if (!flowName) {
       toast.error(i18n.t('flowBuilder.validation.nameRequired') || 'Nome é obrigatório');
@@ -1268,9 +1270,11 @@ const EditFlowModal = ({ open, onClose, onSubmit, flow }) => {
       description: flowDescription
     });
   };
+  
   const handleClose = () => {
     onClose();
   };
+  
   return (
     <Dialog
       open={open}
@@ -1333,4 +1337,5 @@ const EditFlowModal = ({ open, onClose, onSubmit, flow }) => {
     </Dialog>
   );
 };
+
 export default FlowBuilderList;
