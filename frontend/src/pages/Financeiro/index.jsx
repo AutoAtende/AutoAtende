@@ -103,18 +103,29 @@ const Financeiro = () => {
 
       const { data } = await api.get("/invoices/list", { params });
 
+      // Verificar diferentes formatos de resposta possíveis
+      let invoicesData = [];
+      
       if (Array.isArray(data)) {
-        setInvoices(data);
+        invoicesData = data;
+      } else if (data && Array.isArray(data.invoices)) {
+        invoicesData = data.invoices;
+      } else if (data && Array.isArray(data.data)) {
+        invoicesData = data.data;
+      } else if (data && Array.isArray(data.records)) {
+        invoicesData = data.records;
       } else {
         console.error("Formato de resposta inválido:", data);
-        setInvoices([]);
+        invoicesData = [];
       }
+
+      setInvoices(invoicesData);
     } catch (err) {
       console.error("Erro ao carregar faturas:", err);
       if (err.response?.status === 403) {
-        toast.error(i18n.t("financial.accessDenied"));
+        toast.error(i18n.t("financial.accessDenied") || "Acesso negado");
       } else {
-        toast.error(i18n.t("financial.errorLoadingInvoices"));
+        toast.error(i18n.t("financial.errorLoadingInvoices") || "Erro ao carregar faturas");
       }
       setInvoices([]);
     } finally {
@@ -127,6 +138,11 @@ const Financeiro = () => {
   };
 
   const filteredInvoices = invoices.filter(invoice => {
+    // Verificar se invoices é realmente um array antes de filtrar
+    if (!Array.isArray(invoices)) {
+      return false;
+    }
+    
     const searchInvoice = 
       invoice.id.toString().includes(searchValue) || 
       (invoice.detail && invoice.detail.toLowerCase().includes(searchValue.toLowerCase())) ||
@@ -136,6 +152,10 @@ const Financeiro = () => {
   });
 
   const handleSelectAll = (event) => {
+    if (!Array.isArray(filteredInvoices)) {
+      return;
+    }
+    
     if (event.target.checked) {
       const selectableInvoices = filteredInvoices
         .filter(invoice => invoice.status !== "paid")
@@ -300,7 +320,7 @@ const Financeiro = () => {
           {new Intl.NumberFormat("pt-BR", {
             style: "currency",
             currency: "BRL",
-          }).format(invoice.value)}
+          }).format(invoice.value || 0)}
         </Typography>
         <Typography
           variant="body2"
@@ -314,13 +334,13 @@ const Financeiro = () => {
       </Box>
       
       <Typography variant="body2" color="text.secondary" gutterBottom>
-        {i18n.t("financial.dueDate")}: {isValidDate(invoice.dueDate)
+        {i18n.t("financial.dueDate") || "Data de Vencimento"}: {isValidDate(invoice.dueDate)
           ? moment(invoice.dueDate, "DD-MM-YYYY").format("DD/MM/YYYY")
-          : i18n.t("financial.noDate")}
+          : (i18n.t("financial.noDate") || "Sem data")}
       </Typography>
       
       <Box sx={{ display: 'flex', gap: 1, mt: 2, justifyContent: 'flex-end' }}>
-        <Tooltip title={i18n.t("financial.viewInvoice")}>
+        <Tooltip title={i18n.t("financial.viewInvoice") || "Ver fatura"}>
           <IconButton 
             onClick={() => handleViewInvoice(invoice)}
             color="primary"
@@ -332,7 +352,7 @@ const Financeiro = () => {
         
         {isAdmin ? (
           <>
-            <Tooltip title={i18n.t("financial.sendEmail")}>
+            <Tooltip title={i18n.t("financial.sendEmail") || "Enviar email"}>
               <IconButton
                 onClick={() => handleSendEmail(invoice)}
                 color="primary"
@@ -341,7 +361,7 @@ const Financeiro = () => {
                 <EmailIcon />
               </IconButton>
             </Tooltip>
-            <Tooltip title={i18n.t("financial.sendWhatsapp")}>
+            <Tooltip title={i18n.t("financial.sendWhatsapp") || "Enviar WhatsApp"}>
               <IconButton
                 onClick={() => handleSendWhatsapp(invoice)}
                 color="primary"
@@ -350,7 +370,7 @@ const Financeiro = () => {
                 <WhatsAppIcon />
               </IconButton>
             </Tooltip>
-            <Tooltip title={i18n.t("financial.deleteInvoice")}>
+            <Tooltip title={i18n.t("financial.deleteInvoice") || "Excluir fatura"}>
               <IconButton
                 onClick={() => handleDeleteClick(invoice)}
                 color="error"
@@ -367,7 +387,7 @@ const Financeiro = () => {
             onClick={() => handlePayment(invoice)}
             color="primary"
           >
-            {i18n.t("financial.pay")}
+            {i18n.t("financial.pay") || "Pagar"}
           </Button>
         )}
       </Box>
@@ -379,7 +399,7 @@ const Financeiro = () => {
     if (isAdmin) {
       return (
         <Box sx={{ display: 'flex', gap: 1 }}>
-          <Tooltip title={i18n.t("financial.viewInvoice")}>
+          <Tooltip title={i18n.t("financial.viewInvoice") || "Ver fatura"}>
             <IconButton
               size="small"
               onClick={() => handleViewInvoice(invoice)}
@@ -389,7 +409,7 @@ const Financeiro = () => {
             </IconButton>
           </Tooltip>
 
-          <Tooltip title={i18n.t("financial.sendEmail")}>
+          <Tooltip title={i18n.t("financial.sendEmail") || "Enviar email"}>
             <IconButton
               size="small"
               onClick={() => handleSendEmail(invoice)}
@@ -399,7 +419,7 @@ const Financeiro = () => {
             </IconButton>
           </Tooltip>
 
-          <Tooltip title={i18n.t("financial.sendWhatsapp")}>
+          <Tooltip title={i18n.t("financial.sendWhatsapp") || "Enviar WhatsApp"}>
             <IconButton
               size="small"
               onClick={() => handleSendWhatsapp(invoice)}
@@ -409,7 +429,7 @@ const Financeiro = () => {
             </IconButton>
           </Tooltip>
 
-          <Tooltip title={i18n.t("financial.deleteInvoice")}>
+          <Tooltip title={i18n.t("financial.deleteInvoice") || "Excluir fatura"}>
             <IconButton
               size="small"
               onClick={() => handleDeleteClick(invoice)}
@@ -423,7 +443,7 @@ const Financeiro = () => {
     } else {
       return (
         <Box sx={{ display: 'flex', gap: 1 }}>
-          <Tooltip title={i18n.t("financial.viewInvoice")}>
+          <Tooltip title={i18n.t("financial.viewInvoice") || "Ver fatura"}>
             <IconButton
               size="small"
               onClick={() => handleViewInvoice(invoice)}
@@ -439,7 +459,7 @@ const Financeiro = () => {
               size="small"
               onClick={() => handlePayment(invoice)}
             >
-              {i18n.t("financial.pay")}
+              {i18n.t("financial.pay") || "Pagar"}
             </Button>
           )}
         </Box>
@@ -474,7 +494,7 @@ const Financeiro = () => {
     if (isMobile) {
       return (
         <Box sx={{ p: 2 }}>
-          {filteredInvoices.map(invoice => renderMobileCard(invoice))}
+          {Array.isArray(filteredInvoices) && filteredInvoices.map(invoice => renderMobileCard(invoice))}
         </Box>
       );
     }
@@ -489,10 +509,11 @@ const Financeiro = () => {
                   <Checkbox
                     indeterminate={
                       selectedInvoices.length > 0 && 
-                      selectedInvoices.length < filteredInvoices.filter(inv => inv.status !== "paid").length
+                      selectedInvoices.length < (Array.isArray(filteredInvoices) ? filteredInvoices.filter(inv => inv.status !== "paid").length : 0)
                     }
                     checked={
                       selectedInvoices.length > 0 && 
+                      Array.isArray(filteredInvoices) &&
                       selectedInvoices.length === filteredInvoices.filter(inv => inv.status !== "paid").length &&
                       filteredInvoices.filter(inv => inv.status !== "paid").length > 0
                     }
@@ -501,16 +522,16 @@ const Financeiro = () => {
                   />
                 </TableCell>
               )}
-              <TableCell>{i18n.t("financial.id")}</TableCell>
-              {isAdmin && <TableCell>{i18n.t("financial.company")}</TableCell>}
-              <TableCell>{i18n.t("financial.value")}</TableCell>
-              <TableCell>{i18n.t("financial.dueDate")}</TableCell>
-              <TableCell>{i18n.t("financial.status.tableHeader")}</TableCell>
-              <TableCell align="center">{i18n.t("financial.actions")}</TableCell>
+              <TableCell>{i18n.t("financial.id") || "ID"}</TableCell>
+              {isAdmin && <TableCell>{i18n.t("financial.company") || "Empresa"}</TableCell>}
+              <TableCell>{i18n.t("financial.value") || "Valor"}</TableCell>
+              <TableCell>{i18n.t("financial.dueDate") || "Vencimento"}</TableCell>
+              <TableCell>{i18n.t("financial.status.tableHeader") || "Status"}</TableCell>
+              <TableCell align="center">{i18n.t("financial.actions") || "Ações"}</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
-            {filteredInvoices.map((invoice) => (
+            {Array.isArray(filteredInvoices) && filteredInvoices.map((invoice) => (
               <TableRow key={invoice.id} hover>
                 {isAdmin && (
                   <TableCell padding="checkbox">
@@ -529,12 +550,12 @@ const Financeiro = () => {
                   {new Intl.NumberFormat("pt-BR", {
                     style: "currency",
                     currency: "BRL",
-                  }).format(invoice.value)}
+                  }).format(invoice.value || 0)}
                 </TableCell>
                 <TableCell>
                   {isValidDate(invoice.dueDate)
                     ? moment(invoice.dueDate, "DD-MM-YYYY").format("DD/MM/YYYY")
-                    : i18n.t("financial.noDate")}
+                    : (i18n.t("financial.noDate") || "Sem data")}
                 </TableCell>
                 <TableCell>
                   <Typography

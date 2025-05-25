@@ -4,9 +4,6 @@ import { styled } from '@mui/material/styles';
 import { 
   TextField,
   Box,
-  Paper,
-  Tabs,
-  Tab,
   CircularProgress,
   useTheme,
   useMediaQuery,
@@ -23,18 +20,20 @@ import {
   Business as BusinessIcon,
   AssignmentTurnedIn as AssignmentIcon,
   Close as CloseIcon,
-  Visibility as VisibilityIcon
+  Edit as EditIcon,
+  Add as AddIcon,
+  CloudUpload as CloudUploadIcon
 } from '@mui/icons-material';
-import MainContainer from '../../components/MainContainer';
-import Title from '../../components/Title';
-import api from '../../services/api';
-import BaseModal from '../../components/shared/BaseModal';
-import EmptyState from '../../components/EmptyState';
+
+import StandardPageLayout from '../../components/StandardPageLayout';
+import ConfirmationModal from '../../components/ConfirmationModal';
 import EmployerList from './components/EmployerList';
 import EmployerReport from './components/EmployerReport';
 import NewEmployerModal from '../../components/NewEmployerModal';
+import api from '../../services/api';
 import { AuthContext } from '../../context/Auth/AuthContext';
 import { i18n } from "../../translate/i18n";
+import { format } from 'date-fns';
 
 // Styled component para o container de rolagem
 const ScrollableContainer = styled(Box)(({ theme }) => ({
@@ -65,10 +64,8 @@ const EmployerManagement = () => {
   const [employers, setEmployers] = useState([]);
   const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
-  const [modalOpen, setModalOpen] = useState(false);
   const [selectedEmployer, setSelectedEmployer] = useState(null);
   const [confirmModalOpen, setConfirmModalOpen] = useState(false);
-  const [name, setName] = useState('');
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [totalCount, setTotalCount] = useState(0);
@@ -291,7 +288,8 @@ const EmployerManagement = () => {
     }
   };
 
-  const handleSearch = (value) => {
+  const handleSearch = (event) => {
+    const value = event.target.value;
     setSearchTerm(value);
     setPage(0); // Resetar para a primeira página ao pesquisar
   };
@@ -308,13 +306,23 @@ const EmployerManagement = () => {
     if (currentTab === 0) {
       if (employers.length === 0 && !searchTerm) {
         return (
-          <EmptyState
-            type="employers"
-            onCreateNew={() => handleOpenModal()}
-            title={i18n.t("employerManagement.emptyState.title")}
-            message={i18n.t("employerManagement.emptyState.message")}
-            buttonText={i18n.t("employerManagement.buttons.add")}
-          />
+          <Box display="flex" flexDirection="column" alignItems="center" justifyContent="center" p={5}>
+            <BusinessIcon sx={{ fontSize: 40, color: 'text.secondary', mb: 2 }} />
+            <Typography variant="h6" color="textSecondary" gutterBottom>
+              {i18n.t("employerManagement.emptyState.title")}
+            </Typography>
+            <Typography variant="body2" color="textSecondary" paragraph>
+              {i18n.t("employerManagement.emptyState.message")}
+            </Typography>
+            <Button
+              variant="contained"
+              color="primary"
+              startIcon={<AddIcon />}
+              onClick={() => handleOpenModal()}
+            >
+              {i18n.t("employerManagement.buttons.add")}
+            </Button>
+          </Box>
         );
       }
 
@@ -324,17 +332,20 @@ const EmployerManagement = () => {
             employers={employers}
             loading={loading && page === 0}
             statistics={statistics}
-            page={0} // A paginação tradicional não é mais usada, mas mantemos para compatibilidade
+            page={0}
             rowsPerPage={rowsPerPage}
             totalCount={totalCount}
-            onPageChange={() => {}} // Não usado com rolagem infinita
+            onPageChange={() => {}}
             onRowsPerPageChange={(e) => {
               setRowsPerPage(parseInt(e.target.value, 10));
-              setPage(0); // Resetar para a primeira página quando mudar o número de itens por página
+              setPage(0);
             }}
-            onSearch={handleSearch}
+            onSearch={(value) => {
+              setSearchTerm(value);
+              setPage(0);
+            }}
             onRefresh={() => {
-              setPage(0); // Resetar para a primeira página ao atualizar
+              setPage(0);
               fetchEmployers();
             }}
             onImport={handleFileImport}
@@ -358,35 +369,67 @@ const EmployerManagement = () => {
     return <EmployerReport employers={employers} />;
   };
 
+  // Configuração das ações do cabeçalho
+  const pageActions = [
+    {
+      label: i18n.t("employerManagement.buttons.import"),
+      icon: uploading ? <CircularProgress size={20} /> : <CloudUploadIcon />,
+      onClick: () => document.getElementById('import-file-input').click(),
+      variant: "outlined",
+      color: "primary",
+      disabled: uploading,
+      tooltip: "Importar empresas via arquivo CSV/Excel"
+    },
+    {
+      label: i18n.t("employerManagement.buttons.add"),
+      icon: <AddIcon />,
+      onClick: () => handleOpenModal(),
+      variant: "contained",
+      color: "primary",
+      tooltip: "Adicionar nova empresa"
+    }
+  ];
+
+  // Configuração das abas
+  const tabs = [
+    {
+      label: i18n.t("employerManagement.tabs.employers"),
+      icon: <BusinessIcon />
+    },
+    {
+      label: i18n.t("employerManagement.tabs.report"),
+      icon: <AssignmentIcon />
+    }
+  ];
+
   return (
-    <MainContainer>
-      <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
-        <Title>{i18n.t("employerManagement.title")}</Title>
-      </Box>
+    <>
+      <StandardPageLayout
+        title={i18n.t("employerManagement.title")}
+        actions={pageActions}
+        searchValue={searchTerm}
+        onSearchChange={handleSearch}
+        searchPlaceholder="Pesquisar empresas..."
+        showSearch={true}
+        tabs={tabs}
+        activeTab={currentTab}
+        onTabChange={(e, newValue) => {
+          setCurrentTab(newValue);
+          setPage(0);
+        }}
+        loading={loading && page === 0}
+      >
+        {renderContent()}
+      </StandardPageLayout>
 
-      <Paper sx={{ mb: 2 }}>
-        <Tabs
-          value={currentTab}
-          onChange={(e, newValue) => {
-            setCurrentTab(newValue);
-            setPage(0); // Resetar para a primeira página ao trocar de aba
-          }}
-          variant={isMobile ? "fullWidth" : "standard"}
-        >
-          <Tab 
-            label={i18n.t("employerManagement.tabs.employers")} 
-            icon={<BusinessIcon />} 
-            iconPosition="start"
-          />
-          <Tab 
-            label={i18n.t("employerManagement.tabs.report")} 
-            icon={<AssignmentIcon />} 
-            iconPosition="start"
-          />
-        </Tabs>
-      </Paper>
-
-      {renderContent()}
+      {/* Input oculto para importação de arquivos */}
+      <input
+        id="import-file-input"
+        type="file"
+        accept=".csv,.xls,.xlsx"
+        style={{ display: 'none' }}
+        onChange={handleFileImport}
+      />
 
       {/* Modal de Criação/Edição */}
       <NewEmployerModal
@@ -402,6 +445,12 @@ const EmployerManagement = () => {
         onClose={() => setViewModalOpen(false)}
         maxWidth="md"
         fullWidth
+        PaperProps={{
+          sx: {
+            borderRadius: 2,
+            boxShadow: '0 8px 24px rgba(0, 0, 0, 0.1)'
+          }
+        }}
       >
         <DialogTitle>
           <Box display="flex" alignItems="center" justifyContent="space-between">
@@ -491,32 +540,22 @@ const EmployerManagement = () => {
       </Dialog>
 
       {/* Modal de Confirmação de Exclusão */}
-      <BaseModal
-        open={confirmModalOpen}
-        onClose={() => setConfirmModalOpen(false)}
-        title={i18n.t("employerManagement.deleteConfirm.title")}
-        loading={loading}
-        actions={[
-          {
-            label: i18n.t("employerManagement.buttons.cancel"),
-            onClick: () => setConfirmModalOpen(false),
-            color: 'inherit',
-            disabled: loading
-          },
-          {
-            label: i18n.t("employerManagement.buttons.confirm"),
-            onClick: () => handleDelete(selectedEmployer?.id),
-            variant: 'contained',
-            color: 'error',
-            disabled: loading
-          }
-        ]}
-      >
-        <Box>
-          {i18n.t("employerManagement.deleteConfirm.message")}
-        </Box>
-      </BaseModal>
-    </MainContainer>
+      {confirmModalOpen && (
+        <ConfirmationModal
+          title={i18n.t("employerManagement.deleteConfirm.title")}
+          open={confirmModalOpen}
+          onClose={() => setConfirmModalOpen(false)}
+          onConfirm={() => handleDelete(selectedEmployer?.id)}
+        >
+          <Typography>
+            {i18n.t("employerManagement.deleteConfirm.message")}
+          </Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+            Empresa: {selectedEmployer?.name}
+          </Typography>
+        </ConfirmationModal>
+      )}
+    </>
   );
 };
 

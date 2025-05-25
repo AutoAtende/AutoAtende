@@ -2,7 +2,6 @@ import React, { useState, useEffect, useCallback, useContext } from 'react';
 import { useHistory } from 'react-router-dom';
 import {
   Box,
-  Paper,
   Table,
   TableContainer,
   TableHead,
@@ -12,40 +11,36 @@ import {
   Button,
   Switch,
   FormControlLabel,
-  TextField,
-  InputAdornment,
   Chip,
   IconButton,
   Tooltip,
   Typography,
   CircularProgress,
-  Container,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  Pagination,
   MenuItem,
   Select,
-  FormControl
+  FormControl,
+  FormLabel
 } from '@mui/material';
 import {
   Add as AddIcon,
   Edit as EditIcon,
   Delete as DeleteIcon,
-  Search as SearchIcon,
   QrCode as QrCodeIcon,
   ContentCopy as ContentCopyIcon,
-  FilterList as FilterListIcon
+  ViewList as ViewListIcon,
+  ViewModule as ViewModuleIcon
 } from '@mui/icons-material';
+
+import StandardPageLayout from '../../components/StandardPageLayout';
+import ConfirmationModal from '../../components/ConfirmationModal';
+import QRCodeDialog from '../../components/QrCodeDialog';
 import { toast } from "../../helpers/toast";
 import { AuthContext } from '../../context/Auth/AuthContext';
 import api from '../../services/api';
-import QRCodeDialog from '../../components/QrCodeDialog';
 
 const LandingPagesList = () => {
   const { user } = useContext(AuthContext);
-  const history = useHistory(); // Hook para navegação programática
+  const history = useHistory();
   const companyId = localStorage.getItem("companyId") ? localStorage.getItem("companyId") : user?.companyId;
   
   // Estados
@@ -62,12 +57,9 @@ const LandingPagesList = () => {
   const [selectedPage, setSelectedPage] = useState(null);
   const [viewMode, setViewMode] = useState(localStorage.getItem('landingPagesViewMode') || 'list');
   
-  // Função para criar nova landing page (navegação programática em vez de Link)
+  // Função para criar nova landing page
   const handleCreateNewPage = () => {    
-    // Armazenar um valor no localStorage para indicar que é uma nova página
     localStorage.setItem("landingPageNew", "true");
-    
-    // Navegação direta para o editor
     history.push('/landing-pages/edit/new');
   };
   
@@ -106,7 +98,7 @@ const LandingPagesList = () => {
   
   // Alterações na paginação
   const handleChangePage = (event, newPage) => {
-    setPage(newPage - 1); // Ajuste porque o componente de paginação começa em 1
+    setPage(newPage - 1);
   };
   
   const handleChangeRowsPerPage = (event) => {
@@ -177,237 +169,243 @@ const LandingPagesList = () => {
     }
   };
   
-  // Função para alternar entre modo de exibição (lista ou grade)
+  // Função para alternar entre modo de exibição
   const handleToggleViewMode = () => {
     const newMode = viewMode === 'list' ? 'grid' : 'list';
     setViewMode(newMode);
     localStorage.setItem('landingPagesViewMode', newMode);
   };
-  
-  // Renderizar conteúdo da página vazia
-  const renderEmptyState = () => (
-    <Box display="flex" flexDirection="column" alignItems="center" justifyContent="center" py={8}>
-      <QrCodeIcon sx={{ fontSize: 64, color: 'primary.main', mb: 2 }} />
-      <Typography variant="h5" gutterBottom>
-        Nenhuma landing page encontrada
-      </Typography>
-      <Typography variant="body1" color="textSecondary" sx={{ mb: 3 }}>
-        Crie sua primeira landing page para divulgar seu negócio ou coletar leads.
-      </Typography>
-      <Button
-        variant="contained"
-        color="primary"
-        startIcon={<AddIcon />}
-        onClick={handleCreateNewPage}
-      >
-        Criar nova Landing-Page
-      </Button>
+
+  const handleSearch = (event) => {
+    setSearch(event.target.value);
+    setPage(0); // Reset para primeira página ao pesquisar
+  };
+
+  // Filtros para o cabeçalho
+  const renderFilters = () => (
+    <Box display="flex" alignItems="center" gap={2}>
+      <FormControl size="small">
+        <FormLabel component="legend" sx={{ fontSize: '0.75rem', mb: 0.5 }}>
+          Status
+        </FormLabel>
+        <Select
+          value={filterActive === null ? 'all' : filterActive.toString()}
+          onChange={(e) => {
+            const value = e.target.value;
+            if (value === 'all') {
+              setFilterActive(null);
+            } else {
+              setFilterActive(value === 'true');
+            }
+            setPage(0);
+          }}
+          size="small"
+          sx={{ minWidth: 120 }}
+        >
+          <MenuItem value="all">Todas</MenuItem>
+          <MenuItem value="true">Ativas</MenuItem>
+          <MenuItem value="false">Inativas</MenuItem>
+        </Select>
+      </FormControl>
+
+      <Tooltip title={viewMode === 'list' ? 'Visualizar em grade' : 'Visualizar em lista'}>
+        <IconButton onClick={handleToggleViewMode} color="primary">
+          {viewMode === 'list' ? <ViewModuleIcon /> : <ViewListIcon />}
+        </IconButton>
+      </Tooltip>
     </Box>
   );
-
-  return (
-    <Container maxWidth="xl" sx={{ mt: 3 }}>
-      <Box sx={{ mb: 3 }}>
-        <Typography variant="h4" component="h1" gutterBottom>
-          Landing Pages
-        </Typography>
-        
-        <Box display="flex" justifyContent="space-between" alignItems="center" sx={{ mb: 2 }}>
-          <TextField
-            placeholder="Buscar landing pages..."
-            variant="outlined"
-            size="small"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            InputProps={{
-              startAdornment: (
-                <InputAdornment position="start">
-                  <SearchIcon />
-                </InputAdornment>
-              )
-            }}
-            sx={{ width: '300px' }}
-          />
-          
-          <Box display="flex" alignItems="center" gap={2}>
-            <FormControlLabel
-              control={
-                <Switch
-                  checked={filterActive === true}
-                  onChange={(e) => {
-                    if (e.target.checked) {
-                      setFilterActive(true);
-                    } else if (filterActive === true) {
-                      setFilterActive(null);
-                    } else {
-                      setFilterActive(false);
-                    }
-                    setPage(0);
-                  }}
-                  color="primary"
-                />
-              }
-              label="Somente ativas"
-            />
-            
-            <Tooltip title={viewMode === 'list' ? 'Visualizar em grade' : 'Visualizar em lista'}>
-              <IconButton onClick={handleToggleViewMode} color="primary">
-                <FilterListIcon />
-              </IconButton>
-            </Tooltip>
-            
-            {/* Botão para criar nova Landing Page */}
-            <Tooltip title="Nova Landing Page">
-              <Button
-                variant="contained"
-                color="primary"
-                startIcon={<AddIcon />}
-                onClick={handleCreateNewPage}
-                sx={{ minWidth: 'auto' }}
-              >
-                Nova
-              </Button>
-            </Tooltip>
-          </Box>
-        </Box>
-      </Box>
-      
-      {loading ? (
+  
+  // Renderizar conteúdo principal
+  const renderContent = () => {
+    if (loading) {
+      return (
         <Box display="flex" justifyContent="center" py={4}>
           <CircularProgress />
         </Box>
-      ) : landingPages.length === 0 ? (
-        renderEmptyState()
-      ) : (
-        <Paper sx={{ width: '100%', overflow: 'hidden' }}>
-          <TableContainer>
-            <Table>
-              <TableHead>
-                <TableRow>
-                  <TableCell>Título</TableCell>
-                  <TableCell>URL</TableCell>
-                  <TableCell align="center">Status</TableCell>
-                  <TableCell align="center">QR Code</TableCell>
-                  <TableCell align="center">Ações</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {landingPages.map((page) => (
-                  <TableRow key={page.id} hover>
-                    <TableCell>
-                      <Typography variant="body1" fontWeight={500}>
-                        {page.title}
-                      </Typography>
-                    </TableCell>
-                    <TableCell>
-                      <Box display="flex" alignItems="center">
-                        <Typography variant="body2" sx={{ mr: 1 }}>
-                          /{companyId}/{page.slug}
-                        </Typography>
-                        <Tooltip title="Copiar URL">
-                          <IconButton
-                            size="small"
-                            onClick={() => handleCopyUrl(page.slug)}
-                          >
-                            <ContentCopyIcon fontSize="small" />
-                          </IconButton>
-                        </Tooltip>
-                      </Box>
-                    </TableCell>
-                    <TableCell align="center">
-                      <Tooltip title={page.active ? "Clique para desativar" : "Clique para ativar"}>
-                        <Chip 
-                          label={page.active ? "Ativa" : "Inativa"}
-                          size="small"
-                          color={page.active ? "success" : "default"}
-                          variant={page.active ? "filled" : "outlined"}
-                          onClick={() => handleToggleActive(page.id, page.active)}
-                          sx={{ minWidth: '70px' }}
-                        />
-                      </Tooltip>
-                    </TableCell>
-                    <TableCell align="center">
-                      <Tooltip title="Ver QR Code">
-                        <IconButton
-                          color="primary"
-                          onClick={() => handleOpenQRCodeDialog(page)}
-                        >
-                          <QrCodeIcon />
-                        </IconButton>
-                      </Tooltip>
-                    </TableCell>
-                    <TableCell align="center">
-                      <Box display="flex" justifyContent="center" gap={1}>
-                        <Tooltip title="Editar">
-                          <IconButton
-                            color="primary"
-                            onClick={() => history.push(`/landing-pages/edit/${page.id}`)}
-                          >
-                            <EditIcon />
-                          </IconButton>
-                        </Tooltip>
-                        <Tooltip title="Excluir">
-                          <IconButton
-                            color="error"
-                            onClick={() => handleOpenDeleteDialog(page.id)}
-                          >
-                            <DeleteIcon />
-                          </IconButton>
-                        </Tooltip>
-                      </Box>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </TableContainer>
-          
-          <Box display="flex" justifyContent="space-between" alignItems="center" p={2}>
-            <Box display="flex" alignItems="center">
-              <Typography variant="body2" color="textSecondary" sx={{ mr: 2 }}>
-                Itens por página:
-              </Typography>
-              <FormControl variant="outlined" size="small">
-                <Select
-                  value={rowsPerPage}
-                  onChange={handleChangeRowsPerPage}
-                >
-                  <MenuItem value={10}>10</MenuItem>
-                  <MenuItem value={25}>25</MenuItem>
-                  <MenuItem value={50}>50</MenuItem>
-                </Select>
-              </FormControl>
-            </Box>
-            
-            <Pagination
-              count={Math.ceil(totalPages / rowsPerPage)}
-              page={page + 1}
-              onChange={handleChangePage}
+      );
+    }
+
+    if (landingPages.length === 0) {
+      return (
+        <Box display="flex" flexDirection="column" alignItems="center" justifyContent="center" py={8}>
+          <QrCodeIcon sx={{ fontSize: 64, color: 'primary.main', mb: 2 }} />
+          <Typography variant="h6" gutterBottom color="textSecondary">
+            {search ? "Nenhuma landing page encontrada" : "Nenhuma landing page criada"}
+          </Typography>
+          <Typography variant="body2" color="textSecondary" sx={{ mb: 3 }}>
+            {search 
+              ? "Tente ajustar sua pesquisa" 
+              : "Crie sua primeira landing page para divulgar seu negócio ou coletar leads."
+            }
+          </Typography>
+          {!search && (
+            <Button
+              variant="contained"
               color="primary"
-            />
+              startIcon={<AddIcon />}
+              onClick={handleCreateNewPage}
+            >
+              Criar nova Landing Page
+            </Button>
+          )}
+        </Box>
+      );
+    }
+
+    return (
+      <TableContainer sx={{ height: '100%', overflow: 'auto' }}>
+        <Table stickyHeader>
+          <TableHead>
+            <TableRow>
+              <TableCell>Título</TableCell>
+              <TableCell>URL</TableCell>
+              <TableCell align="center">Status</TableCell>
+              <TableCell align="center">QR Code</TableCell>
+              <TableCell align="center">Ações</TableCell>
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {landingPages.map((page) => (
+              <TableRow key={page.id} hover>
+                <TableCell>
+                  <Typography variant="body1" fontWeight={500}>
+                    {page.title}
+                  </Typography>
+                </TableCell>
+                <TableCell>
+                  <Box display="flex" alignItems="center">
+                    <Typography variant="body2" sx={{ mr: 1 }}>
+                      /{companyId}/{page.slug}
+                    </Typography>
+                    <Tooltip title="Copiar URL">
+                      <IconButton
+                        size="small"
+                        onClick={() => handleCopyUrl(page.slug)}
+                        color="primary"
+                      >
+                        <ContentCopyIcon fontSize="small" />
+                      </IconButton>
+                    </Tooltip>
+                  </Box>
+                </TableCell>
+                <TableCell align="center">
+                  <Tooltip title={page.active ? "Clique para desativar" : "Clique para ativar"}>
+                    <Chip 
+                      label={page.active ? "Ativa" : "Inativa"}
+                      size="small"
+                      color={page.active ? "success" : "default"}
+                      variant={page.active ? "filled" : "outlined"}
+                      onClick={() => handleToggleActive(page.id, page.active)}
+                      sx={{ minWidth: '70px', cursor: 'pointer' }}
+                    />
+                  </Tooltip>
+                </TableCell>
+                <TableCell align="center">
+                  <Tooltip title="Ver QR Code">
+                    <IconButton
+                      color="primary"
+                      onClick={() => handleOpenQRCodeDialog(page)}
+                    >
+                      <QrCodeIcon />
+                    </IconButton>
+                  </Tooltip>
+                </TableCell>
+                <TableCell align="center">
+                  <Box display="flex" justifyContent="center" gap={1}>
+                    <Tooltip title="Editar">
+                      <IconButton
+                        color="primary"
+                        onClick={() => history.push(`/landing-pages/edit/${page.id}`)}
+                      >
+                        <EditIcon />
+                      </IconButton>
+                    </Tooltip>
+                    <Tooltip title="Excluir">
+                      <IconButton
+                        color="error"
+                        onClick={() => handleOpenDeleteDialog(page.id)}
+                      >
+                        <DeleteIcon />
+                      </IconButton>
+                    </Tooltip>
+                  </Box>
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+        
+        {/* Paginação */}
+        <Box display="flex" justifyContent="space-between" alignItems="center" p={2} sx={{ borderTop: 1, borderColor: 'divider' }}>
+          <Box display="flex" alignItems="center">
+            <Typography variant="body2" color="textSecondary" sx={{ mr: 2 }}>
+              Itens por página:
+            </Typography>
+            <FormControl variant="outlined" size="small">
+              <Select
+                value={rowsPerPage}
+                onChange={handleChangeRowsPerPage}
+              >
+                <MenuItem value={10}>10</MenuItem>
+                <MenuItem value={25}>25</MenuItem>
+                <MenuItem value={50}>50</MenuItem>
+              </Select>
+            </FormControl>
           </Box>
-        </Paper>
-      )}
+          
+          <Typography variant="body2" color="textSecondary">
+            {landingPages.length} de {totalPages} landing pages
+          </Typography>
+        </Box>
+      </TableContainer>
+    );
+  };
+
+  // Configuração das ações do cabeçalho
+  const pageActions = [
+    {
+      label: "Nova Landing Page",
+      icon: <AddIcon />,
+      onClick: handleCreateNewPage,
+      variant: "contained",
+      color: "primary",
+      tooltip: "Criar nova landing page"
+    }
+  ];
+
+  return (
+    <>
+      <StandardPageLayout
+        title="Landing Pages"
+        actions={pageActions}
+        searchValue={search}
+        onSearchChange={handleSearch}
+        searchPlaceholder="Buscar landing pages..."
+        showSearch={true}
+        loading={loading}
+      >
+        {/* Filtros adicionais */}
+        <Box sx={{ mb: 2, display: 'flex', justifyContent: 'flex-end' }}>
+          {renderFilters()}
+        </Box>
+
+        {renderContent()}
+      </StandardPageLayout>
       
-      {/* Diálogo de confirmação de exclusão */}
-      <Dialog open={deleteDialogOpen} onClose={handleCloseDeleteDialog}>
-        <DialogTitle>Excluir Landing Page</DialogTitle>
-        <DialogContent>
+      {/* Modal de confirmação de exclusão */}
+      {deleteDialogOpen && (
+        <ConfirmationModal
+          title="Excluir Landing Page"
+          open={deleteDialogOpen}
+          onClose={handleCloseDeleteDialog}
+          onConfirm={handleDelete}
+        >
           <Typography>
             Tem certeza que deseja excluir esta landing page? Esta ação não pode ser desfeita.
           </Typography>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={handleCloseDeleteDialog}>Cancelar</Button>
-          <Button 
-            onClick={handleDelete} 
-            color="error" 
-            variant="contained"
-          >
-            Excluir
-          </Button>
-        </DialogActions>
-      </Dialog>
+        </ConfirmationModal>
+      )}
       
       {/* Diálogo de QR Code */}
       <QRCodeDialog
@@ -415,7 +413,7 @@ const LandingPagesList = () => {
         landingPage={selectedPage}
         onClose={handleCloseQRCodeDialog}
       />
-    </Container>
+    </>
   );
 };
 

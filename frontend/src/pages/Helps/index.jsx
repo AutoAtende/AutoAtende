@@ -3,8 +3,6 @@ import {
   Paper, 
   Typography, 
   Modal, 
-  Tabs,
-  Tab,
   Box,
   CircularProgress,
   IconButton,
@@ -15,14 +13,15 @@ import {
   Grid
 } from "@mui/material";
 import { styled } from "@mui/material/styles";
-import CloseIcon from "@mui/icons-material/Close";
-import MainContainer from "../../components/MainContainer";
-import MainHeader from "../../components/MainHeader";
-import MainHeaderButtonsWrapper from "../../components/MainHeaderButtonsWrapper";
-import Title from "../../components/Title";
+import { 
+  Close as CloseIcon,
+  VideoLibrary as VideoLibraryIcon,
+  Api as ApiIcon
+} from "@mui/icons-material";
+
+import StandardPageLayout from "../../components/StandardPageLayout";
 import { i18n } from "../../translate/i18n";
 import useHelps from "../../hooks/useHelps";
-import EmptyState from "../../components/EmptyState";
 import SwaggerUIBundle from "swagger-ui-dist/swagger-ui-bundle";
 import "swagger-ui-dist/swagger-ui.css";
 import apiSpec from './apiSpec.json';
@@ -137,16 +136,6 @@ const StyledCloseButton = styled(IconButton)(({ theme }) => ({
   },
 }));
 
-const StyledTabsContainer = styled(Paper)(({ theme }) => ({
-  marginBottom: theme.spacing(2),
-  position: 'sticky',
-  top: 0,
-  zIndex: 1,
-  [theme.breakpoints.down('sm')]: {
-    marginBottom: theme.spacing(1),
-  }
-}));
-
 const StyledSwaggerContainer = styled(Box)(({ theme }) => ({
   height: 'calc(100vh - 280px)',
   overflow: 'auto',
@@ -191,24 +180,6 @@ const StyledLoadingContainer = styled(Box)(({ theme }) => ({
   padding: theme.spacing(4),
   height: '200px',
 }));
-
-function TabPanel(props) {
-  const { children, value, index, ...other } = props;
-
-  return (
-    <div
-      role="tabpanel"
-      hidden={value !== index}
-      id={`help-tabpanel-${index}`}
-      aria-labelledby={`help-tab-${index}`}
-      {...other}
-    >
-      {value === index && (
-        <Box>{children}</Box>
-      )}
-    </div>
-  );
-}
 
 const SwaggerUIComponent = () => {
   const swaggerRef = useRef(null);
@@ -276,6 +247,7 @@ const Helps = () => {
   const [selectedVideo, setSelectedVideo] = useState(null);
   const [tabValue, setTabValue] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
+  const [searchTerm, setSearchTerm] = useState('');
   const fetchedRef = useRef(false);
   
   // Função principal de carregamento de dados que só será executada uma vez
@@ -310,6 +282,10 @@ const Helps = () => {
     setTabValue(newValue);
   };
 
+  const handleSearch = (event) => {
+    setSearchTerm(event.target.value.toLowerCase());
+  };
+
   const openVideoModal = (video) => {
     setSelectedVideo(video);
   };
@@ -330,6 +306,18 @@ const Helps = () => {
       document.removeEventListener("keydown", handleModalClose);
     };
   }, [handleModalClose]);
+
+  // Filtrar registros baseado na pesquisa
+  const getFilteredRecords = () => {
+    if (!searchTerm) return records;
+    
+    return records.filter(record =>
+      record.title?.toLowerCase().includes(searchTerm) ||
+      record.description?.toLowerCase().includes(searchTerm)
+    );
+  };
+
+  const filteredRecords = getFilteredRecords();
 
   const renderVideoModal = () => {
     return (
@@ -385,19 +373,24 @@ const Helps = () => {
       );
     }
 
-    if (!records || !records.length) {
+    if (!filteredRecords || !filteredRecords.length) {
       return (
-        <EmptyState
-          type="helps"
-          showButton={false}
-        />
+        <Box display="flex" flexDirection="column" alignItems="center" justifyContent="center" p={5}>
+          <VideoLibraryIcon sx={{ fontSize: 40, color: 'text.secondary', mb: 2 }} />
+          <Typography variant="h6" color="textSecondary" gutterBottom>
+            {searchTerm ? "Nenhum vídeo encontrado" : "Nenhum vídeo de ajuda disponível"}
+          </Typography>
+          <Typography variant="body2" color="textSecondary">
+            {searchTerm ? "Tente ajustar sua pesquisa" : "Vídeos de ajuda serão adicionados em breve"}
+          </Typography>
+        </Box>
       );
     }
 
     return (
       <StyledMainPaperContainer>
         <StyledGridContainer container spacing={isMobile ? 1 : 3}>
-          {records.map((record, key) => (
+          {filteredRecords.map((record, key) => (
             <Grid item xs={12} sm={6} md={4} lg={3} key={key}>
               <StyledHelpCard onClick={() => openVideoModal(record.video)}>
                 <StyledVideoThumbnail
@@ -421,39 +414,56 @@ const Helps = () => {
     );
   };
 
+  const renderSwaggerContent = () => {
+    return (
+      <StyledSwaggerContainer>
+        <SwaggerUIComponent />
+      </StyledSwaggerContainer>
+    );
+  };
+
+  // Configuração das abas
+  const tabs = [
+    {
+      label: i18n.t("helps.videoTab"),
+      icon: <VideoLibraryIcon />
+    },
+    {
+      label: i18n.t("helps.apiTab"),
+      icon: <ApiIcon />
+    }
+  ];
+
+  // Renderizar conteúdo baseado na aba ativa
+  const renderTabContent = () => {
+    switch (tabValue) {
+      case 0:
+        return renderHelps();
+      case 1:
+        return renderSwaggerContent();
+      default:
+        return renderHelps();
+    }
+  };
+
   return (
-    <MainContainer>
-      <MainHeader>
-        <Title>{i18n.t("helps.title")}</Title>
-        <MainHeaderButtonsWrapper></MainHeaderButtonsWrapper>
-      </MainHeader>
-
-      <StyledTabsContainer elevation={2}>
-        <Tabs
-          value={tabValue}
-          onChange={handleTabChange}
-          indicatorColor="primary"
-          textColor="primary"
-          variant={isMobile ? "fullWidth" : "standard"}
-          centered={!isMobile}
-        >
-          <Tab label={i18n.t("helps.videoTab")} />
-          <Tab label={i18n.t("helps.apiTab")} />
-        </Tabs>
-      </StyledTabsContainer>
-
-      <TabPanel value={tabValue} index={0}>
-        {renderHelps()}
-      </TabPanel>
-
-      <TabPanel value={tabValue} index={1}>
-        <StyledSwaggerContainer>
-          <SwaggerUIComponent />
-        </StyledSwaggerContainer>
-      </TabPanel>
+    <>
+      <StandardPageLayout
+        title={i18n.t("helps.title")}
+        searchValue={searchTerm}
+        onSearchChange={handleSearch}
+        searchPlaceholder="Pesquisar vídeos de ajuda..."
+        showSearch={tabValue === 0} // Mostrar pesquisa apenas na aba de vídeos
+        tabs={tabs}
+        activeTab={tabValue}
+        onTabChange={handleTabChange}
+        loading={isLoading}
+      >
+        {renderTabContent()}
+      </StandardPageLayout>
 
       {renderVideoModal()}
-    </MainContainer>
+    </>
   );
 };
 
