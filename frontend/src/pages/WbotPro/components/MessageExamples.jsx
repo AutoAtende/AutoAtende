@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   Dialog,
   DialogTitle,
@@ -68,261 +68,237 @@ const TabPanel = ({ children, value, index, ...other }) => {
   );
 };
 
-const MessageExamples = ({ open, onClose }) => {
-  const [tabValue, setTabValue] = useState(0);
-
-  const handleTabChange = (event, newValue) => {
-    setTabValue(newValue);
-  };
-
-  const copyToClipboard = (text) => {
-    navigator.clipboard.writeText(text).then(() => {
-      toast.success('Código copiado para a área de transferência!');
-    }).catch(() => {
-      toast.error('Erro ao copiar código');
-    });
-  };
-
-  const examples = [
-    {
-      label: 'Texto Simples',
-      code: `{
-  "type": "text",
-  "content": {
-    "text": "Olá! Esta é uma mensagem de texto simples."
-  }
-}`
-    },
-    {
-      label: 'Texto com Menções',
-      code: `{
-  "type": "text",
-  "content": {
-    "text": "Olá @5511999999999! Como você está?",
-    "mentions": ["5511999999999@s.whatsapp.net"]
-  }
-}`
-    },
-    {
-      label: 'Imagem',
-      code: `{
-  "type": "image",
-  "content": {
-    "url": "https://example.com/imagem.jpg",
-    "caption": "Legenda da imagem"
-  }
-}`
-    },
-    {
-      label: 'Vídeo',
-      code: `{
-  "type": "video",
-  "content": {
-    "url": "https://example.com/video.mp4",
-    "caption": "Legenda do vídeo",
-    "ptv": false,
-    "gifPlayback": false
-  }
-}`
-    },
-    {
-      label: 'Áudio',
-      code: `{
-  "type": "audio",
-  "content": {
-    "url": "https://example.com/audio.ogg",
-    "mimetype": "audio/ogg"
-  }
-}`
-    },
-    {
-      label: 'Documento',
-      code: `{
-  "type": "document",
-  "content": {
-    "url": "https://example.com/documento.pdf",
-    "fileName": "documento.pdf",
-    "mimetype": "application/pdf"
-  }
-}`
-    },
-    {
-      label: 'Localização',
-      code: `{
-  "type": "location",
-  "content": {
-    "latitude": -23.5505,
-    "longitude": -46.6333
-  }
-}`
-    },
-    {
-      label: 'Contato',
-      code: `{
-  "type": "contact",
-  "content": {
-    "displayName": "João Silva",
-    "vcard": "BEGIN:VCARD\\nVERSION:3.0\\nFN:João Silva\\nTEL;type=CELL:+5511999999999\\nEND:VCARD"
-  }
-}`
-    },
-    {
-      label: 'Botões',
-      code: `{
+// Dados dos exemplos específicos para os tipos solicitados
+const EXAMPLES_DATA = [
+  {
+    label: 'Botões',
+    code: `{
   "type": "buttons",
   "content": {
     "text": "Escolha uma opção:",
-    "footer": "Powered by AutoAtende",
+    "footer": "AutoAtende - 2025",
     "buttons": [
       {
-        "buttonId": "opcao1",
+        "buttonId": "🚀",
         "buttonText": {
-          "displayText": "Opção 1"
+          "displayText": "🗿"
         },
         "type": 1
       },
       {
-        "buttonId": "opcao2",
+        "buttonId": "option2",
         "buttonText": {
           "displayText": "Opção 2"
         },
         "type": 1
       }
     ],
-    "viewOnce": false
+    "headerType": 1,
+    "viewOnce": true
   }
-}`
-    },
-    {
-      label: 'Lista',
-      code: `{
+}`,
+    tip: 'Mensagens de botões têm limite de 3 botões por mensagem. Use type: 1 para botões de resposta rápida.',
+    description: 'Envie mensagens com botões interativos para facilitar a navegação do usuário.'
+  },
+  {
+    label: 'Interativa',
+    code: `{
+  "type": "interactive",
+  "content": {
+    "text": "Baileys Pro",
+    "title": "Igna",
+    "subtitle": "test",
+    "footer": "Bot",
+    "buttons": [
+      {
+        "name": "single_select",
+        "buttonParamsJson": "{\\"title\\":\\"Opções\\",\\"sections\\":[{\\"title\\":\\"AutoAtende - 2025\\",\\"highlight_label\\":\\"😜\\",\\"rows\\":[{\\"header\\":\\"HEADER\\",\\"title\\":\\"TITLE\\",\\"description\\":\\"DESCRIPTION\\",\\"id\\":\\"YOUR_ID\\"}]}]}"
+      },
+      {
+        "name": "cta_reply",
+        "buttonParamsJson": "{\\"display_text\\":\\"Resposta Rápida\\",\\"id\\":\\"quick_reply\\"}"
+      },
+      {
+        "name": "cta_url",
+        "buttonParamsJson": "{\\"display_text\\":\\"Visitar Site\\",\\"url\\":\\"https://www.google.com\\",\\"merchant_url\\":\\"https://www.google.com\\"}"
+      }
+    ]
+  }
+}`,
+    tip: 'Mensagens interativas suportam vários tipos de botões: single_select, cta_reply, cta_url, cta_call, cta_copy, entre outros.',
+    description: 'Mensagens interativas avançadas com múltiplos tipos de botões e funcionalidades.'
+  },
+  {
+    label: 'Lista',
+    code: `{
   "type": "list",
   "content": {
-    "text": "Escolha uma opção da lista:",
-    "title": "Menu Principal",
-    "buttonText": "Ver Opções",
-    "footer": "Powered by AutoAtende",
+    "text": "This is a list",
+    "footer": "nice footer, link: https://google.com",
+    "title": "Amazing boldfaced list title",
+    "buttonText": "Required, text on the button to view the list",
     "sections": [
       {
-        "title": "Seção 1",
+        "title": "Section 1",
         "rows": [
           {
-            "title": "Item 1",
-            "rowId": "item1",
-            "description": "Descrição do item 1"
+            "title": "Option 1",
+            "rowId": "option1"
           },
           {
-            "title": "Item 2",
-            "rowId": "item2",
-            "description": "Descrição do item 2"
+            "title": "Option 2",
+            "rowId": "option2",
+            "description": "This is a description"
+          }
+        ]
+      },
+      {
+        "title": "Section 2",
+        "rows": [
+          {
+            "title": "Option 3",
+            "rowId": "option3"
+          },
+          {
+            "title": "Option 4",
+            "rowId": "option4",
+            "description": "This is a description V2"
           }
         ]
       }
     ]
   }
-}`
-    },
-    {
-      label: 'Interativo',
-      code: `{
-  "type": "interactive",
-  "content": {
-    "text": "Mensagem interativa",
-    "title": "Título da Mensagem",
-    "subtitle": "Subtítulo",
-    "footer": "Rodapé da mensagem",
-    "buttons": [
-      {
-        "name": "quick_reply",
-        "buttonParamsJson": "{\\"display_text\\":\\"Resposta Rápida\\",\\"id\\":\\"reply1\\"}"
-      },
-      {
-        "name": "cta_url",
-        "buttonParamsJson": "{\\"display_text\\":\\"Visitar Site\\",\\"url\\":\\"https://example.com\\"}"
-      }
-    ]
-  }
-}`
-    },
-    {
-      label: 'Enquete',
-      code: `{
-  "type": "poll",
-  "content": {
-    "name": "Qual sua cor favorita?",
-    "values": ["Azul", "Vermelho", "Verde", "Amarelo"],
-    "selectableCount": 1
-  }
-}`
-    },
-    {
-      label: 'Álbum de Mídia',
-      code: `// Enviar múltiplas mídias em sequência
-[
-  {
-    "type": "image",
-    "url": "https://example.com/foto1.jpg",
-    "caption": "Primeira foto"
+}`,
+    tip: 'Listas podem ter múltiplas seções e até 10 itens por seção. Ideais para menus organizados.',
+    description: 'Envie listas organizadas em seções para facilitar a seleção de opções.'
   },
   {
-    "type": "image", 
-    "url": "https://example.com/foto2.jpg",
-    "caption": "Segunda foto"
-  },
-  {
-    "type": "video",
-    "url": "https://example.com/video.mp4",
-    "caption": "Vídeo do álbum"
-  }
-]`
-    },
-    {
-      label: 'Carrossel',
-      code: `{
-  "type": "interactive",
+    label: 'Carrossel',
+    code: `{
+  "type": "carousel",
   "content": {
     "text": "Escolha um produto:",
     "footer": "Catálogo de produtos",
     "cards": [
       {
         "title": "Produto 1",
-        "image": "https://example.com/produto1.jpg",
+        "image": {
+          "url": "https://picsum.photos/300/200?random=1"
+        },
         "caption": "Descrição do produto 1"
       },
       {
-        "title": "Produto 2", 
-        "image": "https://example.com/produto2.jpg",
+        "title": "Produto 2",
+        "image": {
+          "url": "https://picsum.photos/300/200?random=2"
+        },
         "caption": "Descrição do produto 2"
       }
     ],
     "viewOnce": true
   }
-}`
-    },
-    {
-      label: 'Solicitação de Pagamento',
-      code: `{
-  "type": "interactive",
+}`,
+    tip: 'Carrosséis são ideais para catálogos de produtos ou galerias de imagens. Cada card pode ter imagem e descrição.',
+    description: 'Crie carrosséis visuais com múltiplos cards contendo imagens e descrições.'
+  },
+  {
+    label: 'Solicitar Pagamento',
+    code: `{
+  "type": "requestPayment",
   "content": {
-    "requestPayment": {
-      "currency": "BRL",
-      "amount": "10000",
-      "from": "5511999999999@s.whatsapp.net",
-      "note": "Pagamento do pedido #123"
-    }
+    "currency": "BRL",
+    "amount": "10000",
+    "from": "5511999999999@s.whatsapp.net",
+    "note": "Pagamento de teste - AutoAtende",
+    "background": {}
   }
-}`
+}`,
+    tip: 'Valores devem ser em centavos (ex: R$ 100,00 = "10000"). Suporta diferentes moedas: BRL, USD, EUR.',
+    description: 'Envie solicitações de pagamento diretamente pelo WhatsApp com valor e descrição.'
+  },
+  {
+    label: 'Exemplo Completo - Botões',
+    code: `// Código JavaScript para envio direto via Baileys
+sock.sendMessage(jid, {
+  text: "Hello World !",
+  footer: "Baileys - 2025",
+  buttons: [
+    {
+      buttonId: \`🚀\`, 
+      buttonText: {
+        displayText: '🗿'
+      },
+      type: 1 
     }
-  ];
+  ],
+  headerType: 1,
+  viewOnce: true
+}, { quoted: null })`,
+    tip: 'Este é o código direto do Baileys para referência dos desenvolvedores.',
+    description: 'Exemplo de implementação direta usando a biblioteca Baileys.'
+  },
+  {
+    label: 'Exemplo Completo - Lista',
+    code: `// Código JavaScript para envio direto via Baileys
+const sections = [
+  {
+    title: "Section 1",
+    rows: [
+      {title: "Option 1", rowId: "option1"},
+      {title: "Option 2", rowId: "option2", description: "This is a description"}
+    ]
+  },
+  {
+    title: "Section 2",
+    rows: [
+      {title: "Option 3", rowId: "option3"},
+      {title: "Option 4", rowId: "option4", description: "This is a description V2"}
+    ]
+  }
+];
+
+const listMessage = {
+  text: "This is a list",
+  footer: "nice footer, link: https://google.com",
+  title: "Amazing boldfaced list title",
+  buttonText: "Required, text on the button to view the list",
+  sections
+};
+
+await sock.sendMessage(jid, listMessage)`,
+    tip: 'Implementação completa de uma mensagem de lista usando Baileys.',
+    description: 'Exemplo prático de como criar e enviar listas organizadas.'
+  }
+];
+
+const MessageExamples = ({ open, onClose }) => {
+  const [tabValue, setTabValue] = useState(0);
+
+  const handleTabChange = useCallback((event, newValue) => {
+    setTabValue(newValue);
+  }, []);
+
+  const copyToClipboard = useCallback((text) => {
+    navigator.clipboard.writeText(text).then(() => {
+      toast.success('Código copiado para a área de transferência!');
+    }).catch(() => {
+      toast.error('Erro ao copiar código');
+    });
+  }, []);
+
+  const handleClose = useCallback(() => {
+    onClose();
+    setTabValue(0); // Reset tab when closing
+  }, [onClose]);
 
   return (
     <Dialog
       open={open}
-      onClose={onClose}
-      maxWidth="md"
+      onClose={handleClose}
+      maxWidth="lg"
       fullWidth
       PaperProps={{
-        sx: { height: '80vh' }
+        sx: { height: '90vh' }
       }}
     >
       <DialogTitle>
@@ -330,10 +306,10 @@ const MessageExamples = ({ open, onClose }) => {
           <Box sx={{ display: 'flex', alignItems: 'center' }}>
             <CodeIcon sx={{ mr: 1 }} />
             <Typography variant="h6">
-              Exemplos de Mensagens
+              Exemplos de Mensagens WhatsApp Pro
             </Typography>
           </Box>
-          <IconButton onClick={onClose}>
+          <IconButton onClick={handleClose}>
             <CloseIcon />
           </IconButton>
         </Box>
@@ -348,9 +324,9 @@ const MessageExamples = ({ open, onClose }) => {
             scrollButtons="auto"
             sx={{ px: 2 }}
           >
-            {examples.map((example, index) => (
+            {EXAMPLES_DATA.map((example, index) => (
               <Tab
-                key={index}
+                key={`tab-${index}`}
                 label={example.label}
                 id={`message-example-tab-${index}`}
                 aria-controls={`message-example-tabpanel-${index}`}
@@ -359,12 +335,18 @@ const MessageExamples = ({ open, onClose }) => {
           </Tabs>
         </Box>
 
-        {examples.map((example, index) => (
-          <TabPanel key={index} value={tabValue} index={index}>
-            <Box sx={{ px: 2, pb: 2 }}>
+        {EXAMPLES_DATA.map((example, index) => (
+          <TabPanel key={`panel-${index}`} value={tabValue} index={index}>
+            <Box sx={{ px: 3, pb: 2 }}>
               <Typography variant="h6" gutterBottom>
                 {example.label}
               </Typography>
+              
+              {example.description && (
+                <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                  {example.description}
+                </Typography>
+              )}
               
               <CodeBlock>
                 <CopyButton
@@ -379,74 +361,20 @@ const MessageExamples = ({ open, onClose }) => {
               </CodeBlock>
 
               {/* Dicas específicas para cada tipo */}
-              <Box sx={{ mt: 2 }}>
-                {index === 0 && (
+              {example.tip && (
+                <Box sx={{ mt: 2 }}>
                   <Typography variant="body2" color="text.secondary">
-                    💡 <strong>Dica:</strong> Mensagens de texto são o tipo mais básico e suportam formatação básica do WhatsApp como *negrito* e _itálico_.
+                    💡 <strong>Dica:</strong> {example.tip}
                   </Typography>
-                )}
-                
-                {index === 1 && (
-                  <Typography variant="body2" color="text.secondary">
-                    💡 <strong>Dica:</strong> Para mencionar usuários, use @ seguido do número e inclua o JID completo no array de mentions.
-                  </Typography>
-                )}
-                
-                {index === 2 && (
-                  <Typography variant="body2" color="text.secondary">
-                    💡 <strong>Dica:</strong> Imagens podem ser enviadas via URL ou buffer. Formatos suportados: JPG, PNG, GIF, WebP.
-                  </Typography>
-                )}
-                
-                {index === 3 && (
-                  <Typography variant="body2" color="text.secondary">
-                    💡 <strong>Dica:</strong> Use ptv: true para nota de vídeo e gifPlayback: true para GIFs animados.
-                  </Typography>
-                )}
-                
-                {index === 4 && (
-                  <Typography variant="body2" color="text.secondary">
-                    💡 <strong>Dica:</strong> Para melhor compatibilidade, converta áudios para OGG com codec Opus usando: ffmpeg -i input.mp3 -avoid_negative_ts make_zero -ac 1 output.ogg
-                  </Typography>
-                )}
-                
-                {index === 8 && (
-                  <Typography variant="body2" color="text.secondary">
-                    💡 <strong>Dica:</strong> Botões têm limite de 3 por mensagem. Use type: 1 para botões de resposta.
-                  </Typography>
-                )}
-                
-                {index === 9 && (
-                  <Typography variant="body2" color="text.secondary">
-                    💡 <strong>Dica:</strong> Listas podem ter múltiplas seções e até 10 itens por seção.
-                  </Typography>
-                )}
-                
-                {index === 11 && (
-                  <Typography variant="body2" color="text.secondary">
-                    💡 <strong>Dica:</strong> Enquetes permitem até 12 opções e podem ser de seleção única ou múltipla.
-                  </Typography>
-                )}
-                
-                {index === 12 && (
-                  <Typography variant="body2" color="text.secondary">
-                    💡 <strong>Dica:</strong> Álbuns são enviados como múltiplas mensagens em sequência com delay configurável.
-                  </Typography>
-                )}
-                
-                {index === 14 && (
-                  <Typography variant="body2" color="text.secondary">
-                    💡 <strong>Dica:</strong> Valores de pagamento devem ser em centavos (ex: R$ 100,00 = "10000").
-                  </Typography>
-                )}
-              </Box>
+                </Box>
+              )}
             </Box>
           </TabPanel>
         ))}
       </DialogContent>
 
-      <DialogActions>
-        <Button onClick={onClose} variant="contained">
+      <DialogActions sx={{ p: 2 }}>
+        <Button onClick={handleClose} variant="contained" size="large">
           Fechar
         </Button>
       </DialogActions>

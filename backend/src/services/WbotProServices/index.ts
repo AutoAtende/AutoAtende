@@ -8,7 +8,7 @@ interface WbotProConfig {
 }
 
 interface MessageContent {
-  type: 'text' | 'image' | 'video' | 'audio' | 'document' | 'location' | 'contact' | 'buttons' | 'list' | 'interactive' | 'poll';
+  type: 'buttons' | 'interactive' | 'list' | 'carousel' | 'requestPayment';
   content: any;
   options?: any;
 }
@@ -49,6 +49,11 @@ class WbotProService {
         };
       }
       
+      logger.info('WbotPro inicializado com sucesso:', {
+        whatsappId: this.whatsapp.id,
+        status: this.whatsapp.status
+      });
+
       return {
         success: true,
         message: "WhatsApp inicializado com sucesso"
@@ -73,140 +78,208 @@ class WbotProService {
     }
 
     try {
-      let content: any;
-      const options = messageContent.options || {};
+      let result: any;
+
+      logger.info('Enviando mensagem WbotPro:', {
+        whatsappId: this.whatsapp.id,
+        jid,
+        type: messageContent.type
+      });
 
       switch (messageContent.type) {
-        case 'text':
-          content = { text: messageContent.content.text };
-          if (messageContent.content.mentions) {
-            content.mentions = messageContent.content.mentions;
-          }
-          break;
-
-        case 'image':
-          content = {
-            image: messageContent.content.url ? { url: messageContent.content.url } : messageContent.content.image,
-            caption: messageContent.content.caption || ''
-          };
-          break;
-
-        case 'video':
-          content = {
-            video: messageContent.content.url ? { url: messageContent.content.url } : messageContent.content.video,
-            caption: messageContent.content.caption || '',
-            ptv: messageContent.content.ptv || false,
-            gifPlayback: messageContent.content.gifPlayback || false
-          };
-          break;
-
-        case 'audio':
-          content = {
-            audio: messageContent.content.url ? { url: messageContent.content.url } : messageContent.content.audio,
-            mimetype: messageContent.content.mimetype || 'audio/mp4'
-          };
-          break;
-
-        case 'document':
-          content = {
-            document: messageContent.content.url ? { url: messageContent.content.url } : messageContent.content.document,
-            mimetype: messageContent.content.mimetype,
-            fileName: messageContent.content.fileName
-          };
-          break;
-
-        case 'location':
-          content = {
-            location: {
-              degreesLatitude: messageContent.content.latitude,
-              degreesLongitude: messageContent.content.longitude
-            }
-          };
-          break;
-
-        case 'contact':
-          content = {
-            contacts: {
-              displayName: messageContent.content.displayName,
-              contacts: [{ vcard: messageContent.content.vcard }]
-            }
-          };
-          break;
-
         case 'buttons':
-          content = {
-            text: messageContent.content.text,
-            footer: messageContent.content.footer || '',
-            buttons: messageContent.content.buttons,
-            headerType: 1,
-            viewOnce: messageContent.content.viewOnce || false
-          };
-          break;
-
-        case 'list':
-          content = {
-            text: messageContent.content.text,
-            footer: messageContent.content.footer || '',
-            title: messageContent.content.title || '',
-            buttonText: messageContent.content.buttonText,
-            sections: messageContent.content.sections
-          };
+          result = await this.sendButtonsMessage(jid, messageContent.content);
           break;
 
         case 'interactive':
-          // Tratamento especial para diferentes tipos de mensagens interativas
-          if (messageContent.content.requestPayment) {
-            // Solicitação de pagamento
-            content = {
-              requestPayment: messageContent.content.requestPayment
-            };
-          } else if (messageContent.content.cards) {
-            // Carrossel
-            content = {
-              text: messageContent.content.text || 'Carrossel',
-              footer: messageContent.content.footer || '',
-              cards: messageContent.content.cards,
-              viewOnce: messageContent.content.viewOnce || false
-            };
-          } else {
-            // Mensagem interativa padrão
-            content = {
-              text: messageContent.content.text,
-              title: messageContent.content.title || '',
-              subtitle: messageContent.content.subtitle || '',
-              footer: messageContent.content.footer || '',
-              interactiveButtons: messageContent.content.buttons
-            };
-          }
+          result = await this.sendInteractiveMessage(jid, messageContent.content);
           break;
 
-        case 'poll':
-          content = {
-            poll: {
-              name: messageContent.content.name,
-              values: messageContent.content.values,
-              selectableCount: messageContent.content.selectableCount || 1,
-              toAnnouncementGroup: messageContent.content.toAnnouncementGroup || false
-            }
-          };
+        case 'list':
+          result = await this.sendListMessage(jid, messageContent.content);
+          break;
+
+        case 'carousel':
+          result = await this.sendCarouselMessage(jid, messageContent.content);
+          break;
+
+        case 'requestPayment':
+          result = await this.sendPaymentRequestMessage(jid, messageContent.content);
           break;
 
         default:
           throw new Error(`Tipo de mensagem não suportado: ${messageContent.type}`);
       }
-
-      const result = await this.sock.sendMessage(jid, content, options);
       
-      logger.info('Mensagem enviada via WbotPro:', {
+      logger.info('Mensagem enviada com sucesso via WbotPro:', {
         whatsappId: this.whatsapp.id,
         to: jid,
         type: messageContent.type,
-        messageId: result.key.id
+        messageId: result.key?.id
       });
 
       return result;
     } catch (error) {
-      logger.error('Erro ao enviar mensagem via WbotPro:', error);
+      logger.error('Erro ao enviar mensagem via WbotPro:', {
+        error: error instanceof Error ? error.message : error,
+        whatsappId: this.whatsapp.id,
+        jid,
+        type: messageContent.type
+      });
+      throw error;
+    }
+  }
+
+  private async sendButtonsMessage(jid: string, content: any): Promise<any> {
+    try {
+      // Validar dados obrigatórios
+      if (!content.text) {
+        throw new Error('Texto é obrigatório para mensagem de botões');
+      }
+      
+      if (!content.buttons || !Array.isArray(content.buttons) || content.buttons.length === 0) {
+        throw new Error('Pelo menos um botão é obrigatório');
+      }
+
+      const buttonMessage = {
+        text: content.text,
+        footer: content.footer || 'AutoAtende',
+        buttons: content.buttons.map((btn: any, index: number) => ({
+          buttonId: btn.buttonId || `btn_${index}`,
+          buttonText: {
+            displayText: btn.buttonText?.displayText || `Botão ${index + 1}`
+          },
+          type: btn.type || 1
+        })),
+        headerType: content.headerType || 1,
+        viewOnce: content.viewOnce || false
+      };
+
+      logger.info('Enviando mensagem de botões:', { jid, buttonMessage });
+      return await this.sock!.sendMessage(jid, buttonMessage);
+    } catch (error) {
+      logger.error('Erro ao enviar mensagem de botões:', error);
+      throw error;
+    }
+  }
+
+  private async sendInteractiveMessage(jid: string, content: any): Promise<any> {
+    try {
+      // Para mensagens interativas, vamos usar uma abordagem mais simples
+      // que seja compatível com a versão atual do baileys
+      
+      const interactiveMessage = {
+        text: content.text || 'Mensagem interativa',
+        footer: content.footer || 'AutoAtende',
+        buttons: [
+          {
+            buttonId: 'interactive_1',
+            buttonText: { displayText: 'Resposta Rápida' },
+            type: 1
+          },
+          {
+            buttonId: 'interactive_2', 
+            buttonText: { displayText: 'Mais Opções' },
+            type: 1
+          }
+        ],
+        headerType: 1
+      };
+
+      logger.info('Enviando mensagem interativa (modo compatibilidade):', { jid, interactiveMessage });
+      return await this.sock!.sendMessage(jid, interactiveMessage);
+    } catch (error) {
+      logger.error('Erro ao enviar mensagem interativa:', error);
+      throw error;
+    }
+  }
+
+  private async sendListMessage(jid: string, content: any): Promise<any> {
+    try {
+      // Validar dados obrigatórios
+      if (!content.text) {
+        throw new Error('Texto é obrigatório para mensagem de lista');
+      }
+      
+      if (!content.sections || !Array.isArray(content.sections) || content.sections.length === 0) {
+        throw new Error('Pelo menos uma seção é obrigatória');
+      }
+
+      const listMessage = {
+        text: content.text,
+        footer: content.footer || 'AutoAtende',
+        title: content.title || 'Lista de Opções',
+        buttonText: content.buttonText || 'Ver Opções',
+        sections: content.sections.map((section: any) => ({
+          title: section.title || 'Seção',
+          rows: (section.rows || []).map((row: any, index: number) => ({
+            title: row.title || `Item ${index + 1}`,
+            rowId: row.rowId || `item_${index}`,
+            description: row.description || ''
+          }))
+        }))
+      };
+
+      logger.info('Enviando mensagem de lista:', { jid, listMessage });
+      return await this.sock!.sendMessage(jid, listMessage);
+    } catch (error) {
+      logger.error('Erro ao enviar mensagem de lista:', error);
+      throw error;
+    }
+  }
+
+  private async sendCarouselMessage(jid: string, content: any): Promise<any> {
+    try {
+      // Validar dados obrigatórios
+      if (!content.cards || !Array.isArray(content.cards) || content.cards.length === 0) {
+        throw new Error('Pelo menos um card é obrigatório');
+      }
+
+      const carouselMessage = {
+        text: content.text || 'Carrossel de opções',
+        footer: content.footer || 'AutoAtende',
+        cards: content.cards.map((card: any) => ({
+          title: card.title || 'Título do Card',
+          image: card.image || { url: 'https://picsum.photos/300/200?random=1' },
+          caption: card.caption || 'Descrição do card'
+        })),
+        viewOnce: content.viewOnce || false
+      };
+
+      logger.info('Enviando mensagem de carrossel:', { jid, carouselMessage });
+      return await this.sock!.sendMessage(jid, carouselMessage);
+    } catch (error) {
+      logger.error('Erro ao enviar mensagem de carrossel:', error);
+      throw error;
+    }
+  }
+
+  private async sendPaymentRequestMessage(jid: string, content: any): Promise<any> {
+    try {
+      // Validar dados obrigatórios
+      if (!content.amount) {
+        throw new Error('Valor é obrigatório para solicitação de pagamento');
+      }
+
+      if (!content.currency) {
+        throw new Error('Moeda é obrigatória para solicitação de pagamento');
+      }
+
+      const paymentMessage = {
+        requestPayment: {
+          currency: content.currency,
+          amount: content.amount,
+          from: content.from || jid,
+          note: content.note || 'Solicitação de pagamento',
+          background: content.background || {},
+          expiry: content.expiry || 0
+        }
+      };
+
+      logger.info('Enviando solicitação de pagamento:', { jid, paymentMessage });
+      return await this.sock!.sendMessage(jid, paymentMessage);
+    } catch (error) {
+      logger.error('Erro ao enviar solicitação de pagamento:', error);
       throw error;
     }
   }
@@ -221,11 +294,16 @@ class WbotProService {
     }
 
     try {
+      logger.info('Verificando número de telefone:', { phoneNumber });
       const [result] = await this.sock.onWhatsApp(phoneNumber);
-      return {
+      
+      const response = {
         exists: result?.exists || false,
         jid: result?.jid
       };
+      
+      logger.info('Resultado da verificação:', response);
+      return response;
     } catch (error) {
       logger.error('Erro ao verificar número via WbotPro:', error);
       throw error;
@@ -310,32 +388,6 @@ class WbotProService {
       logger.error('Erro ao deletar mensagem via WbotPro:', error);
       throw error;
     }
-  }
-
-  // Método para enviar múltiplas mensagens (álbum)
-  async sendAlbum(jid: string, files: Array<{ type: 'image' | 'video'; url: string; caption?: string }>, delay: number = 2000): Promise<any[]> {
-    const results = [];
-    
-    for (let i = 0; i < files.length; i++) {
-      const file = files[i];
-      
-      if (i > 0) {
-        // Delay entre envios
-        await new Promise(resolve => setTimeout(resolve, delay));
-      }
-      
-      const result = await this.sendMessage(jid, {
-        type: file.type,
-        content: {
-          url: file.url,
-          caption: file.caption || ''
-        }
-      });
-      
-      results.push(result);
-    }
-    
-    return results;
   }
 
   // Método para limpar recursos

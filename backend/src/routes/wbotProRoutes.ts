@@ -10,15 +10,10 @@ routes.use(isAuth);
 // Rotas de informações das conexões
 routes.get('/wbotpro/connections', WbotProController.listConnections);
 routes.get('/wbotpro/connection/:whatsappId/status', WbotProController.getConnectionStatus);
+routes.get('/wbotpro/check-phone/:whatsappId', WbotProController.checkPhoneNumber);
 
 // Rotas de mensagens
 routes.post('/wbotpro/send-message/:whatsappId', WbotProController.sendMessage);
 
-// Rotas de verificação
-routes.post('/wbotpro/check-phone/:whatsappId', WbotProController.checkPhone);
-routes.get('/wbotpro/profile-picture/:whatsappId/:jid', WbotProController.getProfilePicture);
-
-// Rotas de presença
-routes.post('/wbotpro/update-presence/:whatsappId', WbotProController.updatePresence);
 
 export default routes;

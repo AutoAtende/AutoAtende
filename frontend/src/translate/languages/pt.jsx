@@ -2320,6 +2320,7 @@ const messages = {
           administration: "Administração",
         },
         listItems: {
+          wbotpro: "AA Pro",
           dashboard: "Dashboard",
           statistics: "Estatísticas",
           performance: "Métricas de Performance",
