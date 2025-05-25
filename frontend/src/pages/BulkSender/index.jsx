@@ -10,6 +10,7 @@ import { debounce } from '../../utils/helpers';
 import {
   Box,
   useMediaQuery,
+  Fab,
 } from "@mui/material";
 
 // Icons
@@ -20,14 +21,12 @@ import {
   Settings as SettingsIcon,
   Assessment as AssessmentIcon,
   AttachFile as AttachFileIcon,
-  ContentCopy as ContentCopyIcon,
+  Send as SendIcon,
+  ContactMail as ContactMailIcon,
 } from "@mui/icons-material";
 
-// Componentes Base
-import BasePage from "../../components/BasePage";
-import BasePageHeader from "../../components/BasePageHeader";
-import BasePageContent from "../../components/BasePageContent";
-import BaseResponsiveTabs from "../../components/BaseResponsiveTabs";
+// Componentes
+import StandardPageLayout from "../../components/StandardPageLayout";
 
 // Tabs
 import CampaignsList from "./tabs/CampaignsList";
@@ -46,7 +45,6 @@ import api from "../../services/api";
 
 // Reducer para gerenciamento de estado das campanhas
 const campaignsReducer = (state, action) => {
-  // Mesmo código do reducer anterior
   switch (action.type) {
     case 'LOAD_CAMPAIGNS':
       return {
@@ -94,7 +92,7 @@ const BulkSender = () => {
   const companyId = user?.companyId;
 
   // Estados
-  const [tabValue, setTabValue] = useState(0);
+  const [activeTab, setActiveTab] = useState(0);
   const [searchParam, setSearchParam] = useState("");
   const [pageNumber, setPageNumber] = useState(1);
   const [campaignsState, dispatchCampaigns] = useReducer(campaignsReducer, {
@@ -124,7 +122,7 @@ const BulkSender = () => {
 
   // Fetch de campanhas
   const fetchCampaigns = useCallback(async () => {
-    if (tabValue !== 0) return; // Buscar apenas quando a aba Campanhas estiver ativa
+    if (activeTab !== 0) return;
 
     try {
       dispatchCampaigns({ type: 'SET_LOADING', payload: true });
@@ -140,17 +138,17 @@ const BulkSender = () => {
     } catch (err) {
       toast.error(i18n.t("campaigns.toasts.fetchError"));
     }
-  }, [searchParam, pageNumber, companyId, tabValue]);
+  }, [searchParam, pageNumber, companyId, activeTab]);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const tab = params.get('tab');
     
     if (tab === 'reports') {
-      setTabValue(2);
+      setActiveTab(3);
     }
   }, []);
-  // Efeito para buscar campanhas quando os parâmetros mudam
+
   useEffect(() => {
     fetchCampaigns();
   }, [fetchCampaigns]);
@@ -196,8 +194,8 @@ const BulkSender = () => {
   }, [companyId, socketManager]);
 
   // Handlers
-  const handleChangeTab = (event, newValue) => {
-    setTabValue(newValue);
+  const handleTabChange = (event, newValue) => {
+    setActiveTab(newValue);
   };
 
   const handleSearch = (event) => {
@@ -238,7 +236,6 @@ const BulkSender = () => {
       } else if (deleteType === 'contactList') {
         await api.delete(`/contact-lists/${deletingItem.id}`);
         toast.success(i18n.t("contactLists.toasts.deleted"));
-        // Refresh das listas de contato será feito pelo componente filho
       }
     } catch (err) {
       toast.error(i18n.t("common.toasts.deleteError"));
@@ -259,107 +256,162 @@ const BulkSender = () => {
     }
   };
 
-  // Preparar ações do cabeçalho com base na tab atual
-  const getHeaderActions = () => {
+  // Configuração das ações do cabeçalho
+  const getPageActions = () => {
     const actions = [];
     
-    if (!isMobile) {
-      switch (tabValue) {
-        case 0: // Campanhas
-          actions.push({
-            label: i18n.t("campaigns.buttons.add"),
-            icon: <AddIcon />,
-            onClick: () => handleOpenCampaignModal(),
-          });
-          break;
-        case 1: // Listas de Contatos
-          actions.push({
-            label: i18n.t("contactLists.buttons.add"),
-            icon: <AddIcon />,
-            onClick: () => handleOpenContactListModal(),
-          });
-          break;
-        case 4: // Arquivos
-          actions.push({
-            label: i18n.t("files.buttons.upload"),
-            icon: <AttachFileIcon />,
-            onClick: () => document.getElementById('file-upload-input')?.click(),
-          });
-          break;
-        default:
-          break;
-      }
+    switch (activeTab) {
+      case 0: // Campanhas
+        actions.push({
+          label: i18n.t("campaigns.buttons.add"),
+          icon: <AddIcon />,
+          onClick: () => handleOpenCampaignModal(),
+          variant: "contained",
+          color: "primary",
+          tooltip: "Criar nova campanha"
+        });
+        break;
+      case 1: // Listas de Contatos
+        actions.push({
+          label: i18n.t("contactLists.buttons.add"),
+          icon: <AddIcon />,
+          onClick: () => handleOpenContactListModal(),
+          variant: "contained",
+          color: "primary",
+          tooltip: "Criar nova lista de contatos"
+        });
+        break;
+      case 4: // Arquivos
+        actions.push({
+          label: i18n.t("files.buttons.upload"),
+          icon: <AttachFileIcon />,
+          onClick: () => document.getElementById('file-upload-input')?.click(),
+          variant: "contained",
+          color: "primary",
+          tooltip: "Fazer upload de arquivo"
+        });
+        break;
+      default:
+        break;
     }
     
     return actions;
   };
 
-  // Definir tabs com conteúdo
+  // Configuração das abas
   const tabs = [
     {
-      label: i18n.t("campaigns.tabs.campaigns"),
-      icon: <CampaignIcon />,
-      content: (
-        <CampaignsList
-          campaigns={campaignsState.campaigns}
-          loading={campaignsState.loading}
-          onEdit={handleOpenCampaignModal}
-          onDelete={item => handleOpenDeleteConfirmation(item, 'campaign')}
-          onDuplicate={handleDuplicateCampaign}
-          onAction={handleCampaignAction}
-          hasMore={campaignsState.hasMore}
-          onScroll={() => {
-            if (campaignsState.hasMore && !campaignsState.loading) {
-              setPageNumber(prev => prev + 1);
-            }
-          }}
-        />
-      )
+      label: `${i18n.t("campaigns.tabs.campaigns")} (${campaignsState.campaigns.length})`,
+      icon: <SendIcon />
     },
     {
       label: i18n.t("campaigns.tabs.contactLists"),
-      icon: <ListIcon />,
-      content: (
-        <ContactListsTab
-          onEdit={handleOpenContactListModal}
-          onDelete={item => handleOpenDeleteConfirmation(item, 'contactList')}
-          searchParam={searchParam}
-        />
-      )
-    },
-    {
-      label: i18n.t("campaigns.tabs.reports"),
-      icon: <AssessmentIcon />,
-      content: <CampaignReports />
-    },
-    {
-      label: i18n.t("campaigns.tabs.settings"),
-      icon: <SettingsIcon />,
-      content: <CampaignsSettings />
+      icon: <ContactMailIcon />
     },
     {
       label: i18n.t("campaigns.tabs.files"),
-      icon: <AttachFileIcon />,
-      content: <FilesTab searchParam={searchParam} />
+      icon: <AttachFileIcon />
+    },
+    {
+      label: i18n.t("campaigns.tabs.reports"),
+      icon: <AssessmentIcon />
+    },
+    {
+      label: i18n.t("campaigns.tabs.settings"),
+      icon: <SettingsIcon />
     }
   ];
 
-  // Determinar se deve mostrar o campo de busca para a tab atual
-  const showSearch = tabValue === 0 || tabValue === 1 || tabValue === 4;
+  // Renderizar conteúdo da aba ativa
+  const renderTabContent = () => {
+    switch (activeTab) {
+      case 0:
+        return (
+          <CampaignsList
+            campaigns={campaignsState.campaigns}
+            loading={campaignsState.loading}
+            onEdit={handleOpenCampaignModal}
+            onDelete={item => handleOpenDeleteConfirmation(item, 'campaign')}
+            onDuplicate={handleDuplicateCampaign}
+            onAction={handleCampaignAction}
+            hasMore={campaignsState.hasMore}
+            onScroll={() => {
+              if (campaignsState.hasMore && !campaignsState.loading) {
+                setPageNumber(prev => prev + 1);
+              }
+            }}
+          />
+        );
+      case 1:
+        return (
+          <ContactListsTab
+            onEdit={handleOpenContactListModal}
+            onDelete={item => handleOpenDeleteConfirmation(item, 'contactList')}
+            searchParam={searchParam}
+          />
+        );
+      case 2:
+        return <FilesTab searchParam={searchParam} />;
+      case 3:
+        return <CampaignReports />;
+      case 4:
+        return <CampaignsSettings />;
+      default:
+        return null;
+    }
+  };
+
+  // Determinar se deve mostrar o campo de busca
+  const showSearch = activeTab === 0 || activeTab === 1 || activeTab === 2;
 
   return (
-    <BasePage
-      title={i18n.t("campaigns.title")}
-      headerContent={
-        <BasePageHeader
-          showSearch={showSearch}
-          onSearch={handleSearch}
-          searchPlaceholder={i18n.t("campaigns.searchPlaceholder")}
-          actions={getHeaderActions()}
-        />
-      }
-    >
-      {/* Confirmação de Exclusão */}
+    <>
+      <StandardPageLayout
+        title={i18n.t("campaigns.title")}
+        actions={getPageActions()}
+        searchValue={searchParam}
+        onSearchChange={handleSearch}
+        searchPlaceholder={i18n.t("campaigns.searchPlaceholder")}
+        showSearch={showSearch}
+        tabs={tabs}
+        activeTab={activeTab}
+        onTabChange={handleTabChange}
+        loading={campaignsState.loading && activeTab === 0}
+      >
+        {renderTabContent()}
+      </StandardPageLayout>
+
+      {/* FAB para mobile */}
+      {isMobile && (activeTab === 0 || activeTab === 1 || activeTab === 2) && (
+        <Fab
+          color="primary"
+          sx={{
+            position: 'fixed',
+            bottom: 16,
+            right: 16,
+            zIndex: theme.zIndex.speedDial,
+          }}
+          onClick={() => {
+            switch (activeTab) {
+              case 0:
+                handleOpenCampaignModal();
+                break;
+              case 1:
+                handleOpenContactListModal();
+                break;
+              case 2:
+                document.getElementById('file-upload-input')?.click();
+                break;
+              default:
+                break;
+            }
+          }}
+        >
+          <AddIcon />
+        </Fab>
+      )}
+
+      {/* Modais */}
       <DeleteConfirmationModal
         open={confirmModalOpen}
         onClose={() => setConfirmModalOpen(false)}
@@ -376,7 +428,6 @@ const BulkSender = () => {
         }
       />
 
-      {/* Modal de Campanha */}
       <CampaignModal
         open={campaignModalOpen}
         onClose={() => {
@@ -391,7 +442,6 @@ const BulkSender = () => {
         }}
       />
 
-      {/* Modal de Lista de Contatos */}
       <ContactListModal
         open={contactListModalOpen}
         onClose={() => {
@@ -401,14 +451,12 @@ const BulkSender = () => {
         contactListId={selectedContactList?.id}
       />
 
-      {/* Arquivo upload escondido */}
+      {/* Input de upload escondido */}
       <input
         id="file-upload-input"
         type="file"
         hidden
         onChange={(e) => {
-          // Esta lógica será tratada dentro do componente FilesTab
-          // Apenas disparando o evento de upload
           if (e.target.files.length > 0) {
             const uploadEvent = new CustomEvent('fileUploadTriggered', {
               detail: e.target.files[0]
@@ -418,40 +466,7 @@ const BulkSender = () => {
           }
         }}
       />
-
-      {/* Conteúdo Principal com Tabs */}
-      <Box sx={{ 
-        height: '100%',
-        display: 'flex',
-        flexDirection: 'column',
-        overflow: 'hidden',
-        pb: isMobile ? 7 : 0,
-      }}>
-        <BaseResponsiveTabs
-          tabs={tabs}
-          value={tabValue}
-          onChange={handleChangeTab}
-          showTabsOnMobile={false}
-          fabIcon={<AddIcon />}
-          onFabClick={() => {
-            switch (tabValue) {
-              case 0:
-                handleOpenCampaignModal();
-                break;
-              case 1:
-                handleOpenContactListModal();
-                break;
-              case 4:
-                document.getElementById('file-upload-input')?.click();
-                break;
-              default:
-                break;
-            }
-          }}
-          showFab={tabValue === 0 || tabValue === 1 || tabValue === 4}
-        />
-      </Box>
-    </BasePage>
+    </>
   );
 };
 
