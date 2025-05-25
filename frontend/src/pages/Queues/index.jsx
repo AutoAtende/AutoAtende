@@ -1,45 +1,26 @@
 import React, { useEffect, useReducer, useState, useContext } from "react";
 import {
-  Button,
   IconButton,
-  Paper,
   Table,
   TableBody,
   TableCell,
+  TableContainer,
   TableHead,
   TableRow,
   Typography,
+  Box,
+  CircularProgress
 } from "@mui/material";
-import { makeStyles } from '@mui/styles';
 import { useTheme } from "@mui/material/styles";
-import { DeleteOutline, Edit } from "@mui/icons-material";
+import { DeleteOutline, Edit, Add as AddIcon } from "@mui/icons-material";
 
-import MainContainer from "../../components/MainContainer";
-import MainHeader from "../../components/MainHeader";
-import MainHeaderButtonsWrapper from "../../components/MainHeaderButtonsWrapper";
-import TableRowSkeleton from "../../components/TableRowSkeleton";
-import Title from "../../components/Title";
+import StandardPageLayout from "../../components/StandardPageLayout";
+import ConfirmationModal from "../../components/ConfirmationModal";
+import QueueModal from "../../components/QueueModal";
 import { i18n } from "../../translate/i18n";
 import { toast } from "../../helpers/toast";
 import api from "../../services/api";
-import QueueModal from "../../components/QueueModal";
-import ConfirmationModal from "../../components/ConfirmationModal";
 import { SocketContext } from "../../context/Socket/SocketContext";
-import EmptyState from "../../components/EmptyState";
-
-const useStyles = makeStyles((theme) => ({
-  mainPaper: {
-    flex: 1,
-    padding: theme.spacing(1),
-    overflowY: "scroll",
-    ...theme.scrollbarStyles,
-  },
-  customTableCell: {
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-}));
 
 const reducer = (state, action) => {
   if (action.type === "LOAD_QUEUES") {
@@ -81,13 +62,13 @@ const reducer = (state, action) => {
 };
 
 const Queues = () => {
-  const classes = useStyles();
   const theme = useTheme();
   const [queues, dispatch] = useReducer(reducer, []);
   const [loading, setLoading] = useState(false);
   const [queueModalOpen, setQueueModalOpen] = useState(false);
   const [selectedQueue, setSelectedQueue] = useState(null);
   const [confirmModalOpen, setConfirmModalOpen] = useState(false);
+  const [searchParam, setSearchParam] = useState("");
   const socketManager = useContext(SocketContext);
 
   const fetchQueues = async () => {
@@ -150,122 +131,162 @@ const Queues = () => {
       toast.error(err);
     }
     setSelectedQueue(null);
+    setConfirmModalOpen(false);
   };
 
+  const handleSearch = (event) => {
+    setSearchParam(event.target.value.toLowerCase());
+  };
+
+  // Configuração das ações do cabeçalho
+  const pageActions = [
+    {
+      label: i18n.t("queues.buttons.add"),
+      icon: <AddIcon />,
+      onClick: handleOpenQueueModal,
+      variant: "contained",
+      color: "primary",
+      tooltip: "Adicionar nova fila"
+    }
+  ];
+
+  // Filtrar filas baseado na pesquisa
+  const getFilteredQueues = () => {
+    if (!searchParam) return queues;
+    
+    return queues.filter(queue =>
+      queue.name?.toLowerCase().includes(searchParam) ||
+      queue.greetingMessage?.toLowerCase().includes(searchParam) ||
+      queue.orderQueue?.toLowerCase().includes(searchParam)
+    );
+  };
+
+  const filteredQueues = getFilteredQueues();
+
   return (
-    <MainContainer>
-      <ConfirmationModal
-        title={selectedQueue && `${i18n.t("queues.confirmationModal.deleteTitle")} ${selectedQueue.name}?`}
-        open={confirmModalOpen}
-        onClose={() => setConfirmModalOpen(false)}
-        onConfirm={() => handleDeleteQueue(selectedQueue.id)}
+    <>
+      <StandardPageLayout
+        title={i18n.t("queues.title")}
+        actions={pageActions}
+        searchValue={searchParam}
+        onSearchChange={handleSearch}
+        searchPlaceholder="Pesquisar filas..."
+        showSearch={true}
+        loading={loading}
       >
-        {i18n.t("queues.confirmationModal.deleteMessage")}
-      </ConfirmationModal>
-
-      <QueueModal
-        open={queueModalOpen}
-        onClose={handleCloseQueueModal}
-        queueId={selectedQueue?.id}
-      />
-
-      <MainHeader>
-        <Title>{i18n.t("queues.title")}</Title>
-        <MainHeaderButtonsWrapper>
-          <Button
-            variant="contained"
-            color="primary"
-            onClick={handleOpenQueueModal}
-          >
-            {i18n.t("queues.buttons.add")}
-          </Button>
-        </MainHeaderButtonsWrapper>
-      </MainHeader>
-
-      <Paper className={classes.mainPaper} variant="outlined">
         {loading ? (
-          <TableRowSkeleton columns={6} />
-        ) : queues.length === 0 ? (
-          <EmptyState
-            type="queues"
-            onCreateNew={handleOpenQueueModal}
-          />
+          <Box display="flex" justifyContent="center" p={3}>
+            <CircularProgress />
+          </Box>
+        ) : filteredQueues.length === 0 ? (
+          <Box display="flex" flexDirection="column" alignItems="center" justifyContent="center" p={5}>
+            <Typography variant="h6" color="textSecondary" gutterBottom>
+              {searchParam ? "Nenhuma fila encontrada" : "Nenhuma fila cadastrada"}
+            </Typography>
+            <Typography variant="body2" color="textSecondary" paragraph>
+              {searchParam ? "Tente ajustar sua pesquisa" : "Crie sua primeira fila para começar"}
+            </Typography>
+          </Box>
         ) : (
-          <Table size="small">
-            <TableHead>
-              <TableRow>
-                <TableCell align="center">{i18n.t("queues.table.id")}</TableCell>
-                <TableCell align="center">{i18n.t("queues.table.name")}</TableCell>
-                <TableCell align="center">{i18n.t("queues.table.color")}</TableCell>
-                <TableCell align="center">{i18n.t("queues.table.orderQueue")}</TableCell>
-                <TableCell align="center">{i18n.t("queues.table.greeting")}</TableCell>
-                <TableCell align="center">{i18n.t("queues.table.actions")}</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {queues.map((queue) => (
-                <TableRow key={queue.id}>
-                  <TableCell align="center">{queue.id}</TableCell>
-                  <TableCell align="center">{queue.name}</TableCell>
-                  <TableCell align="center">
-                    <div className={classes.customTableCell}>
-                      <span
-                        style={{
-                          backgroundColor: queue.color,
-                          width: 60,
-                          height: 20,
-                          alignSelf: "center",
-                        }}
-                      />
-                    </div>
-                  </TableCell>
-                  <TableCell align="center">
-                    <div className={classes.customTableCell}>
-                      <Typography
-                        style={{ width: 300, align: "center" }}
-                        noWrap
-                        variant="body2"
-                      >
-                        {queue.orderQueue}
-                      </Typography>
-                    </div>
-                  </TableCell>
-                  <TableCell align="center">
-                    <div className={classes.customTableCell}>
-                      <Typography
-                        style={{ width: 300, align: "center" }}
-                        noWrap
-                        variant="body2"
-                      >
-                        {queue.greetingMessage}
-                      </Typography>
-                    </div>
-                  </TableCell>
-                  <TableCell align="center">
-                    <IconButton
-                      size="small"
-                      onClick={() => handleEditQueue(queue)}
-                    >
-                      <Edit style={{ color: theme.palette.primary.main }} />
-                    </IconButton>
-
-                    <IconButton
-                      size="small"
-                      onClick={() => {
-                        setSelectedQueue(queue);
-                        setConfirmModalOpen(true);
-                      }}
-                    >
-                      <DeleteOutline style={{ color: theme.palette.primary.main }} />
-                    </IconButton>
-                  </TableCell>
+          <TableContainer sx={{ height: '100%', overflow: 'auto' }}>
+            <Table stickyHeader>
+              <TableHead>
+                <TableRow>
+                  <TableCell align="center">{i18n.t("queues.table.id")}</TableCell>
+                  <TableCell align="center">{i18n.t("queues.table.name")}</TableCell>
+                  <TableCell align="center">{i18n.t("queues.table.color")}</TableCell>
+                  <TableCell align="center">{i18n.t("queues.table.orderQueue")}</TableCell>
+                  <TableCell align="center">{i18n.t("queues.table.greeting")}</TableCell>
+                  <TableCell align="center">{i18n.t("queues.table.actions")}</TableCell>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+              </TableHead>
+              <TableBody>
+                {filteredQueues.map((queue) => (
+                  <TableRow key={queue.id} hover>
+                    <TableCell align="center">{queue.id}</TableCell>
+                    <TableCell align="center">{queue.name}</TableCell>
+                    <TableCell align="center">
+                      <Box display="flex" alignItems="center" justifyContent="center">
+                        <Box
+                          sx={{
+                            backgroundColor: queue.color,
+                            width: 60,
+                            height: 20,
+                            borderRadius: 1
+                          }}
+                        />
+                      </Box>
+                    </TableCell>
+                    <TableCell align="center">
+                      <Box display="flex" alignItems="center" justifyContent="center">
+                        <Typography
+                          style={{ width: 300, textAlign: "center" }}
+                          noWrap
+                          variant="body2"
+                        >
+                          {queue.orderQueue}
+                        </Typography>
+                      </Box>
+                    </TableCell>
+                    <TableCell align="center">
+                      <Box display="flex" alignItems="center" justifyContent="center">
+                        <Typography
+                          style={{ width: 300, textAlign: "center" }}
+                          noWrap
+                          variant="body2"
+                        >
+                          {queue.greetingMessage}
+                        </Typography>
+                      </Box>
+                    </TableCell>
+                    <TableCell align="center">
+                      <IconButton
+                        size="small"
+                        onClick={() => handleEditQueue(queue)}
+                        color="primary"
+                      >
+                        <Edit />
+                      </IconButton>
+
+                      <IconButton
+                        size="small"
+                        onClick={() => {
+                          setSelectedQueue(queue);
+                          setConfirmModalOpen(true);
+                        }}
+                        color="error"
+                      >
+                        <DeleteOutline />
+                      </IconButton>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </TableContainer>
         )}
-      </Paper>
-    </MainContainer>
+      </StandardPageLayout>
+
+      {/* Modais */}
+      {confirmModalOpen && (
+        <ConfirmationModal
+          title={selectedQueue && `${i18n.t("queues.confirmationModal.deleteTitle")} ${selectedQueue.name}?`}
+          open={confirmModalOpen}
+          onClose={() => setConfirmModalOpen(false)}
+          onConfirm={() => handleDeleteQueue(selectedQueue.id)}
+        >
+          {i18n.t("queues.confirmationModal.deleteMessage")}
+        </ConfirmationModal>
+      )}
+
+      {queueModalOpen && (
+        <QueueModal
+          open={queueModalOpen}
+          onClose={handleCloseQueueModal}
+          queueId={selectedQueue?.id}
+        />
+      )}
+    </>
   );
 };
 

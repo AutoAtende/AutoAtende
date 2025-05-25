@@ -19,6 +19,7 @@ import {
   Card,
   CardContent,
   CardActions,
+  CircularProgress
 } from "@mui/material";
 import {
   Edit as EditIcon,
@@ -38,13 +39,9 @@ import CustomAudioPlayer from "../../components/Audio/CustomAudioPlayer";
 import formatTextWithLimit from "../../helpers/formatTextWithLimit";
 import { getProfileType } from "../../helpers/getProfileType";
 
-import BasePage from "../../components/BasePage";
-import BasePageHeader from "../../components/BasePageHeader";
-import BasePageContent from "../../components/BasePageContent";
+import StandardPageLayout from "../../components/StandardPageLayout";
 import QuickMessageDialog from "../../components/QuickMessageDialog";
 import ConfirmationModal from "../../components/ConfirmationModal";
-import BaseButton from "../../components/BaseButton";
-import BaseResponsiveTabs from "../../components/BaseResponsiveTabs";
 
 // Estilos
 const Text = styled(Typography)(({ theme }) => ({
@@ -310,6 +307,10 @@ const QuickMessages = () => {
     }
   };
 
+  const handleSearch = (event) => {
+    setSearchParam(event.target.value.toLowerCase());
+  };
+
   // Renderizar ações para cada mensagem rápida
   const renderActions = (quickmessage) => {
     return (
@@ -323,16 +324,12 @@ const QuickMessages = () => {
         )}
         {quickmessage.mediaType === "file" && (
           <Tooltip title={i18n.t("quickMessages.buttons.openFile")}>
-            <BaseButton
-              variant="outlined"
+            <IconButton
               size="small"
-              startIcon={<AttachFileIcon />}
-              onClick={() =>
-                showFile(quickmessage.mediaPath)
-              }
+              onClick={() => showFile(quickmessage.mediaPath)}
             >
-              Ver arquivo
-            </BaseButton>
+              <AttachFileIcon />
+            </IconButton>
           </Tooltip>
         )}
         {/* Mostrar ações de edição/exclusão baseadas no perfil ou na propriedade do item */}
@@ -344,6 +341,7 @@ const QuickMessages = () => {
               <IconButton
                 size="small"
                 onClick={() => handleEditQuickmessage(quickmessage)}
+                color="primary"
               >
                 <EditIcon />
               </IconButton>
@@ -355,6 +353,7 @@ const QuickMessages = () => {
                   setConfirmModalOpen(true);
                   setDeletingQuickmessage(quickmessage);
                 }}
+                color="error"
               >
                 <DeleteIcon />
               </IconButton>
@@ -366,7 +365,7 @@ const QuickMessages = () => {
   };
 
   // Implementação do componente QuickMessagesTable dentro deste arquivo
-  const QuickMessagesTable = ({ messages, showLoading, editMessage, deleteMessage, readOnly }) => {
+  const QuickMessagesTable = ({ messages }) => {
     if (!messages || messages.length === 0) {
       return null;
     }
@@ -403,171 +402,101 @@ const QuickMessages = () => {
     );
   };
 
-  // Renderizar conteúdo da tab de todas as mensagens
-  const renderAllMessages = () => (
-    <>
-      {viewMode === "grid" ? (
-        <QuickMessagesTable
-          messages={quickmessages}
-          showLoading={loading}
-          editMessage={handleEditQuickmessage}
-          deleteMessage={(message) => {
-            setDeletingQuickmessage(message);
-            setConfirmModalOpen(true);
-          }}
-          readOnly={false}
-        />
-      ) : (
-        <TableContainer>
-          <Table>
-            <TableHead>
-              <TableRow>
-                <TableCell>ID</TableCell>
-                <TableCell>Código</TableCell>
-                <TableCell>Mensagem</TableCell>
-                <TableCell>Mídia</TableCell>
-                <TableCell>Última modificação</TableCell>
-                <TableCell align="right">Ações</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {quickmessages.map((quickmessage) => (
-                <TableRow key={quickmessage.id}>
-                  <TableCell>{quickmessage.id}</TableCell>
-                  <TableCell>{formatTextWithLimit(quickmessage.shortcode, 20)}</TableCell>
-                  <TableCell>{formatTextWithLimit(quickmessage.message, 33)}</TableCell>
-                  <TableCell>
-                    {quickmessage.mediaPath && (
-                      quickmessage.mediaType === "file" ? "Arquivo" : "Áudio"
-                    )}
-                  </TableCell>
-                  <TableCell>
-                    {quickmessage?.user?.name} ({getProfileType(quickmessage?.user?.profile)})
-                    {!quickmessage.geral && user?.profile === "user" && (
-                      <Text>
-                        <b>{i18n.t("quickMessages.permission")}</b>
-                      </Text>
-                    )}
-                  </TableCell>
-                  <TableCell align="right">
-                    {renderActions(quickmessage)}
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </TableContainer>
-      )}
-    </>
+  // Renderização condicional da visualização em lista
+  const renderTableView = () => (
+    <TableContainer sx={{ height: '100%', overflow: 'auto' }}>
+      <Table stickyHeader>
+        <TableHead>
+          <TableRow>
+            <TableCell>ID</TableCell>
+            <TableCell>Código</TableCell>
+            <TableCell>Mensagem</TableCell>
+            <TableCell>Mídia</TableCell>
+            <TableCell>Última modificação</TableCell>
+            <TableCell align="right">Ações</TableCell>
+          </TableRow>
+        </TableHead>
+        <TableBody>
+          {quickmessages.map((quickmessage) => (
+            <TableRow key={quickmessage.id} hover>
+              <TableCell>{quickmessage.id}</TableCell>
+              <TableCell>{formatTextWithLimit(quickmessage.shortcode, 20)}</TableCell>
+              <TableCell>{formatTextWithLimit(quickmessage.message, 33)}</TableCell>
+              <TableCell>
+                {quickmessage.mediaPath && (
+                  quickmessage.mediaType === "file" ? "Arquivo" : "Áudio"
+                )}
+              </TableCell>
+              <TableCell>
+                {quickmessage?.user?.name} ({getProfileType(quickmessage?.user?.profile)})
+                {!quickmessage.geral && user?.profile === "user" && (
+                  <Text>
+                    <b>{i18n.t("quickMessages.permission")}</b>
+                  </Text>
+                )}
+              </TableCell>
+              <TableCell align="right">
+                {renderActions(quickmessage)}
+              </TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+    </TableContainer>
   );
 
-  // Renderizar conteúdo da tab de minhas mensagens
-  const renderMyMessages = () => (
-    <>
-      {viewMode === "grid" ? (
-        <QuickMessagesTable
-          messages={quickmessages}
-          showLoading={loading}
-          editMessage={handleEditQuickmessage}
-          deleteMessage={(message) => {
-            setDeletingQuickmessage(message);
-            setConfirmModalOpen(true);
-          }}
-          readOnly={false}
-        />
-      ) : (
-        <TableContainer>
-          <Table>
-            <TableHead>
-              <TableRow>
-                <TableCell>ID</TableCell>
-                <TableCell>Código</TableCell>
-                <TableCell>Mensagem</TableCell>
-                <TableCell>Mídia</TableCell>
-                <TableCell align="right">Ações</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {quickmessages.map((quickmessage) => (
-                <TableRow key={quickmessage.id}>
-                  <TableCell>{quickmessage.id}</TableCell>
-                  <TableCell>{formatTextWithLimit(quickmessage.shortcode, 20)}</TableCell>
-                  <TableCell>{formatTextWithLimit(quickmessage.message, 33)}</TableCell>
-                  <TableCell>
-                    {quickmessage.mediaPath && (
-                      quickmessage.mediaType === "file" ? "Arquivo" : "Áudio"
-                    )}
-                  </TableCell>
-                  <TableCell align="right">
-                    {renderActions(quickmessage)}
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </TableContainer>
-      )}
-    </>
-  );
-
-  const tabs = [
+  // Configuração das ações do cabeçalho
+  const pageActions = [
     {
-      label: "Todas",
+      label: "Nova",
       icon: <MessageSquarePlus size={20} />,
-      content: <BasePageContent
-        loading={loading && quickmessages.length === 0}
-        empty={!loading && quickmessages.length === 0}
-        emptyProps={{
-          title: "Nenhuma resposta rápida encontrada",
-          message: "Crie uma nova resposta rápida para facilitar seu atendimento",
-          buttonText: "Nova Resposta Rápida",
-          onAction: handleOpenQuickMessageDialog,
-          icon: <MessageSquarePlus size={40} />
-        }}
-      >
-        <Box sx={{ height: '100%', overflow: 'auto' }} onScroll={handleScroll}>
-          {renderAllMessages()}
-        </Box>
-      </BasePageContent>
-    },
-    {
-      label: "Minhas",
-      icon: <MessageSquarePlus size={20} />,
-      content: <BasePageContent
-        loading={loading && quickmessages.length === 0}
-        empty={!loading && quickmessages.length === 0}
-        emptyProps={{
-          title: "Nenhuma resposta rápida encontrada",
-          message: "Crie uma nova resposta rápida para facilitar seu atendimento",
-          buttonText: "Nova Resposta Rápida",
-          onAction: handleOpenQuickMessageDialog,
-          icon: <MessageSquarePlus size={40} />
-        }}
-      >
-        <Box sx={{ height: '100%', overflow: 'auto' }} onScroll={handleScroll}>
-          {renderMyMessages()}
-        </Box>
-      </BasePageContent>
+      onClick: handleOpenQuickMessageDialog,
+      variant: "contained",
+      color: "primary",
+      tooltip: "Nova resposta rápida"
     }
   ];
 
+  // Configuração das abas
+  const tabs = [
+    {
+      label: `Todas (${quickmessages.length})`,
+      icon: <MessageSquarePlus size={20} />
+    },
+    {
+      label: `Minhas`,
+      icon: <MessageSquarePlus size={20} />
+    }
+  ];
+
+  // Filtrar mensagens baseado na pesquisa
+  const getFilteredQuickMessages = () => {
+    if (!searchParam) return quickmessages;
+    
+    return quickmessages.filter(quickmessage =>
+      quickmessage.shortcode?.toLowerCase().includes(searchParam) ||
+      quickmessage.message?.toLowerCase().includes(searchParam)
+    );
+  };
+
+  const filteredQuickMessages = getFilteredQuickMessages();
+
   return (
-    <BasePage
-      title={i18n.t("quickMessages.title")}
-      headerContent={
-        <BasePageHeader
-          onSearch={(e) => setSearchParam(e.target.value.toLowerCase())}
-          searchValue={searchParam}
-          searchPlaceholder={i18n.t("quickMessages.searchPlaceholder")}
-          actions={[
-            {
-              icon: <MessageSquarePlus size={20} />,
-              label: "Nova",
-              onClick: handleOpenQuickMessageDialog,
-              variant: "contained"
-            }
-          ]}
-        >
+    <>
+      <StandardPageLayout
+        title={i18n.t("quickMessages.title")}
+        actions={pageActions}
+        searchValue={searchParam}
+        onSearchChange={handleSearch}
+        searchPlaceholder={i18n.t("quickMessages.searchPlaceholder")}
+        showSearch={true}
+        tabs={tabs}
+        activeTab={tabValue}
+        onTabChange={(e, newValue) => setTabValue(newValue)}
+        loading={loading && quickmessages.length === 0}
+      >
+        {/* Seletor de modo de visualização */}
+        <Box sx={{ mb: 2, display: 'flex', justifyContent: 'flex-end' }}>
           <ViewModeSelector>
             <Tooltip title="Visualização em grade">
               <IconButton 
@@ -586,9 +515,33 @@ const QuickMessages = () => {
               </IconButton>
             </Tooltip>
           </ViewModeSelector>
-        </BasePageHeader>
-      }
-    >
+        </Box>
+
+        {loading && quickmessages.length === 0 ? (
+          <Box display="flex" justifyContent="center" p={3}>
+            <CircularProgress />
+          </Box>
+        ) : filteredQuickMessages.length === 0 ? (
+          <Box display="flex" flexDirection="column" alignItems="center" justifyContent="center" p={5}>
+            <MessageSquarePlus size={40} />
+            <Typography variant="h6" color="textSecondary" gutterBottom sx={{ mt: 2 }}>
+              {searchParam ? "Nenhuma resposta rápida encontrada" : "Nenhuma resposta rápida cadastrada"}
+            </Typography>
+            <Typography variant="body2" color="textSecondary" paragraph>
+              {searchParam ? "Tente ajustar sua pesquisa" : "Crie uma nova resposta rápida para facilitar seu atendimento"}
+            </Typography>
+          </Box>
+        ) : (
+          <Box sx={{ height: '100%', overflow: 'auto' }} onScroll={handleScroll}>
+            {viewMode === "grid" ? (
+              <QuickMessagesTable messages={filteredQuickMessages} />
+            ) : (
+              renderTableView()
+            )}
+          </Box>
+        )}
+      </StandardPageLayout>
+
       {/* Modal de confirmação para exclusão */}
       {confirmModalOpen && (
         <ConfirmationModal
@@ -616,17 +569,7 @@ const QuickMessages = () => {
           setMakeRequest={setMakeRequest}
         />
       )}
-      
-      {/* Conteúdo com abas */}
-      <BaseResponsiveTabs
-        tabs={tabs}
-        value={tabValue}
-        onChange={(e, newValue) => setTabValue(newValue)}
-        showTabsOnMobile={true}
-        fabIcon={<MessageSquarePlus />}
-        onFabClick={handleOpenQuickMessageDialog}
-      />
-    </BasePage>
+    </>
   );
 };
 

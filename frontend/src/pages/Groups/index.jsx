@@ -7,16 +7,10 @@ import { i18n } from "../../translate/i18n";
 // Material UI Components
 import {
   Box,
-  Paper,
   Typography,
-  Tabs,
-  Tab,
-  TextField,
-  InputAdornment,
   Button,
   IconButton,
   Tooltip,
-  Divider,
   CircularProgress,
   Alert,
   Chip
@@ -24,7 +18,6 @@ import {
 
 // Material UI Icons
 import {
-  Search as SearchIcon,
   Add as AddIcon,
   Refresh as RefreshIcon,
   Group as GroupIcon,
@@ -39,10 +32,9 @@ import {
 import { AuthContext } from "../../context/Auth/AuthContext";
 import { SocketContext } from "../../context/Socket/SocketContext";
 
-// Base Components - remover BasePageHeader
-import BaseModal from "../../components/shared/BaseModal";
-
 // Components
+import StandardPageLayout from "../../components/StandardPageLayout";
+import BaseModal from "../../components/shared/BaseModal";
 import GroupsTable from "./components/GroupsTable";
 import CreateGroupModal from "./components/CreateGroupModal";
 import GroupInfoModal from "./components/GroupInfoModal";
@@ -55,10 +47,6 @@ import ExtractContactsFromGroupModal from "./components/ExtractContactsFromGroup
 
 // Services
 import api from "../../services/api";
-
-import MainHeader from "../../components/MainHeader";
-import MainContainer from "../../components/MainContainer";
-import Title from "../../components/Title";
 import { Can } from "../../components/Can";
 
 const Groups = () => {
@@ -360,36 +348,33 @@ const Groups = () => {
     if (!needsSync || whatsappConnections.length === 0) return null;
 
     return (
-      <Paper elevation={2} sx={{ p: 3, mb: 3, bgcolor: 'primary.light', color: 'primary.contrastText' }}>
+      <Alert severity="info" sx={{ mb: 2 }}>
         <Box display="flex" alignItems="center" justifyContent="space-between">
-          <Box display="flex" alignItems="center">
-            <SyncIcon sx={{ fontSize: 40, mr: 2 }} />
-            <Box>
-              <Typography variant="h6" gutterBottom>
-                Sincronizar Grupos do WhatsApp
-              </Typography>
-              <Typography variant="body2">
-                Encontramos {whatsappConnections.length} conexão(ões) WhatsApp ativa(s).
-                Sincronize para importar todos os grupos existentes.
-              </Typography>
-            </Box>
+          <Box>
+            <Typography variant="subtitle1" gutterBottom>
+              Sincronizar Grupos do WhatsApp
+            </Typography>
+            <Typography variant="body2">
+              Encontramos {whatsappConnections.length} conexão(ões) WhatsApp ativa(s).
+              Sincronize para importar todos os grupos existentes.
+            </Typography>
           </Box>
-          <IconButton
-            color="secondary"
+          <Button
+            variant="contained"
+            startIcon={<SyncIcon />}
             onClick={handleOpenSyncModal}
-            sx={{ bgcolor: 'secondary.main', '&:hover': { bgcolor: 'secondary.dark' } }}
           >
-            <SyncIcon />
-          </IconButton>
+            Sincronizar
+          </Button>
         </Box>
-      </Paper>
+      </Alert>
     );
   };
 
   const renderWhatsAppStatus = () => {
     if (whatsappConnections.length === 0) {
       return (
-        <Alert severity="warning" sx={{ mb: 3 }}>
+        <Alert severity="warning" sx={{ mb: 2 }}>
           <Typography variant="body1" gutterBottom>
             Nenhuma conexão WhatsApp encontrada
           </Typography>
@@ -500,154 +485,100 @@ const Groups = () => {
     };
   }, [searchTimeout]);
 
+  // Configuração das ações do cabeçalho
+  const pageActions = [
+    {
+      label: "Atualizar",
+      icon: refreshing ? <CircularProgress size={20} /> : <RefreshIcon />,
+      onClick: handleRefresh,
+      variant: "outlined",
+      color: "primary",
+      disabled: refreshing,
+      tooltip: "Atualizar lista de grupos"
+    },
+    ...(whatsappConnections.length > 0 ? [{
+      label: "Sincronizar",
+      icon: <SyncIcon />,
+      onClick: handleOpenSyncModal,
+      variant: "outlined",
+      color: "primary",
+      tooltip: "Sincronizar grupos do WhatsApp"
+    }] : []),
+    ...user.profile === "admin" ? [{
+      label: i18n.t("groups.newGroup"),
+      icon: <AddIcon />,
+      onClick: handleOpenCreateModal,
+      variant: "contained",
+      color: "primary",
+      tooltip: "Criar novo grupo"
+    }] : []
+  ];
+
+  // Configuração das abas
+  const tabs = [
+    {
+      label: i18n.t("groups.tabs.list"),
+      icon: <GroupIcon />
+    },
+    {
+      label: i18n.t("groups.tabs.invites"),
+      icon: <AddIcon />
+    },
+    {
+      label: "Extrair Contatos",
+      icon: <GroupIcon />
+    },
+    {
+      label: "Importar Contatos",
+      icon: <GroupIcon />
+    },
+    {
+      label: i18n.t("groups.tabs.requests"),
+      icon: <GroupIcon />
+    }
+  ];
+
   return (
-    <MainContainer>
-      <MainHeader>
-        <Title>
-          <Box display="flex" alignItems="center">
-            <GroupIcon style={{ marginRight: 8 }} />
+    <>
+      <StandardPageLayout
+        title={
+          <Box display="flex" alignItems="center" gap={1}>
+            <GroupIcon />
             {i18n.t("groups.title")}
-          </Box>
-        </Title>
-        {groups.length > 0 && (
-          <Box ml={2} display="flex" gap={1}>
-            <Chip
-              icon={<AdminIcon />}
-              label={`${adminGroups} Admin`}
-              size="small"
-              color="warning"
-              variant="outlined"
-            />
-            <Chip
-              icon={<ParticipantIcon />}
-              label={`${participantGroups} Participante`}
-              size="small"
-              color="default"
-              variant="outlined"
-            />
-          </Box>
-        )}
-      </MainHeader>
-
-      <Box sx={{ p: 2 }}>
-        <Paper elevation={0} variant="outlined" sx={{ borderRadius: 2, overflow: 'hidden', height: 'calc(100vh - 240px)', display: 'flex', flexDirection: 'column' }}>
-        <Box p={2} display="flex" alignItems="center" justifyContent="space-between" bgcolor="primary.main" color="primary.contrastText">
-          <Box flex={1} display="flex" alignItems="center">
-            <TextField
-              placeholder={i18n.t("groups.searchPlaceholder")}
-              fullWidth
-              variant="outlined"
-              size="small"
-              value={searchParam}
-              onChange={handleSearch}
-              sx={{
-                bgcolor: 'background.paper',
-                borderRadius: 1,
-                maxWidth: 300,
-                '& .MuiOutlinedInput-root': {
-                  '& fieldset': {
-                    borderColor: 'transparent',
-                  },
-                  '&:hover fieldset': {
-                    borderColor: 'transparent',
-                  },
-                  '&.Mui-focused fieldset': {
-                    borderColor: 'transparent',
-                  },
-                },
-              }}
-              InputProps={{
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <SearchIcon />
-                  </InputAdornment>
-                ),
-              }}
-            />
-          </Box>
-
-          <Box display="flex" alignItems="center" gap={1} ml={2}>
-            <Tooltip title="Atualizar">
-              <IconButton 
-                onClick={handleRefresh} 
-                disabled={refreshing} 
-                sx={{ 
-                  bgcolor: 'primary.dark',
-                  color: 'white',
-                  '&:hover': { bgcolor: 'primary.main' },
-                  '&:disabled': { bgcolor: 'action.disabled', color: 'action.disabled' }
-                }}
-              >
-                {refreshing ? <CircularProgress size={24} color="inherit" /> : <RefreshIcon />}
-              </IconButton>
-            </Tooltip>
-
-            {whatsappConnections.length > 0 && (
-              <Tooltip title="Sincronizar grupos do WhatsApp">
-                <IconButton 
-                  onClick={handleOpenSyncModal} 
-                  sx={{ 
-                    bgcolor: 'primary.dark',
-                    color: 'white',
-                    '&:hover': { bgcolor: 'primary.main' }
-                  }}
-                >
-                  <SyncIcon />
-                </IconButton>
-              </Tooltip>
+            {groups.length > 0 && (
+              <Box display="flex" gap={1} ml={2}>
+                <Chip
+                  icon={<AdminIcon />}
+                  label={`${adminGroups} Admin`}
+                  size="small"
+                  color="warning"
+                  variant="outlined"
+                />
+                <Chip
+                  icon={<ParticipantIcon />}
+                  label={`${participantGroups} Participante`}
+                  size="small"
+                  color="default"
+                  variant="outlined"
+                />
+              </Box>
             )}
-
-            <Can
-              role={user.profile}
-              perform="groups:create"
-              yes={() => (
-                <Tooltip title={i18n.t("groups.newGroup")}>
-                  <IconButton
-                    onClick={handleOpenCreateModal}
-                    sx={{ 
-                      bgcolor: 'secondary.main',
-                      color: 'white',
-                      '&:hover': { bgcolor: 'secondary.dark' }
-                    }}
-                  >
-                    <AddIcon />
-                  </IconButton>
-                </Tooltip>
-              )}
-            />
           </Box>
-        </Box>
-
-        <Tabs
-          value={tab}
-          onChange={handleChangeTab}
-          indicatorColor="primary"
-          textColor="primary"
-          variant="scrollable"
-          scrollButtons="auto"
-          sx={{
-            backgroundColor: 'background.paper',
-            '& .MuiTab-root': {
-              fontWeight: 500,
-              py: 1.5
-            }
-          }}
-        >
-          <Tab label={i18n.t("groups.tabs.list")} />
-          <Tab label={i18n.t("groups.tabs.invites")} />
-          <Tab label="Extrair Contatos" />
-          <Tab label="Importar Contatos" />
-          <Tab label={i18n.t("groups.tabs.requests")} />
-        </Tabs>
-        <Divider />
-
-        <Box sx={{ flex: 1, overflow: 'hidden' }}>
-          <animated.div style={{ ...fadeIn, height: '100%' }}>
-            {renderTabContent()}
-          </animated.div>
-        </Box>
-      </Paper>
-    </Box>
+        }
+        actions={pageActions}
+        searchValue={searchParam}
+        onSearchChange={handleSearch}
+        searchPlaceholder={i18n.t("groups.searchPlaceholder")}
+        showSearch={true}
+        tabs={tabs}
+        activeTab={tab}
+        onTabChange={handleChangeTab}
+        loading={loading}
+      >
+        <animated.div style={{ ...fadeIn, height: '100%' }}>
+          {renderTabContent()}
+        </animated.div>
+      </StandardPageLayout>
 
       {/* Modais */}
       <SyncGroupsModal
@@ -716,7 +647,7 @@ const Groups = () => {
           {i18n.t("groups.forceDeleteWarning")}
         </Typography>
       </BaseModal>
-    </MainContainer>
+    </>
   );
 };
 
