@@ -2,39 +2,32 @@ import React, { useState, useEffect, useReducer, useContext } from "react";
 import { useTheme } from "@mui/material/styles";
 import { 
   Button, 
-  IconButton, 
-  InputAdornment, 
-  Paper, 
   Table, 
   TableBody, 
   TableCell, 
   TableContainer, 
   TableHead, 
   TableRow, 
-  TextField, 
   Tooltip, 
   Box, 
   Typography, 
   Chip, 
   Fade,
-  CircularProgress,
-  Snackbar,
-  Alert
+  CircularProgress
 } from "@mui/material";
 import {
   DeleteOutline,
   Edit,
-  Search as SearchIcon,
   Add as AddIcon,
   FilterList as FilterListIcon,
-  Close as CloseIcon
+  SettingsInputComponent as IntegrationIcon,
+  Link as LinkIcon,
+  Code as CodeIcon
 } from "@mui/icons-material";
 import { useSpring, animated } from "react-spring";
 
-import MainContainer from "../../components/MainContainer";
-import MainHeader from "../../components/MainHeader";
-import MainHeaderButtonsWrapper from "../../components/MainHeaderButtonsWrapper";
-import Title from "../../components/Title";
+// Componentes
+import StandardPageLayout from "../../components/StandardPageLayout";
 import TableRowSkeleton from "../../components/TableRowSkeleton";
 import IntegrationModal from "../../components/QueueIntegrationModal";
 import ConfirmationModal from "../../components/ConfirmationModal";
@@ -113,8 +106,7 @@ const QueueIntegration = () => {
   const [searchParam, setSearchParam] = useState("");
   const [queueIntegration, dispatch] = useReducer(reducer, []);
   const [actionInProgress, setActionInProgress] = useState(false);
-  const [errorMessage, setErrorMessage] = useState("");
-  const [errorOpen, setErrorOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState(0);
   const { user } = useContext(AuthContext);
   const { getPlanCompany } = usePlans();
   const companyId = user.companyId;
@@ -161,8 +153,7 @@ const QueueIntegration = () => {
           setLoading(false);
         } catch (err) {
           console.error("Error fetching integrations:", err);
-          setErrorMessage(err.response?.data?.error || "Erro ao carregar integrações");
-          setErrorOpen(true);
+          toast.error(err.response?.data?.error || "Erro ao carregar integrações");
           setLoading(false);
         }
       };
@@ -223,8 +214,7 @@ const QueueIntegration = () => {
       dispatch({ type: "DELETE_INTEGRATION", payload: integrationId });
     } catch (err) {
       console.error("Error deleting integration:", err);
-      setErrorMessage(err.response?.data?.error || "Erro ao excluir integração");
-      setErrorOpen(true);
+      toast.error(err.response?.data?.error || "Erro ao excluir integração");
     } finally {
       setDeletingUser(null);
       setActionInProgress(false);
@@ -244,8 +234,60 @@ const QueueIntegration = () => {
     }
   };
 
-  const handleCloseError = () => {
-    setErrorOpen(false);
+  // Filtrar integrações baseado na aba ativa
+  const getFilteredIntegrations = () => {
+    switch (activeTab) {
+      case 1: // Webhooks
+        return queueIntegration.filter(integration => integration.type === 'webhook');
+      case 2: // APIs
+        return queueIntegration.filter(integration => 
+          ['dialogflow', 'n8n', 'openAI', 'assistant'].includes(integration.type)
+        );
+      case 3: // Bots
+        return queueIntegration.filter(integration => 
+          ['typebot', 'flowbuilder'].includes(integration.type)
+        );
+      default: // Todas
+        return queueIntegration;
+    }
+  };
+
+  const filteredIntegrations = getFilteredIntegrations();
+
+  // Configuração das ações do cabeçalho
+  const pageActions = [
+    {
+      label: i18n.t("queueIntegration.buttons.add"),
+      icon: <AddIcon />,
+      onClick: handleOpenUserModal,
+      variant: "contained",
+      color: "primary",
+      tooltip: "Adicionar nova integração"
+    }
+  ];
+
+  // Configuração das abas
+  const tabs = [
+    {
+      label: `Todas (${queueIntegration.length})`,
+      icon: <IntegrationIcon />
+    },
+    {
+      label: `Webhooks (${queueIntegration.filter(i => i.type === 'webhook').length})`,
+      icon: <LinkIcon />
+    },
+    {
+      label: `APIs (${queueIntegration.filter(i => ['dialogflow', 'n8n', 'openAI', 'assistant'].includes(i.type)).length})`,
+      icon: <CodeIcon />
+    },
+    {
+      label: `Bots (${queueIntegration.filter(i => ['typebot', 'flowbuilder'].includes(i.type)).length})`,
+      icon: <FilterListIcon />
+    }
+  ];
+
+  const handleTabChange = (event, newValue) => {
+    setActiveTab(newValue);
   };
 
   const IntegrationItem = ({ integration }) => (
@@ -314,8 +356,125 @@ const QueueIntegration = () => {
     </TableRow>
   );
 
+  // Renderizar conteúdo da página
+  const renderContent = () => {
+    if (loading && queueIntegration.length === 0) {
+      return (
+        <Box sx={{ display: 'flex', justifyContent: 'center', mt: 8, mb: 8 }}>
+          <CircularProgress />
+        </Box>
+      );
+    }
+
+    if (filteredIntegrations.length === 0) {
+      return (
+        <Fade in timeout={500}>
+          <Box sx={{
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: theme.spacing(6),
+            textAlign: 'center',
+            height: '60vh'
+          }}>
+            <FilterListIcon sx={{ fontSize: 60, color: 'text.secondary', opacity: 0.7, mb: 3 }} />
+            <Typography variant="h6" sx={{ fontWeight: 600, mb: 1 }}>
+              {activeTab === 0 
+                ? (i18n.t("queueIntegration.noIntegrationsFound") || "Nenhuma integração encontrada")
+                : activeTab === 1
+                  ? "Nenhum webhook encontrado"
+                  : activeTab === 2
+                    ? "Nenhuma API encontrada"
+                    : "Nenhum bot encontrado"
+              }
+            </Typography>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 4, maxWidth: 500 }}>
+              {searchParam 
+                ? (i18n.t("queueIntegration.tryAnotherSearch") || "Tente usar outros termos na busca")
+                : activeTab === 0
+                  ? (i18n.t("queueIntegration.addYourFirstIntegration") || "Adicione sua primeira integração")
+                  : "Não há integrações deste tipo cadastradas"
+              }
+            </Typography>
+            {activeTab === 0 && (
+              <Button
+                variant="contained"
+                color="primary"
+                startIcon={<AddIcon />}
+                onClick={handleOpenUserModal}
+                sx={{ 
+                  borderRadius: 30,
+                  padding: theme.spacing(1.5, 4),
+                  textTransform: 'none',
+                  fontWeight: 'bold',
+                  boxShadow: theme.shadows[3]
+                }}
+              >
+                {i18n.t("queueIntegration.buttons.add")}
+              </Button>
+            )}
+          </Box>
+        </Fade>
+      );
+    }
+
+    return (
+      <AnimatedBox style={fadeIn}>
+        <TableContainer 
+          sx={{ height: '100%', overflow: 'auto' }}
+          onScroll={handleScroll}
+        >
+          <Table size="small" stickyHeader>
+            <TableHead>
+              <TableRow>
+                <TableCell sx={{ fontWeight: 'bold', color: theme.palette.primary.main }}>
+                  {i18n.t("queueIntegration.table.type") || "Tipo"}
+                </TableCell>
+                <TableCell align="center" sx={{ fontWeight: 'bold', color: theme.palette.primary.main }}>
+                  {i18n.t("queueIntegration.table.id") || "ID"}
+                </TableCell>
+                <TableCell align="center" sx={{ fontWeight: 'bold', color: theme.palette.primary.main }}>
+                  {i18n.t("queueIntegration.table.name") || "Nome"}
+                </TableCell>
+                <TableCell align="center" sx={{ fontWeight: 'bold', color: theme.palette.primary.main }}>
+                  {i18n.t("queueIntegration.table.actions") || "Ações"}
+                </TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {filteredIntegrations.map((integration) => (
+                <IntegrationItem 
+                  key={integration.id} 
+                  integration={integration} 
+                />
+              ))}
+              {loading && <TableRowSkeleton columns={4} />}
+            </TableBody>
+          </Table>
+        </TableContainer>
+      </AnimatedBox>
+    );
+  };
+
   return (
-    <MainContainer>
+    <>
+      <StandardPageLayout
+        title={i18n.t("queueIntegration.title")}
+        actions={pageActions}
+        searchValue={searchParam}
+        onSearchChange={handleSearch}
+        searchPlaceholder={i18n.t("queueIntegration.searchPlaceholder")}
+        showSearch={true}
+        tabs={tabs}
+        activeTab={activeTab}
+        onTabChange={handleTabChange}
+        loading={loading && queueIntegration.length === 0}
+      >
+        {renderContent()}
+      </StandardPageLayout>
+
+      {/* Modais */}
       {confirmModalOpen && (
         <ConfirmationModal
           title={
@@ -339,177 +498,7 @@ const QueueIntegration = () => {
           integrationId={selectedIntegration && selectedIntegration.id}
         />
       )}
-      
-      <MainHeader>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-          <Title>{i18n.t("queueIntegration.title")}</Title>
-          <Chip 
-            label={queueIntegration.length} 
-            color="primary" 
-            size="small" 
-            sx={{ borderRadius: 2 }}
-          />
-        </Box>
-        <MainHeaderButtonsWrapper>
-          <TextField
-            placeholder={i18n.t("queueIntegration.searchPlaceholder")}
-            size="small"
-            type="search"
-            sx={{ 
-              width: { xs: "100%", sm: 360, md: 500 },
-              backgroundColor: 'background.paper',
-              borderRadius: 1
-            }}
-            value={searchParam}
-            onChange={handleSearch}
-            InputProps={{
-              startAdornment: (
-                <InputAdornment position="start">
-                  <SearchIcon color="primary" />
-                </InputAdornment>
-              ),
-              endAdornment: searchParam ? (
-                <InputAdornment position="end">
-                  <IconButton size="small" onClick={() => setSearchParam("")}>
-                    <CloseIcon fontSize="small" />
-                  </IconButton>
-                </InputAdornment>
-              ) : (
-                <InputAdornment position="end">
-                  <IconButton size="small">
-                    <FilterListIcon fontSize="small" />
-                  </IconButton>
-                </InputAdornment>
-              )
-            }}
-          />
-          <Button
-            variant="contained"
-            color="primary"
-            onClick={handleOpenUserModal}
-            startIcon={<AddIcon />}
-            sx={{ 
-              borderRadius: 8,
-              textTransform: 'none',
-              fontWeight: 'bold',
-              boxShadow: theme.shadows[3],
-              padding: theme.spacing(1, 2),
-              minWidth: { xs: '100%', sm: 'auto' }
-            }}
-          >
-            {i18n.t("queueIntegration.buttons.add")}
-          </Button>
-        </MainHeaderButtonsWrapper>
-      </MainHeader>
-      
-      <AnimatedBox style={fadeIn}>
-        <Paper
-          variant="outlined"
-          onScroll={handleScroll}
-          sx={{ 
-            flex: 1,
-            padding: theme.spacing(2),
-            margin: theme.spacing(1),
-            overflowY: "auto",
-            height: "calc(100vh - 200px)",
-            borderRadius: 2,
-            boxShadow: 'rgba(17, 17, 26, 0.05) 0px 1px 0px, rgba(17, 17, 26, 0.1) 0px 0px 8px'
-          }}
-        >
-          {loading && queueIntegration.length === 0 ? (
-            <Box sx={{ display: 'flex', justifyContent: 'center', mt: 8, mb: 8 }}>
-              <CircularProgress />
-            </Box>
-          ) : queueIntegration.length === 0 ? (
-            <Fade in timeout={500}>
-              <Box sx={{
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                justifyContent: 'center',
-                padding: theme.spacing(6),
-                textAlign: 'center',
-                height: '60vh'
-              }}>
-                <FilterListIcon sx={{ fontSize: 60, color: 'text.secondary', opacity: 0.7, mb: 3 }} />
-                <Typography variant="h6" sx={{ fontWeight: 600, mb: 1 }}>
-                  {i18n.t("queueIntegration.noIntegrationsFound") || "Nenhuma integração encontrada"}
-                </Typography>
-                <Typography variant="body2" color="text.secondary" sx={{ mb: 4, maxWidth: 500 }}>
-                  {searchParam 
-                    ? (i18n.t("queueIntegration.tryAnotherSearch") || "Tente usar outros termos na busca")
-                    : (i18n.t("queueIntegration.addYourFirstIntegration") || "Adicione sua primeira integração")}
-                </Typography>
-                <Button
-                  variant="contained"
-                  color="primary"
-                  startIcon={<AddIcon />}
-                  onClick={handleOpenUserModal}
-                  sx={{ 
-                    borderRadius: 30,
-                    padding: theme.spacing(1.5, 4),
-                    textTransform: 'none',
-                    fontWeight: 'bold',
-                    boxShadow: theme.shadows[3]
-                  }}
-                >
-                  {i18n.t("queueIntegration.buttons.add")}
-                </Button>
-              </Box>
-            </Fade>
-          ) : (
-            <Fade in timeout={500}>
-              <TableContainer>
-                <Table size="small">
-                  <TableHead>
-                    <TableRow>
-                      <TableCell sx={{ fontWeight: 'bold', color: theme.palette.primary.main }}>
-                        {i18n.t("queueIntegration.table.type") || "Tipo"}
-                      </TableCell>
-                      <TableCell align="center" sx={{ fontWeight: 'bold', color: theme.palette.primary.main }}>
-                        {i18n.t("queueIntegration.table.id") || "ID"}
-                      </TableCell>
-                      <TableCell align="center" sx={{ fontWeight: 'bold', color: theme.palette.primary.main }}>
-                        {i18n.t("queueIntegration.table.name") || "Nome"}
-                      </TableCell>
-                      <TableCell align="center" sx={{ fontWeight: 'bold', color: theme.palette.primary.main }}>
-                        {i18n.t("queueIntegration.table.actions") || "Ações"}
-                      </TableCell>
-                    </TableRow>
-                  </TableHead>
-                  <TableBody>
-                    {queueIntegration.map((integration) => (
-                      <IntegrationItem 
-                        key={integration.id} 
-                        integration={integration} 
-                      />
-                    ))}
-                    {loading && <TableRowSkeleton columns={4} />}
-                  </TableBody>
-                </Table>
-              </TableContainer>
-            </Fade>
-          )}
-        </Paper>
-      </AnimatedBox>
-
-      {/* Snackbar para erros */}
-      <Snackbar
-        open={errorOpen}
-        autoHideDuration={6000}
-        onClose={handleCloseError}
-        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
-      >
-        <Alert
-          onClose={handleCloseError}
-          severity="error"
-          variant="filled"
-          sx={{ width: '100%' }}
-        >
-          {errorMessage}
-        </Alert>
-      </Snackbar>
-    </MainContainer>
+    </>
   );
 };
 

@@ -1,195 +1,44 @@
-import React, { useState, useEffect, useContext } from 'react';
-import { makeStyles } from '@mui/styles';
-import { useTheme } from '@mui/material/styles';
-import { 
-  Paper, 
-  Typography, 
-  Button, 
-  Table, 
-  TableBody, 
-  TableCell, 
-  TableContainer, 
-  TableHead, 
+import React, { useState, useEffect } from 'react';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
   TableRow,
   IconButton,
-  TextField,
-  InputAdornment,
   Tooltip,
   Chip,
   Box,
-  Tabs,
-  Tab,
-  Pagination,
   Switch,
   LinearProgress,
-  Fade
+  Typography,
+  Button
 } from '@mui/material';
 import { 
   Add as AddIcon, 
-  Search as SearchIcon, 
   Edit as EditIcon, 
   Delete as DeleteIcon,
   CheckCircle as ActiveIcon,
   Cancel as InactiveIcon,
   Rule as RuleIcon,
-  FilterAlt as FilterIcon,
-  Close as CloseIcon,
+  DeleteSweep as DeleteSweepIcon,
   AllInclusive as AllConnectionsIcon,
   ImportExport as PriorityIcon,
   AssignmentInd as UserIcon,
   ForwardToInbox as QueueIcon
 } from '@mui/icons-material';
-import { useSpring, animated } from 'react-spring';
+import { useTheme } from '@mui/material/styles';
+
+// Componentes
+import StandardPageLayout from '../../components/StandardPageLayout';
 import { i18n } from '../../translate/i18n';
-import MainContainer from '../../components/MainContainer';
 import MessageRuleModal from './components/MessageRuleModal';
 import ConfirmationModal from '../../components/ConfirmationModal';
 import EmptyStateMessageRules from './components/EmptyStateMessageRules';
 import useMessageRules from '../../hooks/useMessageRules';
-import './MessageRules.css';
-
-const useStyles = makeStyles((theme) => ({
-  mainPaper: {
-    flex: 1,
-    padding: theme.spacing(2),
-    margin: theme.spacing(1),
-    position: 'relative',
-    overflow: 'hidden',
-    borderRadius: 16,
-    boxShadow: 'rgba(17, 17, 26, 0.05) 0px 1px 0px, rgba(17, 17, 26, 0.1) 0px 0px 8px'
-  },
-  header: {
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: theme.spacing(2),
-  },
-  headerTitle: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: theme.spacing(1),
-    color: theme.palette.primary.main
-  },
-  tableHeaderCell: {
-    fontWeight: 'bold',
-    backgroundColor: theme.palette.background.default,
-    color: theme.palette.primary.main
-  },
-  actionButtons: {
-    display: 'flex',
-    gap: theme.spacing(1)
-  },
-  tabsContainer: {
-    marginBottom: theme.spacing(2),
-    borderRadius: 8,
-    overflow: 'hidden',
-    boxShadow: 'rgba(0, 0, 0, 0.05) 0px 1px 2px 0px'
-  },
-  tabs: {
-    backgroundColor: theme.palette.background.paper,
-    borderRadius: 8
-  },
-  tab: {
-    minHeight: 60,
-    textTransform: 'none',
-    fontWeight: 500,
-    fontSize: '1rem'
-  },
-  paginationContainer: {
-    display: 'flex',
-    justifyContent: 'center',
-    marginTop: theme.spacing(2),
-    padding: theme.spacing(2)
-  },
-  searchContainer: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: theme.spacing(1),
-    marginBottom: theme.spacing(2)
-  },
-  searchInput: {
-    flex: 1,
-    backgroundColor: theme.palette.background.paper,
-    borderRadius: 8
-  },
-  addButton: {
-    borderRadius: 8,
-    textTransform: 'none',
-    padding: theme.spacing(1.2, 2),
-    fontWeight: 'bold',
-    boxShadow: theme.shadows[3]
-  },
-  addButtonIcon: {
-    marginRight: theme.spacing(1)
-  },
-  noRecords: {
-    display: 'flex',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: theme.spacing(4),
-    color: theme.palette.text.secondary
-  },
-  tableRowHover: {
-    '&:hover': {
-      backgroundColor: `${theme.palette.primary.lighter} !important`,
-      transition: 'all 0.2s'
-    }
-  },
-  statusColumnHeader: {
-    width: 120
-  },
-  priorityColumnHeader: {
-    width: 100
-  },
-  actionsColumnHeader: {
-    width: 100
-  },
-  progressBarContainer: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    zIndex: 1
-  },
-  priorityChip: {
-    fontWeight: 'bold',
-    width: 50
-  },
-  tagChip: {
-    margin: 2,
-    color: '#FFF',
-    fontWeight: 'bold'
-  },
-  tableContainer: {
-    marginBottom: theme.spacing(2),
-    boxShadow: 'rgba(0, 0, 0, 0.04) 0px 3px 5px'
-  },
-  tableCell: {
-    padding: theme.spacing(1.5)
-  },
-  iconText: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: theme.spacing(0.5)
-  },
-  connectionCell: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: theme.spacing(0.5)
-  },
-  breadcrumbsContainer: {
-    marginBottom: theme.spacing(2),
-    padding: theme.spacing(0.5, 0)
-  },
-  clearButton: {
-    minWidth: 'auto',
-    padding: theme.spacing(0.5),
-    marginRight: theme.spacing(0.5)
-  }
-}));
 
 const MessageRulesPage = () => {
-  const classes = useStyles();
   const theme = useTheme();
   
   const {
@@ -212,13 +61,8 @@ const MessageRulesPage = () => {
   const [messageRuleModalOpen, setMessageRuleModalOpen] = useState(false);
   const [confirmModalOpen, setConfirmModalOpen] = useState(false);
   const [confirmationMessageRuleId, setConfirmationMessageRuleId] = useState(null);
-
-  // Animações
-  const fadeIn = useSpring({
-    from: { opacity: 0 },
-    to: { opacity: 1 },
-    config: { tension: 280, friction: 60 }
-  });
+  const [selectedRules, setSelectedRules] = useState([]);
+  const [activeTab, setActiveTab] = useState(0);
 
   // Formatadores
   const renderPriorityChip = (priority) => {
@@ -235,8 +79,12 @@ const MessageRulesPage = () => {
       <Chip 
         label={priority} 
         size="small" 
-        className={classes.priorityChip}
-        style={{ backgroundColor: color }}
+        sx={{
+          backgroundColor: color,
+          color: 'white',
+          fontWeight: 'bold',
+          width: 50
+        }}
       />
     );
   };
@@ -262,8 +110,12 @@ const MessageRulesPage = () => {
             key={tagId} 
             label={renderTagName(tagId, allTags)} 
             size="small" 
-            className={classes.tagChip}
-            style={{ backgroundColor: renderTagColor(tagId, allTags) }}
+            sx={{
+              backgroundColor: renderTagColor(tagId, allTags),
+              color: '#FFF',
+              fontWeight: 'bold',
+              margin: '2px'
+            }}
           />
         ))}
       </Box>
@@ -296,295 +148,272 @@ const MessageRulesPage = () => {
     setConfirmModalOpen(false);
   };
 
-  const handleClearSearch = () => {
-    handleSearch('');
+  const handleBulkDelete = async () => {
+    // Implementar exclusão em massa se necessário
+    console.log('Bulk delete:', selectedRules);
+  };
+
+  // Filtrar regras baseado na aba ativa
+  const getFilteredRules = () => {
+    switch (activeTab) {
+      case 1: // Ativas
+        return messageRules.filter(rule => rule.active);
+      case 2: // Inativas
+        return messageRules.filter(rule => !rule.active);
+      default: // Todas
+        return messageRules;
+    }
+  };
+
+  const filteredRules = getFilteredRules();
+
+  // Configuração das ações do cabeçalho
+  const pageActions = [
+    ...(selectedRules.length > 0 ? [
+      {
+        label: i18n.t("messageRules.deleteSelected"),
+        icon: <DeleteSweepIcon />,
+        onClick: handleBulkDelete,
+        variant: "contained",
+        color: "error",
+        tooltip: "Excluir regras selecionadas"
+      }
+    ] : []),
+    {
+      label: i18n.t('messageRules.buttons.add'),
+      icon: <AddIcon />,
+      onClick: handleOpenMessageRuleModal,
+      variant: "contained",
+      color: "primary",
+      tooltip: "Adicionar nova regra"
+    }
+  ];
+
+  // Configuração das abas
+  const tabs = [
+    {
+      label: `${i18n.t('messageRules.tabs.all')} (${messageRules.length})`,
+      icon: <RuleIcon />
+    },
+    {
+      label: `${i18n.t('messageRules.tabs.active')} (${messageRules.filter(r => r.active).length})`,
+      icon: <ActiveIcon />
+    },
+    {
+      label: `${i18n.t('messageRules.tabs.inactive')} (${messageRules.filter(r => !r.active).length})`,
+      icon: <InactiveIcon />
+    }
+  ];
+
+  const handleTabChange = (event, newValue) => {
+    setActiveTab(newValue);
+    // Mapear aba para filtro
+    const filterMap = [undefined, true, false];
+    handleFilterChange(filterMap[newValue]);
   };
 
   return (
-    <MainContainer>
-      <animated.div style={fadeIn}>
-        <Paper className={classes.mainPaper}>
-          {loading && (
-            <div className={classes.progressBarContainer}>
-              <LinearProgress color="primary" />
-            </div>
-          )}
-          
-          <div className={classes.header}>
-            <div className={classes.headerTitle}>
-              <RuleIcon fontSize="large" />
-              <Typography variant="h5" component="h1">
-                {i18n.t('messageRules.title')}
+    <>
+      <StandardPageLayout
+        title={i18n.t('messageRules.title')}
+        actions={pageActions}
+        searchValue={searchParam}
+        onSearchChange={(e) => handleSearch(e.target.value)}
+        searchPlaceholder={i18n.t('messageRules.searchPlaceholder')}
+        showSearch={true}
+        tabs={tabs}
+        activeTab={activeTab}
+        onTabChange={handleTabChange}
+        loading={loading}
+      >
+        {loading && messageRules.length === 0 ? (
+          <Box sx={{ width: '100%' }}>
+            <LinearProgress />
+          </Box>
+        ) : filteredRules.length === 0 ? (
+          searchParam || activeFilter !== undefined ? (
+            <Box 
+              display="flex" 
+              justifyContent="center" 
+              alignItems="center" 
+              sx={{ height: '100%', p: 4 }}
+            >
+              <Typography variant="body1" color="textSecondary">
+                {i18n.t('messageRules.noRecords')}
               </Typography>
-            </div>
-
-            <Button
-              variant="contained"
-              color="primary"
-              startIcon={<AddIcon className={classes.addButtonIcon} />}
-              onClick={handleOpenMessageRuleModal}
-              className={classes.addButton}
-              size="large"
-            >
-              {i18n.t('messageRules.buttons.add')}
-            </Button>
-          </div>
-
-          <div className={classes.searchContainer}>
-            <TextField
-              className={classes.searchInput}
-              placeholder={i18n.t('messageRules.searchPlaceholder')}
-              value={searchParam}
-              onChange={(e) => handleSearch(e.target.value)}
-              InputProps={{
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <SearchIcon color="primary" />
-                  </InputAdornment>
-                ),
-                endAdornment: searchParam ? (
-                  <InputAdornment position="end">
-                    <IconButton 
-                      onClick={handleClearSearch}
-                      size="small"
-                      className={classes.clearButton}
-                    >
-                      <CloseIcon fontSize="small" />
-                    </IconButton>
-                  </InputAdornment>
-                ) : null
-              }}
-              variant="outlined"
-              size="small"
-            />
-          </div>
-
-          <Paper className={classes.tabsContainer}>
-            <Tabs
-              value={activeFilter === undefined ? 0 : activeFilter ? 1 : 2}
-              onChange={(_, newValue) => handleFilterChange(newValue)}
-              indicatorColor="primary"
-              textColor="primary"
-              variant="fullWidth"
-              className={classes.tabs}
-            >
-              <Tab 
-                icon={<FilterIcon />} 
-                label={i18n.t('messageRules.tabs.all')} 
-                className={classes.tab}
-              />
-              <Tab 
-                icon={<ActiveIcon />} 
-                label={i18n.t('messageRules.tabs.active')} 
-                className={classes.tab}
-              />
-              <Tab 
-                icon={<InactiveIcon />} 
-                label={i18n.t('messageRules.tabs.inactive')} 
-                className={classes.tab}
-              />
-            </Tabs>
-          </Paper>
-
-          {loading && messageRules.length === 0 ? (
-            <Box p={8} display="flex" justifyContent="center">
-              <LinearProgress style={{ width: '50%' }} />
             </Box>
-          ) : messageRules.length === 0 ? (
-            searchParam || activeFilter !== undefined ? (
-              <Box className={classes.noRecords}>
-                <Typography variant="body1" color="textSecondary">
-                  {i18n.t('messageRules.noRecords')}
-                </Typography>
-              </Box>
-            ) : (
-              <EmptyStateMessageRules onAddClick={handleOpenMessageRuleModal} />
-            )
           ) : (
-            <Fade in={true} timeout={500}>
-              <div>
-                <TableContainer className={classes.tableContainer}>
-                  <Table size="small">
-                    <TableHead>
-                      <TableRow>
-                        <TableCell className={classes.tableHeaderCell}>{i18n.t('messageRules.table.name')}</TableCell>
-                        <TableCell className={classes.tableHeaderCell}>{i18n.t('messageRules.table.pattern')}</TableCell>
-                        <TableCell className={classes.tableHeaderCell}>
-                          <div className={classes.iconText}>
-                            <AllConnectionsIcon fontSize="small" />
-                            {i18n.t('messageRules.table.connection')}
-                          </div>
-                        </TableCell>
-                        <TableCell className={classes.tableHeaderCell}>
-                          <div className={classes.iconText}>
-                            <QueueIcon fontSize="small" />
-                            {i18n.t('messageRules.table.queue')}
-                          </div>
-                        </TableCell>
-                        <TableCell className={classes.tableHeaderCell}>
-                          <div className={classes.iconText}>
-                            <UserIcon fontSize="small" />
-                            {i18n.t('messageRules.table.user')}
-                          </div>
-                        </TableCell>
-                        <TableCell className={classes.tableHeaderCell}>{i18n.t('messageRules.table.tags')}</TableCell>
-                        <TableCell className={`${classes.tableHeaderCell} ${classes.priorityColumnHeader}`}>
-                          <div className={classes.iconText}>
-                            <PriorityIcon fontSize="small" />
-                            {i18n.t('messageRules.table.priority')}
-                          </div>
-                        </TableCell>
-                        <TableCell className={`${classes.tableHeaderCell} ${classes.statusColumnHeader}`}>{i18n.t('messageRules.table.status')}</TableCell>
-                        <TableCell className={`${classes.tableHeaderCell} ${classes.actionsColumnHeader}`} align="center">{i18n.t('messageRules.table.actions')}</TableCell>
-                      </TableRow>
-                    </TableHead>
-                    <TableBody>
-                      {messageRules.map((rule) => (
-                        <TableRow 
-                          key={rule.id} 
-                          hover 
-                          className={classes.tableRowHover}
+            <EmptyStateMessageRules onAddClick={handleOpenMessageRuleModal} />
+          )
+        ) : (
+          <TableContainer sx={{ height: '100%', overflow: 'auto' }}>
+            <Table stickyHeader size="small">
+              <TableHead>
+                <TableRow>
+                  <TableCell>{i18n.t('messageRules.table.name')}</TableCell>
+                  <TableCell>{i18n.t('messageRules.table.pattern')}</TableCell>
+                  <TableCell>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                      <AllConnectionsIcon fontSize="small" />
+                      {i18n.t('messageRules.table.connection')}
+                    </Box>
+                  </TableCell>
+                  <TableCell>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                      <QueueIcon fontSize="small" />
+                      {i18n.t('messageRules.table.queue')}
+                    </Box>
+                  </TableCell>
+                  <TableCell>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                      <UserIcon fontSize="small" />
+                      {i18n.t('messageRules.table.user')}
+                    </Box>
+                  </TableCell>
+                  <TableCell>{i18n.t('messageRules.table.tags')}</TableCell>
+                  <TableCell>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                      <PriorityIcon fontSize="small" />
+                      {i18n.t('messageRules.table.priority')}
+                    </Box>
+                  </TableCell>
+                  <TableCell>{i18n.t('messageRules.table.status')}</TableCell>
+                  <TableCell align="center">{i18n.t('messageRules.table.actions')}</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {filteredRules.map((rule) => (
+                  <TableRow key={rule.id} hover>
+                    <TableCell>{rule.name}</TableCell>
+                    <TableCell>
+                      <Tooltip 
+                        title={<div style={{ whiteSpace: 'pre-wrap' }}>{rule.pattern}</div>}
+                        placement="top" 
+                        arrow
+                      >
+                        <Typography 
+                          noWrap 
+                          sx={{ 
+                            maxWidth: 150,
+                            cursor: 'help'
+                          }}
                         >
-                          <TableCell className={classes.tableCell}>{rule.name}</TableCell>
-                          <TableCell className={classes.tableCell}>
-                            <Tooltip 
-                              title={<div style={{ whiteSpace: 'pre-wrap' }}>{rule.pattern}</div>}
-                              placement="top" 
-                              arrow
-                            >
-                              <Typography noWrap style={{ maxWidth: 150 }}>
-                                {rule.pattern}
-                              </Typography>
-                            </Tooltip>
-                          </TableCell>
-                          <TableCell className={classes.tableCell}>
-                            <div className={classes.connectionCell}>
-                              {rule.whatsapp ? (
-                                <>
-                                  <Box 
-                                    sx={{ 
-                                      width: 8, 
-                                      height: 8, 
-                                      borderRadius: '50%', 
-                                      backgroundColor: rule.whatsapp.color || theme.palette.primary.main, 
-                                      marginRight: 1 
-                                    }} 
-                                  />
-                                  {rule.whatsapp.name}
-                                </>
-                              ) : (
-                                <span className={classes.iconText}>
-                                  <AllConnectionsIcon fontSize="small" color="action" />
-                                  {i18n.t('messageRules.allConnections')}
-                                </span>
-                              )}
-                            </div>
-                          </TableCell>
-                          <TableCell className={classes.tableCell}>
-                            {rule.queue ? (
-                              <Chip 
-                                label={rule.queue.name} 
-                                size="small" 
-                                style={{ 
-                                  backgroundColor: rule.queue.color || theme.palette.primary.light,
-                                  color: '#FFF',
-                                  fontWeight: 'bold'
-                                }} 
-                              />
-                            ) : (
-                              '-'
-                            )}
-                          </TableCell>
-                          <TableCell className={classes.tableCell}>
-                            {rule.user ? rule.user.name : '-'}
-                          </TableCell>
-                          <TableCell className={classes.tableCell}>
-                            {renderTags(rule.tags, messageRules.reduce((acc, curr) => [...acc, ...(curr.tags?.split(',').map(id => parseInt(id.trim(), 10)) || [])], []).map(id => ({ id, name: `Tag ${id}`, color: '#888' })))}
-                          </TableCell>
-                          <TableCell className={classes.tableCell} align="center">
-                            {renderPriorityChip(rule.priority)}
-                          </TableCell>
-                          <TableCell className={classes.tableCell}>
-                            {rule.active ? (
-                              <Chip 
-                                icon={<ActiveIcon fontSize="small" />} 
-                                label={i18n.t('messageRules.active')} 
-                                color="success" 
-                                size="small" 
-                                variant="outlined"
-                              />
-                            ) : (
-                              <Chip 
-                                icon={<InactiveIcon fontSize="small" />} 
-                                label={i18n.t('messageRules.inactive')} 
-                                color="error" 
-                                size="small" 
-                                variant="outlined"
-                              />
-                            )}
-                          </TableCell>
-                          <TableCell className={classes.tableCell} align="center">
-                            <Box className={classes.actionButtons}>
-                              <Tooltip title={i18n.t('messageRules.buttons.edit')} arrow>
-                                <IconButton 
-                                  size="small" 
-                                  onClick={() => handleEditMessageRule(rule)}
-                                  color="primary"
-                                >
-                                  <EditIcon fontSize="small" />
-                                </IconButton>
-                              </Tooltip>
-                              <Tooltip title={i18n.t('messageRules.buttons.delete')} arrow>
-                                <IconButton 
-                                  size="small" 
-                                  onClick={() => handleOpenConfirmModal(rule.id)}
-                                  color="secondary"
-                                >
-                                  <DeleteIcon fontSize="small" />
-                                </IconButton>
-                              </Tooltip>
-                              <Tooltip 
-                                title={
-                                  rule.active 
-                                    ? i18n.t('messageRules.buttons.deactivate') 
-                                    : i18n.t('messageRules.buttons.activate')
-                                }
-                                arrow
-                              >
-                                <Switch
-                                  checked={rule.active}
-                                  onChange={() => handleToggleActive(rule.id, rule.active)}
-                                  color="primary"
-                                  size="small"
-                                />
-                              </Tooltip>
-                            </Box>
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </TableContainer>
+                          {rule.pattern}
+                        </Typography>
+                      </Tooltip>
+                    </TableCell>
+                    <TableCell>
+                      <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                        {rule.whatsapp ? (
+                          <>
+                            <Box 
+                              sx={{ 
+                                width: 8, 
+                                height: 8, 
+                                borderRadius: '50%', 
+                                backgroundColor: rule.whatsapp.color || theme.palette.primary.main, 
+                                marginRight: 1 
+                              }} 
+                            />
+                            {rule.whatsapp.name}
+                          </>
+                        ) : (
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                            <AllConnectionsIcon fontSize="small" color="action" />
+                            {i18n.t('messageRules.allConnections')}
+                          </Box>
+                        )}
+                      </Box>
+                    </TableCell>
+                    <TableCell>
+                      {rule.queue ? (
+                        <Chip 
+                          label={rule.queue.name} 
+                          size="small" 
+                          sx={{ 
+                            backgroundColor: rule.queue.color || theme.palette.primary.light,
+                            color: '#FFF',
+                            fontWeight: 'bold'
+                          }} 
+                        />
+                      ) : (
+                        '-'
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      {rule.user ? rule.user.name : '-'}
+                    </TableCell>
+                    <TableCell>
+                      {renderTags(rule.tags, messageRules.reduce((acc, curr) => [...acc, ...(curr.tags?.split(',').map(id => parseInt(id.trim(), 10)) || [])], []).map(id => ({ id, name: `Tag ${id}`, color: '#888' })))}
+                    </TableCell>
+                    <TableCell align="center">
+                      {renderPriorityChip(rule.priority)}
+                    </TableCell>
+                    <TableCell>
+                      {rule.active ? (
+                        <Chip 
+                          icon={<ActiveIcon fontSize="small" />} 
+                          label={i18n.t('messageRules.active')} 
+                          color="success" 
+                          size="small" 
+                          variant="outlined"
+                        />
+                      ) : (
+                        <Chip 
+                          icon={<InactiveIcon fontSize="small" />} 
+                          label={i18n.t('messageRules.inactive')} 
+                          color="error" 
+                          size="small" 
+                          variant="outlined"
+                        />
+                      )}
+                    </TableCell>
+                    <TableCell align="center">
+                      <Box sx={{ display: 'flex', gap: 1, justifyContent: 'center' }}>
+                        <Tooltip title={i18n.t('messageRules.buttons.edit')} arrow>
+                          <IconButton 
+                            size="small" 
+                            onClick={() => handleEditMessageRule(rule)}
+                            color="primary"
+                          >
+                            <EditIcon fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
+                        <Tooltip title={i18n.t('messageRules.buttons.delete')} arrow>
+                          <IconButton 
+                            size="small" 
+                            onClick={() => handleOpenConfirmModal(rule.id)}
+                            color="error"
+                          >
+                            <DeleteIcon fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
+                        <Tooltip 
+                          title={
+                            rule.active 
+                              ? i18n.t('messageRules.buttons.deactivate') 
+                              : i18n.t('messageRules.buttons.activate')
+                          }
+                          arrow
+                        >
+                          <Switch
+                            checked={rule.active}
+                            onChange={() => handleToggleActive(rule.id, rule.active)}
+                            color="primary"
+                            size="small"
+                          />
+                        </Tooltip>
+                      </Box>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </TableContainer>
+        )}
+      </StandardPageLayout>
 
-                {count > 0 && (
-                  <Box className={classes.paginationContainer}>
-                    <Pagination 
-                      count={Math.ceil(count / 20)} 
-                      page={pageNumber} 
-                      onChange={(_, page) => handlePageChange(page)} 
-                      color="primary" 
-                      size="large"
-                      showFirstButton
-                      showLastButton
-                    />
-                  </Box>
-                )}
-              </div>
-            </Fade>
-          )}
-        </Paper>
-      </animated.div>
-
+      {/* Modais */}
       <MessageRuleModal
         open={messageRuleModalOpen}
         onClose={handleCloseMessageRuleModal}
@@ -600,7 +429,7 @@ const MessageRulesPage = () => {
       >
         {i18n.t('messageRules.confirmModal.message')}
       </ConfirmationModal>
-    </MainContainer>
+    </>
   );
 };
 

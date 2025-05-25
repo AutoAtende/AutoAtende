@@ -1,15 +1,24 @@
 import React, { useState, useEffect } from 'react';
 import {
-  Typography,
-  Button,
-  Box,
   Alert,
   Fade,
   useTheme,
   useMediaQuery,
-  CircularProgress
+  CircularProgress,
+  Box,
+  Typography,
+  Button
 } from '@mui/material';
-import { Add as AddIcon, Refresh as RefreshIcon } from '@mui/icons-material';
+import { 
+  Add as AddIcon, 
+  Refresh as RefreshIcon,
+  VpnKey as KeyIcon,
+  Business as BusinessIcon,
+  FilterList as FilterIcon
+} from '@mui/icons-material';
+
+// Componentes
+import StandardPageLayout from '../../components/StandardPageLayout';
 import { usePasswords } from '../../hooks/usePasswords';
 import { useEmployers } from '../../hooks/useEmployers';
 import { useTags } from '../../hooks/useTags';
@@ -17,7 +26,6 @@ import PasswordTable from './components/PasswordTable';
 import PasswordFilter from './components/PasswordFilter';
 import PasswordForm from './components/PasswordForm';
 import DeleteConfirmationModal from './components/DeleteConfirmationModal';
-import EmptyState from './components/EmptyState';
 
 const PasswordManager = () => {
   const [formOpen, setFormOpen] = useState(false);
@@ -30,6 +38,7 @@ const PasswordManager = () => {
     pageSize: 10
   });
   const [error, setError] = useState(null);
+  const [activeTab, setActiveTab] = useState(0);
 
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
@@ -67,7 +76,6 @@ const PasswordManager = () => {
     try {
       await createPassword.mutateAsync(data);
       setFormOpen(false);
-      // Refetch na página atual após criar
       refetchPasswords();
     } catch (err) {
       setError(`Erro ao criar senha: ${err.message || 'Erro desconhecido'}`);
@@ -93,7 +101,6 @@ const PasswordManager = () => {
       
       setFormOpen(false);
       setSelectedPassword(null);
-      // Refetch na página atual após atualizar
       refetchPasswords();
     } catch (err) {
       setError(`Erro ao atualizar senha: ${err.message || 'Erro desconhecido'}`);
@@ -110,7 +117,6 @@ const PasswordManager = () => {
       await deletePassword.mutateAsync(selectedPassword.id);
       setDeleteModalOpen(false);
       setSelectedPassword(null);
-      // Refetch na página atual após excluir
       refetchPasswords();
     } catch (err) {
       setError(`Erro ao excluir senha: ${err.message || 'Erro desconhecido'}`);
@@ -149,7 +155,6 @@ const PasswordManager = () => {
     setFilters(prev => ({
       ...prev,
       [filterName]: value,
-      // Resetar paginação quando filtros mudam
       ...(filterName !== 'page' && filterName !== 'pageSize' ? { page: 0 } : {})
     }));
   };
@@ -165,7 +170,7 @@ const PasswordManager = () => {
     setFilters(prev => ({
       ...prev,
       pageSize,
-      page: 0 // Reset para primeira página quando muda o tamanho
+      page: 0
     }));
   };
 
@@ -177,7 +182,6 @@ const PasswordManager = () => {
     
     try {
       await exportPasswords.mutateAsync(employerId);
-      // Sucesso tratado via toast (já implementado)
     } catch (err) {
       setError(`Erro ao exportar senhas: ${err.message || 'Erro desconhecido'}`);
     }
@@ -194,108 +198,193 @@ const PasswordManager = () => {
   const isEmpty = !isLoading && passwords.length === 0;
   const showEmptyState = isEmpty && filters.page === 0 && !filters.employerId && !filters.tag;
 
+  // Filtrar senhas baseado na aba ativa (por empresa ou tag)
+  const getFilteredPasswords = () => {
+    switch (activeTab) {
+      case 1: // Por empresa
+        return passwords.filter(p => p.employer?.name);
+      case 2: // Por tag
+        return passwords.filter(p => p.tag?.name);
+      default: // Todas
+        return passwords;
+    }
+  };
+
+  const filteredPasswords = getFilteredPasswords();
+
+  // Configuração das ações do cabeçalho
+  const pageActions = [
+    {
+      label: "Atualizar",
+      icon: isRefetching ? <CircularProgress size={20} /> : <RefreshIcon />,
+      onClick: () => refetchPasswords(),
+      variant: "outlined",
+      color: "primary",
+      disabled: isLoading,
+      tooltip: "Atualizar lista de senhas"
+    },
+    {
+      label: isMobile ? "Nova" : "Nova Senha",
+      icon: <AddIcon />,
+      onClick: () => setFormOpen(true),
+      variant: "contained",
+      color: "primary",
+      tooltip: "Adicionar nova senha"
+    }
+  ];
+
+  // Configuração das abas
+  const tabs = [
+    {
+      label: `Todas (${passwords.length})`,
+      icon: <KeyIcon />
+    },
+    {
+      label: `Por Empresa (${passwords.filter(p => p.employer?.name).length})`,
+      icon: <BusinessIcon />
+    },
+    {
+      label: `Com Tags (${passwords.filter(p => p.tag?.name).length})`,
+      icon: <FilterIcon />
+    }
+  ];
+
+  const handleTabChange = (event, newValue) => {
+    setActiveTab(newValue);
+  };
+
   return (
-    <Box sx={{ p: { xs: 2, sm: 3 } }}>
-      {/* Cabeçalho */}
-      <Box sx={{ 
-        display: 'flex', 
-        justifyContent: 'space-between', 
-        alignItems: 'center',
-        mb: 3
-      }}>
-        <Typography 
-          variant="h6" 
-          component="h1"
-          sx={{
-            fontWeight: 600,
-            color: theme.palette.mode === 'dark' ? 'primary.light' : 'primary.main'
+    <>
+      <StandardPageLayout
+        title="Banco de Senhas"
+        actions={pageActions}
+        searchValue=""
+        onSearchChange={() => {}}
+        searchPlaceholder="Pesquisar senhas..."
+        showSearch={false} // Desabilitado pois a pesquisa está no filtro customizado
+        tabs={tabs}
+        activeTab={activeTab}
+        onTabChange={handleTabChange}
+        loading={isLoading}
+      >
+        {/* Mensagem de erro */}
+        {error && (
+          <Fade in={!!error}>
+            <Alert 
+              severity="error" 
+              sx={{ mb: 2 }}
+              onClose={() => setError(null)}
+            >
+              {error}
+            </Alert>
+          </Fade>
+        )}
+
+        {/* Filtros customizados */}
+        <Box sx={{ mb: 2 }}>
+          <PasswordFilter
+            selectedEmployer={filters.employerId}
+            selectedTag={filters.tag}
+            onEmployerChange={(value) => handleFilterChange('employerId', value)}
+            onTagChange={(value) => handleFilterChange('tag', value)}
+            onExport={handleExport}
+            isLoading={isLoading}
+          />
+        </Box>
+
+        {/* Estatísticas */}
+        <Box 
+          sx={{ 
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            mb: 2,
+            px: 1
           }}
         >
-          Banco de Senhas
-        </Typography>
-        <Box>
-          <Button
-            variant="outlined"
-            size="small"
-            startIcon={<RefreshIcon />}
-            onClick={() => refetchPasswords()}
-            sx={{ mr: 1 }}
-            disabled={isLoading}
-          >
-            {isRefetching ? <CircularProgress size={20} /> : 'Atualizar'}
-          </Button>
-          <Button
-            variant="contained"
-            size="small"
-            startIcon={<AddIcon />}
-            onClick={() => setFormOpen(true)}
-            disableElevation
-          >
-            {isMobile ? 'Nova' : 'Nova Senha'}
-          </Button>
+          <Typography variant="body2" color="text.secondary">
+            {totalPasswords > 0 ? (
+              `Total: ${totalPasswords} senha${totalPasswords !== 1 ? 's' : ''}`
+            ) : (
+              isLoading ? 'Carregando senhas...' : 'Nenhuma senha encontrada'
+            )}
+          </Typography>
         </Box>
-      </Box>
-
-      {/* Mensagem de erro */}
-      {error && (
-        <Fade in={!!error}>
-          <Alert 
-            severity="error" 
-            sx={{ mb: 2 }}
-            onClose={() => setError(null)}
+        
+        {/* Estado vazio ou tabela de senhas */}
+        {showEmptyState ? (
+          <Box
+            sx={{
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              height: '400px',
+              textAlign: 'center'
+            }}
           >
-            {error}
-          </Alert>
-        </Fade>
-      )}
+            <KeyIcon
+              sx={{
+                fontSize: 64,
+                color: 'primary.main',
+                opacity: 0.7,
+                mb: 2
+              }}
+            />
+            
+            <Typography
+              variant="h6"
+              align="center"
+              gutterBottom
+              sx={{ fontWeight: 500 }}
+            >
+              Nenhuma senha encontrada
+            </Typography>
+            
+            <Typography
+              variant="body1"
+              align="center" 
+              color="text.secondary"
+              sx={{ maxWidth: '500px', mb: 4 }}
+            >
+              Não há senhas cadastradas para os filtros selecionados.
+              {!isMobile && ' Você pode adicionar uma nova senha ou ajustar os critérios de busca.'}
+            </Typography>
+            
+            <Button
+              variant="contained"
+              size={isMobile ? 'medium' : 'large'}
+              startIcon={<AddIcon />}
+              onClick={() => setFormOpen(true)}
+              sx={{
+                borderRadius: '28px',
+                px: { xs: 3, sm: 4 },
+                py: { xs: 1, sm: 1.5 },
+                transition: 'all 0.2s',
+                '&:hover': {
+                  transform: 'translateY(-2px)',
+                }
+              }}
+            >
+              Adicionar Nova Senha
+            </Button>
+          </Box>
+        ) : (
+          <PasswordTable
+            passwords={filteredPasswords}
+            loading={isLoading}
+            onEdit={handleEdit}
+            onDelete={handleDelete}
+            totalCount={totalPasswords}
+            onPageChange={handlePageChange}
+            onRowsPerPageChange={handlePageSizeChange}
+            currentPage={filters.page}
+            rowsPerPage={filters.pageSize}
+          />
+        )}
+      </StandardPageLayout>
 
-      {/* Filtros */}
-      <PasswordFilter
-        selectedEmployer={filters.employerId}
-        selectedTag={filters.tag}
-        onEmployerChange={(value) => handleFilterChange('employerId', value)}
-        onTagChange={(value) => handleFilterChange('tag', value)}
-        onExport={handleExport}
-        isLoading={isLoading}
-      />
-
-      {/* Estatísticas */}
-      <Box 
-        sx={{ 
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          mb: 2,
-          px: 1
-        }}
-      >
-        <Typography variant="body2" color="text.secondary">
-          {totalPasswords > 0 ? (
-            `Total: ${totalPasswords} senha${totalPasswords !== 1 ? 's' : ''}`
-          ) : (
-            isLoading ? 'Carregando senhas...' : 'Nenhuma senha encontrada'
-          )}
-        </Typography>
-      </Box>
-      
-      {/* Estado vazio ou tabela de senhas */}
-      {showEmptyState ? (
-        <EmptyState onCreateNew={() => setFormOpen(true)} />
-      ) : (
-        <PasswordTable
-          passwords={passwords}
-          loading={isLoading}
-          onEdit={handleEdit}
-          onDelete={handleDelete}
-          totalCount={totalPasswords}
-          onPageChange={handlePageChange}
-          onRowsPerPageChange={handlePageSizeChange}
-          currentPage={filters.page}
-          rowsPerPage={filters.pageSize}
-        />
-      )}
-
-      {/* Modal de formulário */}
+      {/* Modais */}
       <PasswordForm
         open={formOpen}
         onClose={handleFormClose}
@@ -306,14 +395,13 @@ const PasswordManager = () => {
         isEditing={!!selectedPassword}
       />
 
-      {/* Modal de confirmação de exclusão */}
       <DeleteConfirmationModal
         open={deleteModalOpen}
         onClose={handleDeleteModalClose}
         onConfirm={handleDeletePassword}
         passwordData={selectedPassword}
       />
-    </Box>
+    </>
   );
 };
 
