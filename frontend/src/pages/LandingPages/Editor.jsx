@@ -1,16 +1,10 @@
 import React, { useState, useEffect, useCallback, useContext } from 'react';
 import { useParams, useHistory } from 'react-router-dom';
-import { useTheme } from '@mui/material/styles';
 import {
   Box,
-  Button,
   CircularProgress,
-  Fab,
-  Tooltip,
-  InputAdornment,
-  useMediaQuery,
   Alert,
-  Snackbar
+  Chip
 } from '@mui/material';
 import {
   Save as SaveIcon,
@@ -20,24 +14,20 @@ import {
   Info as InfoIcon,
   Edit as EditIcon,
   Description as DescriptionIcon,
-  FormatAlignCenter as FormIcon,
+  Assignment as FormIcon,
   Event as EventIcon,
   Palette as PaletteIcon,
   Notifications as NotificationsIcon,
   Settings as SettingsIcon
 } from '@mui/icons-material';
 import { toast } from "../../helpers/toast";
-import { useSpring, animated } from 'react-spring';
 import api from '../../services/api';
 import { AuthContext } from '../../context/Auth/AuthContext';
 import { slugify } from '../../utils/stringUtils';
-// Componentes Base
-import BasePage from '../../components/BasePage';
-import BasePageContent from '../../components/BasePageContent';
-import BaseButton from '../../components/BaseButton';
-import BasePageHeader from '../../components/BasePageHeader';
-import BaseResponsiveTabs from '../../components/BaseResponsiveTabs';
-import Breadcrumbs from '../../components/Breadcrumbs';
+
+// Componentes Base do AutoAtende
+import StandardPageLayout from '../../components/shared/StandardPageLayout';
+import BaseModal from '../../components/shared/BaseModal';
 
 // Tabs do editor
 import BasicInfoTab from './components/tabs/BasicInfoTab';
@@ -48,10 +38,7 @@ import NotificationsTab from './components/tabs/NotificationsTab';
 import AdvancedConfigTab from './components/tabs/AdvancedConfigTab';
 import ContentEditorTab from './components/tabs/ContentEditorTab';
 
-// Componente de pré-visualização
-import PreviewDialog from './components/PreviewDialog';
-
-const AnimatedBox = animated(Box);
+import { PreviewContent } from './components/PreviewDialog';
 
 const LandingPageEditor = () => {
   const { id } = useParams();
@@ -59,8 +46,6 @@ const LandingPageEditor = () => {
   const landingPageId = isNewLandingPage ? null : parseInt(id, 10);
   const isValidId = !isNewLandingPage && Boolean(landingPageId && !isNaN(landingPageId) && landingPageId > 0);
   const history = useHistory();
-  const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const { isAuth, user } = useContext(AuthContext);
   const companyId = localStorage.getItem("companyId");
 
@@ -100,10 +85,20 @@ const LandingPageEditor = () => {
     notificationConfig: {
       enableWhatsApp: false,
       whatsAppNumber: '',
-      messageTemplate: 'Olá! Uma nova inscrição foi realizada na landing page {landing_page}:\n\nNome: {name}\nE-mail: {email}\nData: {date}'
+      messageTemplate: 'Olá! Uma nova inscrição foi realizada na landing page {landing_page}:\n\nNome: {name}\nE-mail: {email}\nData: {date}',
+      confirmationMessage: {
+        enabled: false,
+        imageUrl: '',
+        caption: 'Obrigado por se cadastrar! Seu formulário foi recebido com sucesso.',
+        sendBefore: true
+      }
     },
     advancedConfig: {
       metaPixelId: '',
+      notificationConnectionId: '',
+      contactTags: [],
+      inviteGroupId: '',
+      groupInviteMessage: null,
       whatsAppChatButton: {
         enabled: false,
         number: '',
@@ -120,6 +115,7 @@ const LandingPageEditor = () => {
     fields: [
       {
         id: 'name',
+        name: 'name',
         type: 'text',
         label: 'Nome',
         placeholder: 'Digite seu nome',
@@ -128,6 +124,7 @@ const LandingPageEditor = () => {
       },
       {
         id: 'email',
+        name: 'email',
         type: 'email',
         label: 'E-mail',
         placeholder: 'Digite seu e-mail',
@@ -136,6 +133,7 @@ const LandingPageEditor = () => {
       },
       {
         id: 'number',
+        name: 'number',
         type: 'phone',
         label: 'Telefone',
         placeholder: 'Digite seu telefone',
@@ -146,18 +144,6 @@ const LandingPageEditor = () => {
     active: true
   });
 
-  // Animações com react-spring
-  const fadeIn = useSpring({
-    opacity: loading ? 0 : 1,
-    config: { duration: 300 }
-  });
-
-  const tabAnimation = useSpring({
-    transform: `translateY(${loading ? 20 : 0}px)`,
-    opacity: loading ? 0 : 1,
-    config: { tension: 280, friction: 60 }
-  });
-
   useEffect(() => {
     if (isNewLandingPage) {
       console.log("Criando nova landing page");
@@ -166,7 +152,6 @@ const LandingPageEditor = () => {
   }, [isNewLandingPage]);
 
   const loadLandingPage = useCallback(async () => {
-    // Se for nova landing page, não precisamos carregar dados
     if (isNewLandingPage) {
       setLoading(false);
       return;
@@ -183,7 +168,6 @@ const LandingPageEditor = () => {
       
       const response = await api.get(`/landing-pages/${landingPageId}`);
       
-      // Preservar o HTML exatamente como está no banco de dados
       const landingPageData = {
         ...response.data,
         content: response.data.content || '<p>Digite o conteúdo da sua landing page aqui...</p>'
@@ -191,7 +175,6 @@ const LandingPageEditor = () => {
       
       setLandingPage(landingPageData);
       
-      // Carregar formulário associado
       if (response.data.forms && response.data.forms.length > 0) {
         setForm(response.data.forms[0]);
       }
@@ -207,53 +190,36 @@ const LandingPageEditor = () => {
       setLoading(false);
     }
   }, [landingPageId, isValidId, history, isNewLandingPage]);
-  
 
   useEffect(() => {
     loadLandingPage();
   }, [loadLandingPage]);
 
-  // Manipulador de mudança de aba
-  const handleTabChange = (event, newValue) => {
-    setActiveTab(newValue);
-  };
-
-  // Em Editor.jsx - Função checkSlugAvailability melhorada
+  // Função para verificar disponibilidade do slug
   const checkSlugAvailability = async (slug) => {
     try {
-      // Verificação adicional antes de chamar a API
       if (!slug || slug.trim() === '') {
         return false;
       }
 
-      // Limitar comprimento do slug e garantir formato correto
       const normalizedSlug = slugify(slug).substring(0, 60);
-
       const response = await api.get(`/landing-pages/check-slug/${encodeURIComponent(normalizedSlug)}`);
 
-      // Verificação adicional para garantir resposta válida
       if (response.data && typeof response.data.available === 'boolean') {
         return response.data.available;
       }
 
-      // Assume disponível em caso de resposta inválida
       return true;
-
     } catch (error) {
-      // Em caso de erro, assumimos que o slug está disponível
-      // para não bloquear a criação da landing page
       return true;
     }
   };
 
   // Função para salvar a landing page
-  // Função para salvar a landing page
-  // Em Editor.jsx - Função handleSave modificada
   const handleSave = async () => {
     try {
       setSaving(true);
 
-      // Validar campos obrigatórios
       if (!landingPage.title) {
         toast.error('O título da página é obrigatório');
         setActiveTab(0);
@@ -261,20 +227,16 @@ const LandingPageEditor = () => {
         return;
       }
 
-      // Garantir que o slug não está vazio
       if (!landingPage.slug) {
         landingPage.slug = slugify(landingPage.title);
       }
 
-      // Preparar dados para envio
       const payload = { ...landingPage };
 
-      // Verificar disponibilidade de slug somente se estiver criando nova página
       if (isNew) {
         try {
           const slugAvailable = await checkSlugAvailability(landingPage.slug);
           if (!slugAvailable) {
-            // Gerar um slug único adicionando um número aleatório
             const randomSuffix = Math.floor(Math.random() * 1000);
             payload.slug = `${landingPage.slug}-${randomSuffix}`;
             setLandingPage(prev => ({
@@ -283,17 +245,15 @@ const LandingPageEditor = () => {
             }));
           }
         } catch (error) {
-          // Continuar a execução mesmo com erro na verificação
+          console.error('Erro na verificação de slug:', error);
         }
       }
 
       let response;
 
       if (isNew) {
-        // Criar nova landing page
         response = await api.post('/landing-pages', payload);
 
-        // Criar formulário associado se showForm estiver ativado
         if (landingPage.formConfig.showForm) {
           await api.post('/forms', {
             ...form,
@@ -301,24 +261,18 @@ const LandingPageEditor = () => {
           });
         }
 
-        // Redirecionar para a página de edição
         toast.success('Landing page criada com sucesso!');
-
         setIsNew(false);
 
-        // Redirecionar DEPOIS de atualizar o estado
         setTimeout(() => {
           history.push(`/landing-pages/edit/${response.data.id}`);
         }, 500);
       } else {
-        // Atualizar landing page existente
         response = await api.put(`/landing-pages/${id}`, payload);
 
-        // Atualizar formulário 
         if (form.id) {
           await api.put(`/forms/${form.id}`, form);
         } else if (landingPage.formConfig.showForm) {
-          // Criar novo formulário
           await api.post('/forms', {
             ...form,
             landingPageId: id
@@ -328,7 +282,6 @@ const LandingPageEditor = () => {
         toast.success('Landing page atualizada com sucesso!');
       }
 
-      // Atualizar estado com dados retornados
       setLandingPage(response.data);
 
     } catch (error) {
@@ -338,121 +291,23 @@ const LandingPageEditor = () => {
     }
   };
 
+  // Handlers para modais e navegação
+  const handleOpenPreview = () => setPreviewOpen(true);
+  const handleClosePreview = () => setPreviewOpen(false);
 
-  const saveWithRetry = async (payload, retryCount = 0) => {
-    try {
-      const maxRetries = 3;
-      const response = await api.post('/landing-pages', payload);
-      return response;
-    } catch (error) {
-      if (error.response?.status === 409 && retryCount < maxRetries) {
-        // Conflict - slug já existe, tentar com outro slug
-        console.log(`Tentando novamente com novo slug (tentativa ${retryCount + 1})`);
-        const newSlug = generateUniqueSlug(payload.title);
-        return saveWithRetry({ ...payload, slug: newSlug }, retryCount + 1);
-      }
-      throw error;
-    }
+  const handleGoBack = () => {
+    history.push('/landing-pages');
   };
 
-  // Abre o diálogo de pré-visualização
-  const handleOpenPreview = () => {
-    setPreviewOpen(true);
-  };
-
-  // Fecha o diálogo de pré-visualização
-  const handleClosePreview = () => {
-    setPreviewOpen(false);
-  };
-
-
-  // Cria as abas com ícones e conteúdo
-  const tabs = [
+  // Ações do header
+  const pageActions = [
     {
-      label: "Básico",
-      icon: <InfoIcon />,
-      content: (
-        <BasicInfoTab
-          landingPage={landingPage}
-          setLandingPage={setLandingPage}
-          checkSlugAvailability={checkSlugAvailability}
-          isNew={isNew}
-        />
-      )
+      label: "Voltar",
+      icon: <ArrowBackIcon />,
+      onClick: handleGoBack,
+      variant: "outlined",
+      color: "inherit"
     },
-    {
-      label: "Conteúdo",
-      icon: <DescriptionIcon />,
-      content: (
-        <ContentEditorTab
-          landingPage={landingPage}
-          setLandingPage={setLandingPage}
-        />
-      )
-    },
-    {
-      label: "Formulário",
-      icon: <FormIcon />,
-      content: (
-        <FormConfigTab
-          landingPage={landingPage}
-          setLandingPage={setLandingPage}
-          form={form}
-          setForm={setForm}
-        />
-      )
-    },
-    {
-      label: "Evento",
-      icon: <EventIcon />,
-      content: (
-        <EventConfigTab
-          landingPage={landingPage}
-          setLandingPage={setLandingPage}
-        />
-      )
-    },
-    {
-      label: "Aparência",
-      icon: <PaletteIcon />,
-      content: (
-        <AppearanceTab
-          landingPage={landingPage}
-          setLandingPage={setLandingPage}
-        />
-      )
-    },
-    {
-      label: "Notificações",
-      icon: <NotificationsIcon />,
-      content: (
-        <NotificationsTab
-          landingPage={landingPage}
-          setLandingPage={setLandingPage}
-        />
-      )
-    },
-    {
-      label: "Avançado",
-      icon: <SettingsIcon />,
-      content: (
-        <AdvancedConfigTab
-          landingPage={landingPage}
-          setLandingPage={setLandingPage}
-        />
-      )
-    },
-  ];
-
-  // Define os items da breadcrumb
-  const breadcrumbItems = [
-    { label: "Home", link: "/dashboard" },
-    { label: "Landing Pages", link: "/landing-pages" },
-    { label: isNew ? 'Nova Landing Page' : landingPage.title || 'Edição' }
-  ];
-
-  // Ações para o header da página
-  const headerActions = [
     {
       label: "Visualizar",
       icon: <PreviewIcon />,
@@ -471,148 +326,198 @@ const LandingPageEditor = () => {
     }
   ];
 
-  // FAB para mobile
-  const fabActions = {
-    save: {
-      icon: <SaveIcon />,
-      color: "primary",
-      onClick: handleSave,
-      tooltip: "Salvar landing page"
+  // Configuração das abas
+  const tabs = [
+    {
+      label: "Básico",
+      icon: <InfoIcon />
     },
-    preview: {
-      icon: <PreviewIcon />,
-      color: "secondary",
-      onClick: handleOpenPreview,
-      tooltip: "Pré-visualizar landing page"
+    {
+      label: "Conteúdo",
+      icon: <DescriptionIcon />
+    },
+    {
+      label: "Formulário",
+      icon: <FormIcon />
+    },
+    {
+      label: "Evento",
+      icon: <EventIcon />
+    },
+    {
+      label: "Aparência",
+      icon: <PaletteIcon />
+    },
+    {
+      label: "Notificações",
+      icon: <NotificationsIcon />
+    },
+    {
+      label: "Avançado",
+      icon: <SettingsIcon />
+    }
+  ];
+
+  // Renderizar conteúdo da aba ativa
+  const renderTabContent = () => {
+    switch (activeTab) {
+      case 0:
+        return (
+          <BasicInfoTab
+            landingPage={landingPage}
+            setLandingPage={setLandingPage}
+            checkSlugAvailability={checkSlugAvailability}
+            isNew={isNew}
+          />
+        );
+      case 1:
+        return (
+          <ContentEditorTab
+            landingPage={landingPage}
+            setLandingPage={setLandingPage}
+          />
+        );
+      case 2:
+        return (
+          <FormConfigTab
+            landingPage={landingPage}
+            setLandingPage={setLandingPage}
+            form={form}
+            setForm={setForm}
+          />
+        );
+      case 3:
+        return (
+          <EventConfigTab
+            landingPage={landingPage}
+            setLandingPage={setLandingPage}
+          />
+        );
+      case 4:
+        return (
+          <AppearanceTab
+            landingPage={landingPage}
+            setLandingPage={setLandingPage}
+          />
+        );
+      case 5:
+        return (
+          <NotificationsTab
+            landingPage={landingPage}
+            setLandingPage={setLandingPage}
+          />
+        );
+      case 6:
+        return (
+          <AdvancedConfigTab
+            landingPage={landingPage}
+            setLandingPage={setLandingPage}
+          />
+        );
+      default:
+        return null;
     }
   };
 
+  // Estado de loading
   if (loading) {
     return (
-      <BasePage
-        title={isNew ? 'Nova Landing Page' : 'Editando Landing Page'}
-        headerContent={
-          <BaseButton
-            variant="outlined"
-            startIcon={<ArrowBackIcon />}
-            onClick={() => history.push('/landing-pages')}
-          >
-            Voltar
-          </BaseButton>
-        }
+      <StandardPageLayout
+        title={isNew ? 'Nova Landing Page' : 'Carregando...'}
+        showSearch={false}
       >
         <Box display="flex" justifyContent="center" alignItems="center" minHeight="50vh">
-          <CircularProgress />
+          <CircularProgress size={60} />
         </Box>
-      </BasePage>
+      </StandardPageLayout>
     );
   }
 
-  return (
-    <BasePage
-      showTitle={false}
-      headerContent={
-        <BasePageHeader
-          showSearch={false}
-          actions={!isMobile ? headerActions : []}
-        >
-          <Box width="100%">
-            <Breadcrumbs items={breadcrumbItems} />
-            <Box display="flex" justifyContent="space-between" alignItems="center">
-              <AnimatedBox style={fadeIn}>
-                <Box display="flex" alignItems="center">
-                  <EditIcon
-                    sx={{
-                      mr: 1,
-                      color: landingPage.active ? 'success.main' : 'text.secondary'
-                    }}
-                  />
-                  {landingPage.title ? (
-                    <Box component="h1" fontSize="1.5rem" fontWeight="600" m={0}>
-                      {landingPage.title}
-                      {landingPage.active && (
-                        <Tooltip title="Página ativa e publicada">
-                          <CheckCircleIcon
-                            fontSize="small"
-                            sx={{ ml: 1, color: 'success.main', verticalAlign: 'middle' }}
-                          />
-                        </Tooltip>
-                      )}
-                    </Box>
-                  ) : (
-                    <Box component="h1" fontSize="1.5rem" fontWeight="600" m={0}>
-                      {isNew ? 'Nova Landing Page' : 'Editando Landing Page'}
-                    </Box>
-                  )}
-                </Box>
-              </AnimatedBox>
-
-              <Box>
-                <BaseButton
-                  variant="outlined"
-                  startIcon={<ArrowBackIcon />}
-                  onClick={() => history.push('/landing-pages')}
-                  sx={{ mr: 1 }}
-                >
-                  Voltar
-                </BaseButton>
-              </Box>
-            </Box>
-          </Box>
-        </BasePageHeader>
-      }
-    >
-      <BasePageContent>
-        <AnimatedBox style={tabAnimation} display="flex" flexDirection="column" height="100%">
-          <BaseResponsiveTabs
-            tabs={tabs}
-            value={activeTab}
-            onChange={handleTabChange}
-            showTabsOnMobile={false}
-            fabIcon={<SaveIcon />}
-            onFabClick={handleSave}
-            showFab={isMobile}
-            sx={{
-              '& .MuiBox-root': {
-                height: 'calc(100vh - 240px)', // Altura ajustável conforme necessidade
-                overflow: 'auto',
-                padding: 1
-              }
-            }}
-          />
-        </AnimatedBox>
-      </BasePageContent>
-
-      {/* FABs para mobile */}
-      {isMobile && (
-        <Box>
-          <Tooltip title={fabActions.preview.tooltip}>
-            <Fab
-              color={fabActions.preview.color}
-              aria-label={fabActions.preview.tooltip}
-              onClick={fabActions.preview.onClick}
-              sx={{
-                position: 'fixed',
-                bottom: '80px',
-                right: '20px',
-                zIndex: 1100
-              }}
-              disabled={!landingPage.title}
-            >
-              {fabActions.preview.icon}
-            </Fab>
-          </Tooltip>
-        </Box>
+  // Título da página com status
+  const pageTitle = (
+    <Box display="flex" alignItems="center" gap={1}>
+      <EditIcon sx={{ color: landingPage.active ? 'success.main' : 'text.secondary' }} />
+      {landingPage.title || (isNew ? 'Nova Landing Page' : 'Editando Landing Page')}
+      {landingPage.active && (
+        <Chip
+          icon={<CheckCircleIcon />}
+          label="Publicada"
+          color="success"
+          size="small"
+          variant="filled"
+        />
       )}
+      {saving && (
+        <Chip
+          icon={<CircularProgress size={14} color="inherit" />}
+          label="Salvando..."
+          color="primary"
+          size="small"
+          variant="outlined"
+        />
+      )}
+    </Box>
+  );
 
-      {/* Diálogo de pré-visualização */}
-      <PreviewDialog
+  return (
+    <StandardPageLayout
+      title={pageTitle}
+      actions={pageActions}
+      showSearch={false}
+      tabs={tabs}
+      activeTab={activeTab}
+      onTabChange={(event, newValue) => setActiveTab(newValue)}
+      loading={saving}
+    >
+      <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+        {/* Alertas contextuais */}
+        {!landingPage.active && (
+          <Alert 
+            severity="info" 
+            variant="outlined" 
+            sx={{ mb: 2, borderRadius: 2 }}
+          >
+            Esta landing page está em modo rascunho. Ative-a na aba "Básico" para torná-la pública.
+          </Alert>
+        )}
+
+        {isNew && (
+          <Alert 
+            severity="warning" 
+            variant="outlined" 
+            sx={{ mb: 2, borderRadius: 2 }}
+          >
+            Lembre-se de salvar suas alterações antes de sair da página.
+          </Alert>
+        )}
+
+        {/* Conteúdo da aba ativa */}
+        <Box sx={{ flex: 1, overflow: 'hidden' }}>
+          {renderTabContent()}
+        </Box>
+      </Box>
+
+      {/* Modal de Pré-visualização */}
+      <BaseModal
         open={previewOpen}
         onClose={handleClosePreview}
-        landingPage={landingPage}
-        form={form}
-      />
-    </BasePage>
+        title={`Pré-visualização: ${landingPage.title || 'Landing Page'}`}
+        maxWidth="lg"
+        actions={[
+          {
+            label: "Fechar",
+            onClick: handleClosePreview,
+            variant: "contained",
+            color: "primary"
+          }
+        ]}
+      >
+        <PreviewContent
+          landingPage={landingPage}
+          form={form}
+        />
+      </BaseModal>
+    </StandardPageLayout>
   );
 };
 
