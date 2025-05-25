@@ -12,6 +12,7 @@ import routes from "./routes";
 import {logger} from "./utils/logger";
 import {getMessageQueue} from "./queues";
 
+
 if (process.env.DEBUG_TRACE == 'false') {
   console.trace = function () {
     return;
@@ -39,40 +40,20 @@ app.set("queues", {
 app.use(
   cors({
     credentials: true,
-    origin: process.env.FRONTEND_URL,
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-    allowedHeaders: [
-      'Content-Type',
-      'Authorization',
-      'Accept',
-      'X-Requested-With',
-      'Cache-Control',
-      'Pragma',
-      'Expires'
-    ],
+    origin: process.env.FRONTEND_URL
   })
 );
 
-app.use(compression()); 
+
 app.use(express.json({limit: '10mb'}));
 app.use(express.urlencoded({limit: '10mb', extended: true}));
+app.use(compression()); 
 app.use(cookieParser());
 
-// IMPORTANTE: Configurar arquivos estáticos ANTES das rotas da API
-// Middleware para servir arquivos estáticos por empresa (sem autenticação)
-app.use("/public", (req: Request, res: Response, next: NextFunction) => {
-  // Configurar headers de cache para arquivos estáticos
-  res.header('Cache-Control', 'public, max-age=31557600'); // 1 ano
-  res.header('Access-Control-Allow-Origin', '*');
-  res.header('Access-Control-Allow-Methods', 'GET, OPTIONS');
-  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept');
-  
-  logger.debug(`Servindo arquivo estático: ${req.path}`);
-  next();
-}, express.static(uploadConfig.directory));
+app.use(routes);
 
 // Middleware para capturar erros de multer
-app.use((err: any, req: Request, res: Response, next: NextFunction) => {
+app.use((err, req, res, next) => {
   if (err instanceof multer.MulterError) {
     logger.error(`Erro de Multer: ${err.code} - ${err.message}`);
     
@@ -102,8 +83,11 @@ app.use((err: any, req: Request, res: Response, next: NextFunction) => {
   next();
 });
 
-// IMPORTANTE: As rotas da API (que incluem middlewares de autenticação) vêm DEPOIS dos arquivos estáticos
-app.use(routes);
+app.use("/public", (req, res, next) => {
+  res.header('Cache-Control', 'public, max-age=31557600');
+  logger.debug(`Static file request: ${req.path}`);
+  next();
+}, express.static(uploadConfig.directory));
 
 // Middleware para lidar com rotas não encontradas
 app.use((req: Request, res: Response, next: NextFunction) => {
