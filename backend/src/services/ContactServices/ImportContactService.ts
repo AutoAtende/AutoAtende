@@ -162,7 +162,7 @@ export class ImportContactService {
         }
       });
   
-      const bail-lite = await ShowBaileysService(whatsappInstance.id);
+      const baileys = await ShowBaileysService(whatsappInstance.id);
       if (!bail-lite?.contacts) {
         throw new AppError('Nenhum contato encontrado para importar');
       }

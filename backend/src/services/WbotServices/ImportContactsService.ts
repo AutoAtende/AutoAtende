@@ -105,7 +105,7 @@ const ImportContactsService = async (companyId: number, whatsappId: number): Pro
         progress: 10
       });
 
-      const bail-lite = await ShowBaileysService(whatsappInstance.id);
+      const baileys = await ShowBaileysService(whatsappInstance.id);
       let phoneContactsList = null;
     
       try {

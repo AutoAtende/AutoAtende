@@ -62,7 +62,7 @@ const createOrUpdateBaileysService = async ({
   }
 
   // Criar novo registro se não existir
-  const bail-lite = await Baileys.create({
+  const baileys = await Baileys.create({
     whatsappId,
     contacts: JSON.stringify(contacts || []),
     chats: JSON.stringify(chats || [])
