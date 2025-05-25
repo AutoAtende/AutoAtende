@@ -32,8 +32,8 @@ import { styled, useTheme } from '@mui/material/styles';
 
 // Styled Components
 const StyledTableContainer = styled(TableContainer)(({ theme }) => ({
-  maxHeight: 'calc(100vh - 300px)',
-  overflow: 'auto',
+  flex: 1,
+  overflow: 'hidden', // Remove a rolagem da tabela
   borderRadius: theme.shape.borderRadius,
   boxShadow: 'rgba(0, 0, 0, 0.05) 0px 1px 2px 0px',
   '& .MuiTable-root': {
@@ -313,7 +313,7 @@ const StandardTable = ({
   }
 
   return (
-    <Box>
+    <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
       <StyledTableContainer component={Paper} {...containerProps}>
         <Table 
           stickyHeader={stickyHeader}

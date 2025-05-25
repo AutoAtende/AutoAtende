@@ -19,7 +19,8 @@ import { styled, useTheme } from '@mui/material/styles';
 const PageContainer = styled(Box)(({ theme }) => ({
   display: 'flex',
   flexDirection: 'column',
-  height: '100%',
+  height: '100vh', // Altura total da viewport
+  overflow: 'hidden', // Remove overflow do container principal
   padding: theme.spacing(3),
   [theme.breakpoints.down('sm')]: {
     padding: theme.spacing(2),
@@ -31,12 +32,13 @@ const PageHeader = styled(Box)(({ theme }) => ({
   justifyContent: 'space-between',
   alignItems: 'flex-start',
   marginBottom: theme.spacing(3),
-  marginTop: theme.spacing(4), // Adicionado margem superior maior
+  marginTop: theme.spacing(4),
+  flexShrink: 0, // Não permite que o header encolha
   [theme.breakpoints.down('sm')]: {
     flexDirection: 'column',
     alignItems: 'stretch',
     gap: theme.spacing(2),
-    marginTop: theme.spacing(2), // Margem menor em mobile
+    marginTop: theme.spacing(2),
   }
 }));
 
@@ -52,7 +54,8 @@ const PageTitle = styled(Typography)(({ theme }) => ({
 const ActionButtonsContainer = styled(Box)(({ theme }) => ({
   display: 'flex',
   gap: theme.spacing(1),
-  marginTop: theme.spacing(0.5), // Ajuste fino para alinhar com o título
+  marginTop: theme.spacing(0.5),
+  flexShrink: 0,
   [theme.breakpoints.down('sm')]: {
     flexDirection: 'column',
     marginTop: 0,
@@ -62,6 +65,7 @@ const ActionButtonsContainer = styled(Box)(({ theme }) => ({
 const SearchContainer = styled(Box)(({ theme }) => ({
   width: '33%',
   marginBottom: theme.spacing(2),
+  flexShrink: 0, // Não permite que a busca encolha
   [theme.breakpoints.down('md')]: {
     width: '50%',
   },
@@ -74,20 +78,24 @@ const TabsContainer = styled(Paper)(({ theme }) => ({
   marginBottom: theme.spacing(2),
   borderRadius: theme.shape.borderRadius,
   overflow: 'hidden',
-  boxShadow: 'rgba(0, 0, 0, 0.05) 0px 1px 2px 0px'
+  boxShadow: 'rgba(0, 0, 0, 0.05) 0px 1px 2px 0px',
+  flexShrink: 0 // Não permite que as tabs encolham
 }));
 
 const ContentArea = styled(Box)(({ theme }) => ({
   flex: 1,
   display: 'flex',
   flexDirection: 'column',
-  overflow: 'hidden'
+  overflow: 'auto', // ÚNICA rolagem da página
+  minHeight: 0 // Importante para flex funcionar corretamente
 }));
 
 const TabPanel = styled(Box)(({ theme }) => ({
   flex: 1,
   padding: theme.spacing(2),
-  overflow: 'auto',
+  display: 'flex',
+  flexDirection: 'column',
+  minHeight: 0, // Importante para flex funcionar
   [theme.breakpoints.down('sm')]: {
     padding: theme.spacing(1),
   }
@@ -117,7 +125,7 @@ const ResponsiveActionButton = ({
       sx={{
         minWidth: isMobile ? 'auto' : 'auto',
         padding: isMobile ? theme.spacing(1) : theme.spacing(1, 2),
-        borderRadius: '8px', // Cantos arredondados
+        borderRadius: '8px',
         ...(isMobile && {
           '& .MuiButton-startIcon': {
             margin: 0
@@ -252,14 +260,19 @@ const StandardPageLayout = ({
         </TabsContainer>
       )}
 
-      {/* Área de Conteúdo */}
+      {/* Área de Conteúdo - ÚNICA com rolagem */}
       <ContentArea>
         {tabs.length > 0 ? (
           <TabPanel>
             {children}
           </TabPanel>
         ) : (
-          <Box sx={{ flex: 1, overflow: 'auto' }}>
+          <Box sx={{ 
+            flex: 1, 
+            display: 'flex', 
+            flexDirection: 'column',
+            minHeight: 0 
+          }}>
             {children}
           </Box>
         )}

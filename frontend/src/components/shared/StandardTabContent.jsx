@@ -66,7 +66,9 @@ const ContentWrapper = styled(Box)(({ theme }) => ({
 
 const ContentArea = styled(Box)(({ theme, variant }) => ({
   flex: 1,
-  overflow: 'auto',
+  overflow: 'hidden', // Remove overflow para evitar múltiplas barras de rolagem
+  display: 'flex',
+  flexDirection: 'column',
   ...(variant === 'paper' && {
     backgroundColor: theme.palette.background.paper,
     borderRadius: theme.shape.borderRadius,
