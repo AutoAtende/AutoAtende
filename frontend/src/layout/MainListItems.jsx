@@ -42,7 +42,8 @@ import {
   DeviceHubOutlined,
   EmailRounded,
   RotateRight,
-  WebOutlined
+  WebOutlined,
+  WhatsApp,
 } from '@mui/icons-material';
 
 // Importações de contexto e utilitários
@@ -79,6 +80,21 @@ const spacing = {
   mainCategory: "4px 0 0 0",  // Espaçamento menor para títulos
   itemSpacing: "1px 0"        // Espaçamento menor entre itens
 };
+
+// Definir a animação
+const blinkAnimation = keyframes`
+  0%, 100% {
+    color: #25D366; /* Verde do WhatsApp */
+  }
+  50% {
+    color: #128C7E; /* Azul escuro do WhatsApp */
+  }
+`;
+
+// Estilizar o ícone com a animação
+const BlinkingWhatsAppIcon = styled(WhatsApp)({
+  animation: `${blinkAnimation} 1.5s infinite`,
+});
 
 // Categoria principal (Gerência, Atendimentos, Administração)
 const CategoryItemStyled = styled(ListItem)(({ theme }) => ({
@@ -900,6 +916,18 @@ const MainListItems = (props) => {
                     collapsed={collapsed}
                   />
                 )}
+
+
+
+<ListItemLink
+  to="/wbotpro"
+  primary={i18n.t("mainDrawer.listItems.wbotpro")}
+  icon={<BlinkingWhatsAppIcon />}  {/* Ícone com animação */}
+  tooltip={collapsed}
+  drawerClose={drawerClose}
+  level={1}
+  collapsed={collapsed}
+/>
 
                 <ListItemLink
                   to="/helps"
