@@ -1,16 +1,75 @@
+// context/PublicSettingsContext/index.jsx
 import React, { createContext, useState, useContext, useEffect, useCallback } from "react";
 import openApi from "../../services/api";
 
-// Criação do contexto
 const PublicSettingsContext = createContext({});
 
-// Configuração do tempo de expiração do cache
 const CACHE_EXPIRATION_TIME = 86400000; // 24 horas em milissegundos
 
 export const PublicSettingsProvider = ({ children }) => {
   const [settings, setSettings] = useState({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+
+  // Função para normalizar URLs
+  const normalizeUrl = useCallback((baseUrl, path) => {
+    if (!path) return '';
+    
+    // Remove barras duplas e normaliza a URL
+    const cleanBaseUrl = baseUrl.replace(/\/+$/, ''); // Remove barras finais
+    const cleanPath = path.replace(/^\/+/, ''); // Remove barras iniciais
+    
+    return `${cleanBaseUrl}/${cleanPath}`;
+  }, []);
+
+  // Função para verificar se arquivo existe
+  const checkFileExists = useCallback(async (url) => {
+    try {
+      const response = await fetch(url, { method: 'HEAD' });
+      return response.ok;
+    } catch (error) {
+      console.warn('Erro ao verificar arquivo:', url, error);
+      return false;
+    }
+  }, []);
+
+  // Função para processar as configurações recebidas
+  const processSettings = useCallback(async (settingsArray) => {
+    if (!Array.isArray(settingsArray)) return {};
+    
+    const processed = {};
+    const baseUrl = process.env.REACT_APP_BACKEND_URL;
+    
+    for (const setting of settingsArray) {
+      if (setting && setting.key && setting.value !== undefined) {
+        // Processar URLs de imagens
+        if (setting.key.includes("Logo") || setting.key.includes("Background")) {
+          const fullUrl = normalizeUrl(baseUrl, `/public/${setting.value}`);
+          
+          // Verificar se o arquivo existe antes de definir
+          const exists = await checkFileExists(fullUrl);
+          if (exists) {
+            processed[setting.key] = fullUrl;
+          } else {
+            console.warn(`Arquivo não encontrado: ${fullUrl}`);
+            // Usar imagem padrão se o arquivo não existir
+            if (setting.key.includes("Logo")) {
+              processed[setting.key] = normalizeUrl(baseUrl, '/public/assets/vector/logo.svg');
+            }
+          }
+        } else {
+          processed[setting.key] = setting.value;
+        }
+        
+        // Configurar título da página se appName estiver presente
+        if (setting.key === "appName" && setting.value) {
+          document.title = setting.value;
+        }
+      }
+    }
+    
+    return processed;
+  }, [normalizeUrl, checkFileExists]);
 
   // Função para armazenar configurações em cache
   const cacheSettings = useCallback((companyId, settingsData) => {
@@ -46,30 +105,6 @@ export const PublicSettingsProvider = ({ children }) => {
     }
   }, []);
 
-  // Função para processar as configurações recebidas
-  const processSettings = useCallback((settingsArray) => {
-    if (!Array.isArray(settingsArray)) return {};
-    
-    const processed = {};
-    settingsArray.forEach(setting => {
-      if (setting && setting.key && setting.value !== undefined) {
-        // Processar URLs de imagens
-        if (setting.key.includes("Logo") || setting.key.includes("Background")) {
-          processed[setting.key] = process.env.REACT_APP_BACKEND_URL + "/public/" + setting.value;
-        } else {
-          processed[setting.key] = setting.value;
-        }
-        
-        // Configurar título da página se appName estiver presente
-        if (setting.key === "appName" && setting.value) {
-          document.title = setting.value;
-        }
-      }
-    });
-    
-    return processed;
-  }, []);
-
   // Função principal para carregar as configurações públicas
   const loadPublicSettings = useCallback(async (forceRefresh = false) => {
     try {
@@ -93,7 +128,7 @@ export const PublicSettingsProvider = ({ children }) => {
       const { data } = await openApi.get(`/public-settings/c/${companyId}`);
       
       // Processar e armazenar as configurações
-      const processedSettings = processSettings(data);
+      const processedSettings = await processSettings(data);
       setSettings(processedSettings);
       
       // Armazenar em cache

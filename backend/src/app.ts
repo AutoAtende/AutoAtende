@@ -11,6 +11,8 @@ import AppError from "./errors/AppError";
 import routes from "./routes";
 import {logger} from "./utils/logger";
 import {getMessageQueue} from "./queues";
+import { staticCorsMiddleware } from "./middleware/staticCorsMiddleware";
+import path from "path";
 
 
 if (process.env.DEBUG_TRACE == 'false') {
@@ -84,11 +86,19 @@ app.use((err, req, res, next) => {
   next();
 });
 
-app.use("/public", (req, res, next) => {
-  res.header('Cache-Control', 'public, max-age=31557600');
-  logger.debug(`Static file request: ${req.path}`);
-  next();
-}, express.static(uploadConfig.directory));
+app.use('/public', staticCorsMiddleware, express.static(path.join(__dirname, '..', 'public'), {
+  maxAge: '1y', // Cache por 1 ano
+  etag: true,
+  lastModified: true,
+  setHeaders: (res, filePath) => {
+    // Headers específicos por tipo de arquivo
+    if (filePath.endsWith('.svg')) {
+      res.setHeader('Content-Type', 'image/svg+xml');
+    } else if (filePath.match(/\.(jpg|jpeg|png|gif)$/)) {
+      res.setHeader('Content-Type', 'image/' + path.extname(filePath).slice(1));
+    }
+  }
+}));
 
 // Middleware para lidar com rotas não encontradas
 app.use((req: Request, res: Response, next: NextFunction) => {
