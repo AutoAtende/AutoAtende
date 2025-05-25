@@ -31,10 +31,12 @@ const PageHeader = styled(Box)(({ theme }) => ({
   justifyContent: 'space-between',
   alignItems: 'flex-start',
   marginBottom: theme.spacing(3),
+  marginTop: theme.spacing(4), // Adicionado margem superior maior
   [theme.breakpoints.down('sm')]: {
     flexDirection: 'column',
     alignItems: 'stretch',
     gap: theme.spacing(2),
+    marginTop: theme.spacing(2), // Margem menor em mobile
   }
 }));
 
@@ -50,8 +52,10 @@ const PageTitle = styled(Typography)(({ theme }) => ({
 const ActionButtonsContainer = styled(Box)(({ theme }) => ({
   display: 'flex',
   gap: theme.spacing(1),
+  marginTop: theme.spacing(0.5), // Ajuste fino para alinhar com o título
   [theme.breakpoints.down('sm')]: {
     flexDirection: 'column',
+    marginTop: 0,
   }
 }));
 
@@ -113,6 +117,7 @@ const ResponsiveActionButton = ({
       sx={{
         minWidth: isMobile ? 'auto' : 'auto',
         padding: isMobile ? theme.spacing(1) : theme.spacing(1, 2),
+        borderRadius: '8px', // Cantos arredondados
         ...(isMobile && {
           '& .MuiButton-startIcon': {
             margin: 0
