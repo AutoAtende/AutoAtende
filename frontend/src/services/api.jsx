@@ -2,7 +2,7 @@ import axios from 'axios';
 import axiosRetry from 'axios-retry';
 
 const BASE_URL = process.env.REACT_APP_BACKEND_URL;
-const TIMEOUT = 30000; // Reduzido para 30 segundos
+const TIMEOUT = 30000;
 const MAX_RETRIES = 3;
 
 const isProduction = process.env.NODE_ENV === 'production';
@@ -11,11 +11,7 @@ const createAxiosInstance = (options = {}) => {
   const instance = axios.create({
     baseURL: BASE_URL,
     timeout: TIMEOUT,
-    headers: {
-      'Cache-Control': 'no-cache',
-      'Pragma': 'no-cache',
-      'Expires': '0',
-    },
+    // NÃO definir headers globais aqui - deixar o navegador decidir
     ...options,
   });
 
@@ -24,9 +20,13 @@ const createAxiosInstance = (options = {}) => {
     retries: MAX_RETRIES,
     retryDelay: axiosRetry.exponentialDelay,
     retryCondition: (error) => {
-      // Não fazer retry em erros CORS ou problemas de conexão
-      if (error.message && error.message.includes('Network Error')) {
-        console.error('Possível erro de CORS ou conexão:', error);
+      // Não fazer retry em erros CORS/ORB
+      if (error.message && (
+        error.message.includes('Network Error') ||
+        error.message.includes('ERR_BLOCKED_BY_ORB') ||
+        error.message.includes('ERR_BLOCKED_BY_CLIENT')
+      )) {
+        console.error('Erro de bloqueio detectado:', error.message);
         return false;
       }
       
@@ -59,8 +59,10 @@ const createAxiosInstance = (options = {}) => {
       } else if (error.request) {
         if (error.code === 'ECONNABORTED') {
           console.error(`Timeout excedido (${TIMEOUT}ms):`, error.config.url);
+        } else if (error.message.includes('ERR_BLOCKED_BY_ORB')) {
+          console.error('Recurso bloqueado por ORB (Origin Resource Blocking):', error.config.url);
         } else {
-          console.error('Sem resposta do servidor. Possíveis causas: CORS, servidor indisponível, problemas de rede.');
+          console.error('Sem resposta do servidor:', error.message);
         }
       } else {
         console.error('Erro na configuração da requisição:', error.message);
@@ -83,20 +85,33 @@ const createAxiosInstance = (options = {}) => {
   return instance;
 };
 
-// Criar a instância base sem modificações de token
-export const openApi = createAxiosInstance();
+// Instância para APIs públicas (sem autenticação, headers mínimos)
+export const openApi = createAxiosInstance({
+  // Headers mínimos para evitar problemas com ORB
+  headers: {
+    'Accept': 'application/json, text/plain, */*',
+    'Content-Type': 'application/json'
+  }
+});
 
-// Criar a instância principal com tratamento de token
-export const api = createAxiosInstance({ withCredentials: true });
+// Instância principal com autenticação
+export const api = createAxiosInstance({ 
+  withCredentials: true,
+  headers: {
+    'Accept': 'application/json, text/plain, */*',
+    'Content-Type': 'application/json',
+    'Cache-Control': 'no-cache',
+    'Pragma': 'no-cache'
+  }
+});
 
-// Adicionar interceptor APENAS para a instância api (não para openApi)
+// Interceptor APENAS para a instância api (autenticada)
 api.interceptors.request.use(
   (config) => {
     // Formatação de token apenas para a instância api
     if (config.headers.Authorization && typeof config.headers.Authorization === 'string') {
       const authHeader = config.headers.Authorization.trim();
       
-      // Validar formato do token apenas se estiver presente
       if (authHeader && !authHeader.startsWith('Bearer ') && !authHeader.startsWith('bearer ')) {
         config.headers.Authorization = `Bearer ${authHeader}`;
         console.log('Token corrigido para formato Bearer');
@@ -105,27 +120,41 @@ api.interceptors.request.use(
     
     // Log da requisição
     if (!isProduction) {
-      console.log(`Enviando requisição: ${config.method?.toUpperCase()} ${config.url}`);
+      console.log(`[API AUTH] ${config.method?.toUpperCase()} ${config.url}`);
       
-      // Log dos dados enviados (sem informações sensíveis)
       if (config.data && !(config.data instanceof FormData)) {
         console.log('Dados enviados:', config.data);
       } else if (config.data instanceof FormData) {
-        console.log('Enviando FormData (conteúdo não exibido)');
+        console.log('Enviando FormData');
       }
     }
     
     return config;
   },
   (error) => {
-    console.error('Erro ao preparar requisição:', error);
+    console.error('Erro ao preparar requisição autenticada:', error);
+    return Promise.reject(error);
+  }
+);
+
+// Interceptor específico para openApi (sem autenticação)
+openApi.interceptors.request.use(
+  (config) => {
+    // Log mais simples para requisições públicas
+    if (!isProduction) {
+      console.log(`[API PUBLIC] ${config.method?.toUpperCase()} ${config.url}`);
+    }
+    
+    return config;
+  },
+  (error) => {
+    console.error('Erro ao preparar requisição pública:', error);
     return Promise.reject(error);
   }
 );
 
 // Configurações específicas do ambiente de desenvolvimento
 if (!isProduction) {
-  // Helper para debug de erros
   window.debugApiError = (error) => {
     if (!error) return 'Nenhum erro fornecido';
     
@@ -138,7 +167,8 @@ if (!isProduction) {
       config: error.config ? {
         url: error.config.url,
         method: error.config.method,
-        timeout: error.config.timeout
+        timeout: error.config.timeout,
+        headers: error.config.headers
       } : 'Configuração não disponível'
     };
   };
