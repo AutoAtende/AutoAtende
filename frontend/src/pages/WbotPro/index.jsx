@@ -726,7 +726,7 @@ const WbotPro = () => {
 
   return (
     <StandardPageLayout
-      title="Teste de Mensagens WhatsApp Pro"
+      title="API de Mensagens Interativas"
       actions={pageActions}
       showSearch={false}
     >
