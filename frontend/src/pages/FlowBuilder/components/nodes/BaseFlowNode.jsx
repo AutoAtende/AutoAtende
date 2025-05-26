@@ -253,28 +253,6 @@ const BaseFlowNode = ({
       {/* Handle de entrada (topo) */}
       {handles.target?.enabled && (
         <>
-          {/* Indicador visual de entrada */}
-          <Box
-            sx={{
-              position: 'absolute',
-              top: -10,
-              left: '50%',
-              transform: 'translateX(-50%)',
-              bgcolor: alpha('#fff', 0.9),
-              color: nodeColor,
-              fontSize: '0.6rem',
-              fontWeight: 'bold',
-              padding: '2px 4px',
-              borderRadius: '4px',
-              border: `1px solid ${nodeColor}`,
-              zIndex: 20,
-              userSelect: 'none',
-              pointerEvents: 'none',
-            }}
-          >
-            {i18n.t('flowBuilder.inputs.input', 'Entrada')}
-          </Box>
-
           {/* Ponto de conexão de entrada */}
           <Handle
             type="target"
@@ -291,31 +269,9 @@ const BaseFlowNode = ({
         </>
       )}
 
-      {/* Handle de saída (fundo) */}
+      {/* Handle de saída padrão (fundo) */}
       {handles.source?.enabled && !isTerminal && (
         <>
-          {/* Indicador visual de saída */}
-          <Box
-            sx={{
-              position: 'absolute',
-              bottom: -10,
-              left: '50%',
-              transform: 'translateX(-50%)',
-              bgcolor: alpha('#fff', 0.9),
-              color: nodeColor,
-              fontSize: '0.6rem',
-              fontWeight: 'bold',
-              padding: '2px 4px',
-              borderRadius: '4px',
-              border: `1px solid ${nodeColor}`,
-              zIndex: 20,
-              userSelect: 'none',
-              pointerEvents: 'none',
-            }}
-          >
-            {i18n.t('flowBuilder.outputs.default', 'Saída')}
-          </Box>
-
           {/* Ponto de conexão de saída */}
           <Handle
             type="source"
@@ -333,11 +289,9 @@ const BaseFlowNode = ({
         </>
       )}
 
-      {/* Handles adicionais */}
+      {/* Handles adicionais - sempre à direita */}
       {!isTerminal && additionalHandles.map((handle, index) => {
         const handleColor = getHandleColor(handle);
-        const handleDescription = getHandleDescription(handle);
-        const tooltipContent = handleDescription;
         const totalHandles = additionalHandles.length;
         
         // Calcular a posição vertical baseada no índice e número total de saídas
@@ -345,54 +299,18 @@ const BaseFlowNode = ({
         
         return (
           <React.Fragment key={`handle-${handle.id || index}`}>
-            {/* Indicador visual para handle lateral com label */}
-            <Tooltip title={tooltipContent} placement="right">
-              <Box
-                sx={{
-                  position: 'absolute',
-                  right: handle.position === Position.Right ? -5 : 'auto',
-                  left: handle.position === Position.Left ? -5 : 'auto',
-                  top: handle.position === Position.Right || handle.position === Position.Left ? 
-                    `${topPercentage}%` : 'auto',
-                  bottom: handle.position === Position.Bottom ? -10 : 'auto',
-                  bgcolor: alpha('#fff', 0.9),
-                  color: handleColor,
-                  fontSize: '0.6rem',
-                  fontWeight: 'bold',
-                  padding: '2px 6px',
-                  borderRadius: '4px',
-                  border: `1px solid ${handleColor}`,
-                  zIndex: 20,
-                  userSelect: 'none',
-                  pointerEvents: 'none',
-                  whiteSpace: 'nowrap',
-                  transform: handle.position === Position.Right ? 'translateX(100%)' : 
-                             handle.position === Position.Left ? 'translateX(-100%)' : 
-                             'translateX(0)',
-                  ml: handle.position === Position.Right ? 1 : 0,
-                  mr: handle.position === Position.Left ? 1 : 0,
-                }}
-              >
-                {handleDescription}
-              </Box>
-            </Tooltip>
-
-            {/* Ponto de conexão adicional */}
+            {/* Ponto de conexão adicional - sempre Position.Right */}
             <Handle
               type={handle.type || "source"}
-              position={handle.position || Position.Right}
+              position={Position.Right}
               id={handle.id || `handle-${index}`}
               style={{
                 background: theme.palette.background.paper,
                 border: `2px solid ${handleColor}`,
                 width: 12,
                 height: 12,
-                right: handle.position === Position.Right ? -6 : 'auto',
-                left: handle.position === Position.Left ? -6 : 'auto',
-                top: handle.position === Position.Top ? -6 :
-                  handle.position === Position.Right || handle.position === Position.Left ? 
-                  `${topPercentage}%` : 'auto',
-                bottom: handle.position === Position.Bottom ? -6 : 'auto',
+                right: -6,
+                top: `${topPercentage}%`,
                 zIndex: 10
               }}
               data={handle.data}
