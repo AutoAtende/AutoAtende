@@ -1,342 +1,499 @@
-import React, { createContext, useContext, useEffect, useState } from "react";
+import React, { createContext, useContext, useEffect, useState, useRef, useCallback } from "react";
 import openSocket from "socket.io-client";
 import { isExpired } from "react-jwt";
+
+// Constantes de configuração
+const CONFIG = {
+    PING_TIMEOUT: 30000,
+    PING_INTERVAL: 25000,
+    RECONNECT_DELAY_BASE: 1000,
+    RECONNECT_DELAY_MAX: 30000,
+    MAX_RECONNECT_ATTEMPTS: 5,
+    CONNECTION_TIMEOUT: 15000,
+    BACKOFF_MULTIPLIER: 2,
+    MIN_RECONNECT_INTERVAL: 5000,
+    NOTIFICATION_TIMEOUT: 10000
+};
+
+// Estados do socket
+const SOCKET_STATES = {
+    DISCONNECTED: 'DISCONNECTED',
+    CONNECTING: 'CONNECTING',
+    CONNECTED: 'CONNECTED',
+    RECONNECTING: 'RECONNECTING',
+    ERROR: 'ERROR'
+};
 
 class ManagedSocket {
     constructor(socketManager) {
         this.socketManager = socketManager;
         this.rawSocket = socketManager.currentSocket;
-        this.callbacks = [];
-        this.joins = [];
+        this.callbacks = new Map(); // Usar Map para melhor performance
+        this.joins = new Set(); // Usar Set para evitar duplicatas
+        this.state = SOCKET_STATES.DISCONNECTED;
+        
+        // Controle de reconexão otimizado
         this.reconnectAttempts = 0;
-        this.maxReconnectAttempts = 10; // Aumentado para 10 tentativas
-        this.reconnectInterval = 5000; // 5 segundos de intervalo entre tentativas
         this.reconnectTimer = null;
-        this.lastPingTime = Date.now();
-        this.pingMonitorId = null;
+        this.lastReconnectTime = 0;
+        
+        // Cleanup automático
+        this._cleanupTimers = new Set();
+        this._isDestroyed = false;
     }
 
+    // Método otimizado para adicionar listeners
     on(event, callback) {
-        if (!this.rawSocket) {
-            console.warn("Socket not initialized when attempting to add listener");
-            return;
+        if (this._isDestroyed || !this.rawSocket) {
+            console.warn(`[Socket] Tentativa de adicionar listener após destruição: ${event}`);
+            return this;
         }
 
         if (event === "ready" || event === "connect") {
             return this.socketManager.onReady(callback);
         }
         
-        this.callbacks.push({ event, callback });
-        return this.rawSocket.on(event, callback);
+        // Usar Map para melhor performance na busca
+        if (!this.callbacks.has(event)) {
+            this.callbacks.set(event, new Set());
+        }
+        this.callbacks.get(event).add(callback);
+        
+        this.rawSocket.on(event, callback);
+        return this;
     }
 
+    // Método otimizado para remover listeners
     off(event, callback) {
-        if (!this.rawSocket) return;
+        if (this._isDestroyed || !this.rawSocket) return this;
         
-        const i = this.callbacks.findIndex((c) => c.event === event && c.callback === callback);
-        if (i !== -1) this.callbacks.splice(i, 1);
-        return this.rawSocket.off(event, callback);
+        const eventCallbacks = this.callbacks.get(event);
+        if (eventCallbacks) {
+            eventCallbacks.delete(callback);
+            if (eventCallbacks.size === 0) {
+                this.callbacks.delete(event);
+            }
+        }
+        
+        this.rawSocket.off(event, callback);
+        return this;
     }
 
     emit(event, ...params) {
-        if (!this.rawSocket) {
-            console.warn("Socket not initialized when attempting to emit");
+        if (this._isDestroyed || !this.rawSocket || !this.rawSocket.connected) {
+            console.warn(`[Socket] Tentativa de emit com socket desconectado: ${event}`);
+            return this;
+        }
+
+        // Registrar joins para re-execução após reconexão
+        if (event.startsWith("join")) {
+            this.joins.add({ event: event.substring(4), params });
+        }
+        
+        try {
+            this.rawSocket.emit(event, ...params);
+        } catch (error) {
+            console.error(`[Socket] Erro ao emitir evento ${event}:`, error);
+        }
+        
+        return this;
+    }
+
+    // Sistema de reconexão inteligente
+    attemptReconnect() {
+        // Evitar múltiplas tentativas simultâneas
+        if (this.state === SOCKET_STATES.RECONNECTING || this._isDestroyed) {
             return;
         }
 
-        if (event.startsWith("join")) {
-            this.joins.push({ event: event.substring(4), params });
+        // Verificar se já passou tempo suficiente desde a última tentativa
+        const now = Date.now();
+        if (now - this.lastReconnectTime < CONFIG.MIN_RECONNECT_INTERVAL) {
+            console.log('[Socket] Reconexão muito frequente, aguardando...');
+            return;
         }
-        return this.rawSocket.emit(event, ...params);
+
+        this.lastReconnectTime = now;
+        this.state = SOCKET_STATES.RECONNECTING;
+        
+        // Limpar timer anterior se existir
+        this._clearTimer(this.reconnectTimer);
+        
+        if (this.reconnectAttempts >= CONFIG.MAX_RECONNECT_ATTEMPTS) {
+            console.error('[Socket] Número máximo de tentativas atingido');
+            this._showConnectionError(true);
+            this.state = SOCKET_STATES.ERROR;
+            return;
+        }
+
+        this.reconnectAttempts++;
+        
+        // Backoff exponencial com jitter
+        const baseDelay = Math.min(
+            CONFIG.RECONNECT_DELAY_MAX,
+            CONFIG.RECONNECT_DELAY_BASE * Math.pow(CONFIG.BACKOFF_MULTIPLIER, this.reconnectAttempts - 1)
+        );
+        const jitter = Math.random() * 1000; // Adicionar jitter para evitar thundering herd
+        const delay = baseDelay + jitter;
+        
+        console.log(`[Socket] Tentativa ${this.reconnectAttempts}/${CONFIG.MAX_RECONNECT_ATTEMPTS} em ${delay.toFixed(0)}ms`);
+        
+        this.reconnectTimer = setTimeout(() => {
+            this._executeReconnect();
+        }, delay);
+        
+        this._cleanupTimers.add(this.reconnectTimer);
     }
 
-    startPingMonitor() {
-        if (this.pingMonitorId) {
-            clearInterval(this.pingMonitorId);
-        }
-
-        // Monitorar pings do servidor
-        this.rawSocket.on("ping", (data) => {
-            this.lastPingTime = Date.now();
-            this.rawSocket.emit("pong", { received: true, timestamp: Date.now() });
-        });
-
-        // Verificar se estamos recebendo pings
-        this.pingMonitorId = setInterval(() => {
-            const timeSinceLastPing = Date.now() - this.lastPingTime;
-            if (timeSinceLastPing > 60000) { // 1 minuto sem ping
-                console.warn("Sem ping do servidor há mais de 1 minuto, tentando reconexão");
+    _executeReconnect() {
+        if (this._isDestroyed) return;
+        
+        try {
+            // Limpar socket anterior
+            this._disconnect(false);
+            
+            // Criar novo socket
+            const newSocket = this.socketManager.initializeNewSocket(
+                this.socketManager.currentCompanyId, 
+                this.socketManager.currentUserId
+            );
+            
+            if (newSocket && newSocket.rawSocket && newSocket.rawSocket.connected) {
+                console.log('[Socket] Reconexão bem-sucedida');
+                this.rawSocket = newSocket.rawSocket;
+                this._restoreState();
+                this.reconnectAttempts = 0;
+                this.state = SOCKET_STATES.CONNECTED;
+                this._hideConnectionError();
+            } else {
+                throw new Error("Falha ao criar nova instância de socket");
+            }
+        } catch (error) {
+            console.error('[Socket] Erro durante reconexão:', error);
+            this.state = SOCKET_STATES.ERROR;
+            // Tentar novamente se ainda dentro do limite
+            if (this.reconnectAttempts < CONFIG.MAX_RECONNECT_ATTEMPTS) {
                 this.attemptReconnect();
             }
-        }, 30000); // Verificar a cada 30 segundos
-    }
-
-    attemptReconnect() {
-        // Cancelar tentativa anterior se existente
-        if (this.reconnectTimer) {
-            clearTimeout(this.reconnectTimer);
-            this.reconnectTimer = null;
-        }
-        
-        if (this.reconnectAttempts < this.maxReconnectAttempts) {
-            this.reconnectAttempts++;
-            const delay = Math.min(30000, this.reconnectInterval * Math.pow(1.5, this.reconnectAttempts - 1));
-            
-            console.log(`Tentativa de reconexão ${this.reconnectAttempts} de ${this.maxReconnectAttempts} em ${delay}ms`);
-            
-            this.reconnectTimer = setTimeout(() => {
-                try {
-                    // Limpar completamente o socket anterior
-                    this.disconnect();
-                    
-                    // Assegurar que o socketManager está em estado consistente
-                    this.socketManager.cleanupExistingSocket();
-                    
-                    // Inicializar novo socket com verificação adequada
-                    const newSocket = this.socketManager.initializeNewSocket(
-                        this.socketManager.currentCompanyId, 
-                        this.socketManager.currentUserId
-                    );
-                    
-                    // Verificar se o socket foi criado corretamente
-                    if (newSocket && newSocket.rawSocket) {
-                        this.rawSocket = newSocket.rawSocket;
-                        this.restoreState();
-                        this.startPingMonitor();
-                        this.reconnectAttempts = 0; // Resetar contagem após sucesso
-                    } else {
-                        throw new Error("Falha ao criar nova instância de socket");
-                    }
-                } catch (error) {
-                    console.error("Erro durante tentativa de reconexão:", error);
-                    // Continuar com o processo de backoff se falhar
-                    this.reconnectTimer = setTimeout(() => this.attemptReconnect(), delay);
-                }
-            }, delay);
-        } else {
-            console.error("Número máximo de tentativas de reconexão atingido");
-            this.showConnectionError(true); // Indica erro permanente
         }
     }
     
-    // Restaurar estado após reconexão
-    restoreState() {
-        if (!this.rawSocket) return;
+    // Restaurar estado após reconexão de forma otimizada
+    _restoreState() {
+        if (!this.rawSocket || this._isDestroyed) return;
         
-        // Replicar todos os callbacks registrados
-        for (const c of this.callbacks) {
-            this.rawSocket.on(c.event, c.callback);
+        // Restaurar listeners
+        for (const [event, callbacks] of this.callbacks.entries()) {
+            for (const callback of callbacks) {
+                this.rawSocket.on(event, callback);
+            }
         }
         
         // Rejuntar-se às salas
-        for (const j of this.joins) {
-            this.rawSocket.emit(`join${j.event}`, ...j.params);
+        for (const join of this.joins) {
+            this.rawSocket.emit(`join${join.event}`, ...join.params);
         }
     }
 
-    showConnectionError(isPermanent = false) {
-        // Remover notificação anterior se existir
-        const existingError = document.getElementById('socket-error-notification');
-        if (existingError) {
-            document.body.removeChild(existingError);
+    // Sistema de notificação otimizado
+    _showConnectionError(isPermanent = false) {
+        // Evitar múltiplas notificações
+        this._hideConnectionError();
+        
+        const errorDiv = document.createElement('div');
+        errorDiv.id = 'socket-error-notification';
+        errorDiv.style.cssText = `
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: linear-gradient(135deg, #f44336, #d32f2f);
+            color: white;
+            padding: 16px 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(244, 67, 54, 0.3);
+            z-index: 10000;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            font-size: 14px;
+            max-width: 350px;
+            animation: slideInRight 0.3s ease-out;
+        `;
+        
+        // Adicionar animação CSS
+        if (!document.querySelector('#socket-notification-styles')) {
+            const styles = document.createElement('style');
+            styles.id = 'socket-notification-styles';
+            styles.textContent = `
+                @keyframes slideInRight {
+                    from { transform: translateX(100%); opacity: 0; }
+                    to { transform: translateX(0); opacity: 1; }
+                }
+            `;
+            document.head.appendChild(styles);
         }
         
-        const errorMessage = document.createElement('div');
-        errorMessage.id = 'socket-error-notification';
-        errorMessage.style.position = 'fixed';
-        errorMessage.style.top = '10px';
-        errorMessage.style.right = '10px';
-        errorMessage.style.backgroundColor = '#f44336';
-        errorMessage.style.color = 'white';
-        errorMessage.style.padding = '15px';
-        errorMessage.style.borderRadius = '4px';
-        errorMessage.style.zIndex = '9999';
-        errorMessage.style.boxShadow = '0 2px 5px rgba(0,0,0,0.3)';
-        
         if (isPermanent) {
-            errorMessage.innerHTML = 'Problemas persistentes de conexão detectados. <button id="refresh-app" style="background-color: white; color: #f44336; border: none; padding: 5px 10px; margin-left: 10px; border-radius: 4px; cursor: pointer;">Recarregar Aplicação</button>';
-        } else {
-            errorMessage.innerHTML = 'Problemas temporários de conexão. Tentando reconectar...';
-        }
-        
-        document.body.appendChild(errorMessage);
-        
-        if (isPermanent) {
-            document.getElementById('refresh-app').addEventListener('click', () => {
+            errorDiv.innerHTML = `
+                <div style="display: flex; align-items: center; justify-content: space-between;">
+                    <div>
+                        <strong>Erro de Conexão</strong><br>
+                        <small>Problemas persistentes detectados</small>
+                    </div>
+                    <button id="refresh-app" style="
+                        background: white;
+                        color: #f44336;
+                        border: none;
+                        padding: 8px 12px;
+                        border-radius: 4px;
+                        cursor: pointer;
+                        font-weight: 600;
+                        margin-left: 12px;
+                    ">Recarregar</button>
+                </div>
+            `;
+            
+            errorDiv.querySelector('#refresh-app').addEventListener('click', () => {
                 window.location.reload();
             });
         } else {
-            // Auto-remover após 5 segundos para notificações temporárias
-            setTimeout(() => {
-                if (document.body.contains(errorMessage)) {
-                    document.body.removeChild(errorMessage);
+            errorDiv.innerHTML = `
+                <div style="display: flex; align-items: center;">
+                    <div style="
+                        width: 16px;
+                        height: 16px;
+                        border: 2px solid rgba(255,255,255,0.3);
+                        border-top: 2px solid white;
+                        border-radius: 50%;
+                        animation: spin 1s linear infinite;
+                        margin-right: 12px;
+                    "></div>
+                    <div>
+                        <strong>Reconectando...</strong><br>
+                        <small>Tentativa ${this.reconnectAttempts}/${CONFIG.MAX_RECONNECT_ATTEMPTS}</small>
+                    </div>
+                </div>
+            `;
+            
+            // Adicionar animação de loading
+            const spinStyles = document.createElement('style');
+            spinStyles.textContent = `
+                @keyframes spin {
+                    0% { transform: rotate(0deg); }
+                    100% { transform: rotate(360deg); }
                 }
-            }, 5000);
+            `;
+            document.head.appendChild(spinStyles);
+        }
+        
+        document.body.appendChild(errorDiv);
+        
+        // Auto-remover notificações temporárias
+        if (!isPermanent) {
+            setTimeout(() => {
+                this._hideConnectionError();
+            }, CONFIG.NOTIFICATION_TIMEOUT);
         }
     }
 
-    disconnect() {
+    _hideConnectionError() {
+        const existingError = document.getElementById('socket-error-notification');
+        if (existingError) {
+            existingError.style.animation = 'slideInRight 0.3s ease-out reverse';
+            setTimeout(() => {
+                if (existingError.parentNode) {
+                    existingError.parentNode.removeChild(existingError);
+                }
+            }, 300);
+        }
+    }
+
+    // Método otimizado de desconexão
+    _disconnect(clearState = true) {
         if (!this.rawSocket) return;
 
-        console.log("Disconnecting socket");
+        console.log('[Socket] Desconectando...');
         
-        if (this.pingMonitorId) {
-            clearInterval(this.pingMonitorId);
-            this.pingMonitorId = null;
+        // Limpar timers
+        this._clearAllTimers();
+        
+        // Deixar salas antes de desconectar
+        if (this.rawSocket.connected) {
+            for (const join of this.joins) {
+                try {
+                    this.rawSocket.emit(`leave${join.event}`, ...join.params);
+                } catch (error) {
+                    console.warn('[Socket] Erro ao deixar sala:', error);
+                }
+            }
         }
         
-        clearTimeout(this.reconnectTimer);
-        
-        for (const j of this.joins) {
-            this.rawSocket.emit(`leave${j.event}`, ...j.params);
+        if (clearState) {
+            // Remover todos os listeners
+            for (const [event, callbacks] of this.callbacks.entries()) {
+                for (const callback of callbacks) {
+                    this.rawSocket.off(event, callback);
+                }
+            }
+            
+            this.callbacks.clear();
+            this.joins.clear();
+            this.reconnectAttempts = 0;
         }
         
-        this.joins = [];
-        
-        for (const c of this.callbacks) {
-            this.rawSocket.off(c.event, c.callback);
+        try {
+            this.rawSocket.disconnect();
+        } catch (error) {
+            console.warn('[Socket] Erro ao desconectar:', error);
         }
         
-        this.callbacks = [];
-        this.reconnectAttempts = 0;
+        this.state = SOCKET_STATES.DISCONNECTED;
+    }
+
+    // Limpeza de recursos
+    _clearTimer(timer) {
+        if (timer) {
+            clearTimeout(timer);
+            this._cleanupTimers.delete(timer);
+        }
+    }
+
+    _clearAllTimers() {
+        for (const timer of this._cleanupTimers) {
+            clearTimeout(timer);
+        }
+        this._cleanupTimers.clear();
+    }
+
+    // Destruir instância
+    destroy() {
+        this._isDestroyed = true;
+        this._disconnect(true);
+        this._clearAllTimers();
+        this._hideConnectionError();
+        console.log('[Socket] Instância destruída');
+    }
+
+    // Getter para verificar se está conectado
+    get connected() {
+        return this.rawSocket && this.rawSocket.connected && this.state === SOCKET_STATES.CONNECTED;
     }
 }
 
+// Socket dummy otimizado
 class DummySocket {
     constructor() {
-        console.log("Creating dummy socket instance");
+        this.connected = false;
+        console.log('[Socket] Instância dummy criada');
     }
-    on() {}
-    off() {}
-    emit() {}
-    disconnect() {}
+    on() { return this; }
+    off() { return this; }
+    emit() { return this; }
+    destroy() {}
 }
 
+// Manager principal otimizado
 export const initSocketManager = () => ({
     currentCompanyId: null,
     currentUserId: null,
     currentSocket: null,
     socketReady: false,
     socketInstance: null,
-    pendingCallbacks: [],
     readyCallbacks: [],
     connectCallbacks: [],
-    connectionAttempts: 0,
-    maxConnectionAttempts: 10,
-    connectionBackoffDelay: 1000,
-    lastReconnectTime: 0,
-
+    connectionState: SOCKET_STATES.DISCONNECTED,
+    lastConnectionTime: 0,
 
     GetSocket: function (companyId, userId = null) {
+        // Otimizar obtenção de IDs
         if (!companyId) {
             companyId = localStorage.getItem("companyId") || localStorage.getItem("lastCompanyId");
         }
         if (!companyId) {
-            console.warn("GetSocket called without companyId");
+            console.warn('[SocketManager] GetSocket chamado sem companyId');
             return new DummySocket();
         }
 
         try {
-            if (userId != null && localStorage.getItem("userId")) {
+            // Normalizar userId
+            if (!userId && localStorage.getItem("userId")) {
                 userId = localStorage.getItem("userId");
             }
 
-            companyId = companyId?.toString();
+            companyId = companyId.toString();
 
-            const shouldCreateNewSocket = 
+            // Verificar se precisa criar novo socket
+            const needsNewSocket = 
                 !this.currentSocket || 
+                !this.socketInstance ||
                 companyId !== this.currentCompanyId || 
-                userId !== this.currentUserId;
+                userId !== this.currentUserId ||
+                this.connectionState === SOCKET_STATES.ERROR;
 
-            if (shouldCreateNewSocket) {
-                this.cleanupExistingSocket();
+            if (needsNewSocket) {
+                // Evitar criações muito frequentes
+                const now = Date.now();
+                if (now - this.lastConnectionTime < CONFIG.MIN_RECONNECT_INTERVAL) {
+                    console.log('[SocketManager] Criação de socket muito frequente, usando dummy');
+                    return new DummySocket();
+                }
+                
+                this.lastConnectionTime = now;
+                this._cleanupExistingSocket();
                 return this.initializeNewSocket(companyId, userId);
             }
 
-            return this.socketInstance || this.createSocketInstance();
+            return this.socketInstance;
 
         } catch (error) {
-            console.error("Error in GetSocket:", error);
+            console.error('[SocketManager] Erro em GetSocket:', error);
             return new DummySocket();
         }
     },
 
-    cleanupExistingSocket() {
+    _cleanupExistingSocket() {
+        if (this.socketInstance) {
+            this.socketInstance.destroy();
+            this.socketInstance = null;
+        }
+        
         if (this.currentSocket) {
-            console.log("Cleaning up existing socket connection");
+            console.log('[SocketManager] Limpando socket existente');
             try {
                 this.currentSocket.removeAllListeners();
                 this.currentSocket.disconnect();
-            } catch (e) {
-                console.warn("Error during socket cleanup:", e);
+            } catch (error) {
+                console.warn('[SocketManager] Erro na limpeza:', error);
             }
             this.currentSocket = null;
-            this.socketInstance = null;
-            this.currentCompanyId = null;
-            this.currentUserId = null;
-            this.socketReady = false;
         }
+        
+        this.currentCompanyId = null;
+        this.currentUserId = null;
+        this.socketReady = false;
+        this.connectionState = SOCKET_STATES.DISCONNECTED;
     },
 
     initializeNewSocket(companyId, userId) {
-        const token = this.getAndValidateToken();
+        const token = this._getAndValidateToken();
         if (!token) return new DummySocket();
 
         this.currentCompanyId = companyId;
         this.currentUserId = userId;
-
-        // Limitar a frequência de tentativas de conexão
-        const now = Date.now();
-        if (now - this.lastReconnectTime < 2000) { // Não permitir mais de uma reconexão a cada 2 segundos
-            console.log("Tentativa de reconexão muito frequente, aguardando...");
-            setTimeout(() => {
-                this.initializeNewSocket(companyId, userId);
-            }, 2000);
-            return new DummySocket();
-        }
-        this.lastReconnectTime = now;
+        this.connectionState = SOCKET_STATES.CONNECTING;
 
         try {
-            this.currentSocket = this.createSocketConnection(token);
-            this.setupSocketListeners();
-            const socketInstance = this.createSocketInstance();
+            this.currentSocket = this._createSocketConnection(token);
+            this._setupSocketListeners();
+            this.socketInstance = new ManagedSocket(this);
             
-            // Iniciar monitoramento de ping
-            if (socketInstance && typeof socketInstance.startPingMonitor === 'function') {
-                socketInstance.startPingMonitor();
-            }
-            
-            return socketInstance;
+            return this.socketInstance;
         } catch (error) {
-            console.error("Error initializing socket:", error);
-            // Tentar novamente com backoff exponencial
-            this.scheduleReconnection();
+            console.error('[SocketManager] Erro ao inicializar:', error);
+            this.connectionState = SOCKET_STATES.ERROR;
             return new DummySocket();
         }
     },
 
-    scheduleReconnection() {
-        if (this.connectionAttempts < this.maxConnectionAttempts) {
-            this.connectionAttempts++;
-            const delay = this.connectionBackoffDelay * Math.pow(1.5, this.connectionAttempts - 1);
-            console.log(`Agendando reconexão em ${delay}ms (tentativa ${this.connectionAttempts})`);
-            
-            setTimeout(() => {
-                console.log(`Executando reconexão programada (tentativa ${this.connectionAttempts})`);
-                if (this.currentCompanyId) {
-                    this.initializeNewSocket(this.currentCompanyId, this.currentUserId);
-                }
-            }, delay);
-        } else {
-            console.error("Número máximo de tentativas de conexão atingido");
-            // Resetar para permitir novas tentativas depois de um tempo
-            setTimeout(() => {
-                this.connectionAttempts = 0;
-            }, 60000); // Resetar após 1 minuto
-        }
-    },
-
-    getAndValidateToken() {
+    _getAndValidateToken() {
         try {
             const token = localStorage.getItem("token");
             if (!token) return null;
@@ -344,128 +501,104 @@ export const initSocketManager = () => ({
             let parsedToken;
             try {
                 parsedToken = JSON.parse(token);
-            } catch (e) {
-                // Se não for um JSON válido, tentar usar o token diretamente
+            } catch {
                 parsedToken = token;
             }
 
             if (isExpired(parsedToken)) {
-                this.handleExpiredToken();
+                this._handleExpiredToken();
                 return null;
             }
 
             return parsedToken;
         } catch (error) {
-            console.error("Error validating token:", error);
+            console.error('[SocketManager] Erro na validação do token:', error);
             return null;
         }
     },
 
-    handleExpiredToken() {
-        console.warn("Token expired, refreshing page");
+    _handleExpiredToken() {
+        console.warn('[SocketManager] Token expirado');
         localStorage.removeItem("token");
         localStorage.removeItem("companyId");
+        // Usar setTimeout para evitar loops
         setTimeout(() => window.location.reload(), 1000);
     },
 
-    createSocketConnection(token) {
-        const socket = openSocket(process.env.REACT_APP_BACKEND_URL, {
-            transports: ['websocket', 'polling'], // Adicionado polling como fallback
-            pingTimeout: 30000, // Aumentado para 30 segundos
-            pingInterval: 25000, // Aumentado para 25 segundos
-            reconnection: true, // Habilitar reconexão automática
-            reconnectionAttempts: 10, // Máximo de tentativas
-            reconnectionDelay: 1000, // Delay inicial
-            reconnectionDelayMax: 10000, // Delay máximo
-            timeout: 30000, // Timeout geral
+    _createSocketConnection(token) {
+        return openSocket(process.env.REACT_APP_BACKEND_URL, {
+            transports: ['websocket', 'polling'],
+            pingTimeout: CONFIG.PING_TIMEOUT,
+            pingInterval: CONFIG.PING_INTERVAL,
+            reconnection: false, // Desabilitar reconexão automática do socket.io
+            timeout: CONFIG.CONNECTION_TIMEOUT,
+            forceNew: true, // Força nova conexão
             query: { token }
         });
-
-        return socket;
     },
 
-    setupSocketListeners() {
+    _setupSocketListeners() {
         if (!this.currentSocket) return;
 
+        const debounceMap = new Map();
+        
+        // Helper para debounce de eventos
+        const debounce = (key, fn, delay = 100) => {
+            if (debounceMap.has(key)) {
+                clearTimeout(debounceMap.get(key));
+            }
+            debounceMap.set(key, setTimeout(fn, delay));
+        };
+
         this.currentSocket.on("connect", () => {
-            console.log("Socket connected successfully");
+            console.log('[SocketManager] Conectado com sucesso');
             this.socketReady = true;
-            this.connectionAttempts = 0; // Resetar contador de tentativas
-            this.executeCallbacks(this.connectCallbacks);
-            this.executeCallbacks(this.readyCallbacks);
-            this.executePendingCallbacks();
-        });
-
-        this.currentSocket.on("connection_established", (data) => {
-            console.log("Connection established confirmation received:", data);
-        });
-
-        this.currentSocket.io.on("reconnect_attempt", (attempt) => {
-            console.log(`Socket.io reconnect attempt ${attempt}`);
-            const token = this.getAndValidateToken();
-            if (token) {
-                this.currentSocket.io.opts.query.token = token;
-            }
-        });
-
-        this.currentSocket.io.on("reconnect", () => {
-            console.log("Socket.io reconnected successfully");
-            // Notificar a aplicação que a reconexão foi bem-sucedida
-            if (this.socketInstance) {
-                // Restaurar estado após reconexão automática do socket.io
-                this.socketInstance.restoreState();
-            }
+            this.connectionState = SOCKET_STATES.CONNECTED;
+            
+            debounce('connect', () => {
+                this._executeCallbacks(this.connectCallbacks);
+                this._executeCallbacks(this.readyCallbacks);
+            });
         });
 
         this.currentSocket.on("disconnect", (reason) => {
-            console.warn(`Socket disconnected: ${reason}`);
+            console.warn(`[SocketManager] Desconectado: ${reason}`);
             this.socketReady = false;
+            this.connectionState = SOCKET_STATES.DISCONNECTED;
             
-            if (reason === "io server disconnect") {
-                this.handleServerDisconnect();
-            } else if (reason === "transport close" || reason === "ping timeout") {
-                // Para problemas de transporte ou timeout, tentar reconectar manualmente
-                if (this.socketInstance) {
-                    this.socketInstance.attemptReconnect();
-                }
+            // Só tentar reconectar em casos específicos
+            if (reason !== "io client disconnect" && reason !== "transport close") {
+                debounce('disconnect', () => {
+                    if (this.socketInstance && !this.socketInstance._isDestroyed) {
+                        this.socketInstance.attemptReconnect();
+                    }
+                }, 1000);
             }
         });
 
         this.currentSocket.on("error", (error) => {
-            console.error("Socket error:", error);
-            // Tentar reconectar em caso de erro
-            if (this.socketInstance) {
-                this.socketInstance.attemptReconnect();
-            }
+            console.error('[SocketManager] Erro:', error);
+            this.connectionState = SOCKET_STATES.ERROR;
         });
 
         this.currentSocket.on("connect_error", (error) => {
-            console.error("Socket connect error:", error);
-            // A própria biblioteca tentará reconectar, mas podemos ajudar
-            // Verificar se o token está válido
-            this.getAndValidateToken();
+            console.error('[SocketManager] Erro de conexão:', error);
+            this.connectionState = SOCKET_STATES.ERROR;
+            // Verificar token apenas uma vez por erro
+            debounce('connect_error', () => {
+                this._getAndValidateToken();
+            }, 5000);
         });
 
-        // Debug event para desenvolvimento
+        // Logs apenas em desenvolvimento
         if (process.env.NODE_ENV === 'development') {
+            const ignoredEvents = new Set(['ping', 'pong', 'connect', 'disconnect']);
             this.currentSocket.onAny((event, ...args) => {
-                if (event !== "ping" && event !== "pong") { // Ignorar eventos de ping/pong para reduzir ruído
+                if (!ignoredEvents.has(event)) {
                     console.debug(`[Socket Event] ${event}:`, args);
                 }
             });
         }
-    },
-
-    handleServerDisconnect() {
-        const token = this.getAndValidateToken();
-        if (token && this.currentSocket) {
-            this.currentSocket.io.opts.query.token = token;
-            this.currentSocket.connect();
-        }
-    },
-
-    createSocketInstance() {
-        return (this.socketInstance = new ManagedSocket(this));
     },
 
     onReady(callback) {
@@ -473,7 +606,7 @@ export const initSocketManager = () => ({
             try {
                 callback();
             } catch (error) {
-                console.error("Error executing ready callback:", error);
+                console.error('[SocketManager] Erro no callback ready:', error);
             }
         } else {
             this.readyCallbacks.push(callback);
@@ -485,45 +618,95 @@ export const initSocketManager = () => ({
             try {
                 callback();
             } catch (error) {
-                console.error("Error executing connect callback:", error);
+                console.error('[SocketManager] Erro no callback connect:', error);
             }
         } else {
             this.connectCallbacks.push(callback);
         }
     },
 
-    executeCallbacks(callbacks) {
-        while (callbacks.length > 0) {
-            const callback = callbacks.shift();
+    _executeCallbacks(callbacks) {
+        // Usar splice para esvaziar o array de forma eficiente
+        const callbacksToExecute = callbacks.splice(0);
+        for (const callback of callbacksToExecute) {
             try {
                 callback();
             } catch (error) {
-                console.error("Error executing callback:", error);
+                console.error('[SocketManager] Erro ao executar callback:', error);
             }
         }
-    },
-
-    executePendingCallbacks() {
-        this.executeCallbacks(this.pendingCallbacks);
     }
 });
 
 export const socketManager = initSocketManager();
 
-const SocketContext = createContext({
-    socketManager,
-    isConnected: false,
-    isReady: false,
-});
+// Context otimizado - COMPATÍVEL com uso anterior
+const SocketContext = createContext(socketManager);
 
 export const SocketProvider = ({ children }) => {
     const [isConnected, setIsConnected] = useState(false);
     const [isReady, setIsReady] = useState(false);
+    const [connectionState, setConnectionState] = useState(SOCKET_STATES.DISCONNECTED);
+    
+    // Usar refs para evitar re-renders desnecessários
+    const currentSocketRef = useRef(null);
+    const callbacksRef = useRef({
+        connect: null,
+        disconnect: null,
+        ready: null
+    });
+
+    // Callbacks otimizados com useCallback
+    const handleConnect = useCallback(() => {
+        setIsConnected(true);
+        setConnectionState(SOCKET_STATES.CONNECTED);
+    }, []);
+
+    const handleDisconnect = useCallback(() => {
+        setIsConnected(false);
+        setConnectionState(SOCKET_STATES.DISCONNECTED);
+    }, []);
+
+    const handleReady = useCallback(() => {
+        setIsReady(true);
+    }, []);
+
+    // Funções de utilidade memoizadas
+    const emitTyping = useCallback((ticketId, status) => {
+        const companyId = localStorage.getItem("companyId");
+        if (companyId) {
+            const socket = socketManager.GetSocket(companyId);
+            if (socket?.connected) {
+                socket.emit("typing", { ticketId, status });
+            }
+        }
+    }, []);
+
+    const emitRecording = useCallback((ticketId, status) => {
+        const companyId = localStorage.getItem("companyId");
+        if (companyId) {
+            const socket = socketManager.GetSocket(companyId);
+            if (socket?.connected) {
+                socket.emit("recording", { ticketId, status });
+            }
+        }
+    }, []);
+
+    const listenPresence = useCallback((companyId, callback) => {
+        const socket = socketManager.GetSocket(companyId);
+        if (socket?.rawSocket) {
+            const eventName = `company-${companyId}-presence`;
+            socket.on(eventName, callback);
+            return () => socket.off(eventName, callback);
+        }
+        return () => {};
+    }, []);
 
     useEffect(() => {
-        const handleConnect = () => setIsConnected(true);
-        const handleDisconnect = () => setIsConnected(false);
-        const handleReady = () => setIsReady(true);
+        // Configurar callbacks apenas uma vez
+        callbacksRef.current.connect = handleConnect;
+        callbacksRef.current.disconnect = handleDisconnect;
+        callbacksRef.current.ready = handleReady;
 
         socketManager.onConnect(handleConnect);
         socketManager.onReady(handleReady);
@@ -532,62 +715,45 @@ export const SocketProvider = ({ children }) => {
         if (companyId) {
             const socket = socketManager.GetSocket(companyId);
             if (socket) {
+                currentSocketRef.current = socket;
                 socket.on('disconnect', handleDisconnect);
-                return () => {
-                    socket.off('disconnect', handleDisconnect);
-                };
             }
         }
-    }, []);
 
-    // Função para emitir eventos de "typing"
-    const emitTyping = (ticketId, status) => {
-        const companyId = localStorage.getItem("companyId");
-        if (companyId) {
-            const socket = socketManager.GetSocket(companyId);
-            if (socket && socket.rawSocket && socket.rawSocket.connected) {
-                socket.emit("typing", { ticketId, status });
+        // Cleanup otimizado
+        return () => {
+            const socket = currentSocketRef.current;
+            if (socket) {
+                socket.off('disconnect', handleDisconnect);
             }
-        }
-    };
+        };
+    }, []); // Dependências vazias - configuração única
 
-    // Função para emitir eventos de "recording"
-    const emitRecording = (ticketId, status) => {
-        const companyId = localStorage.getItem("companyId");
-        if (companyId) {
-            const socket = socketManager.GetSocket(companyId);
-            if (socket && socket.rawSocket && socket.rawSocket.connected) {
-                socket.emit("recording", { ticketId, status });
-            }
-        }
-    };
-
-    // Função para ouvir eventos de presença
-    const listenPresence = (companyId, callback) => {
-        const socket = socketManager.GetSocket(companyId);
-        if (socket && socket.rawSocket) {
-            socket.on(`company-${companyId}-presence`, callback);
-            return () => {
-                socket.off(`company-${companyId}-presence`, callback);
-            };
-        }
-        return () => {};
-    };
-
-    const value = {
-        socketManager,
+    // Estender o socketManager com propriedades adicionais para compatibilidade
+    const enhancedSocketManager = {
+        ...socketManager,
         isConnected,
         isReady,
+        connectionState,
         emitTyping,
         emitRecording,
         listenPresence,
     };
 
     return (
-        <SocketContext.Provider value={value}>
+        <SocketContext.Provider value={enhancedSocketManager}>
             {children}
         </SocketContext.Provider>
     );
 };
 
-export { SocketContext };
+// Hook customizado para usar o socket
+export const useSocket = () => {
+    const context = useContext(SocketContext);
+    if (!context) {
+        throw new Error('useSocket deve ser usado dentro de um SocketProvider');
+    }
+    return context;
+};
+
+export { SocketContext, SOCKET_STATES };
