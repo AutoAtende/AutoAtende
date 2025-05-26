@@ -3,7 +3,7 @@ import makeStyles from '@mui/styles/makeStyles';
 import clsx from "clsx";
 
 import ModalImage from "react-modal-image";
-import api from "../../services/api";
+import openApi from "../../services/openApi";
 
 const useStyles = makeStyles(theme => ({
     messageMedia: {
@@ -30,7 +30,7 @@ const ModalImageCors = ({imageUrl, isDeleted}) => {
     useEffect(async () => {
         if (!imageUrl) return;
 
-        api.get(imageUrl, {
+        openApi.get(imageUrl, {
             responseType: "blob",
         }).then(({data, headers}) => {
             const url = window.URL.createObjectURL(
