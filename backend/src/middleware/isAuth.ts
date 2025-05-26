@@ -66,17 +66,27 @@ const asyncAuth = async (req: Request, res: Response, next: NextFunction) => {
       throw new AppError("ERR_SESSION_EXPIRED", 401);
     }
 
-    // NOVA VALIDAÇÃO: Verificar se está tentando acessar recursos de outra empresa
+    // VALIDAÇÃO CORRIGIDA: Verificar se está tentando acessar recursos de outra empresa
     const requestedCompanyId = req.params.companyId ? Number(req.params.companyId) : null;
     
-    if(decoded.super !== true && decoded.companyId !== 1){
-      if (requestedCompanyId && requestedCompanyId !== decoded.companyId) {
-        logger.warn(`Tentativa de acesso a recursos da empresa ${requestedCompanyId} com token da empresa ${decoded.companyId}`);
-        return res.status(403).json({ 
-          status: 'ERRO', 
-          error: 'Acesso negado a recursos de outra empresa' 
-        });
-      }
+    // Permitir acesso apenas se:
+    // 1. É um usuário super da empresa 1 (acesso total)
+    // 2. OU está acessando recursos da própria empresa
+    // 3. OU não há companyId específico na requisição
+    const isSuperUserFromCompany1 = decoded.super === true && decoded.companyId === 1;
+    const isAccessingOwnCompany = !requestedCompanyId || requestedCompanyId === decoded.companyId;
+    
+    if (!isSuperUserFromCompany1 && !isAccessingOwnCompany) {
+      logger.warn(`[Auth] Tentativa de acesso negado - Usuário: ${decoded.id}, CompanyId: ${decoded.companyId}, Super: ${decoded.super}, Tentando acessar empresa: ${requestedCompanyId}`);
+      return res.status(403).json({ 
+        status: 'ERRO', 
+        error: 'Acesso negado a recursos de outra empresa' 
+      });
+    }
+
+    // Log para debug de usuários super
+    if (isSuperUserFromCompany1 && requestedCompanyId && requestedCompanyId !== decoded.companyId) {
+      logger.info(`[Auth] Usuário super da empresa 1 (ID: ${decoded.id}) acessando empresa ${requestedCompanyId}`);
     }
     
     // Criar objeto de usuário para o request
