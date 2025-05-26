@@ -17,7 +17,8 @@ import {
   Stepper,
   Step,
   StepLabel,
-  StepContent
+  StepContent,
+  Typography,
 } from "@mui/material";
 import {
   CloudUpload as UploadIcon,

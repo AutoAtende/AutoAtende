@@ -17,9 +17,9 @@ import {
 import api from "../../../services/api";
 import { toast } from "../../../helpers/toast";
 import { i18n } from "../../../translate/i18n";
-import BaseModal from "../../../components/BaseModal";
-import BaseButton from "../../../components/BaseButton";
-import BasePageContent from "../../../components/BasePageContent";
+import BaseModal from "../../../components/shared/BaseModal";
+import BaseButton from "../../../components/shared/BaseButton";
+import BasePageContent from "../../../components/shared/BasePageContent";
 
 const JoinGroupModal = ({ open, onClose }) => {
   const [inviteCode, setInviteCode] = useState("");

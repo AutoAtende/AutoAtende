@@ -53,9 +53,9 @@ import { AuthContext } from "../../../context/Auth/AuthContext";
 import api from "../../../services/api";
 import { toast } from "../../../helpers/toast";
 import { i18n } from "../../../translate/i18n";
-import BaseModal from "../../../components/BaseModal";
-import BaseResponsiveTabs from "../../../components/BaseResponsiveTabs";
-import BaseButton from "../../../components/BaseButton";
+import BaseModal from "../../../components/shared/BaseModal";
+import BaseResponsiveTabs from "../../../components/shared/BaseResponsiveTabs";
+import BaseButton from "../../../components/shared/BaseButton";
 
 const GroupInfoModal = ({ open, onClose, group }) => {
   const { user } = useContext(AuthContext);

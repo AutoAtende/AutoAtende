@@ -24,8 +24,8 @@ import {
 } from "@mui/icons-material";
 import { i18n } from "../../../translate/i18n";
 import { toast } from "../../../helpers/toast";
-import BaseModal from "../../../components/BaseModal";
-import BasePageContent from "../../../components/BasePageContent";
+import BaseModal from "../../../components/shared/BaseModal";
+import BasePageContent from "../../../components/shared/BasePageContent";
 import { SocketContext } from "../../../context/Socket/SocketContext";
 import { AuthContext } from "../../../context/Auth/AuthContext";
 import api from "../../../services/api";
