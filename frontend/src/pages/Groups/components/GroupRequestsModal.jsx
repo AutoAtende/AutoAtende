@@ -26,9 +26,9 @@ import { format } from 'date-fns';
 import api from "../../../services/api";
 import { toast } from "../../../helpers/toast";
 import { i18n } from "../../../translate/i18n";
-import BaseModal from "../../../components/shared/BaseModal";
-import BasePageContent from "../../../components/shared/BasePageContent";
-import BaseButton from "../../../components/shared/BaseButton";
+import BaseModal from "../../../components/BaseModal";
+import BasePageContent from "../../../components/BasePageContent";
+import BaseButton from "../../../components/BaseButton";
 
 const GroupRequestsModal = ({ open, onClose, group }) => {
   const [requests, setRequests] = useState([]);
