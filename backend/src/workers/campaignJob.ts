@@ -630,6 +630,106 @@ export default class CampaignJob {
     }
   }
 
+  /**
+   * Valida e normaliza número no WhatsApp
+   * Implementa a mesma lógica do FormService para consistência
+   * Testa primeiro removendo o '9' se necessário, depois testa o original
+   * 
+   * @param inputNumber - Número de telefone de entrada
+   * @param wbot - Instância do WhatsApp (Baileys)
+   * @param context - Contexto para logs (opcional)
+   * @returns Número válido no WhatsApp
+   * @throws Error se número não existir no WhatsApp
+   */
+  private async validateAndNormalizeWhatsAppNumber(
+    inputNumber: string,
+    wbot: any,
+    context: string = 'número'
+  ): Promise<string> {
+    
+    // Validações básicas
+    if (!inputNumber || typeof inputNumber !== 'string') {
+      throw new Error(`${context} não pode estar vazio ou deve ser uma string`);
+    }
+
+    if (!wbot) {
+      throw new Error('Instância do WhatsApp não fornecida');
+    }
+
+    // Limpar o número mantendo apenas dígitos
+    const cleanNumber = inputNumber.replace(/\D/g, "");
+    
+    if (cleanNumber.length < 8) {
+      throw new Error(`${context} muito curto: deve ter pelo menos 8 dígitos`);
+    }
+
+    // Adiciona código do país (55) se não tiver
+    let processedNumber = cleanNumber.startsWith('55') ? cleanNumber : '55' + cleanNumber;
+
+    // Função auxiliar para testar no WhatsApp
+    const testWhatsAppNumber = async (number: string): Promise<boolean> => {
+      try {
+        const chatId = `${number}@s.whatsapp.net`;
+        const result = await wbot.onWhatsApp(chatId);
+        
+        return result && Array.isArray(result) && result.length > 0 && result[0]?.exists === true;
+      } catch (error) {
+        logger.error(`Erro ao testar número ${number} no WhatsApp: ${error.message}`);
+        return false;
+      }
+    };
+
+    // Primeira tentativa: remove um '9' após o DDD e testa
+    if (processedNumber.length >= 13) {
+      const ddd = processedNumber.substring(0, 4); // Ex: 5565
+      const numberPart = processedNumber.substring(4); // Ex: 999246188
+      
+      if (numberPart.startsWith('9')) {
+        const numberWithoutNine = ddd + numberPart.substring(1); // Ex: 556599246188
+        
+        logger.info(`Testando número sem nono dígito: ${numberWithoutNine} para ${context}`);
+        if (await testWhatsAppNumber(numberWithoutNine)) {
+          logger.info(`Número validado sem nono dígito: ${numberWithoutNine}`);
+          return numberWithoutNine;
+        }
+      }
+    }
+
+    // Segunda tentativa: testa o número original
+    logger.info(`Testando número original: ${processedNumber} para ${context}`);
+    if (await testWhatsAppNumber(processedNumber)) {
+      logger.info(`Número validado como original: ${processedNumber}`);
+      return processedNumber;
+    }
+
+    // Se chegou até aqui, o número não existe no WhatsApp
+    logger.error(`Número ${processedNumber} não encontrado no WhatsApp após todas as tentativas`);
+    throw new Error(`${context} ${processedNumber} não existe no WhatsApp`);
+  }
+
+  /**
+   * Normaliza número de telefone removendo espaços e caracteres especiais
+   * Mantém apenas dígitos e garante formato DDIDDDNUMERO
+   * Método auxiliar para compatibilidade
+   */
+  private normalizePhoneNumber(phoneNumber: string): string {
+    if (!phoneNumber || typeof phoneNumber !== 'string') {
+      throw new Error('Número de telefone inválido');
+    }
+
+    // Remove todos os caracteres não numéricos
+    const cleanNumber = phoneNumber.replace(/\D/g, '');
+    
+    if (cleanNumber.length < 8) {
+      throw new Error('Número de telefone muito curto');
+    }
+
+    // Adiciona código do país (55) se não tiver
+    let normalizedNumber = cleanNumber.startsWith('55') ? cleanNumber : '55' + cleanNumber;
+    
+    return normalizedNumber;
+  }
+
   public async handleDispatchCampaign(job) {
     try {
       const { campaignShippingId, campaignId } = job.data;
@@ -685,44 +785,34 @@ export default class CampaignJob {
         return { success: false, reason: 'SHIPPING_NOT_FOUND' };
       }
 
-      const normalizedNumber = campaignShipping.number.replace(/\D/g, "");
-      let processedNumber = normalizedNumber;
-      
-      // Adiciona código do país (55) se faltar
-      if (!processedNumber.startsWith('55')) {
-        processedNumber = '55' + processedNumber;
-      }
-      
-      // Valida e ajusta o nono dígito se necessário
-      if (processedNumber.length === 13) {
-        // Número válido (55 + DDD + 9 dígitos)
-      } else if (processedNumber.length === 12) {
-        const ddd = processedNumber.substring(2, 4);
-        const numeroParte = processedNumber.substring(4);
-        if (numeroParte.length === 8) {
-          // Adiciona o nono dígito (9)
-          processedNumber = processedNumber.substring(0, 4) + '9' + numeroParte;
-        } else {
-          throw new Error('Número inválido: parte do número após DDD incorreta');
-        }
-      } else {
-        throw new Error('Número inválido: comprimento incorreto');
+      // CORREÇÃO: Usar método de validação consistente com FormService
+      let processedNumber: string;
+      try {
+        logger.info(`Validando número original: ${campaignShipping.number} para campanha ${campaignId}`);
+        processedNumber = await this.validateAndNormalizeWhatsAppNumber(
+          campaignShipping.number, 
+          wbot, 
+          `número do contato da campanha ${campaignId}`
+        );
+        logger.info(`Número validado com sucesso: ${campaignShipping.number} -> ${processedNumber}`);
+      } catch (numberError) {
+        logger.error(`Erro na validação do número ${campaignShipping.number} para campanha ${campaignId}: ${numberError.message}`);
+        
+        // Atualizar status para indicar que o número não é válido
+        await campaignShipping.update({
+          deliveredAt: moment()
+        });
+        
+        return { 
+          success: false, 
+          reason: 'INVALID_WHATSAPP_NUMBER',
+          error: numberError.message 
+        };
       }
       
       const chatId = `${processedNumber}@s.whatsapp.net`;
 
       try {
-        // Verificar primeiro se o número existe e é válido
-        const [result] = await wbot.onWhatsApp(chatId);
-        if (!result || !result.exists) {
-          logger.warn(`Number ${processedNumber} does not exist on WhatsApp`);
-          // Atualizar status para indicar que o número não é válido
-          await campaignShipping.update({
-            deliveredAt: moment()
-          });
-          return { success: false, reason: 'NUMBER_NOT_ON_WHATSAPP' };
-        }
-
         let body = campaignShipping.message?.trim();
 
         if (campaign.confirmation && campaignShipping.confirmation === null) {
@@ -735,15 +825,15 @@ export default class CampaignJob {
           return { success: false, reason: 'EMPTY_MESSAGE' };
         }
 
-        // Criar ou obter contato no sistema
+        // Criar ou obter contato no sistema usando número validado
         const [contact] = await Contact.findOrCreate({
           where: {
-            number: processedNumber,
+            number: processedNumber, // Usar número validado
             companyId: campaign.companyId
           },
           defaults: {
             name: campaignShipping.contact.name,
-            number: processedNumber,
+            number: processedNumber, // Usar número validado
             email: campaignShipping.contact.email || "",
             isGroup: false,
             companyId: campaign.companyId,
@@ -751,32 +841,38 @@ export default class CampaignJob {
           }
         });
 
-                // Enviar presença de digitação para tornar a interação mais natural
-                await SendPresenceStatus(wbot, chatId, 0, 20000);
+        // Atualizar o número no campaignShipping se foi corrigido
+        if (campaignShipping.number !== processedNumber) {
+          logger.info(`Atualizando número no campaignShipping de ${campaignShipping.number} para ${processedNumber}`);
+          await campaignShipping.update({ number: processedNumber });
+        }
 
-                console.log(`[LOG DETALHADO] Verificando fileListId: ${campaign.fileListId}`);
-                if (campaign.fileListId) {
-                  console.log(`[LOG DETALHADO] Enviando arquivos da lista ID=${campaign.fileListId}`);
-                  await this.sendCampaignFiles(wbot, campaign, chatId);
-                  console.log(`[LOG DETALHADO] Arquivos da lista enviados com sucesso`);
-                }
-        
-                console.log(`[LOG DETALHADO] Verificando mediaPath: ${campaign.mediaPath}`);
-                if (campaign.mediaPath) {
-                  console.log(`[LOG DETALHADO] Enviando mídia da campanha`);
-                  await this.sendCampaignMedia(wbot, campaign, chatId, body);
-                  console.log(`[LOG DETALHADO] Mídia da campanha enviada com sucesso`);
-                } else {
-                  console.log(`[LOG DETALHADO] Enviando apenas mensagem de texto`);
-                  body = formatBody(body, contact);
-                  await wbot.sendMessage(chatId, { text: body });
-                  console.log(`[LOG DETALHADO] Mensagem de texto enviada com sucesso`);
-        
-                  if (campaign.confirmation && campaignShipping.confirmation === null) {
-                    console.log(`[LOG DETALHADO] Atualizando confirmationRequestedAt`);
-                    await campaignShipping.update({ confirmationRequestedAt: moment() });
-                  }
-                }
+        // Enviar presença de digitação para tornar a interação mais natural
+        await SendPresenceStatus(wbot, chatId, 0, 20000);
+
+        console.log(`[LOG DETALHADO] Verificando fileListId: ${campaign.fileListId}`);
+        if (campaign.fileListId) {
+          console.log(`[LOG DETALHADO] Enviando arquivos da lista ID=${campaign.fileListId}`);
+          await this.sendCampaignFiles(wbot, campaign, chatId);
+          console.log(`[LOG DETALHADO] Arquivos da lista enviados com sucesso`);
+        }
+
+        console.log(`[LOG DETALHADO] Verificando mediaPath: ${campaign.mediaPath}`);
+        if (campaign.mediaPath) {
+          console.log(`[LOG DETALHADO] Enviando mídia da campanha`);
+          await this.sendCampaignMedia(wbot, campaign, chatId, body);
+          console.log(`[LOG DETALHADO] Mídia da campanha enviada com sucesso`);
+        } else {
+          console.log(`[LOG DETALHADO] Enviando apenas mensagem de texto`);
+          body = formatBody(body, contact);
+          await wbot.sendMessage(chatId, { text: body });
+          console.log(`[LOG DETALHADO] Mensagem de texto enviada com sucesso`);
+
+          if (campaign.confirmation && campaignShipping.confirmation === null) {
+            console.log(`[LOG DETALHADO] Atualizando confirmationRequestedAt`);
+            await campaignShipping.update({ confirmationRequestedAt: moment() });
+          }
+        }
 
         // Tratamento para integração com tickets
         if (campaign.openTicket === "enabled") {
@@ -817,11 +913,10 @@ export default class CampaignJob {
               });
 
               // Registrar a mensagem enviada no ticket
-          await wbot.sendMessage(chatId, { text: body });
-          const sentMessage = { key: { remoteJid: chatId }, text: body }; // Usa a mensagem já enviada
+              await wbot.sendMessage(chatId, { text: body });
+              const sentMessage = { key: { remoteJid: chatId }, text: body }; // Usa a mensagem já enviada
               await verifyMessage(sentMessage, existingTicket, contact);
-                logger.info(`Mensagem registrada no ticket ${existingTicket.id}`);
-
+              logger.info(`Mensagem registrada no ticket ${existingTicket.id}`);
 
               // Notificar sobre a atualização do ticket
               const io = getIO();
