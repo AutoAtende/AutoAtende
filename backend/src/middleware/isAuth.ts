@@ -6,17 +6,51 @@ import { getJwtConfig } from "../config/auth";
 import { TokenPayload, RequestUser } from "../@types/User";
 import User from "../models/User";
 
+// Lista de rotas que devem ser excluídas da autenticação
+const EXCLUDED_PATHS = [
+  '/public/',           // Arquivos estáticos públicos
+  '/public-settings/',  // Configurações públicas
+  '/auth/',            // Rotas de autenticação
+  '/api-docs/',        // Documentação da API
+  '/health',           // Health check
+  '/favicon.ico',      // Favicon
+  '/robots.txt',       // Robots.txt
+];
+
+// Função para verificar se a rota deve ser excluída da autenticação
+const shouldExcludeFromAuth = (path: string): boolean => {
+  return EXCLUDED_PATHS.some(excludedPath => {
+    if (excludedPath.endsWith('/')) {
+      return path.startsWith(excludedPath);
+    }
+    return path === excludedPath;
+  });
+};
+
 // Versão assíncrona interna
 const asyncAuth = async (req: Request, res: Response, next: NextFunction) => {
+  const requestPath = req.originalUrl || req.path;
   const sessionId = req.headers['x-session-id'] as string;
   const authHeader = req.headers.authorization;
 
+  // Verificar se a rota deve ser excluída da autenticação
+  if (shouldExcludeFromAuth(requestPath)) {
+    logger.debug(`[Auth] Rota excluída da autenticação: ${req.method} ${requestPath}`);
+    return next();
+  }
+
+  // Para rotas que requerem autenticação, verificar se o token existe
   if (!authHeader) {
-    logger.warn(`[Auth] Tentativa de acesso sem token: ${req.method} ${req.originalUrl}`);
+    logger.warn(`[Auth] Tentativa de acesso sem token: ${req.method} ${requestPath}`);
     throw new AppError("ERR_SESSION_EXPIRED", 401);
   }
 
   const [, token] = authHeader.split(" ");
+
+  if (!token) {
+    logger.warn(`[Auth] Token vazio: ${req.method} ${requestPath}`);
+    throw new AppError("ERR_SESSION_EXPIRED", 401);
+  }
 
   try {
     // Obter configuração JWT de forma assíncrona
@@ -26,7 +60,7 @@ const asyncAuth = async (req: Request, res: Response, next: NextFunction) => {
     
     // Verificar se o token está expirado
     if (decoded.exp && decoded.exp < Math.floor(Date.now() / 1000)) {
-      logger.warn(`[Auth] Token expirado: ${req.method} ${req.originalUrl}`);
+      logger.warn(`[Auth] Token expirado: ${req.method} ${requestPath}`);
       throw new AppError("ERR_SESSION_EXPIRED", 401);
     }
 
@@ -54,25 +88,27 @@ const asyncAuth = async (req: Request, res: Response, next: NextFunction) => {
       const dbUser = await User.findByPk(decoded.id);
       
       if (!dbUser) {
-        logger.error(`[Auth] Usuário não encontrado para token: ${req.method} ${req.originalUrl}`);
+        logger.error(`[Auth] Usuário não encontrado para token: ${req.method} ${requestPath}`);
         throw new AppError("ERR_INVALID_USER", 401);
       }
       
       // Verificar se a versão do token é a atual
       if (dbUser.tokenVersion !== undefined && decoded.tokenVersion !== undefined && 
           dbUser.tokenVersion !== decoded.tokenVersion) {
-        logger.warn(`[Auth] Versão de token inválida: ${req.method} ${req.originalUrl}`);
+        logger.warn(`[Auth] Versão de token inválida: ${req.method} ${requestPath}`);
         throw new AppError("ERR_SESSION_EXPIRED", 401);
       }
       
       // Verificar se o companyId do token corresponde ao do usuário no banco
       if (dbUser.companyId !== decoded.companyId) {
-        logger.error(`[Auth] Token com companyId (${decoded.companyId}) diferente do usuário (${dbUser.companyId}): ${req.method} ${req.originalUrl}`);
+        logger.error(`[Auth] Token com companyId (${decoded.companyId}) diferente do usuário (${dbUser.companyId}): ${req.method} ${requestPath}`);
         throw new AppError("ERR_INVALID_COMPANY_TOKEN", 401);
       }
       
-      // Atualizar status online
-      await dbUser.update({ online: true });
+      // Atualizar status online (de forma não bloqueante)
+      dbUser.update({ online: true }).catch(error => {
+        logger.warn(`[Auth] Erro ao atualizar status online do usuário ${decoded.id}: ${error.message}`);
+      });
 
     } catch (error) {
       if (error instanceof AppError) {
@@ -87,13 +123,13 @@ const asyncAuth = async (req: Request, res: Response, next: NextFunction) => {
     req.tokenData = decoded;
     req.companyId = decoded.companyId;
     
-    logger.info(`[Auth] Usuário ${user.id} (${user.profile}) acessou: ${req.method} ${req.originalUrl}`);
+    logger.debug(`[Auth] Usuário ${user.id} (${user.profile}) autenticado para: ${req.method} ${requestPath}`);
     next();
   } catch (err) {
     if (err instanceof AppError) {
       throw err;
     }
-    logger.error(`[Auth] Erro de validação do token na rota ${req.method} ${req.originalUrl}:`, err);
+    logger.error(`[Auth] Erro de validação do token na rota ${req.method} ${requestPath}:`, err);
     throw new AppError("Invalid token. We'll try to assign a new one on next request", 403);
   }
 };

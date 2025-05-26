@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useTheme } from '@mui/material/styles';
 import {
   Box,
   Typography,
@@ -9,18 +10,15 @@ import {
   InputAdornment,
   Button,
   Alert,
-  Card,
-  CardContent,
+  Paper,
   Collapse,
   Chip,
-  IconButton,
-  Tooltip
+  Divider
 } from '@mui/material';
 import {
   WhatsApp as WhatsAppIcon,
   Send as SendIcon,
   Check as CheckIcon,
-  Error as ErrorIcon,
   Info as InfoIcon,
   Notifications as NotificationsIcon,
   Phone as PhoneIcon,
@@ -29,22 +27,20 @@ import {
   Visibility as VisibilityIcon,
   Image as ImageIcon,
   Edit as EditIcon,
-  Delete as DeleteIcon,
-  Add as AddIcon,
-  Save as SaveIcon,
-  Preview as PreviewIcon
+  Delete as DeleteIcon
 } from '@mui/icons-material';
 import { useSpring, animated } from 'react-spring';
 import { isValidPhoneNumber } from '../../../../utils/stringUtils';
 import { PhoneTextField } from '../PhoneNumberMask';
-import StandardTabContent from '../../../../components/shared/StandardTabContent';
 import BaseModal from '../../../../components/shared/BaseModal';
 import FileManager from '../FileManager';
 import ImageUploader from '../ImageUploader';
 
-const AnimatedCard = animated(Card);
+const AnimatedPaper = animated(Paper);
 
 const NotificationsTab = ({ landingPage, setLandingPage }) => {
+  const theme = useTheme();
+  
   // Estados para modais
   const [templateModalOpen, setTemplateModalOpen] = useState(false);
   const [confirmationModalOpen, setConfirmationModalOpen] = useState(false);
@@ -65,10 +61,10 @@ const NotificationsTab = ({ landingPage, setLandingPage }) => {
   );
   
   // Animações
-  const cardAnimation = useSpring({
-    from: { opacity: 0, transform: 'scale(0.95)' },
-    to: { opacity: 1, transform: 'scale(1)' },
-    config: { tension: 220, friction: 40 }
+  const fadeIn = useSpring({
+    from: { opacity: 0, transform: 'translateY(20px)' },
+    to: { opacity: 1, transform: 'translateY(0)' },
+    config: { tension: 280, friction: 60 }
   });
   
   // Handler para alternar notificação por WhatsApp
@@ -158,236 +154,259 @@ const NotificationsTab = ({ landingPage, setLandingPage }) => {
     return message;
   };
   
-  // Estatísticas para o header
-  const stats = [
-    {
-      label: landingPage.notificationConfig.enableWhatsApp ? 'WhatsApp Ativo' : 'WhatsApp Inativo',
-      icon: <WhatsAppIcon />,
-      color: landingPage.notificationConfig.enableWhatsApp ? 'success' : 'default',
-      variant: 'filled'
-    },
-    {
-      label: landingPage.notificationConfig.confirmationMessage?.enabled 
-        ? 'Confirmação Ativa' : 'Confirmação Inativa',
-      icon: <CheckIcon />,
-      color: landingPage.notificationConfig.confirmationMessage?.enabled ? 'info' : 'default',
-      variant: 'outlined'
-    }
-  ];
-  
-  // Alertas
-  const alerts = [];
-  
-  if (landingPage.notificationConfig.enableWhatsApp && !isWhatsAppNumberValid()) {
-    alerts.push({
-      severity: 'warning',
-      title: 'Número de WhatsApp Inválido',
-      message: 'Configure um número válido para receber as notificações.',
-    });
-  }
-  
-  if (landingPage.notificationConfig.enableWhatsApp && !landingPage.notificationConfig.messageTemplate) {
-    alerts.push({
-      severity: 'info',
-      title: 'Template de Mensagem',
-      message: 'Configure um template personalizado para as notificações.',
-    });
-  }
-  
   return (
-    <StandardTabContent
-      title="Configurações de Notificações"
-      description="Configure como e quando você será notificado sobre novos leads"
-      icon={<NotificationsIcon />}
-      stats={stats}
-      alerts={alerts}
-      variant="padded"
+    <AnimatedPaper 
+      elevation={0} 
+      variant="outlined" 
+      sx={{ 
+        p: 3, 
+        borderRadius: 2,
+        height: '100%',
+        overflow: 'auto',
+        display: 'flex',
+        flexDirection: 'column'
+      }}
+      style={fadeIn}
     >
+      <Typography variant="h6" gutterBottom sx={{ 
+        display: 'flex', 
+        alignItems: 'center',
+        mb: 3,
+        color: 'primary.main',
+        fontWeight: 600
+      }}>
+        <NotificationsIcon sx={{ mr: 1 }} />
+        Configurações de Notificações
+      </Typography>
+      
       <Grid container spacing={3}>
-        {/* Configuração Principal do WhatsApp */}
+        {/* Notificações por WhatsApp */}
         <Grid item xs={12}>
-          <Card variant="outlined" sx={{ borderRadius: 2 }}>
-            <CardContent>
-              <Box display="flex" alignItems="center" justifyContent="space-between" mb={2}>
-                <Box display="flex" alignItems="center">
-                  <WhatsAppIcon color="success" sx={{ mr: 1, fontSize: 28 }} />
-                  <Typography variant="h6" fontWeight={500}>
-                    Notificações por WhatsApp
-                  </Typography>
-                </Box>
-                
-                <Switch
-                  checked={landingPage.notificationConfig.enableWhatsApp}
-                  onChange={handleToggleWhatsApp}
-                  color="success"
-                />
-              </Box>
-              
-              <Typography variant="body2" color="textSecondary" paragraph>
-                Receba notificações instantâneas no WhatsApp sempre que alguém preencher 
-                o formulário da sua landing page.
+          <Box display="flex" alignItems="center" justifyContent="space-between" mb={2}>
+            <Box display="flex" alignItems="center">
+              <WhatsAppIcon color="success" sx={{ mr: 1 }} />
+              <Typography variant="subtitle1" fontWeight={500}>
+                Notificações por WhatsApp
               </Typography>
-              
-              <Collapse in={landingPage.notificationConfig.enableWhatsApp}>
-                <Box mt={2}>
-                  <Grid container spacing={2}>
-                    <Grid item xs={12} md={6}>
-                      <PhoneTextField
-                        label="Número para Notificações"
-                        name="whatsAppNumber"
-                        value={landingPage.notificationConfig.whatsAppNumber || ''}
-                        onChange={handleWhatsAppNumberChange}
-                        placeholder="+5511999998888"
-                        error={!isWhatsAppNumberValid() && !!landingPage.notificationConfig.whatsAppNumber}
-                        helperText={
-                          isWhatsAppNumberValid() || !landingPage.notificationConfig.whatsAppNumber
-                            ? "Número que receberá as notificações"
-                            : "Formato inválido. Use o formato internacional"
-                        }
-                        required
-                        fullWidth
-                      />
-                    </Grid>
-                    
-                    <Grid item xs={12} md={6}>
-                      <Box display="flex" alignItems="center" height="100%">
-                        <Button
-                          variant="outlined"
-                          color="primary"
-                          startIcon={<EditIcon />}
-                          onClick={() => {
-                            setTempMessageTemplate(landingPage.notificationConfig.messageTemplate || '');
-                            setTemplateModalOpen(true);
-                          }}
-                          fullWidth
-                          sx={{ height: '56px' }}
-                        >
-                          {landingPage.notificationConfig.messageTemplate 
-                            ? 'Editar Template' 
-                            : 'Configurar Template'}
-                        </Button>
-                      </Box>
-                    </Grid>
-                  </Grid>
-                </Box>
-              </Collapse>
-            </CardContent>
-          </Card>
+            </Box>
+            
+            <Chip 
+              label={landingPage.notificationConfig.enableWhatsApp ? "Ativado" : "Desativado"}
+              color={landingPage.notificationConfig.enableWhatsApp ? "success" : "default"}
+              variant={landingPage.notificationConfig.enableWhatsApp ? "filled" : "outlined"}
+            />
+          </Box>
+          
+          <FormControlLabel
+            control={
+              <Switch
+                checked={landingPage.notificationConfig.enableWhatsApp}
+                onChange={handleToggleWhatsApp}
+                color="success"
+              />
+            }
+            label={
+              <Box>
+                <Typography variant="body1">
+                  Ativar notificações por WhatsApp
+                </Typography>
+                <Typography variant="body2" color="textSecondary">
+                  Receba notificações quando alguém preencher o formulário da sua landing page.
+                </Typography>
+              </Box>
+            }
+          />
         </Grid>
         
-        {/* Mensagem de Confirmação para Contato */}
-        <Grid item xs={12}>
-          <Card variant="outlined" sx={{ borderRadius: 2 }}>
-            <CardContent>
-              <Box display="flex" alignItems="center" justifyContent="space-between" mb={2}>
-                <Box display="flex" alignItems="center">
-                  <MessageIcon color="info" sx={{ mr: 1, fontSize: 28 }} />
-                  <Typography variant="h6" fontWeight={500}>
-                    Mensagem de Confirmação
-                  </Typography>
-                </Box>
-                
-                <Switch
-                  checked={landingPage.notificationConfig.confirmationMessage?.enabled || false}
-                  onChange={(e) => {
-                    const enabled = e.target.checked;
-                    setLandingPage(prev => ({
-                      ...prev,
-                      notificationConfig: {
-                        ...prev.notificationConfig,
-                        confirmationMessage: {
-                          ...prev.notificationConfig.confirmationMessage,
-                          enabled,
-                          imageUrl: prev.notificationConfig.confirmationMessage?.imageUrl || '',
-                          caption: prev.notificationConfig.confirmationMessage?.caption || 
-                            'Obrigado por se cadastrar! Seu formulário foi recebido com sucesso.',
-                          sendBefore: prev.notificationConfig.confirmationMessage?.sendBefore ?? true
-                        }
-                      }
-                    }));
-                  }}
-                  color="info"
-                />
+        {landingPage.notificationConfig.enableWhatsApp && (
+          <>
+            <Grid item xs={12}>
+              <Divider sx={{ my: 1 }} />
+            </Grid>
+            
+            <Grid item xs={12} md={6}>
+              <PhoneTextField
+                label="Número para Notificações"
+                name="whatsAppNumber"
+                value={landingPage.notificationConfig.whatsAppNumber || ''}
+                onChange={handleWhatsAppNumberChange}
+                placeholder="+5511999998888"
+                error={!isWhatsAppNumberValid() && !!landingPage.notificationConfig.whatsAppNumber}
+                helperText={
+                  isWhatsAppNumberValid() || !landingPage.notificationConfig.whatsAppNumber
+                    ? "Use o formato internacional com prefixo de país"
+                    : "Formato inválido. Use o formato internacional com prefixo de país"
+                }
+                required
+                fullWidth
+                InputProps={{
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <PhoneIcon color={
+                        !landingPage.notificationConfig.whatsAppNumber ? "action" :
+                        isWhatsAppNumberValid() ? "success" : "error"
+                      } />
+                    </InputAdornment>
+                  ),
+                }}
+              />
+            </Grid>
+          </>
+        )}
+        
+        {/* Template de Mensagem */}
+        {landingPage.notificationConfig.enableWhatsApp && (
+          <Grid item xs={12}>
+            <Divider sx={{ my: 2 }} />
+            
+            <Box display="flex" alignItems="center" justifyContent="space-between" mb={2}>
+              <Box display="flex" alignItems="center">
+                <MessageIcon color="primary" sx={{ mr: 1 }} />
+                <Typography variant="subtitle1" fontWeight={500}>
+                  Template de Mensagem
+                </Typography>
               </Box>
               
-              <Typography variant="body2" color="textSecondary" paragraph>
-                Envie uma mensagem automática de confirmação para o contato que preencheu o formulário.
+              <Button
+                variant="contained"
+                color="primary"
+                startIcon={<EditIcon />}
+                onClick={() => {
+                  setTempMessageTemplate(landingPage.notificationConfig.messageTemplate || '');
+                  setTemplateModalOpen(true);
+                }}
+                sx={{ 
+                  borderRadius: 2,
+                  px: 3,
+                  textTransform: 'none',
+                  fontWeight: 500
+                }}
+              >
+                {landingPage.notificationConfig.messageTemplate 
+                  ? 'Editar Template' 
+                  : 'Configurar Template'}
+              </Button>
+            </Box>
+            
+            <Typography variant="body2" color="textSecondary" paragraph>
+              Configure uma mensagem personalizada que será enviada quando receber um novo lead.
+            </Typography>
+            
+            {landingPage.notificationConfig.messageTemplate && (
+              <Alert severity="success" variant="outlined" sx={{ mt: 2, borderRadius: 2 }}>
+                <Typography variant="body2">
+                  Template configurado com sucesso! As notificações serão enviadas usando sua mensagem personalizada.
+                </Typography>
+              </Alert>
+            )}
+          </Grid>
+        )}
+        
+        {/* Mensagem de Confirmação */}
+        <Grid item xs={12}>
+          <Divider sx={{ my: 2 }} />
+          
+          <Box display="flex" alignItems="center" justifyContent="space-between" mb={2}>
+            <Box display="flex" alignItems="center">
+              <CheckIcon color="info" sx={{ mr: 1 }} />
+              <Typography variant="subtitle1" fontWeight={500}>
+                Mensagem de Confirmação para Contato
               </Typography>
+            </Box>
+            
+            <Chip 
+              label={landingPage.notificationConfig.confirmationMessage?.enabled ? "Ativada" : "Desativada"}
+              color={landingPage.notificationConfig.confirmationMessage?.enabled ? "info" : "default"}
+              variant={landingPage.notificationConfig.confirmationMessage?.enabled ? "filled" : "outlined"}
+            />
+          </Box>
+          
+          <FormControlLabel
+            control={
+              <Switch
+                checked={landingPage.notificationConfig.confirmationMessage?.enabled || false}
+                onChange={(e) => {
+                  const enabled = e.target.checked;
+                  setLandingPage(prev => ({
+                    ...prev,
+                    notificationConfig: {
+                      ...prev.notificationConfig,
+                      confirmationMessage: {
+                        ...prev.notificationConfig.confirmationMessage,
+                        enabled,
+                        imageUrl: prev.notificationConfig.confirmationMessage?.imageUrl || '',
+                        caption: prev.notificationConfig.confirmationMessage?.caption || 
+                          'Obrigado por se cadastrar! Seu formulário foi recebido com sucesso.',
+                        sendBefore: prev.notificationConfig.confirmationMessage?.sendBefore ?? true
+                      }
+                    }
+                  }));
+                }}
+                color="info"
+              />
+            }
+            label={
+              <Box>
+                <Typography variant="body1">
+                  Enviar mensagem de confirmação para o contato
+                </Typography>
+                <Typography variant="body2" color="textSecondary">
+                  Envia uma mensagem automática de confirmação para quem preencheu o formulário.
+                </Typography>
+              </Box>
+            }
+          />
+          
+          <Collapse in={landingPage.notificationConfig.confirmationMessage?.enabled}>
+            <Box mt={2}>
+              <Button
+                variant="contained"
+                color="info"
+                startIcon={<EditIcon />}
+                onClick={() => {
+                  setTempConfirmationConfig(landingPage.notificationConfig.confirmationMessage || {
+                    enabled: false,
+                    imageUrl: '',
+                    caption: 'Obrigado por se cadastrar! Seu formulário foi recebido com sucesso.',
+                    sendBefore: true
+                  });
+                  setConfirmationModalOpen(true);
+                }}
+                sx={{ 
+                  borderRadius: 2,
+                  px: 3,
+                  textTransform: 'none',
+                  fontWeight: 500
+                }}
+              >
+                Configurar Mensagem
+              </Button>
               
-              <Collapse in={landingPage.notificationConfig.confirmationMessage?.enabled}>
-                <Box mt={2}>
-                  <Grid container spacing={2} alignItems="center">
-                    <Grid item xs={12} sm={6}>
-                      <Box textAlign="center">
-                        {landingPage.notificationConfig.confirmationMessage?.imageUrl ? (
-                          <Box
-                            component="img"
-                            src={landingPage.notificationConfig.confirmationMessage.imageUrl}
-                            alt="Imagem de confirmação"
-                            sx={{
-                              maxWidth: '100%',
-                              height: 120,
-                              objectFit: 'cover',
-                              borderRadius: 1,
-                              border: '1px solid rgba(0,0,0,0.12)'
-                            }}
-                          />
-                        ) : (
-                          <Box
-                            sx={{
-                              height: 120,
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                              border: '2px dashed rgba(0,0,0,0.12)',
-                              borderRadius: 1,
-                              color: 'text.secondary'
-                            }}
-                          >
-                            <ImageIcon sx={{ fontSize: 48 }} />
-                          </Box>
-                        )}
-                      </Box>
-                    </Grid>
-                    
-                    <Grid item xs={12} sm={6}>
-                      <Button
-                        variant="outlined"
-                        color="primary"
-                        startIcon={<EditIcon />}
-                        onClick={() => {
-                          setTempConfirmationConfig(landingPage.notificationConfig.confirmationMessage || {
-                            enabled: false,
-                            imageUrl: '',
-                            caption: 'Obrigado por se cadastrar! Seu formulário foi recebido com sucesso.',
-                            sendBefore: true
-                          });
-                          setConfirmationModalOpen(true);
-                        }}
-                        fullWidth
-                      >
-                        Configurar Confirmação
-                      </Button>
-                    </Grid>
-                  </Grid>
-                </Box>
-              </Collapse>
-            </CardContent>
-          </Card>
+              {landingPage.notificationConfig.confirmationMessage?.imageUrl && (
+                <Alert severity="success" variant="outlined" sx={{ mt: 2, borderRadius: 2 }}>
+                  <Typography variant="body2">
+                    Imagem configurada! A mensagem de confirmação será enviada com a imagem selecionada.
+                  </Typography>
+                </Alert>
+              )}
+            </Box>
+          </Collapse>
         </Grid>
         
         {/* Resumo das Configurações */}
         {landingPage.notificationConfig.enableWhatsApp && (
           <Grid item xs={12}>
-            <Alert severity="success" variant="outlined" sx={{ borderRadius: 2 }}>
+            <Divider sx={{ my: 2 }} />
+            
+            <Alert severity="info" variant="outlined" sx={{ borderRadius: 2 }}>
               <Typography variant="body2">
-                <strong>Configurações ativas:</strong>
+                <strong>Resumo das configurações:</strong>
                 <br />
-                • Notificações para: {landingPage.notificationConfig.whatsAppNumber || 'Não configurado'}
+                • Notificações: {landingPage.notificationConfig.whatsAppNumber || 'Número não configurado'}
                 <br />
-                • Template: {landingPage.notificationConfig.messageTemplate ? 'Configurado' : 'Padrão'}
+                • Template personalizado: {landingPage.notificationConfig.messageTemplate ? 'Sim' : 'Padrão do sistema'}
                 <br />
-                • Confirmação: {landingPage.notificationConfig.confirmationMessage?.enabled ? 'Ativada' : 'Desativada'}
+                • Confirmação para contato: {landingPage.notificationConfig.confirmationMessage?.enabled ? 'Ativada' : 'Desativada'}
               </Typography>
             </Alert>
           </Grid>
@@ -419,7 +438,7 @@ const NotificationsTab = ({ landingPage, setLandingPage }) => {
             onClick: handleSaveMessageTemplate,
             variant: "contained",
             color: "primary",
-            icon: <SaveIcon />
+            icon: <CheckIcon />
           }
         ]}
       >
@@ -534,6 +553,7 @@ const NotificationsTab = ({ landingPage, setLandingPage }) => {
                 startIcon={<ImageIcon />}
                 onClick={() => setMediaManagerOpen(true)}
                 fullWidth
+                sx={{ borderRadius: 2 }}
               >
                 Selecionar da Biblioteca
               </Button>
@@ -545,7 +565,7 @@ const NotificationsTab = ({ landingPage, setLandingPage }) => {
                   startIcon={<DeleteIcon />}
                   onClick={() => setTempConfirmationConfig(prev => ({ ...prev, imageUrl: '' }))}
                   fullWidth
-                  sx={{ mt: 1 }}
+                  sx={{ mt: 1, borderRadius: 2 }}
                 >
                   Remover Imagem
                 </Button>
@@ -613,7 +633,7 @@ const NotificationsTab = ({ landingPage, setLandingPage }) => {
           />
         )}
       </BaseModal>
-    </StandardTabContent>
+    </AnimatedPaper>
   );
 };
 

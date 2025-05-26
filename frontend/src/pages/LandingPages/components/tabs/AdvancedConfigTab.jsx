@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useContext } from 'react';
+import { useTheme } from '@mui/material/styles';
 import {
   Box,
   Typography,
@@ -17,9 +18,7 @@ import {
   Collapse,
   Autocomplete,
   CircularProgress,
-  Card,
-  CardContent,
-  CardActions,
+  Paper,
   Divider
 } from '@mui/material';
 import {
@@ -35,21 +34,22 @@ import {
   Image as ImageIcon,
   CheckOutlined as CheckIcon,
   Edit as EditIcon,
-  Add as AddIcon,
-  InsertLink as InsertLinkIcon,
-  Visibility as VisibilityIcon
+  InsertLink as InsertLinkIcon
 } from '@mui/icons-material';
+import { useSpring, animated } from 'react-spring';
 import { isValidPhoneNumber } from '../../../../utils/stringUtils';
 import { PhoneTextField } from '../PhoneNumberMask';
-import StandardTabContent from '../../../../components/shared/StandardTabContent';
-import BaseModal from '../../../../components/shared/BaseModal';
+import BaseModal from '../../../../components/sharedBaseModal';
 import FileManager from '../FileManager';
 import ImageUploader from '../ImageUploader';
 import api from '../../../../services/api';
 import { AuthContext } from '../../../../context/Auth/AuthContext';
 
+const AnimatedPaper = animated(Paper);
+
 const AdvancedConfigTab = ({ landingPage, setLandingPage }) => {
   const { user } = useContext(AuthContext);
+  const theme = useTheme();
   
   // Estados para dados externos
   const [whatsappConnections, setWhatsappConnections] = useState([]);
@@ -88,6 +88,13 @@ const AdvancedConfigTab = ({ landingPage, setLandingPage }) => {
   const [selectedTags, setSelectedTags] = useState(
     landingPage.advancedConfig?.contactTags || []
   );
+
+  // Animações
+  const fadeIn = useSpring({
+    from: { opacity: 0, transform: 'translateY(20px)' },
+    to: { opacity: 1, transform: 'translateY(0)' },
+    config: { tension: 280, friction: 60 }
+  });
 
   // Carregar dados externos
   useEffect(() => {
@@ -211,290 +218,297 @@ const AdvancedConfigTab = ({ landingPage, setLandingPage }) => {
     return number ? isValidPhoneNumber(number) : false;
   };
 
-  // Estatísticas para o header
-  const stats = [
-    {
-      label: landingPage.advancedConfig?.metaPixelId ? 'Meta Pixel Ativo' : 'Meta Pixel Inativo',
-      icon: <FacebookIcon />,
-      color: landingPage.advancedConfig?.metaPixelId ? 'primary' : 'default',
-      variant: 'outlined'
-    },
-    {
-      label: landingPage.advancedConfig?.whatsAppChatButton?.enabled ? 'Chat Ativo' : 'Chat Inativo',
-      icon: <WhatsAppIcon />,
-      color: landingPage.advancedConfig?.whatsAppChatButton?.enabled ? 'success' : 'default',
-      variant: 'outlined'
-    },
-    {
-      label: `${selectedTags.length} Tags`,
-      icon: <TagIcon />,
-      color: selectedTags.length > 0 ? 'secondary' : 'default',
-      variant: 'filled'
-    }
-  ];
-
-  // Alertas
-  const alerts = [];
-  
-  if (landingPage.advancedConfig?.whatsAppChatButton?.enabled && 
-      !isWhatsAppNumberValid(landingPage.advancedConfig.whatsAppChatButton.number)) {
-    alerts.push({
-      severity: 'warning',
-      title: 'Botão de Chat WhatsApp',
-      message: 'Configure um número válido para o botão de chat funcionar corretamente.',
-    });
-  }
-
   return (
-    <StandardTabContent
-      title="Configurações Avançadas"
-      description="Configure integrações e funcionalidades avançadas da sua landing page"
-      icon={<SettingsIcon />}
-      stats={stats}
-      alerts={alerts}
-      variant="padded"
+    <AnimatedPaper 
+      elevation={0} 
+      variant="outlined" 
+      sx={{ 
+        p: 3, 
+        borderRadius: 2,
+        height: '100%',
+        overflow: 'auto',
+        display: 'flex',
+        flexDirection: 'column'
+      }}
+      style={fadeIn}
     >
+      <Typography variant="h6" gutterBottom sx={{ 
+        display: 'flex', 
+        alignItems: 'center',
+        mb: 3,
+        color: 'primary.main',
+        fontWeight: 600
+      }}>
+        <SettingsIcon sx={{ mr: 1 }} />
+        Configurações Avançadas
+      </Typography>
+      
       <Grid container spacing={3}>
-        {/* Configurações Básicas */}
+        {/* Configuração de Conexão WhatsApp */}
         <Grid item xs={12}>
-          <Typography variant="h6" gutterBottom sx={{ 
-            display: 'flex', 
-            alignItems: 'center',
-            color: 'primary.main',
-            mb: 2
-          }}>
-            <InfoIcon sx={{ mr: 1 }} />
-            Configurações do Sistema
-          </Typography>
+          <Box display="flex" alignItems="center" mb={2}>
+            <WhatsAppIcon color="success" sx={{ mr: 1 }} />
+            <Typography variant="subtitle1" fontWeight={500}>
+              Conexão para Notificações
+            </Typography>
+          </Box>
           
-          <Grid container spacing={2}>
-            <Grid item xs={12} md={6}>
-              <Card variant="outlined" sx={{ height: '100%' }}>
-                <CardContent>
-                  <Typography variant="subtitle1" gutterBottom fontWeight={500}>
-                    Conexão de Notificação
-                  </Typography>
-                  <Typography variant="body2" color="textSecondary" paragraph>
-                    Escolha qual conexão WhatsApp será usada para enviar notificações
-                  </Typography>
-                  
-                  <FormControl fullWidth variant="outlined" size="small">
-                    <InputLabel>Conexão WhatsApp</InputLabel>
-                    <Select
-                      value={landingPage.advancedConfig?.notificationConnectionId || ''}
-                      onChange={handleNotificationConnectionChange}
-                      label="Conexão WhatsApp"
-                      endAdornment={
-                        loadingConnections && (
-                          <InputAdornment position="end">
-                            <CircularProgress size={20} />
-                          </InputAdornment>
-                        )
-                      }
-                    >
-                      {whatsappConnections.length === 0 ? (
-                        <MenuItem disabled value="">
-                          <em>Nenhuma conexão disponível</em>
-                        </MenuItem>
-                      ) : (
-                        whatsappConnections.map((conn) => (
-                          <MenuItem key={conn.id} value={conn.id}>
-                            <Box display="flex" alignItems="center">
-                              <WhatsAppIcon color="success" sx={{ mr: 1, fontSize: 'small' }} />
-                              {conn.name}
-                            </Box>
-                          </MenuItem>
-                        ))
-                      )}
-                    </Select>
-                  </FormControl>
-                </CardContent>
-              </Card>
-            </Grid>
-            
-            <Grid item xs={12} md={6}>
-              <Card variant="outlined" sx={{ height: '100%' }}>
-                <CardContent>
-                  <Typography variant="subtitle1" gutterBottom fontWeight={500}>
-                    Tags para Contatos
-                  </Typography>
-                  <Typography variant="body2" color="textSecondary" paragraph>
-                    Tags aplicadas automaticamente aos novos contatos
-                  </Typography>
-                  
-                  <Autocomplete
-                    multiple
-                    options={tags}
-                    value={selectedTags}
-                    onChange={handleTagsChange}
-                    getOptionLabel={(option) => option.name}
-                    loading={loadingTags}
-                    renderInput={(params) => (
-                      <TextField
-                        {...params}
-                        size="small"
-                        placeholder="Selecione as tags..."
-                        InputProps={{
-                          ...params.InputProps,
-                          endAdornment: (
-                            <>
-                              {loadingTags ? <CircularProgress size={20} /> : null}
-                              {params.InputProps.endAdornment}
-                            </>
-                          ),
-                        }}
-                      />
-                    )}
-                    renderTags={(value, getTagProps) =>
-                      value.map((option, index) => (
-                        <Chip
-                          label={option.name}
-                          {...getTagProps({ index })}
-                          size="small"
-                          style={{ backgroundColor: option.color, color: '#fff' }}
-                        />
-                      ))
-                    }
-                  />
-                </CardContent>
-              </Card>
-            </Grid>
-          </Grid>
+          <FormControl fullWidth variant="outlined">
+            <InputLabel>Conexão WhatsApp</InputLabel>
+            <Select
+              value={landingPage.advancedConfig?.notificationConnectionId || ''}
+              onChange={handleNotificationConnectionChange}
+              label="Conexão WhatsApp"
+              endAdornment={
+                loadingConnections && (
+                  <InputAdornment position="end">
+                    <CircularProgress size={20} />
+                  </InputAdornment>
+                )
+              }
+            >
+              {whatsappConnections.length === 0 ? (
+                <MenuItem disabled value="">
+                  <em>Nenhuma conexão disponível</em>
+                </MenuItem>
+              ) : (
+                whatsappConnections.map((conn) => (
+                  <MenuItem key={conn.id} value={conn.id}>
+                    <Box display="flex" alignItems="center">
+                      <WhatsAppIcon color="success" sx={{ mr: 1, fontSize: 'small' }} />
+                      {conn.name}
+                    </Box>
+                  </MenuItem>
+                ))
+              )}
+            </Select>
+          </FormControl>
+          
+          <Typography variant="body2" color="textSecondary" sx={{ mt: 1 }}>
+            Escolha qual conexão WhatsApp será usada para enviar notificações de novos leads.
+          </Typography>
         </Grid>
 
         <Grid item xs={12}>
           <Divider sx={{ my: 2 }} />
         </Grid>
 
-        {/* Integrações */}
+        {/* Tags para Contatos */}
         <Grid item xs={12}>
-          <Typography variant="h6" gutterBottom sx={{ 
-            display: 'flex', 
-            alignItems: 'center',
-            color: 'primary.main',
-            mb: 2
-          }}>
-            <CodeIcon sx={{ mr: 1 }} />
-            Integrações e Rastreamento
+          <Box display="flex" alignItems="center" mb={2}>
+            <TagIcon color="secondary" sx={{ mr: 1 }} />
+            <Typography variant="subtitle1" fontWeight={500}>
+              Tags para Contatos
+            </Typography>
+          </Box>
+          
+          <Autocomplete
+            multiple
+            options={tags}
+            value={selectedTags}
+            onChange={handleTagsChange}
+            getOptionLabel={(option) => option.name}
+            loading={loadingTags}
+            renderInput={(params) => (
+              <TextField
+                {...params}
+                label="Tags para novos contatos"
+                variant="outlined"
+                placeholder="Selecione as tags..."
+                helperText="Tags que serão atribuídas aos contatos que preencherem o formulário"
+                InputProps={{
+                  ...params.InputProps,
+                  startAdornment: (
+                    <>
+                      <InputAdornment position="start">
+                        <TagIcon color="action" />
+                      </InputAdornment>
+                      {params.InputProps.startAdornment}
+                    </>
+                  ),
+                  endAdornment: (
+                    <>
+                      {loadingTags ? <CircularProgress size={20} /> : null}
+                      {params.InputProps.endAdornment}
+                    </>
+                  ),
+                }}
+              />
+            )}
+            renderTags={(value, getTagProps) =>
+              value.map((option, index) => (
+                <Chip
+                  label={option.name}
+                  {...getTagProps({ index })}
+                  style={{ backgroundColor: option.color, color: '#fff' }}
+                />
+              ))
+            }
+          />
+        </Grid>
+
+        <Grid item xs={12}>
+          <Divider sx={{ my: 2 }} />
+        </Grid>
+
+        {/* Meta Pixel */}
+        <Grid item xs={12}>
+          <Box display="flex" alignItems="center" justifyContent="space-between" mb={2}>
+            <Box display="flex" alignItems="center">
+              <FacebookIcon color="primary" sx={{ mr: 1 }} />
+              <Typography variant="subtitle1" fontWeight={500}>
+                Meta Pixel (Facebook/Instagram)
+              </Typography>
+            </Box>
+            
+            <Chip
+              label={landingPage.advancedConfig?.metaPixelId ? 'Configurado' : 'Não configurado'}
+              color={landingPage.advancedConfig?.metaPixelId ? 'success' : 'default'}
+              variant={landingPage.advancedConfig?.metaPixelId ? 'filled' : 'outlined'}
+            />
+          </Box>
+          
+          <Typography variant="body2" color="textSecondary" paragraph>
+            Configure o Meta Pixel para rastrear visitantes e conversões nas suas campanhas do Facebook e Instagram.
           </Typography>
           
-          <Grid container spacing={2}>
-            <Grid item xs={12} md={4}>
-              <Card variant="outlined" sx={{ height: '100%' }}>
-                <CardContent>
-                  <Box display="flex" alignItems="center" mb={2}>
-                    <FacebookIcon color="primary" sx={{ mr: 1 }} />
-                    <Typography variant="subtitle1" fontWeight={500}>
-                      Meta Pixel
-                    </Typography>
-                  </Box>
-                  <Typography variant="body2" color="textSecondary" paragraph>
-                    Configure o Meta Pixel para rastrear conversões
-                  </Typography>
-                  <Chip
-                    label={landingPage.advancedConfig?.metaPixelId ? 'Configurado' : 'Não configurado'}
-                    color={landingPage.advancedConfig?.metaPixelId ? 'success' : 'default'}
-                    size="small"
-                    sx={{ mb: 2 }}
-                  />
-                </CardContent>
-                <CardActions>
-                  <Button
-                    size="small"
-                    variant="outlined"
-                    startIcon={<EditIcon />}
-                    onClick={() => {
-                      setTempPixelId(landingPage.advancedConfig?.metaPixelId || '');
-                      setPixelModalOpen(true);
-                    }}
-                  >
-                    Configurar
-                  </Button>
-                </CardActions>
-              </Card>
-            </Grid>
+          <Button
+            variant="contained"
+            color="primary"
+            startIcon={<EditIcon />}
+            onClick={() => {
+              setTempPixelId(landingPage.advancedConfig?.metaPixelId || '');
+              setPixelModalOpen(true);
+            }}
+            sx={{ 
+              borderRadius: 2,
+              px: 3,
+              textTransform: 'none',
+              fontWeight: 500
+            }}
+          >
+            {landingPage.advancedConfig?.metaPixelId ? 'Editar Meta Pixel' : 'Configurar Meta Pixel'}
+          </Button>
+        </Grid>
+
+        <Grid item xs={12}>
+          <Divider sx={{ my: 2 }} />
+        </Grid>
+
+        {/* Botão de Chat WhatsApp */}
+        <Grid item xs={12}>
+          <Box display="flex" alignItems="center" justifyContent="space-between" mb={2}>
+            <Box display="flex" alignItems="center">
+              <WhatsAppIcon color="success" sx={{ mr: 1 }} />
+              <Typography variant="subtitle1" fontWeight={500}>
+                Botão de Chat WhatsApp
+              </Typography>
+            </Box>
             
-            <Grid item xs={12} md={4}>
-              <Card variant="outlined" sx={{ height: '100%' }}>
-                <CardContent>
-                  <Box display="flex" alignItems="center" mb={2}>
-                    <WhatsAppIcon color="success" sx={{ mr: 1 }} />
-                    <Typography variant="subtitle1" fontWeight={500}>
-                      Botão de Chat
-                    </Typography>
-                  </Box>
-                  <Typography variant="body2" color="textSecondary" paragraph>
-                    Botão flutuante para contato direto
-                  </Typography>
-                  <Chip
-                    label={landingPage.advancedConfig?.whatsAppChatButton?.enabled ? 'Ativo' : 'Inativo'}
-                    color={landingPage.advancedConfig?.whatsAppChatButton?.enabled ? 'success' : 'default'}
-                    size="small"
-                    sx={{ mb: 2 }}
-                  />
-                </CardContent>
-                <CardActions>
-                  <Button
-                    size="small"
-                    variant="outlined"
-                    startIcon={<EditIcon />}
-                    onClick={() => {
-                      setTempChatConfig(landingPage.advancedConfig?.whatsAppChatButton || {
-                        enabled: false,
-                        number: '',
-                        defaultMessage: 'Olá! Gostaria de saber mais sobre {landing_page}'
-                      });
-                      setChatModalOpen(true);
-                    }}
-                  >
-                    Configurar
-                  </Button>
-                </CardActions>
-              </Card>
-            </Grid>
+            <Chip
+              label={landingPage.advancedConfig?.whatsAppChatButton?.enabled ? 'Ativo' : 'Inativo'}
+              color={landingPage.advancedConfig?.whatsAppChatButton?.enabled ? 'success' : 'default'}
+              variant={landingPage.advancedConfig?.whatsAppChatButton?.enabled ? 'filled' : 'outlined'}
+            />
+          </Box>
+          
+          <Typography variant="body2" color="textSecondary" paragraph>
+            Adiciona um botão flutuante no canto inferior direito da página para contato direto via WhatsApp.
+          </Typography>
+          
+          <Button
+            variant="contained"
+            color="success"
+            startIcon={<EditIcon />}
+            onClick={() => {
+              setTempChatConfig(landingPage.advancedConfig?.whatsAppChatButton || {
+                enabled: false,
+                number: '',
+                defaultMessage: 'Olá! Gostaria de saber mais sobre {landing_page}'
+              });
+              setChatModalOpen(true);
+            }}
+            sx={{ 
+              borderRadius: 2,
+              px: 3,
+              textTransform: 'none',
+              fontWeight: 500
+            }}
+          >
+            {landingPage.advancedConfig?.whatsAppChatButton?.enabled ? 'Editar Botão de Chat' : 'Configurar Botão de Chat'}
+          </Button>
+        </Grid>
+
+        <Grid item xs={12}>
+          <Divider sx={{ my: 2 }} />
+        </Grid>
+
+        {/* Convite para Grupo */}
+        <Grid item xs={12}>
+          <Box display="flex" alignItems="center" justifyContent="space-between" mb={2}>
+            <Box display="flex" alignItems="center">
+              <GroupIcon color="info" sx={{ mr: 1 }} />
+              <Typography variant="subtitle1" fontWeight={500}>
+                Convite Automático para Grupo
+              </Typography>
+            </Box>
             
-            <Grid item xs={12} md={4}>
-              <Card variant="outlined" sx={{ height: '100%' }}>
-                <CardContent>
-                  <Box display="flex" alignItems="center" mb={2}>
-                    <GroupIcon color="info" sx={{ mr: 1 }} />
-                    <Typography variant="subtitle1" fontWeight={500}>
-                      Convite para Grupo
-                    </Typography>
-                  </Box>
-                  <Typography variant="body2" color="textSecondary" paragraph>
-                    Convite automático para grupo WhatsApp
-                  </Typography>
-                  <Chip
-                    label={landingPage.advancedConfig?.inviteGroupId ? 'Configurado' : 'Não configurado'}
-                    color={landingPage.advancedConfig?.inviteGroupId ? 'info' : 'default'}
-                    size="small"
-                    sx={{ mb: 2 }}
-                  />
-                </CardContent>
-                <CardActions>
-                  <Button
-                    size="small"
-                    variant="outlined"
-                    startIcon={<EditIcon />}
-                    onClick={() => {
-                      setTempGroupConfig({
-                        inviteGroupId: landingPage.advancedConfig?.inviteGroupId || '',
-                        groupInviteMessage: landingPage.advancedConfig?.groupInviteMessage || {
-                          enabled: false,
-                          message: 'Olá! Obrigado por se cadastrar. Você foi convidado para participar do nosso grupo no WhatsApp.',
-                          imageUrl: ''
-                        }
-                      });
-                      setGroupModalOpen(true);
-                    }}
-                  >
-                    Configurar
-                  </Button>
-                </CardActions>
-              </Card>
-            </Grid>
-          </Grid>
+            <Chip
+              label={landingPage.advancedConfig?.inviteGroupId ? 'Configurado' : 'Não configurado'}
+              color={landingPage.advancedConfig?.inviteGroupId ? 'info' : 'default'}
+              variant={landingPage.advancedConfig?.inviteGroupId ? 'filled' : 'outlined'}
+            />
+          </Box>
+          
+          <Typography variant="body2" color="textSecondary" paragraph>
+            Envie automaticamente um convite para um grupo WhatsApp quando alguém preencher o formulário.
+          </Typography>
+          
+          <Button
+            variant="contained"
+            color="info"
+            startIcon={<EditIcon />}
+            onClick={() => {
+              setTempGroupConfig({
+                inviteGroupId: landingPage.advancedConfig?.inviteGroupId || '',
+                groupInviteMessage: landingPage.advancedConfig?.groupInviteMessage || {
+                  enabled: false,
+                  message: 'Olá! Obrigado por se cadastrar. Você foi convidado para participar do nosso grupo no WhatsApp.',
+                  imageUrl: ''
+                }
+              });
+              setGroupModalOpen(true);
+            }}
+            sx={{ 
+              borderRadius: 2,
+              px: 3,
+              textTransform: 'none',
+              fontWeight: 500
+            }}
+          >
+            {landingPage.advancedConfig?.inviteGroupId ? 'Editar Convite para Grupo' : 'Configurar Convite para Grupo'}
+          </Button>
+        </Grid>
+
+        {/* Resumo das Configurações */}
+        <Grid item xs={12}>
+          <Divider sx={{ my: 2 }} />
+          
+          <Alert severity="info" variant="outlined" sx={{ borderRadius: 2 }}>
+            <Typography variant="body2">
+              <strong>Configurações ativas:</strong>
+              <br />
+              • Conexão WhatsApp: {whatsappConnections.find(conn => conn.id === landingPage.advancedConfig?.notificationConnectionId)?.name || 'Não configurada'}
+              <br />
+              • Tags para contatos: {selectedTags.length} selecionada(s)
+              <br />
+              • Meta Pixel: {landingPage.advancedConfig?.metaPixelId ? 'Configurado' : 'Não configurado'}
+              <br />
+              • Botão de chat: {landingPage.advancedConfig?.whatsAppChatButton?.enabled ? 'Ativo' : 'Inativo'}
+              <br />
+              • Convite para grupo: {landingPage.advancedConfig?.inviteGroupId ? 'Configurado' : 'Não configurado'}
+            </Typography>
+          </Alert>
         </Grid>
       </Grid>
 
@@ -552,6 +566,18 @@ const AdvancedConfigTab = ({ landingPage, setLandingPage }) => {
                 2. Selecione seu pixel
                 <br />
                 3. O ID aparece no topo da página
+                <br /><br />
+                <Button
+                  variant="outlined"
+                  size="small"
+                  startIcon={<InsertLinkIcon />}
+                  href="https://www.facebook.com/business/help/952192354843755"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  sx={{ borderRadius: 2 }}
+                >
+                  Ver Documentação
+                </Button>
               </Typography>
             </Alert>
           </Grid>
@@ -779,6 +805,7 @@ const AdvancedConfigTab = ({ landingPage, setLandingPage }) => {
                           setMediaManagerOpen(true);
                         }}
                         fullWidth
+                        sx={{ borderRadius: 2 }}
                       >
                         Selecionar da Biblioteca
                       </Button>
@@ -841,7 +868,7 @@ const AdvancedConfigTab = ({ landingPage, setLandingPage }) => {
           />
         )}
       </BaseModal>
-    </StandardTabContent>
+    </AnimatedPaper>
   );
 };
 

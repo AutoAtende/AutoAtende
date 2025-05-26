@@ -226,7 +226,11 @@ export const initSocketManager = () => ({
     connectionBackoffDelay: 1000,
     lastReconnectTime: 0,
 
+
     GetSocket: function (companyId, userId = null) {
+        if (!companyId) {
+            companyId = localStorage.getItem("companyId") || localStorage.getItem("lastCompanyId");
+        }
         if (!companyId) {
             console.warn("GetSocket called without companyId");
             return new DummySocket();

@@ -6,12 +6,13 @@ import cors from "cors";
 import compression from "compression";
 import cookieParser from "cookie-parser";
 import multer from "multer";
+import path from "path";
+import fs from "fs";
 import uploadConfig from "./config/upload";
 import AppError from "./errors/AppError";
 import routes from "./routes";
 import {logger} from "./utils/logger";
 import {getMessageQueue} from "./queues";
-
 
 if (process.env.DEBUG_TRACE == 'false') {
   console.trace = function () {
@@ -40,20 +41,94 @@ app.set("queues", {
 app.use(
   cors({
     credentials: true,
-    origin: process.env.FRONTEND_URL
+    origin: process.env.FRONTEND_URL,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+    allowedHeaders: [
+      'Content-Type',
+      'Authorization',
+      'Accept',
+      'X-Requested-With',
+      'Cache-Control',
+      'Pragma',
+      'Expires'
+    ],
   })
 );
 
-
+app.use(compression()); 
 app.use(express.json({limit: '10mb'}));
 app.use(express.urlencoded({limit: '10mb', extended: true}));
-app.use(compression()); 
 app.use(cookieParser());
 
-app.use(routes);
+// CRÍTICO: Middleware personalizado para arquivos estáticos ANTES de qualquer rota
+app.use("/public", (req: Request, res: Response, next: NextFunction) => {
+  try {
+    // Headers CORS específicos para arquivos estáticos
+    res.header('Access-Control-Allow-Origin', '*');
+    res.header('Access-Control-Allow-Methods', 'GET, HEAD, OPTIONS');
+    res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization, Cache-Control');
+    res.header('Access-Control-Expose-Headers', 'Content-Length, Content-Range');
+    res.header('Cache-Control', 'public, max-age=31536000'); // Cache por 1 ano
+    
+    // Headers de segurança
+    res.header('X-Content-Type-Options', 'nosniff');
+    res.header('Cross-Origin-Resource-Policy', 'cross-origin');
+    res.header('Cross-Origin-Embedder-Policy', 'unsafe-none');
+    
+    // Responder OPTIONS imediatamente
+    if (req.method === 'OPTIONS') {
+      return res.status(200).end();
+    }
+    
+    // Construir caminho completo do arquivo
+    const filePath = path.join(uploadConfig.directory, req.path);
+    
+    // Log da tentativa de acesso
+    logger.debug(`[Static] Tentativa de acesso: ${req.method} ${req.originalUrl} -> ${filePath}`);
+    
+    // Verificar se o arquivo existe
+    if (fs.existsSync(filePath) && fs.statSync(filePath).isFile()) {
+      logger.info(`[Static] Arquivo encontrado: ${req.originalUrl}`);
+      
+      // Definir tipo de conteúdo baseado na extensão
+      const ext = path.extname(filePath).toLowerCase();
+      const mimeTypes: { [key: string]: string } = {
+        '.png': 'image/png',
+        '.jpg': 'image/jpeg',
+        '.jpeg': 'image/jpeg',
+        '.gif': 'image/gif',
+        '.webp': 'image/webp',
+        '.svg': 'image/svg+xml',
+        '.pdf': 'application/pdf',
+        '.mp4': 'video/mp4',
+        '.mp3': 'audio/mpeg',
+        '.wav': 'audio/wav',
+        '.txt': 'text/plain',
+        '.json': 'application/json'
+      };
+      
+      const contentType = mimeTypes[ext] || 'application/octet-stream';
+      res.header('Content-Type', contentType);
+      
+      // Servir o arquivo
+      return res.sendFile(filePath);
+    } else {
+      logger.warn(`[Static] Arquivo não encontrado: ${req.originalUrl} -> ${filePath}`);
+      return res.status(404).json({
+        error: 'Arquivo não encontrado',
+        path: req.originalUrl
+      });
+    }
+  } catch (error) {
+    logger.error(`[Static] Erro ao servir arquivo estático ${req.originalUrl}:`, error);
+    return res.status(500).json({
+      error: 'Erro interno do servidor ao servir arquivo estático'
+    });
+  }
+});
 
 // Middleware para capturar erros de multer
-app.use((err, req, res, next) => {
+app.use((err: any, req: Request, res: Response, next: NextFunction) => {
   if (err instanceof multer.MulterError) {
     logger.error(`Erro de Multer: ${err.code} - ${err.message}`);
     
@@ -83,11 +158,8 @@ app.use((err, req, res, next) => {
   next();
 });
 
-app.use("/public", (req, res, next) => {
-  res.header('Cache-Control', 'public, max-age=31557600');
-  logger.debug(`Static file request: ${req.path}`);
-  next();
-}, express.static(uploadConfig.directory));
+// IMPORTANTE: As rotas da API vêm DEPOIS dos arquivos estáticos
+app.use(routes);
 
 // Middleware para lidar com rotas não encontradas
 app.use((req: Request, res: Response, next: NextFunction) => {
