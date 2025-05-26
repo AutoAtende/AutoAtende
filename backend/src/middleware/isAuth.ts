@@ -69,12 +69,14 @@ const asyncAuth = async (req: Request, res: Response, next: NextFunction) => {
     // NOVA VALIDAÇÃO: Verificar se está tentando acessar recursos de outra empresa
     const requestedCompanyId = req.params.companyId ? Number(req.params.companyId) : null;
     
-    if (requestedCompanyId && requestedCompanyId !== decoded.companyId) {
-      logger.warn(`Tentativa de acesso a recursos da empresa ${requestedCompanyId} com token da empresa ${decoded.companyId}`);
-      return res.status(403).json({ 
-        status: 'ERRO', 
-        error: 'Acesso negado a recursos de outra empresa' 
-      });
+    if(decoded.super !== true && decoded.companyId !== 1){
+      if (requestedCompanyId && requestedCompanyId !== decoded.companyId) {
+        logger.warn(`Tentativa de acesso a recursos da empresa ${requestedCompanyId} com token da empresa ${decoded.companyId}`);
+        return res.status(403).json({ 
+          status: 'ERRO', 
+          error: 'Acesso negado a recursos de outra empresa' 
+        });
+      }
     }
     
     // Criar objeto de usuário para o request
