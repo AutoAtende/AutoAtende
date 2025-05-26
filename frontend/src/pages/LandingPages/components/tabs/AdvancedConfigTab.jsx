@@ -39,7 +39,7 @@ import {
 import { useSpring, animated } from 'react-spring';
 import { isValidPhoneNumber } from '../../../../utils/stringUtils';
 import { PhoneTextField } from '../PhoneNumberMask';
-import BaseModal from '../../../../components/sharedBaseModal';
+import BaseModal from '../../../../components/shared/BaseModal';
 import FileManager from '../FileManager';
 import ImageUploader from '../ImageUploader';
 import api from '../../../../services/api';
