@@ -77,17 +77,17 @@ const StandardBadge = styled(Badge)(({ theme }) => ({
 
 // Espaçamento reduzido entre títulos e itens
 const spacing = {
-  mainCategory: "4px 0 0 0",  // Espaçamento menor para títulos
-  itemSpacing: "1px 0"        // Espaçamento menor entre itens
+  mainCategory: "4px 0 0 0",
+  itemSpacing: "1px 0"
 };
 
 // Definir a animação
 const blinkAnimation = keyframes`
   0%, 100% {
-    color: #25D366; /* Verde do WhatsApp */
+    color: #25D366;
   }
   50% {
-    color: #128C7E; /* Azul escuro do WhatsApp */
+    color: #128C7E;
   }
 `;
 
@@ -97,12 +97,13 @@ const BlinkingWhatsAppIcon = styled(WhatsApp)({
 });
 
 // Categoria principal (Gerência, Atendimentos, Administração)
-const CategoryItemStyled = styled(ListItem)(({ theme }) => ({
-  height: "40px", // Reduzido de 44px
+const CategoryItemStyled = styled(ListItem)(({ theme, collapsed }) => ({
+  height: "40px",
   width: "auto",
   borderRadius: "4px",
   margin: spacing.mainCategory,
-  padding: "0 8px",
+  // Quando recolhido, alinha o ícone com os outros
+  padding: collapsed ? "0 8px" : "0 8px",
   transition: "background-color 0.3s",
   fontWeight: 500,
   color: theme.palette.text.primary,
@@ -114,12 +115,13 @@ const CategoryItemStyled = styled(ListItem)(({ theme }) => ({
 }));
 
 // Itens de primeiro nível (Dashboard, Tickets, etc)
-const MenuItemStyled = styled(ListItem)(({ theme, active }) => ({
-  height: "38px", // Reduzido de 44px
+const MenuItemStyled = styled(ListItem)(({ theme, active, collapsed }) => ({
+  height: "38px",
   width: "auto",
   borderRadius: "4px",
   margin: spacing.itemSpacing,
-  padding: "0 8px 0 15px", // Indentação fixa para todos os itens de primeiro nível
+  // Quando recolhido, todos os ícones ficam alinhados com padding fixo
+  padding: collapsed ? "0 8px" : "0 8px 0 15px",
   transition: "background-color 0.3s, color 0.3s",
   "&:hover": {
     backgroundColor: theme.palette.mode === "light"
@@ -134,13 +136,14 @@ const MenuItemStyled = styled(ListItem)(({ theme, active }) => ({
   })
 }));
 
-// Subcategorias (Contatos, Integrações) - Mesma indentação dos itens normais
-const SubcategoryItemStyled = styled(ListItem)(({ theme }) => ({
+// Subcategorias (Contatos, Integrações) - Alinhamento condicional
+const SubcategoryItemStyled = styled(ListItem)(({ theme, collapsed }) => ({
   height: "38px",
   width: "auto",
   borderRadius: "4px",
   margin: spacing.itemSpacing,
-  padding: "0 8px 0 15px", // Mesma indentação que itens de primeiro nível
+  // Quando recolhido, alinha com os outros ícones
+  padding: collapsed ? "0 8px" : "0 8px 0 15px",
   transition: "background-color 0.3s",
   fontWeight: 500,
   color: theme.palette.text.primary,
@@ -152,12 +155,13 @@ const SubcategoryItemStyled = styled(ListItem)(({ theme }) => ({
 }));
 
 // Itens de segundo nível (dentro de Contatos e Integrações)
-const SubmenuItemStyled = styled(ListItem)(({ theme, active }) => ({
+const SubmenuItemStyled = styled(ListItem)(({ theme, active, collapsed }) => ({
   height: "38px",
   width: "auto",
   borderRadius: "4px",
   margin: spacing.itemSpacing,
-  padding: "0 8px 0 30px", // Mais indentado para mostrar hierarquia
+  // Quando recolhido, alinha com os outros ícones
+  padding: collapsed ? "0 8px" : "0 8px 0 30px",
   transition: "background-color 0.3s, color 0.3s",
   "&:hover": {
     backgroundColor: theme.palette.mode === "light"
@@ -172,12 +176,14 @@ const SubmenuItemStyled = styled(ListItem)(({ theme, active }) => ({
   })
 }));
 
-// Ícone do menu
-const MenuIconStyled = styled(ListItemIcon)(({ theme, active }) => ({
-  minWidth: "36px",
+// Ícone do menu com alinhamento consistente quando recolhido
+const MenuIconStyled = styled(ListItemIcon)(({ theme, active, collapsed }) => ({
+  minWidth: collapsed ? "auto" : "36px",
   display: "flex",
   alignItems: "center",
-  justifyContent: "center",
+  justifyContent: collapsed ? "center" : "flex-start",
+  // Quando recolhido, centraliza o ícone no container
+  marginRight: collapsed ? 0 : "8px",
   color: active
     ? theme.palette.primary.main
     : theme.palette.mode === "light" ? "rgba(0, 0, 0, 0.54)" : "rgba(255, 255, 255, 0.7)",
@@ -223,9 +229,9 @@ function ListItemLink(props) {
   if (level === 0) {
     ItemComponent = MenuItemStyled;
   } else if (level === 1) {
-    ItemComponent = MenuItemStyled; // Primeiro nível mantém o mesmo estilo
+    ItemComponent = MenuItemStyled;
   } else {
-    ItemComponent = SubmenuItemStyled; // Segundo nível com mais indentação
+    ItemComponent = SubmenuItemStyled;
   }
 
   const renderLink = React.useMemo(
@@ -280,8 +286,12 @@ function ListItemLink(props) {
           button
           component={renderLink}
           active={isActive ? 1 : 0}
+          collapsed={collapsed ? 1 : 0}
         >
-          <MenuIconStyled active={isActive ? 1 : 0}>
+          <MenuIconStyled 
+            active={isActive ? 1 : 0}
+            collapsed={collapsed ? 1 : 0}
+          >
             {IconWithBadge}
           </MenuIconStyled>
 
@@ -305,9 +315,13 @@ function ListItemLink(props) {
 function MainCategoryItem({ icon, primary, open, onClick, children, collapsed }) {
   return (
     <React.Fragment>
-      <CategoryItemStyled button onClick={onClick}>
+      <CategoryItemStyled 
+        button 
+        onClick={onClick}
+        collapsed={collapsed ? 1 : 0}
+      >
         {icon && (
-          <MenuIconStyled>
+          <MenuIconStyled collapsed={collapsed ? 1 : 0}>
             {icon}
           </MenuIconStyled>
         )}
@@ -342,9 +356,13 @@ function MainCategoryItem({ icon, primary, open, onClick, children, collapsed })
 function SubCategoryItem({ icon, primary, open, onClick, children, collapsed }) {
   return (
     <React.Fragment>
-      <SubcategoryItemStyled button onClick={onClick}>
+      <SubcategoryItemStyled 
+        button 
+        onClick={onClick}
+        collapsed={collapsed ? 1 : 0}
+      >
         {icon && (
-          <MenuIconStyled>
+          <MenuIconStyled collapsed={collapsed ? 1 : 0}>
             {icon}
           </MenuIconStyled>
         )}
@@ -696,10 +714,20 @@ const MainListItems = (props) => {
     }
   }, [whatsApps]);
 
-  // Fechar submenus quando drawer fecha
   useEffect(() => {
     if (collapsed) {
+      setOpenDashboardSubmenu(false);
+      setOpenServiceSubmenu(false);
+      setOpenAdminSubmenu(false);
+      setOpenContactsSubmenu(false);
       setOpenIntegrationsSubmenu(false);
+    } else {
+      // Quando abre, pode reabrir os submenus se desejar
+      setOpenDashboardSubmenu(true);
+      setOpenServiceSubmenu(true);
+      setOpenAdminSubmenu(true);
+      setOpenContactsSubmenu(true);
+      setOpenIntegrationsSubmenu(true);
     }
   }, [collapsed]);
 
@@ -712,7 +740,9 @@ const MainListItems = (props) => {
   };
 
   const handleToggleSubmenu = (setter) => {
-    setter(prev => !prev);
+    if (!collapsed) {
+      setter(prev => !prev);
+    }
     if (window.innerWidth <= 768 && drawerClose) {
       drawerClose();
     }
@@ -830,7 +860,7 @@ const MainListItems = (props) => {
                   collapsed={collapsed}
                 />
 
-                {/* Contatos como submenu - usando SubCategoryItem para alinhamento correto */}
+                {/* Contatos como submenu */}
                 <SubCategoryItem
                   icon={<ContactPhoneOutlined />}
                   primary={i18n.t("mainDrawer.listItems.contacts.menu")}
@@ -844,7 +874,7 @@ const MainListItems = (props) => {
                     icon={<People />}
                     tooltip={collapsed}
                     drawerClose={drawerClose}
-                    level={1}
+                    level={2}
                     collapsed={collapsed}
                   />
                   {settings?.displayBusinessInfo === 'enabled' && (
@@ -855,7 +885,7 @@ const MainListItems = (props) => {
                         icon={<Business />}
                         tooltip={collapsed}
                         drawerClose={drawerClose}
-                        level={1}
+                        level={2}
                         collapsed={collapsed}
                       />
                       <ListItemLink
@@ -864,7 +894,7 @@ const MainListItems = (props) => {
                         icon={<PasswordOutlined />}
                         tooltip={collapsed}
                         drawerClose={drawerClose}
-                        level={1}
+                        level={2}
                         collapsed={collapsed}
                       />
                       <ListItemLink
@@ -873,7 +903,7 @@ const MainListItems = (props) => {
                         icon={<WorkOutline />}
                         tooltip={collapsed}
                         drawerClose={drawerClose}
-                        level={1}
+                        level={2}
                         collapsed={collapsed}
                       />
                     </>
@@ -917,18 +947,6 @@ const MainListItems = (props) => {
                   />
                 )}
 
-
-
-<ListItemLink
-  to="/wbotpro"
-  primary={i18n.t("mainDrawer.listItems.wbotpro")}
-  icon={<BlinkingWhatsAppIcon />}
-  tooltip={collapsed}
-  drawerClose={drawerClose}
-  level={1}
-  collapsed={collapsed}
-/>
-
                 <ListItemLink
                   to="/helps"
                   primary={i18n.t("mainDrawer.listItems.helps")}
@@ -943,8 +961,7 @@ const MainListItems = (props) => {
           )}
         />
 
-
-        {/* INTEGRAÇÕES como submenu - usando SubCategoryItem para alinhamento correto */}
+        {/* INTEGRAÇÕES como submenu */}
         <MainCategoryItem
           icon={<DeviceHubOutlined />}
           primary={i18n.t("mainDrawer.listItems.integrations.menu")}
@@ -1041,6 +1058,7 @@ const MainListItems = (props) => {
               collapsed={collapsed}
             />
           )}
+
           {showAPIOfficial && (
             <ListItemLink
               to="/whatsapp-templates"
@@ -1063,7 +1081,6 @@ const MainListItems = (props) => {
             collapsed={collapsed}
           />
         </MainCategoryItem>
-
 
         {/* ADMINISTRAÇÃO */}
         <Can
@@ -1130,6 +1147,7 @@ const MainListItems = (props) => {
                   level={1}
                   collapsed={collapsed}
                 />
+
                 <ListItemLink
                   to="/settings"
                   primary={i18n.t("mainDrawer.listItems.settings")}
@@ -1139,6 +1157,18 @@ const MainListItems = (props) => {
                   level={1}
                   collapsed={collapsed}
                 />
+
+                {(isCorrectDomain && user.super) && (
+                  <ListItemLink
+                    to="/wbotpro"
+                    primary={i18n.t("mainDrawer.listItems.wbotpro")}
+                    icon={<BlinkingWhatsAppIcon />}
+                    tooltip={collapsed}
+                    drawerClose={drawerClose}
+                    level={1}
+                    collapsed={collapsed}
+                  />
+                )}
 
                 {user.super && (
                   <ListItemLink
@@ -1197,8 +1227,9 @@ const MainListItems = (props) => {
         <MenuItemStyled
           button
           onClick={handleClickLogout}
+          collapsed={collapsed ? 1 : 0}
         >
-          <MenuIconStyled>
+          <MenuIconStyled collapsed={collapsed ? 1 : 0}>
             <RotateRight />
           </MenuIconStyled>
 
