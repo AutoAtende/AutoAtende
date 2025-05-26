@@ -43,7 +43,7 @@ import {
 } from "@mui/icons-material";
 
 // Componentes
-import StandardPageLayout from "../../components/StandardPageLayout";
+import StandardPageLayout from "../../components/shared/StandardPageLayout";
 import SubscriptionModal from "../../components/SubscriptionModal";
 import InvoicePreview from "../../components/InvoicePreview";
 import ConfirmationModal from "../../components/ConfirmationModal";
@@ -54,6 +54,7 @@ const Financeiro = () => {
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const { user } = useContext(AuthContext);
   
+  // Estados - inicializando com arrays vazios para garantir segurança
   const [loading, setLoading] = useState(true);
   const [invoices, setInvoices] = useState([]);
   const [selectedInvoice, setSelectedInvoice] = useState(null);
@@ -73,6 +74,15 @@ const Financeiro = () => {
   // Verificar se o usuário é super administrador
   const isAdmin = user?.profile === "admin" && user?.super === true;
 
+  // Função para garantir que sempre temos um array
+  const ensureArray = (value) => {
+    if (Array.isArray(value)) {
+      return value;
+    }
+    console.warn("Valor não é array, retornando array vazio:", value);
+    return [];
+  };
+
   useEffect(() => {
     loadInvoices();
     if (isAdmin) {
@@ -83,10 +93,12 @@ const Financeiro = () => {
   const loadCompanies = async () => {
     try {
       const { data } = await api.get("/companies/basic/list");
-      setCompanies(data);
+      const companiesArray = ensureArray(data);
+      setCompanies(companiesArray);
     } catch (err) {
       console.error("Erro ao carregar empresas:", err);
-      toast.error(i18n.t("financial.errorLoadingCompanies"));
+      toast.error(i18n.t("financial.errorLoadingCompanies") || "Erro ao carregar empresas");
+      setCompanies([]); // Garantir que companies sempre seja um array
     }
   };
 
@@ -103,7 +115,7 @@ const Financeiro = () => {
 
       const { data } = await api.get("/invoices/list", { params });
 
-      // Verificar diferentes formatos de resposta possíveis
+      // Verificar diferentes formatos de resposta possíveis e garantir array
       let invoicesData = [];
       
       if (Array.isArray(data)) {
@@ -115,11 +127,15 @@ const Financeiro = () => {
       } else if (data && Array.isArray(data.records)) {
         invoicesData = data.records;
       } else {
-        console.error("Formato de resposta inválido:", data);
+        console.error("Formato de resposta inválido da API:", data);
+        console.warn("Tipos disponíveis na resposta:", typeof data, Object.keys(data || {}));
         invoicesData = [];
       }
 
-      setInvoices(invoicesData);
+      // Garantir que invoicesData é sempre um array
+      const safeInvoicesData = ensureArray(invoicesData);
+      setInvoices(safeInvoicesData);
+      
     } catch (err) {
       console.error("Erro ao carregar faturas:", err);
       if (err.response?.status === 403) {
@@ -127,7 +143,7 @@ const Financeiro = () => {
       } else {
         toast.error(i18n.t("financial.errorLoadingInvoices") || "Erro ao carregar faturas");
       }
-      setInvoices([]);
+      setInvoices([]); // Garantir que invoices sempre seja um array em caso de erro
     } finally {
       setLoading(false);
     }
@@ -137,14 +153,10 @@ const Financeiro = () => {
     setSearchValue(e.target.value);
   };
 
-  const filteredInvoices = invoices.filter(invoice => {
-    // Verificar se invoices é realmente um array antes de filtrar
-    if (!Array.isArray(invoices)) {
-      return false;
-    }
-    
+  // Garantir que filteredInvoices sempre seja um array
+  const filteredInvoices = ensureArray(invoices).filter((invoice) => {
     const searchInvoice = 
-      invoice.id.toString().includes(searchValue) || 
+      invoice.id?.toString().includes(searchValue) || 
       (invoice.detail && invoice.detail.toLowerCase().includes(searchValue.toLowerCase())) ||
       (invoice.company?.name && invoice.company.name.toLowerCase().includes(searchValue.toLowerCase()));
     
@@ -152,14 +164,12 @@ const Financeiro = () => {
   });
 
   const handleSelectAll = (event) => {
-    if (!Array.isArray(filteredInvoices)) {
-      return;
-    }
+    const safeFilteredInvoices = ensureArray(filteredInvoices);
     
     if (event.target.checked) {
-      const selectableInvoices = filteredInvoices
-        .filter(invoice => invoice.status !== "paid")
-        .map(invoice => invoice.id);
+      const selectableInvoices = safeFilteredInvoices
+        .filter((invoice) => invoice.status !== "paid")
+        .map((invoice) => invoice.id);
       setSelectedInvoices(selectableInvoices);
     } else {
       setSelectedInvoices([]);
@@ -178,13 +188,13 @@ const Financeiro = () => {
     setConfirmLoading(true);
     try {
       await api.post("/invoices/bulk-delete", { ids: selectedInvoices });
-      toast.success(i18n.t("financial.invoicesDeleted", { count: selectedInvoices.length }));
+      toast.success(i18n.t("financial.invoicesDeleted", { count: selectedInvoices.length }) || `${selectedInvoices.length} faturas excluídas`);
       setSelectedInvoices([]);
       loadInvoices();
       setBulkDeleteModalOpen(false);
     } catch (err) {
       console.error(err);
-      toast.error(i18n.t("financial.errorDeletingInvoices"));
+      toast.error(i18n.t("financial.errorDeletingInvoices") || "Erro ao excluir faturas");
     } finally {
       setConfirmLoading(false);
     }
@@ -201,15 +211,17 @@ const Financeiro = () => {
   };
 
   const handleConfirmDelete = async () => {
+    if (!selectedInvoice) return;
+    
     setConfirmLoading(true);
     try {
       await api.delete(`/invoices/${selectedInvoice.id}`);
-      toast.success(i18n.t("financial.invoiceDeleted"));
+      toast.success(i18n.t("financial.invoiceDeleted") || "Fatura excluída");
       loadInvoices();
       setDeleteModalOpen(false);
     } catch (err) {
       console.error(err);
-      toast.error(i18n.t("financial.errorDeletingInvoice"));
+      toast.error(i18n.t("financial.errorDeletingInvoice") || "Erro ao excluir fatura");
     } finally {
       setConfirmLoading(false);
     }
@@ -218,20 +230,20 @@ const Financeiro = () => {
   const handleSendEmail = async (invoice) => {
     try {
       await api.post(`/invoices/${invoice.id}/send-email`);
-      toast.success(i18n.t("financial.emailSent"));
+      toast.success(i18n.t("financial.emailSent") || "Email enviado");
     } catch (err) {
       console.error(err);
-      toast.error(i18n.t("financial.errorSendingEmail"));
+      toast.error(i18n.t("financial.errorSendingEmail") || "Erro ao enviar email");
     }
   };
 
   const handleSendWhatsapp = async (invoice) => {
     try {
       await api.post(`/invoices/${invoice.id}/send-whatsapp`);
-      toast.success(i18n.t("financial.whatsappSent"));
+      toast.success(i18n.t("financial.whatsappSent") || "WhatsApp enviado");
     } catch (err) {
       console.error(err);
-      toast.error(i18n.t("financial.errorSendingWhatsapp"));
+      toast.error(i18n.t("financial.errorSendingWhatsapp") || "Erro ao enviar WhatsApp");
     }
   };
 
@@ -253,10 +265,10 @@ const Financeiro = () => {
   };
 
   const getStatusText = (status, dueDate) => {
-    if (status === "paid") return i18n.t("financial.status.paid");
+    if (status === "paid") return i18n.t("financial.status.paid") || "Pago";
     return moment(dueDate, "DD-MM-YYYY").isBefore(moment(), "day")
-      ? i18n.t("financial.status.overdue")
-      : i18n.t("financial.status.pending");
+      ? (i18n.t("financial.status.overdue") || "Vencido")
+      : (i18n.t("financial.status.pending") || "Pendente");
   };
 
   const isValidDate = (date) => {
@@ -267,7 +279,7 @@ const Financeiro = () => {
   const pageActions = [
     ...(isAdmin && selectedInvoices.length > 0 ? [
       {
-        label: i18n.t("financial.deleteSelected"),
+        label: i18n.t("financial.deleteSelected") || "Excluir Selecionados",
         onClick: () => setBulkDeleteModalOpen(true),
         icon: <DeleteSweepIcon />,
         variant: "contained",
@@ -276,7 +288,7 @@ const Financeiro = () => {
       }
     ] : []),
     {
-      label: i18n.t("financial.filter"),
+      label: i18n.t("financial.filter") || "Filtrar",
       onClick: () => setFilterModalOpen(true),
       icon: <FilterListIcon />,
       variant: "outlined",
@@ -477,15 +489,18 @@ const Financeiro = () => {
       );
     }
 
-    if (filteredInvoices.length === 0) {
+    // Garantir que filteredInvoices é um array antes de verificar length
+    const safeFilteredInvoices = ensureArray(filteredInvoices);
+
+    if (safeFilteredInvoices.length === 0) {
       return (
         <Box display="flex" flexDirection="column" alignItems="center" justifyContent="center" p={5}>
           <ReceiptIcon sx={{ fontSize: 40, color: 'text.secondary', mb: 2 }} />
           <Typography variant="h6" color="textSecondary" gutterBottom>
-            {searchValue ? "Nenhuma fatura encontrada" : i18n.t("financial.noInvoicesTitle")}
+            {searchValue ? "Nenhuma fatura encontrada" : (i18n.t("financial.noInvoicesTitle") || "Nenhuma fatura encontrada")}
           </Typography>
           <Typography variant="body2" color="textSecondary">
-            {searchValue ? "Tente ajustar sua pesquisa" : i18n.t("financial.noInvoicesMessage")}
+            {searchValue ? "Tente ajustar sua pesquisa" : (i18n.t("financial.noInvoicesMessage") || "Não há faturas cadastradas no momento")}
           </Typography>
         </Box>
       );
@@ -494,7 +509,7 @@ const Financeiro = () => {
     if (isMobile) {
       return (
         <Box sx={{ p: 2 }}>
-          {Array.isArray(filteredInvoices) && filteredInvoices.map(invoice => renderMobileCard(invoice))}
+          {safeFilteredInvoices.map((invoice) => renderMobileCard(invoice))}
         </Box>
       );
     }
@@ -509,13 +524,12 @@ const Financeiro = () => {
                   <Checkbox
                     indeterminate={
                       selectedInvoices.length > 0 && 
-                      selectedInvoices.length < (Array.isArray(filteredInvoices) ? filteredInvoices.filter(inv => inv.status !== "paid").length : 0)
+                      selectedInvoices.length < safeFilteredInvoices.filter(inv => inv.status !== "paid").length
                     }
                     checked={
                       selectedInvoices.length > 0 && 
-                      Array.isArray(filteredInvoices) &&
-                      selectedInvoices.length === filteredInvoices.filter(inv => inv.status !== "paid").length &&
-                      filteredInvoices.filter(inv => inv.status !== "paid").length > 0
+                      selectedInvoices.length === safeFilteredInvoices.filter(inv => inv.status !== "paid").length &&
+                      safeFilteredInvoices.filter(inv => inv.status !== "paid").length > 0
                     }
                     onChange={handleSelectAll}
                     color="primary"
@@ -531,7 +545,7 @@ const Financeiro = () => {
             </TableRow>
           </TableHead>
           <TableBody>
-            {Array.isArray(filteredInvoices) && filteredInvoices.map((invoice) => (
+            {safeFilteredInvoices.map((invoice) => (
               <TableRow key={invoice.id} hover>
                 {isAdmin && (
                   <TableCell padding="checkbox">
@@ -581,7 +595,7 @@ const Financeiro = () => {
 
   if (!user) {
     return (
-      <StandardPageLayout title={i18n.t("financial.title")}>
+      <StandardPageLayout title={i18n.t("financial.title") || "Financeiro"}>
         <Box display="flex" justifyContent="center" alignItems="center" height="100%">
           <CircularProgress />
         </Box>
@@ -592,11 +606,11 @@ const Financeiro = () => {
   return (
     <>
       <StandardPageLayout
-        title={i18n.t("financial.title")}
+        title={i18n.t("financial.title") || "Financeiro"}
         actions={pageActions}
         searchValue={searchValue}
         onSearchChange={handleSearch}
-        searchPlaceholder={i18n.t("financial.searchPlaceholder")}
+        searchPlaceholder={i18n.t("financial.searchPlaceholder") || "Buscar faturas..."}
         showSearch={true}
         loading={loading}
       >
@@ -617,36 +631,36 @@ const Financeiro = () => {
         }}
       >
         <DialogTitle sx={{ borderBottom: 1 }}>
-          {i18n.t("financial.filterTitle")}
+          {i18n.t("financial.filterTitle") || "Filtrar Faturas"}
         </DialogTitle>
         <DialogContent sx={{ pt: 3 }}>
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
             {/* Filtro de Status */}
             <FormControl fullWidth>
-              <InputLabel>{i18n.t("financial.status.tableHeader")}</InputLabel>
+              <InputLabel>{i18n.t("financial.status.tableHeader") || "Status"}</InputLabel>
               <Select
                 value={statusFilter}
                 onChange={(e) => setStatusFilter(e.target.value)}
-                label={i18n.t("financial.status.tableHeader")}
+                label={i18n.t("financial.status.tableHeader") || "Status"}
               >
-                <MenuItem value="all">{i18n.t("financial.filterAllStatus")}</MenuItem>
-                <MenuItem value="pending">{i18n.t("financial.status.pending")}</MenuItem>
-                <MenuItem value="paid">{i18n.t("financial.status.paid")}</MenuItem>
-                <MenuItem value="overdue">{i18n.t("financial.status.overdue")}</MenuItem>
+                <MenuItem value="all">{i18n.t("financial.filterAllStatus") || "Todos os Status"}</MenuItem>
+                <MenuItem value="pending">{i18n.t("financial.status.pending") || "Pendente"}</MenuItem>
+                <MenuItem value="paid">{i18n.t("financial.status.paid") || "Pago"}</MenuItem>
+                <MenuItem value="overdue">{i18n.t("financial.status.overdue") || "Vencido"}</MenuItem>
               </Select>
             </FormControl>
 
             {/* Filtro de Empresa (apenas para admins) */}
             {isAdmin && (
               <FormControl fullWidth>
-                <InputLabel>{i18n.t("financial.company")}</InputLabel>
+                <InputLabel>{i18n.t("financial.company") || "Empresa"}</InputLabel>
                 <Select
                   value={selectedCompany || ""}
-                  onChange={(e) => setSelectedCompany(e.target.value || null)}
-                  label={i18n.t("financial.company")}
+                  onChange={(e) => setSelectedCompany(e.target.value ? Number(e.target.value) : null)}
+                  label={i18n.t("financial.company") || "Empresa"}
                 >
-                  <MenuItem value="">{i18n.t("financial.allCompanies")}</MenuItem>
-                  {companies.map((company) => (
+                  <MenuItem value="">{i18n.t("financial.allCompanies") || "Todas as Empresas"}</MenuItem>
+                  {ensureArray(companies).map((company) => (
                     <MenuItem key={company.id} value={company.id}>
                       {company.name}
                     </MenuItem>
@@ -658,14 +672,14 @@ const Financeiro = () => {
         </DialogContent>
         <DialogActions sx={{ px: 3, py: 2, borderTop: 1 }}>
           <Button onClick={() => setFilterModalOpen(false)} color="inherit">
-            {i18n.t("financial.cancel")}
+            {i18n.t("financial.cancel") || "Cancelar"}
           </Button>
           <Button
             onClick={handleFilterApply}
             variant="contained"
             color="primary"
           >
-            {i18n.t("financial.apply")}
+            {i18n.t("financial.apply") || "Aplicar"}
           </Button>
         </DialogActions>
       </Dialog>
@@ -697,32 +711,31 @@ const Financeiro = () => {
       )}
 
       {/* Modal de Confirmação de Exclusão */}
-      {deleteModalOpen && (
+      {deleteModalOpen && selectedInvoice && (
         <ConfirmationModal
-          title={i18n.t("financial.confirmDelete")}
+          title={i18n.t("financial.confirmDelete") || "Confirmar Exclusão"}
           open={deleteModalOpen}
           onClose={() => setDeleteModalOpen(false)}
           onConfirm={handleConfirmDelete}
         >
           <Alert severity="error" sx={{ mb: 2 }}>
-            <Typography>{i18n.t("financial.deleteWarning")}</Typography>
+            <Typography>{i18n.t("financial.deleteWarning") || "Esta ação não pode ser desfeita!"}</Typography>
           </Alert>
           
           <Typography variant="body1" gutterBottom>
-            {i18n.t("financial.deleteConfirmation")}
+            {i18n.t("financial.deleteConfirmation") || "Tem certeza que deseja excluir esta fatura?"}
           </Typography>
           
           <Typography variant="body2" color="text.secondary">
-            {i18n.t("financial.invoice")}: #{selectedInvoice?.id}
+            {i18n.t("financial.invoice") || "Fatura"}: #{selectedInvoice.id}
           </Typography>
           
           <Typography variant="body2" color="text.secondary">
-            {i18n.t("financial.value")}:{" "}
-            {selectedInvoice &&
-              new Intl.NumberFormat("pt-BR", {
-                style: "currency",
-                currency: "BRL",
-              }).format(selectedInvoice.value)}
+            {i18n.t("financial.value") || "Valor"}:{" "}
+            {new Intl.NumberFormat("pt-BR", {
+              style: "currency",
+              currency: "BRL",
+            }).format(selectedInvoice.value || 0)}
           </Typography>
         </ConfirmationModal>
       )}
@@ -730,23 +743,24 @@ const Financeiro = () => {
       {/* Modal de Confirmação de Exclusão em Massa */}
       {bulkDeleteModalOpen && (
         <ConfirmationModal
-          title={i18n.t("financial.confirmBulkDelete")}
+          title={i18n.t("financial.confirmBulkDelete") || "Confirmar Exclusão em Massa"}
           open={bulkDeleteModalOpen}
           onClose={() => setBulkDeleteModalOpen(false)}
           onConfirm={handleBulkDelete}
         >
           <Alert severity="error" sx={{ mb: 2 }}>
             <Typography>
-              {i18n.t("financial.bulkDeleteWarning", { count: selectedInvoices.length })}
+              {i18n.t("financial.bulkDeleteWarning", { count: selectedInvoices.length }) || 
+              `Você está prestes a excluir ${selectedInvoices.length} faturas. Esta ação não pode ser desfeita!`}
             </Typography>
           </Alert>
           
           <Typography variant="body1" gutterBottom>
-            {i18n.t("financial.bulkDeleteConfirmation")}
+            {i18n.t("financial.bulkDeleteConfirmation") || "Tem certeza que deseja excluir todas as faturas selecionadas?"}
           </Typography>
           
           <Typography variant="body2" color="text.secondary">
-            {i18n.t("financial.selectedInvoices")}: {selectedInvoices.length}
+            {i18n.t("financial.selectedInvoices") || "Faturas selecionadas"}: {selectedInvoices.length}
           </Typography>
         </ConfirmationModal>
       )}
