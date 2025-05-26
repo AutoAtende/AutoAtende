@@ -312,7 +312,6 @@ export const transferQueue = async (
   ticket: Ticket,
   contact: Contact
 ): Promise<void> => {
-  console.trace("update!");
 
   await UpdateTicketService({
     ticketData: { queueId: queueId, useIntegration: false, promptId: null },
@@ -361,6 +360,7 @@ export const isValidMsg = (msg: proto.IWebMessageInfo): boolean => {
       msgType === "viewOnceMessageV2" ||
       msgType === "advertising" ||
       msgType === "highlyStructuredMessage" ||
+      msgType === "requestPaymentMessage" ||
       msgType === "productMessage" ||
       msgType === "ptvMessage" ||
       msgType === "templateButtonReplyMessage" ||
@@ -635,7 +635,6 @@ export const handleMessage = async (
         msgType !== "editedMessage" &&
         msgType !== "advertising"
       ) {
-        console.trace(msgType);
         return;
       }
     }
