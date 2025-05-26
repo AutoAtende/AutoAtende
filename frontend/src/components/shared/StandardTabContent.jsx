@@ -9,7 +9,10 @@ import {
   Breadcrumbs,
   Link,
   Chip,
-  useMediaQuery
+  useMediaQuery,
+  Stack,
+  Fade,
+  Grow
 } from '@mui/material';
 import {
   Info as InfoIcon,
@@ -20,7 +23,7 @@ import {
 } from '@mui/icons-material';
 import { styled, useTheme } from '@mui/material/styles';
 
-// Styled Components
+// Styled Components Mobile First
 const TabContainer = styled(Box)(({ theme }) => ({
   height: '100%',
   display: 'flex',
@@ -31,22 +34,33 @@ const TabContainer = styled(Box)(({ theme }) => ({
 const TabHeader = styled(Box)(({ theme }) => ({
   display: 'flex',
   flexDirection: 'column',
-  gap: theme.spacing(2),
-  marginBottom: theme.spacing(3),
-  [theme.breakpoints.down('sm')]: {
-    marginBottom: theme.spacing(2)
+  gap: theme.spacing(1.5),
+  marginBottom: theme.spacing(2),
+  flexShrink: 0,
+  // Mobile first
+  [theme.breakpoints.up('sm')]: {
+    gap: theme.spacing(2),
+    marginBottom: theme.spacing(2.5),
+  },
+  [theme.breakpoints.up('md')]: {
+    marginBottom: theme.spacing(3),
   }
 }));
 
 const TabTitle = styled(Typography)(({ theme }) => ({
   color: theme.palette.text.primary,
   fontWeight: 600,
-  fontSize: '1.25rem',
+  fontSize: '1.125rem',
   display: 'flex',
   alignItems: 'center',
   gap: theme.spacing(1),
-  [theme.breakpoints.down('sm')]: {
-    fontSize: '1.125rem'
+  lineHeight: 1.3,
+  // Mobile first
+  [theme.breakpoints.up('sm')]: {
+    fontSize: '1.25rem',
+  },
+  [theme.breakpoints.up('md')]: {
+    fontSize: '1.375rem',
   }
 }));
 
@@ -54,7 +68,11 @@ const TabDescription = styled(Typography)(({ theme }) => ({
   color: theme.palette.text.secondary,
   fontSize: '0.875rem',
   lineHeight: 1.5,
-  marginTop: theme.spacing(0.5)
+  marginTop: theme.spacing(0.5),
+  // Mobile first
+  [theme.breakpoints.up('sm')]: {
+    fontSize: '0.9rem',
+  }
 }));
 
 const ContentWrapper = styled(Box)(({ theme }) => ({
@@ -66,61 +84,100 @@ const ContentWrapper = styled(Box)(({ theme }) => ({
 
 const ContentArea = styled(Box)(({ theme, variant }) => ({
   flex: 1,
-  overflow: 'hidden', // Remove overflow para evitar múltiplas barras de rolagem
+  overflow: 'hidden',
   display: 'flex',
   flexDirection: 'column',
   ...(variant === 'paper' && {
     backgroundColor: theme.palette.background.paper,
-    borderRadius: theme.shape.borderRadius,
-    boxShadow: 'rgba(0, 0, 0, 0.05) 0px 1px 2px 0px'
+    borderRadius: 12, // Mobile first: bordas mais arredondadas
+    boxShadow: theme.palette.mode === 'dark' 
+      ? '0 2px 8px rgba(0, 0, 0, 0.3)' 
+      : '0 2px 8px rgba(0, 0, 0, 0.08)',
+    [theme.breakpoints.up('sm')]: {
+      borderRadius: theme.shape.borderRadius,
+    }
   }),
   ...(variant === 'padded' && {
-    padding: theme.spacing(3),
-    [theme.breakpoints.down('sm')]: {
-      padding: theme.spacing(2)
+    padding: theme.spacing(2),
+    [theme.breakpoints.up('sm')]: {
+      padding: theme.spacing(2.5),
+    },
+    [theme.breakpoints.up('md')]: {
+      padding: theme.spacing(3),
     }
   })
 }));
 
-const StatsContainer = styled(Box)(({ theme }) => ({
-  display: 'flex',
-  gap: theme.spacing(1),
+const StatsContainer = styled(Stack)(({ theme }) => ({
+  direction: 'row',
+  spacing: 1,
   flexWrap: 'wrap',
   marginTop: theme.spacing(1),
+  // Mobile first: vertical stack
   [theme.breakpoints.down('sm')]: {
-    flexDirection: 'column',
-    gap: theme.spacing(0.5)
+    direction: 'column',
+    spacing: 0.5,
+    '& > *': {
+      alignSelf: 'flex-start'
+    }
   }
 }));
 
-// Componente de Estatísticas
+const ActionsContainer = styled(Stack)(({ theme }) => ({
+  direction: 'row',
+  spacing: 1,
+  flexWrap: 'wrap',
+  // Mobile first
+  [theme.breakpoints.down('sm')]: {
+    direction: 'column',
+    width: '100%',
+    '& > *': {
+      minHeight: 44, // Área de toque mínima
+    }
+  }
+}));
+
+// Componente de Estatísticas Melhorado
 const TabStats = ({ stats = [] }) => {
+  const theme = useTheme();
+  const isXs = useMediaQuery(theme.breakpoints.only('xs'));
+  
   if (!stats.length) return null;
 
   return (
-    <StatsContainer>
+    <StatsContainer spacing={isXs ? 0.5 : 1}>
       {stats.map((stat, index) => (
-        <Chip
-          key={index}
-          icon={stat.icon}
-          label={stat.label}
-          size="small"
-          color={stat.color || 'default'}
-          variant={stat.variant || 'outlined'}
-          sx={{ 
-            fontWeight: 500,
-            '& .MuiChip-icon': {
-              fontSize: '0.875rem'
-            }
-          }}
-        />
+        <Grow in timeout={300 + (index * 100)} key={index}>
+          <Chip
+            icon={stat.icon}
+            label={stat.label}
+            size={isXs ? "medium" : "small"}
+            color={stat.color || 'default'}
+            variant={stat.variant || 'outlined'}
+            sx={{ 
+              fontWeight: 500,
+              borderRadius: isXs ? 8 : 6,
+              height: isXs ? 36 : 32,
+              fontSize: isXs ? '0.875rem' : '0.8125rem',
+              '& .MuiChip-icon': {
+                fontSize: isXs ? '1rem' : '0.875rem'
+              },
+              '& .MuiChip-label': {
+                padding: isXs ? theme.spacing(0, 1) : theme.spacing(0, 0.75)
+              }
+            }}
+          />
+        </Grow>
       ))}
     </StatsContainer>
   );
 };
 
-// Componente de Navegação (Breadcrumbs)
+// Componente de Navegação Melhorado
 const TabBreadcrumbs = ({ items = [] }) => {
+  const theme = useTheme();
+  const isXs = useMediaQuery(theme.breakpoints.only('xs'));
+  
   if (!items.length) return null;
 
   return (
@@ -128,9 +185,12 @@ const TabBreadcrumbs = ({ items = [] }) => {
       separator={<NavigateNextIcon fontSize="small" />}
       aria-label="navegação"
       sx={{ 
-        fontSize: '0.875rem',
+        fontSize: isXs ? '0.875rem' : '0.8125rem',
         '& .MuiBreadcrumbs-separator': {
-          marginX: 0.5
+          marginX: isXs ? 0.75 : 0.5
+        },
+        '& .MuiBreadcrumbs-ol': {
+          flexWrap: isXs ? 'wrap' : 'nowrap'
         }
       }}
     >
@@ -143,15 +203,28 @@ const TabBreadcrumbs = ({ items = [] }) => {
               onClick={item.onClick}
               sx={{ 
                 textDecoration: 'none',
+                padding: isXs ? theme.spacing(0.5) : 0,
+                borderRadius: isXs ? 4 : 0,
+                minHeight: isXs ? 32 : 'auto',
+                display: 'flex',
+                alignItems: 'center',
                 '&:hover': {
-                  textDecoration: 'underline'
+                  textDecoration: 'underline',
+                  backgroundColor: isXs ? theme.palette.action.hover : 'transparent'
                 }
               }}
             >
               {item.label}
             </Link>
           ) : (
-            <Typography color="text.primary" fontSize="inherit">
+            <Typography 
+              color="text.primary" 
+              fontSize="inherit"
+              sx={{
+                padding: isXs ? theme.spacing(0.5) : 0,
+                fontWeight: isXs ? 500 : 400
+              }}
+            >
               {item.label}
             </Typography>
           )}
@@ -161,7 +234,7 @@ const TabBreadcrumbs = ({ items = [] }) => {
   );
 };
 
-// Componente de Alerta Customizado
+// Componente de Alerta Melhorado
 const TabAlert = ({ 
   severity = 'info', 
   title, 
@@ -171,6 +244,9 @@ const TabAlert = ({
   onDismiss,
   sx = {}
 }) => {
+  const theme = useTheme();
+  const isXs = useMediaQuery(theme.breakpoints.only('xs'));
+  
   const icons = {
     info: <InfoIcon fontSize="small" />,
     warning: <WarningIcon fontSize="small" />,
@@ -179,35 +255,58 @@ const TabAlert = ({
   };
 
   return (
-    <Alert
-      severity={severity}
-      icon={icons[severity]}
-      action={action}
-      onClose={dismissible ? onDismiss : undefined}
-      sx={{
-        '& .MuiAlert-message': {
-          display: 'flex',
-          flexDirection: 'column',
-          gap: 0.5
-        },
-        ...sx
-      }}
-    >
-      {title && (
-        <Typography variant="subtitle2" component="div" gutterBottom>
-          {title}
-        </Typography>
-      )}
-      {message && (
-        <Typography variant="body2">
-          {message}
-        </Typography>
-      )}
-    </Alert>
+    <Fade in timeout={400}>
+      <Alert
+        severity={severity}
+        icon={icons[severity]}
+        action={action}
+        onClose={dismissible ? onDismiss : undefined}
+        sx={{
+          borderRadius: isXs ? 12 : 8,
+          fontSize: isXs ? '0.875rem' : '0.8125rem',
+          '& .MuiAlert-message': {
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 0.5,
+            width: '100%'
+          },
+          '& .MuiAlert-action': {
+            alignItems: isXs ? 'flex-start' : 'center',
+            paddingTop: isXs ? theme.spacing(0.5) : 0
+          },
+          ...sx
+        }}
+      >
+        {title && (
+          <Typography 
+            variant="subtitle2" 
+            component="div" 
+            gutterBottom
+            sx={{ 
+              fontSize: isXs ? '0.9rem' : '0.875rem',
+              fontWeight: 600
+            }}
+          >
+            {title}
+          </Typography>
+        )}
+        {message && (
+          <Typography 
+            variant="body2"
+            sx={{ 
+              fontSize: isXs ? '0.875rem' : '0.8125rem',
+              lineHeight: 1.5
+            }}
+          >
+            {message}
+          </Typography>
+        )}
+      </Alert>
+    </Fade>
   );
 };
 
-// Componente Principal
+// Componente Principal Melhorado
 const StandardTabContent = ({
   title,
   description,
@@ -220,10 +319,13 @@ const StandardTabContent = ({
   loading = false,
   children,
   contentProps = {},
-  headerProps = {}
+  headerProps = {},
+  emptyState,
+  showEmptyState = false
 }) => {
   const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+  const isXs = useMediaQuery(theme.breakpoints.only('xs'));
+  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
 
   return (
     <TabContainer>
@@ -237,43 +339,46 @@ const StandardTabContent = ({
           {(title || actions) && (
             <Box
               display="flex"
+              flexDirection={isXs ? 'column' : 'row'}
               justifyContent="space-between"
-              alignItems="flex-start"
-              flexWrap="wrap"
+              alignItems={isXs ? 'stretch' : 'flex-start'}
               gap={2}
             >
-              <Box flex={1}>
+              <Box flex={1} sx={{ minWidth: 0 }}>
                 {title && (
-                  <TabTitle>
-                    {icon && icon}
-                    {title}
-                  </TabTitle>
+                  <Fade in timeout={200}>
+                    <TabTitle>
+                      {icon && icon}
+                      {title}
+                    </TabTitle>
+                  </Fade>
                 )}
                 {description && (
-                  <TabDescription>
-                    {description}
-                  </TabDescription>
+                  <Fade in timeout={300}>
+                    <TabDescription>
+                      {description}
+                    </TabDescription>
+                  </Fade>
                 )}
                 <TabStats stats={stats} />
               </Box>
 
               {actions && (
-                <Box
-                  display="flex"
-                  gap={1}
-                  flexWrap="wrap"
-                  sx={{
-                    [theme.breakpoints.down('sm')]: {
-                      width: '100%',
-                      justifyContent: 'stretch',
-                      '& > *': {
-                        flex: 1
-                      }
-                    }
-                  }}
-                >
-                  {actions}
-                </Box>
+                <Fade in timeout={400}>
+                  <ActionsContainer spacing={isXs ? 1 : 1.5}>
+                    {React.Children.map(actions, (action, index) => 
+                      React.cloneElement(action, {
+                        key: index,
+                        fullWidth: isXs,
+                        sx: {
+                          minHeight: isXs ? 44 : 'auto',
+                          borderRadius: isXs ? 12 : 8,
+                          ...action.props.sx
+                        }
+                      })
+                    )}
+                  </ActionsContainer>
+                </Fade>
               )}
             </Box>
           )}
@@ -296,13 +401,30 @@ const StandardTabContent = ({
 
       {/* Divisor */}
       {(title || description || breadcrumbs.length > 0 || alerts.length > 0) && (
-        <Divider sx={{ mb: 3 }} />
+        <Divider sx={{ 
+          mb: isXs ? 2 : 2.5,
+          mx: isXs ? -1 : 0
+        }} />
       )}
 
       {/* Área de Conteúdo */}
       <ContentWrapper>
         <ContentArea variant={variant} {...contentProps}>
-          {children}
+          {showEmptyState && emptyState ? (
+            <Fade in timeout={500}>
+              <Box sx={{ 
+                flex: 1, 
+                display: 'flex', 
+                alignItems: 'center', 
+                justifyContent: 'center',
+                padding: theme.spacing(2)
+              }}>
+                {emptyState}
+              </Box>
+            </Fade>
+          ) : (
+            children
+          )}
         </ContentArea>
       </ContentWrapper>
     </TabContainer>
@@ -344,7 +466,9 @@ StandardTabContent.propTypes = {
   loading: PropTypes.bool,
   children: PropTypes.node.isRequired,
   contentProps: PropTypes.object,
-  headerProps: PropTypes.object
+  headerProps: PropTypes.object,
+  emptyState: PropTypes.node,
+  showEmptyState: PropTypes.bool
 };
 
 export default StandardTabContent;

@@ -10,98 +10,153 @@ import {
   Tabs, 
   Paper,
   useMediaQuery,
-  Tooltip
+  Tooltip,
+  Stack,
+  Fade
 } from '@mui/material';
 import { Search as SearchIcon } from '@mui/icons-material';
 import { styled, useTheme } from '@mui/material/styles';
 
-// Styled Components
+// Styled Components com foco Mobile First
 const PageContainer = styled(Box)(({ theme }) => ({
   display: 'flex',
   flexDirection: 'column',
-  height: '100vh', // Altura total da viewport
-  overflow: 'hidden', // Remove overflow do container principal
-  padding: theme.spacing(3),
-  [theme.breakpoints.down('sm')]: {
+  height: '100vh',
+  overflow: 'hidden',
+  padding: theme.spacing(1, 1.5),
+  // Primeira regra: Mobile (xs)
+  [theme.breakpoints.up('sm')]: {
     padding: theme.spacing(2),
+  },
+  [theme.breakpoints.up('md')]: {
+    padding: theme.spacing(3),
+  },
+  [theme.breakpoints.up('lg')]: {
+    padding: theme.spacing(3, 4),
   }
 }));
 
 const PageHeader = styled(Box)(({ theme }) => ({
   display: 'flex',
-  justifyContent: 'space-between',
-  alignItems: 'flex-start',
-  marginBottom: theme.spacing(3),
-  marginTop: theme.spacing(4),
-  flexShrink: 0, // Não permite que o header encolha
-  [theme.breakpoints.down('sm')]: {
-    flexDirection: 'column',
-    alignItems: 'stretch',
-    gap: theme.spacing(2),
+  flexDirection: 'column',
+  gap: theme.spacing(2),
+  marginBottom: theme.spacing(2),
+  marginTop: theme.spacing(1),
+  flexShrink: 0,
+  // Mobile first: Começa com column
+  [theme.breakpoints.up('sm')]: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: theme.spacing(3),
     marginTop: theme.spacing(2),
+  },
+  [theme.breakpoints.up('md')]: {
+    marginTop: theme.spacing(4),
   }
 }));
 
 const PageTitle = styled(Typography)(({ theme }) => ({
   color: theme.palette.primary.main,
   fontWeight: 600,
-  fontSize: '1.75rem',
-  [theme.breakpoints.down('sm')]: {
+  fontSize: '1.375rem',
+  lineHeight: 1.3,
+  // Mobile first
+  [theme.breakpoints.up('sm')]: {
     fontSize: '1.5rem',
+  },
+  [theme.breakpoints.up('md')]: {
+    fontSize: '1.75rem',
+  },
+  [theme.breakpoints.up('lg')]: {
+    fontSize: '2rem',
   }
 }));
 
-const ActionButtonsContainer = styled(Box)(({ theme }) => ({
-  display: 'flex',
-  gap: theme.spacing(1),
-  marginTop: theme.spacing(0.5),
+const ActionButtonsContainer = styled(Stack)(({ theme }) => ({
+  direction: 'row',
+  spacing: 1,
   flexShrink: 0,
-  [theme.breakpoints.down('sm')]: {
-    flexDirection: 'column',
-    marginTop: 0,
+  width: '100%',
+  // Mobile: botões em stack vertical
+  '& > *': {
+    minHeight: 44, // Área de toque mínima mobile
+  },
+  [theme.breakpoints.up('sm')]: {
+    width: 'auto',
+    flexDirection: 'row',
+    '& > *': {
+      minHeight: 'auto',
+    }
   }
 }));
 
 const SearchContainer = styled(Box)(({ theme }) => ({
-  width: '33%',
-  marginBottom: theme.spacing(2),
-  flexShrink: 0, // Não permite que a busca encolha
-  [theme.breakpoints.down('md')]: {
+  width: '100%',
+  marginBottom: theme.spacing(1.5),
+  flexShrink: 0,
+  // Mobile first: 100% width
+  [theme.breakpoints.up('sm')]: {
+    width: '60%',
+    marginBottom: theme.spacing(2),
+  },
+  [theme.breakpoints.up('md')]: {
     width: '50%',
   },
-  [theme.breakpoints.down('sm')]: {
-    width: '100%',
+  [theme.breakpoints.up('lg')]: {
+    width: '33%',
   }
 }));
 
 const TabsContainer = styled(Paper)(({ theme }) => ({
-  marginBottom: theme.spacing(2),
-  borderRadius: theme.shape.borderRadius,
+  marginBottom: theme.spacing(1.5),
+  borderRadius: 12, // Bordas mais arredondadas no mobile
   overflow: 'hidden',
-  boxShadow: 'rgba(0, 0, 0, 0.05) 0px 1px 2px 0px',
-  flexShrink: 0 // Não permite que as tabs encolham
+  boxShadow: theme.palette.mode === 'dark' 
+    ? '0 2px 8px rgba(0, 0, 0, 0.3)' 
+    : '0 2px 8px rgba(0, 0, 0, 0.08)',
+  flexShrink: 0,
+  [theme.breakpoints.up('sm')]: {
+    marginBottom: theme.spacing(2),
+    borderRadius: theme.shape.borderRadius,
+  }
 }));
 
 const ContentArea = styled(Box)(({ theme }) => ({
   flex: 1,
   display: 'flex',
   flexDirection: 'column',
-  overflow: 'auto', // ÚNICA rolagem da página
-  minHeight: 0 // Importante para flex funcionar corretamente
+  overflow: 'auto',
+  minHeight: 0,
+  // Padding interno mobile-friendly
+  '&::-webkit-scrollbar': {
+    width: 6,
+    [theme.breakpoints.up('sm')]: {
+      width: 8,
+    }
+  },
+  '&::-webkit-scrollbar-thumb': {
+    backgroundColor: theme.palette.divider,
+    borderRadius: 4,
+  }
 }));
 
 const TabPanel = styled(Box)(({ theme }) => ({
   flex: 1,
-  padding: theme.spacing(2),
+  padding: theme.spacing(1),
   display: 'flex',
   flexDirection: 'column',
-  minHeight: 0, // Importante para flex funcionar
-  [theme.breakpoints.down('sm')]: {
-    padding: theme.spacing(1),
+  minHeight: 0,
+  // Mobile first padding
+  [theme.breakpoints.up('sm')]: {
+    padding: theme.spacing(1.5),
+  },
+  [theme.breakpoints.up('md')]: {
+    padding: theme.spacing(2),
   }
 }));
 
-// Componente de Botão Responsivo
+// Componente de Botão Responsivo Melhorado
 const ResponsiveActionButton = ({ 
   label, 
   icon, 
@@ -110,10 +165,13 @@ const ResponsiveActionButton = ({
   color = "primary",
   disabled = false,
   tooltip,
+  fullWidth = false,
   ...props 
 }) => {
   const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+  const isXs = useMediaQuery(theme.breakpoints.only('xs'));
+  const isSm = useMediaQuery(theme.breakpoints.only('sm'));
+  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
 
   const button = (
     <Button
@@ -121,12 +179,23 @@ const ResponsiveActionButton = ({
       color={color}
       onClick={onClick}
       disabled={disabled}
-      startIcon={!isMobile ? icon : null}
+      startIcon={!isXs ? icon : null}
+      fullWidth={isXs || fullWidth}
       sx={{
-        minWidth: isMobile ? 'auto' : 'auto',
-        padding: isMobile ? theme.spacing(1) : theme.spacing(1, 2),
-        borderRadius: '8px',
-        ...(isMobile && {
+        minHeight: isXs ? 44 : 40, // Área de toque mobile
+        borderRadius: isXs ? 12 : 8, // Bordas mais arredondadas no mobile
+        padding: isXs 
+          ? theme.spacing(1.5, 2) 
+          : isSm 
+            ? theme.spacing(1, 1.5)
+            : theme.spacing(1, 2),
+        fontSize: isXs ? '0.9rem' : '0.875rem',
+        fontWeight: 600,
+        textTransform: 'none',
+        boxShadow: variant === 'contained' && isXs ? 2 : undefined,
+        ...(isXs && icon && !label && {
+          minWidth: 44,
+          padding: theme.spacing(1),
           '& .MuiButton-startIcon': {
             margin: 0
           }
@@ -134,12 +203,12 @@ const ResponsiveActionButton = ({
       }}
       {...props}
     >
-      {isMobile ? icon : label}
+      {isXs && !label ? icon : label}
     </Button>
   );
 
-  return isMobile && tooltip ? (
-    <Tooltip title={tooltip || label} arrow>
+  return (isMobile && tooltip) || (isXs && !label) ? (
+    <Tooltip title={tooltip || label} arrow placement="top">
       {button}
     </Tooltip>
   ) : button;
@@ -152,12 +221,14 @@ ResponsiveActionButton.propTypes = {
   variant: PropTypes.string,
   color: PropTypes.string,
   disabled: PropTypes.bool,
-  tooltip: PropTypes.string
+  tooltip: PropTypes.string,
+  fullWidth: PropTypes.bool
 };
 
-// Componente Principal
+// Componente Principal Melhorado
 const StandardPageLayout = ({
   title,
+  subtitle,
   actions = [],
   searchValue = "",
   onSearchChange,
@@ -167,21 +238,42 @@ const StandardPageLayout = ({
   activeTab = 0,
   onTabChange,
   children,
-  loading = false
+  loading = false,
+  emptyState,
+  showEmptyState = false
 }) => {
   const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
+  const isXs = useMediaQuery(theme.breakpoints.only('xs'));
 
   return (
     <PageContainer>
       {/* Cabeçalho da Página */}
       <PageHeader>
-        <PageTitle variant="h4" component="h1">
-          {title}
-        </PageTitle>
+        <Box sx={{ flex: 1, minWidth: 0 }}>
+          <PageTitle variant="h4" component="h1">
+            {title}
+          </PageTitle>
+          {subtitle && (
+            <Typography 
+              variant="body2" 
+              color="text.secondary"
+              sx={{ 
+                mt: 0.5,
+                fontSize: isXs ? '0.875rem' : '0.9rem',
+                lineHeight: 1.4
+              }}
+            >
+              {subtitle}
+            </Typography>
+          )}
+        </Box>
         
         {actions.length > 0 && (
-          <ActionButtonsContainer>
+          <ActionButtonsContainer 
+            direction={isXs ? "column" : "row"}
+            spacing={isXs ? 1 : 1.5}
+          >
             {actions.map((action, index) => (
               <ResponsiveActionButton
                 key={index}
@@ -192,6 +284,7 @@ const StandardPageLayout = ({
                 color={action.color || "primary"}
                 disabled={action.disabled || loading}
                 tooltip={action.tooltip}
+                fullWidth={isXs && action.primary}
               />
             ))}
           </ActionButtonsContainer>
@@ -200,81 +293,116 @@ const StandardPageLayout = ({
 
       {/* Campo de Pesquisa */}
       {showSearch && (
-        <SearchContainer>
-          <TextField
-            fullWidth
-            size="small"
-            placeholder={searchPlaceholder}
-            value={searchValue}
-            onChange={onSearchChange}
-            variant="outlined"
-            InputProps={{
-              startAdornment: (
-                <InputAdornment position="start">
-                  <SearchIcon color="action" />
-                </InputAdornment>
-              ),
-            }}
-            sx={{
-              backgroundColor: theme.palette.background.paper,
-              borderRadius: theme.shape.borderRadius,
-            }}
-          />
-        </SearchContainer>
+        <Fade in timeout={300}>
+          <SearchContainer>
+            <TextField
+              fullWidth
+              size={isXs ? "medium" : "small"}
+              placeholder={searchPlaceholder}
+              value={searchValue}
+              onChange={onSearchChange}
+              variant="outlined"
+              InputProps={{
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <SearchIcon color="action" />
+                  </InputAdornment>
+                ),
+              }}
+              sx={{
+                backgroundColor: theme.palette.background.paper,
+                borderRadius: isXs ? 12 : theme.shape.borderRadius,
+                '& .MuiOutlinedInput-root': {
+                  borderRadius: isXs ? 12 : theme.shape.borderRadius,
+                  minHeight: isXs ? 48 : 40,
+                },
+                '& .MuiInputBase-input': {
+                  fontSize: isXs ? '1rem' : '0.875rem',
+                }
+              }}
+            />
+          </SearchContainer>
+        </Fade>
       )}
 
       {/* Abas (se fornecidas) */}
       {tabs.length > 0 && (
-        <TabsContainer>
-          <Tabs
-            value={activeTab}
-            onChange={onTabChange}
-            indicatorColor="primary"
-            textColor="primary"
-            variant={isMobile ? "fullWidth" : "standard"}
-            sx={{
-              backgroundColor: theme.palette.background.paper,
-              '& .MuiTab-root': {
-                minHeight: 48,
-                textTransform: 'none',
-                fontWeight: 500,
-                fontSize: '0.95rem',
-              }
-            }}
-          >
-            {tabs.map((tab, index) => (
-              <Tab
-                key={index}
-                label={tab.label}
-                icon={tab.icon}
-                iconPosition="start"
-                sx={{
-                  '& .MuiTab-iconWrapper': {
-                    marginRight: theme.spacing(1),
-                    marginBottom: 0,
+        <Fade in timeout={400}>
+          <TabsContainer>
+            <Tabs
+              value={activeTab}
+              onChange={onTabChange}
+              indicatorColor="primary"
+              textColor="primary"
+              variant={isMobile ? "scrollable" : "standard"}
+              scrollButtons={isMobile ? "auto" : false}
+              allowScrollButtonsMobile
+              sx={{
+                backgroundColor: theme.palette.background.paper,
+                minHeight: isXs ? 56 : 48,
+                '& .MuiTab-root': {
+                  minHeight: isXs ? 56 : 48,
+                  textTransform: 'none',
+                  fontWeight: 500,
+                  fontSize: isXs ? '0.9rem' : '0.875rem',
+                  minWidth: isXs ? 120 : 90,
+                  padding: theme.spacing(1, 2),
+                },
+                '& .MuiTabs-scrollButtons': {
+                  '&.Mui-disabled': {
+                    opacity: 0.3
                   }
-                }}
-              />
-            ))}
-          </Tabs>
-        </TabsContainer>
+                },
+                '& .MuiTabs-indicator': {
+                  height: 3,
+                  borderRadius: '3px 3px 0 0'
+                }
+              }}
+            >
+              {tabs.map((tab, index) => (
+                <Tab
+                  key={index}
+                  label={tab.label}
+                  icon={!isXs ? tab.icon : null}
+                  iconPosition="start"
+                  sx={{
+                    '& .MuiTab-iconWrapper': {
+                      marginRight: theme.spacing(1),
+                      marginBottom: 0,
+                    }
+                  }}
+                />
+              ))}
+            </Tabs>
+          </TabsContainer>
+        </Fade>
       )}
 
-      {/* Área de Conteúdo - ÚNICA com rolagem */}
+      {/* Área de Conteúdo */}
       <ContentArea>
-        {tabs.length > 0 ? (
-          <TabPanel>
-            {children}
-          </TabPanel>
+        {showEmptyState && emptyState ? (
+          <Fade in timeout={500}>
+            <Box sx={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              {emptyState}
+            </Box>
+          </Fade>
         ) : (
-          <Box sx={{ 
-            flex: 1, 
-            display: 'flex', 
-            flexDirection: 'column',
-            minHeight: 0 
-          }}>
-            {children}
-          </Box>
+          <>
+            {tabs.length > 0 ? (
+              <TabPanel>
+                {children}
+              </TabPanel>
+            ) : (
+              <Box sx={{ 
+                flex: 1, 
+                display: 'flex', 
+                flexDirection: 'column',
+                minHeight: 0 
+              }}>
+                {children}
+              </Box>
+            )}
+          </>
         )}
       </ContentArea>
     </PageContainer>
@@ -283,6 +411,7 @@ const StandardPageLayout = ({
 
 StandardPageLayout.propTypes = {
   title: PropTypes.string.isRequired,
+  subtitle: PropTypes.string,
   actions: PropTypes.arrayOf(
     PropTypes.shape({
       label: PropTypes.string.isRequired,
@@ -291,7 +420,8 @@ StandardPageLayout.propTypes = {
       variant: PropTypes.string,
       color: PropTypes.string,
       disabled: PropTypes.bool,
-      tooltip: PropTypes.string
+      tooltip: PropTypes.string,
+      primary: PropTypes.bool
     })
   ),
   searchValue: PropTypes.string,
@@ -307,7 +437,9 @@ StandardPageLayout.propTypes = {
   activeTab: PropTypes.number,
   onTabChange: PropTypes.func,
   children: PropTypes.node.isRequired,
-  loading: PropTypes.bool
+  loading: PropTypes.bool,
+  emptyState: PropTypes.node,
+  showEmptyState: PropTypes.bool
 };
 
 export default StandardPageLayout;
