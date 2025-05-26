@@ -10,11 +10,13 @@ import User from "../models/User";
 const EXCLUDED_PATHS = [
   '/public/',           // Arquivos estáticos públicos
   '/public-settings/',  // Configurações públicas
-  '/auth/',            // Rotas de autenticação
-  '/api-docs/',        // Documentação da API
   '/health',           // Health check
   '/favicon.ico',      // Favicon
   '/robots.txt',       // Robots.txt
+  '/auth/login',
+  '/auth/refresh_token',
+  '/auth/signup',
+  '/auth/impersonate/:companyId',
 ];
 
 // Função para verificar se a rota deve ser excluída da autenticação
