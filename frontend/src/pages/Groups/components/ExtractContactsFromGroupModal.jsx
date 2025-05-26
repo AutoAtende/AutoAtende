@@ -8,7 +8,6 @@ import {
   ListItem,
   ListItemAvatar,
   ListItemText,
-  Typography,
   Avatar,
   Chip,
   Divider,
