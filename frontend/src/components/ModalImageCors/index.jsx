@@ -3,7 +3,7 @@ import makeStyles from '@mui/styles/makeStyles';
 import clsx from "clsx";
 
 import ModalImage from "react-modal-image";
-import openApi from "../../services/openApi";
+import { openApi } from "../../services/api";
 
 const useStyles = makeStyles(theme => ({
     messageMedia: {
