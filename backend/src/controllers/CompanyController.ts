@@ -41,6 +41,7 @@ import ListCompaniesPlanService from "../services/CompanyService/ListCompaniesPl
 import UpdateSchedulesService from "../services/CompanyService/UpdateSchedulesService";
 import CountAllCompanyService from "services/CompanyService/CountAllCompanyService";
 import Invoices from "models/Invoices";
+import WhatsAppNumberValidator from "@helpers/WhatsAppNumberValidator";
 
 // Types
 interface IndexQuery {
@@ -295,130 +296,165 @@ export const checkEmail = async (req: Request, res: Response): Promise<Response>
   return res.json({ exists: !!(companyExists || userExists) });
 };
 
+/**
+ * Verifica se um número de telefone:
+ * 1. Existe no WhatsApp (usando validação consistente)
+ * 2. Está disponível para uso (não está em uso por empresa ou usuário)
+ * 
+ * @param req - Request com phone nos params
+ * @param res - Response com resultado da verificação
+ * @returns Promise<Response> - { exists: boolean, validNumber?: string, error?: string }
+ */
 export const checkPhone = async (req: Request, res: Response): Promise<Response> => {
   const { phone } = req.params;
+  const { companyId } = req.query; // Opcional, usar company específica
+
+  if (!phone) {
+    return res.status(400).json({ 
+      exists: false, 
+      error: "Número de telefone é obrigatório" 
+    });
+  }
 
   try {
+    // Validação básica de formato antes de qualquer processamento
+    if (!WhatsAppNumberValidator.isValidPhoneFormat(phone)) {
+      logger.warn(`[checkPhone] Formato de número inválido: ${phone}`);
+      return res.json({ 
+        exists: false, 
+        error: "Formato de número inválido" 
+      });
+    }
+
+    logger.info(`[checkPhone] Iniciando verificação do número: ${phone}`);
+
+    // Verificar se número já está em uso no sistema
     const [companyExists, userExists] = await Promise.all([
       Company.findOne({ where: { phone } }),
       User.findOne({ where: { number: phone } })
     ]);
 
-    let whatsappValid = false;
-    let validNumber = "";
-
-    // Limpar o número mantendo apenas dígitos
-    const cleanNumber = phone.replace(/\D/g, "");
-    
-    if (cleanNumber.length < 8) {
-      throw new Error(`Número muito curto: deve ter pelo menos 8 dígitos`);
-    }
-
-    // Adiciona código do país (55) se não tiver
-    let processedNumber = cleanNumber.startsWith('55') ? cleanNumber : '55' + cleanNumber;
-
-    console.log("[checkPhone] Número original processado:", processedNumber);
-
-    // Obter WhatsApp padrão para verificação
-    const defaultWhatsapp = await GetDefaultWhatsApp(1);
-    if (!defaultWhatsapp) {
-      console.error("[checkPhone] WhatsApp padrão não encontrado");
+    if (companyExists || userExists) {
+      logger.info(`[checkPhone] Número ${phone} já está em uso no sistema`, {
+        companyExists: !!companyExists,
+        userExists: !!userExists
+      });
+      
       return res.json({ 
-        exists: false, 
-        error: "WhatsApp não configurado" 
+        exists: false,
+        reason: 'NUMBER_IN_USE',
+        details: {
+          usedByCompany: !!companyExists,
+          usedByUser: !!userExists
+        }
       });
     }
 
-    const wbot = getWbot(defaultWhatsapp.id, 1);
+    // Obter WhatsApp para verificação
+    const targetCompanyId = companyId ? parseInt(companyId as string) : 1;
+    const defaultWhatsapp = await GetDefaultWhatsApp(targetCompanyId);
+    
+    if (!defaultWhatsapp) {
+      logger.error(`[checkPhone] WhatsApp padrão não encontrado para empresa ${targetCompanyId}`);
+      return res.status(500).json({ 
+        exists: false, 
+        error: "WhatsApp não configurado para verificação" 
+      });
+    }
 
-    // Função auxiliar para testar no WhatsApp
-    const testWhatsAppNumber = async (number: string): Promise<boolean> => {
-      try {
-        const chatId = `${number}@s.whatsapp.net`;
-        console.log("[checkPhone] Testando número:", chatId);
+    let wbot;
+    try {
+      wbot = await getWbot(defaultWhatsapp.id, targetCompanyId);
+    } catch (wbotError) {
+      logger.error(`[checkPhone] Erro ao obter instância do WhatsApp:`, wbotError);
+      return res.status(500).json({ 
+        exists: false, 
+        error: "Erro de conexão com WhatsApp" 
+      });
+    }
+
+    if (!wbot) {
+      logger.error(`[checkPhone] Instância do WhatsApp não disponível`);
+      return res.status(500).json({ 
+        exists: false, 
+        error: "WhatsApp não está conectado" 
+      });
+    }
+
+    // CORREÇÃO: Usar helper para validação consistente
+    let validatedNumber: string;
+    let whatsappValid = false;
+
+    try {
+      // Usar a mesma lógica do FormService e campaignJob
+      validatedNumber = await WhatsAppNumberValidator.validateAndNormalizeWhatsAppNumber(
+        phone,
+        wbot,
+        'número para verificação'
+      );
+      
+      whatsappValid = true;
+      logger.info(`[checkPhone] ✅ Número ${phone} validado como ${validatedNumber} no WhatsApp`);
+      
+    } catch (validationError) {
+      logger.warn(`[checkPhone] ❌ Número ${phone} não encontrado no WhatsApp: ${validationError.message}`);
+      whatsappValid = false;
+    }
+
+    // Se não foi possível validar no WhatsApp
+    if (!whatsappValid) {
+      return res.json({ 
+        exists: false,
+        reason: 'NOT_ON_WHATSAPP',
+        error: "Número não encontrado no WhatsApp"
+      });
+    }
+
+    // Verificar novamente se o número normalizado já está em uso
+    // (importante porque a normalização pode ter alterado o número)
+    if (validatedNumber !== phone) {
+      const [normalizedCompanyExists, normalizedUserExists] = await Promise.all([
+        Company.findOne({ where: { phone: validatedNumber } }),
+        User.findOne({ where: { number: validatedNumber } })
+      ]);
+
+      if (normalizedCompanyExists || normalizedUserExists) {
+        logger.info(`[checkPhone] Número normalizado ${validatedNumber} já está em uso no sistema`);
         
-        const result = await wbot.onWhatsApp(chatId);
-        const isValid = result && Array.isArray(result) && result.length > 0 && result[0]?.exists === true;
-        
-        console.log("[checkPhone] Resultado da verificação:", { number, isValid, result });
-        return isValid;
-      } catch (error) {
-        console.error("[checkPhone] Erro ao testar número:", number, error);
-        return false;
+        return res.json({ 
+          exists: false,
+          reason: 'NORMALIZED_NUMBER_IN_USE',
+          details: {
+            originalNumber: phone,
+            normalizedNumber: validatedNumber,
+            usedByCompany: !!normalizedCompanyExists,
+            usedByUser: !!normalizedUserExists
+          }
+        });
       }
+    }
+
+    // Número está disponível!
+    const result = {
+      exists: true,
+      validNumber: validatedNumber,
+      originalNumber: phone,
+      normalized: validatedNumber !== phone,
+      whatsappValid: true,
+      availableForUse: true
     };
 
-    // 1) Verificar o número original primeiro
-    console.log("[checkPhone] 1ª tentativa - Número original:", processedNumber);
-    if (await testWhatsAppNumber(processedNumber)) {
-      whatsappValid = true;
-      validNumber = processedNumber;
-      console.log("[checkPhone] ✓ Número original válido no WhatsApp");
-    }
-    
-    // 2) Se não for válido, tentar adicionar '9' após o DDD (se aplicável)
-    if (!whatsappValid && processedNumber.length >= 12) {
-      const ddd = processedNumber.substring(0, 4); // Ex: 5565 (55 + DDD)
-      const numberPart = processedNumber.substring(4); // Ex: 99246188
-      
-      // Adicionar '9' se o número não começar com '9' e tiver 8 dígitos
-      if (!numberPart.startsWith('9') && numberPart.length === 8) {
-        const numberWithNine = ddd + '9' + numberPart; // Ex: 5565999246188
-        console.log("[checkPhone] 2ª tentativa - Adicionando 9:", numberWithNine);
-        
-        if (await testWhatsAppNumber(numberWithNine)) {
-          whatsappValid = true;
-          validNumber = numberWithNine;
-          console.log("[checkPhone] ✓ Número com 9 adicionado válido no WhatsApp");
-        }
-      }
-    }
+    logger.info(`[checkPhone] ✅ Número ${phone} está disponível para uso`, result);
 
-    // 3) Se ainda não for válido, tentar remover '9' após o DDD
-    if (!whatsappValid && processedNumber.length >= 13) {
-      const ddd = processedNumber.substring(0, 4); // Ex: 5565
-      const numberPart = processedNumber.substring(4); // Ex: 999246188
-      
-      // Remover '9' se o número começar com '9' e tiver 9 dígitos
-      if (numberPart.startsWith('9') && numberPart.length === 9) {
-        const numberWithoutNine = ddd + numberPart.substring(1); // Ex: 556599246188
-        console.log("[checkPhone] 3ª tentativa - Removendo 9:", numberWithoutNine);
-        
-        if (await testWhatsAppNumber(numberWithoutNine)) {
-          whatsappValid = true;
-          validNumber = numberWithoutNine;
-          console.log("[checkPhone] ✓ Número sem 9 válido no WhatsApp");
-        }
-      }
-    }
-
-    // Se nenhuma das tentativas funcionou
-    if (!whatsappValid) {
-      console.log("[checkPhone] ✗ Número não encontrado no WhatsApp em nenhuma variação");
-    }
-
-    // Verificar se o número está disponível (não existe empresa nem usuário com este número)
-    const isAvailable = !companyExists && !userExists && whatsappValid;
-
-    console.log("[checkPhone] Resultado final:", {
-      phone,
-      processedNumber,
-      validNumber,
-      whatsappValid,
-      companyExists: !!companyExists,
-      userExists: !!userExists,
-      isAvailable
-    });
-
-    return res.json({ 
-      exists: isAvailable,
-    });
+    return res.json(result);
 
   } catch (error) {
-    console.error("[checkPhone] Erro geral:", error);
+    logger.error(`[checkPhone] Erro geral na verificação do número ${phone}:`, error);
+    
     return res.status(500).json({ 
       exists: false, 
-      error: error.message || "Erro interno do servidor" 
+      error: "Erro interno do servidor",
+      details: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
   }
 };
