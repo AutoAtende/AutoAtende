@@ -29,7 +29,9 @@ const useDashboardData = () => {
     contactMetrics: { 
       total: 0, 
       byState: {} 
-    }
+    },
+    monthlyMessages: [],
+    monthlyTickets: []
   });
 
   // Carregar dados iniciais
@@ -98,10 +100,21 @@ const useDashboardData = () => {
       const prospectionResponse = await api.get(
         `/dashboard/agent-prospection?period=${dateRange === 7 ? 'semana' : dateRange === 15 ? 'quinzena' : 'mes'}`
       );
+
+      // Carregar dados mensais de mensagens e tickets
+      const monthlyMessagesResponse = await api.get(
+        `/dashboard/monthly-messages?startDate=${startDateStr}&endDate=${endDateStr}`
+      );
+
+      const monthlyTicketsResponse = await api.get(
+        `/dashboard/monthly-tickets?startDate=${startDateStr}&endDate=${endDateStr}`
+      );
       
       // Verificar e inicializar dados para evitar erros
       const overviewData = overviewResponse.data || {};
       const queueMetricsData = queueMetricsResponse.data || {};
+      const monthlyMessagesData = monthlyMessagesResponse.data || [];
+      const monthlyTicketsData = monthlyTicketsResponse.data || [];
       
       // Se estamos em uma fila específica, usar os dados dela, senão usar os dados do overview geral
       let messagesCount = overviewData.totalMessages || 0;
@@ -140,7 +153,9 @@ const useDashboardData = () => {
         messagesByUser: formatMessagesByUser(ticketsByUser),
         comparativeData: formatComparativeData(ticketsByQueue),
         prospectionData: prospectionResponse.data || [],
-        contactMetrics
+        contactMetrics,
+        monthlyMessages: monthlyMessagesData,
+        monthlyTickets: monthlyTicketsData
       };
       
       setDashboardData(newData);

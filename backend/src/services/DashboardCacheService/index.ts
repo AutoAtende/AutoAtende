@@ -13,7 +13,9 @@ const CACHE_EXPIRATION_TIME = {
   contacts: 120, // 2 horas
   agentProspection: 60,
   queuesComparison: 60,
-  userQueuesComparison: 60
+  userQueuesComparison: 60,
+  monthlyMessages: 120, // 2 horas
+  monthlyTickets: 120 // 2 horas
 };
 
 class DashboardCacheService {
@@ -202,6 +204,12 @@ class DashboardCacheService {
             startDate, 
             endDate
           );
+          break;
+        case "monthlyMessages":
+          data = await this.dashboardService.getMonthlyMessagesData(companyId, startDate, endDate);
+          break;
+        case "monthlyTickets":
+          data = await this.dashboardService.getMonthlyTicketsData(companyId, startDate, endDate);
           break;
         default:
           throw new AppError(`Tipo de dashboard inválido: ${type}`, 400);

@@ -1240,6 +1240,121 @@ SELECT COUNT(DISTINCT c.id) as count
       throw error;
     }
   }
+
+  /**
+   * Obtém dados de mensagens mensais com acumulado
+   * @param companyId ID da empresa
+   * @param startDate Data inicial opcional
+   * @param endDate Data final opcional
+   */
+  public async getMonthlyMessagesData(companyId: number, startDate?: Date, endDate?: Date): Promise<any> {
+    try {
+      logger.info("Obtendo dados de mensagens mensais", { companyId, startDate, endDate });
+
+      // Definir datas padrão se não fornecidas
+      const defaultStartDate = startDate || new Date(new Date().getFullYear() - 2, 0, 1); // 2 anos atrás
+      const defaultEndDate = endDate || new Date();
+
+      // Executar a consulta SQL
+      const result = await sequelize.query(`
+        WITH mensagens_mensais AS (
+          SELECT
+            date_trunc('month', tt."createdAt") AS data_mes,
+            to_char(date_trunc('month', tt."createdAt"), 'MM/YYYY') AS mes,
+            COUNT(*) FILTER (WHERE tt."fromMe" = true) AS enviadas,
+            COUNT(*) FILTER (WHERE tt."fromMe" = false) AS recebidas,
+            COUNT(*) AS total
+          FROM "Messages" tt
+          WHERE tt."companyId" = :companyId
+            AND tt."createdAt" >= :startDate
+            AND tt."createdAt" <= :endDate
+          GROUP BY date_trunc('month', tt."createdAt")
+        ),
+        mensagens_com_acumulado AS (
+          SELECT
+            mes,
+            total,
+            enviadas,
+            recebidas,
+            ROUND(enviadas::numeric /
+                  EXTRACT(DAY FROM (data_mes + INTERVAL '1 month - 1 day')), 0) AS media_enviadas_por_dia,
+            ROUND(AVG(enviadas) OVER (ORDER BY data_mes ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW), 0) AS media_enviadas_acumulada
+          FROM mensagens_mensais
+        )
+        SELECT * FROM mensagens_com_acumulado
+        ORDER BY to_date(mes, 'MM/YYYY');
+      `, {
+        replacements: {
+          companyId,
+          startDate: defaultStartDate,
+          endDate: defaultEndDate
+        },
+        type: QueryTypes.SELECT
+      });
+
+      return result;
+    } catch (error) {
+      logger.error("Erro ao obter dados de mensagens mensais", { error, companyId });
+      throw new AppError("Erro ao obter dados de mensagens mensais", 500);
+    }
+  }
+
+  /**
+   * Obtém dados de tickets mensais com acumulado
+   * @param companyId ID da empresa
+   * @param startDate Data inicial opcional
+   * @param endDate Data final opcional
+   */
+  public async getMonthlyTicketsData(companyId: number, startDate?: Date, endDate?: Date): Promise<any> {
+    try {
+      logger.info("Obtendo dados de tickets mensais", { companyId, startDate, endDate });
+
+      // Definir datas padrão se não fornecidas
+      const defaultStartDate = startDate || new Date(new Date().getFullYear() - 2, 0, 1); // 2 anos atrás
+      const defaultEndDate = endDate || new Date();
+
+      // Executar a consulta SQL
+      const result = await sequelize.query(`
+        WITH tickets_mensais AS (
+          SELECT
+            date_trunc('month', t."createdAt") AS data_mes,
+            to_char(date_trunc('month', t."createdAt"), 'MM/YYYY') AS mes,
+            COUNT(*) FILTER (WHERE t."fromMe" = true) AS empresa,
+            COUNT(*) FILTER (WHERE t."fromMe" = false) AS cliente,
+            COUNT(*) AS total
+          FROM "Tickets" t
+          WHERE t."companyId" = :companyId
+            AND t."createdAt" >= :startDate
+            AND t."createdAt" <= :endDate
+          GROUP BY date_trunc('month', t."createdAt")
+        ),
+        tickets_com_acumulado AS (
+          SELECT
+            mes,
+            total,
+            empresa,
+            cliente,
+            ROUND(empresa::numeric / EXTRACT(DAY FROM (data_mes + INTERVAL '1 month - 1 day')), 0) AS media_tickets_por_dia,
+            ROUND(AVG(empresa) OVER (ORDER BY data_mes ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW), 0) AS media_tickets_acumulada
+          FROM tickets_mensais
+        )
+        SELECT * FROM tickets_com_acumulado
+        ORDER BY to_date(mes, 'MM/YYYY');
+      `, {
+        replacements: {
+          companyId,
+          startDate: defaultStartDate,
+          endDate: defaultEndDate
+        },
+        type: QueryTypes.SELECT
+      });
+
+      return result;
+    } catch (error) {
+      logger.error("Erro ao obter dados de tickets mensais", { error, companyId });
+      throw new AppError("Erro ao obter dados de tickets mensais", 500);
+    }
+  }
 }
 
 export default DashboardService;

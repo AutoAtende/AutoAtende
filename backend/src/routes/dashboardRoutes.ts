@@ -43,6 +43,21 @@ dashboardRoutes.get(
   dashboardController.getUserQueuesComparison
 );
 
+// Rotas para dados mensais de mensagens e tickets
+dashboardRoutes.get(
+  "/dashboard/monthly-messages",
+  isAuth,
+  isAdmin,
+  dashboardController.getMonthlyMessagesData
+);
+
+dashboardRoutes.get(
+  "/dashboard/monthly-tickets",
+  isAuth,
+  isAdmin,
+  dashboardController.getMonthlyTicketsData
+);
+
 // Rotas para configurações do dashboard
 dashboardRoutes.get(
   "/dashboard/settings",

@@ -8,6 +8,7 @@ import Title from '../../components/Title';
 import DashboardCard from './components/DashboardCard';
 import BarChartComponent from './components/BarChartComponent';
 import DonutChartComponent from './components/DonutChartComponent';
+import LineChartComponent from './components/LineChartComponent';
 import ComparativeTable from './components/ComparativeTable';
 import ProspectionTable from './components/ProspectionTable';
 import BrazilMap from './components/BrazilMap';
@@ -383,6 +384,53 @@ const Dashboard = () => {
                 </ChartsPaper>
               </Grid>
             )}
+
+          {/* Gráficos mensais */}
+          <Grid container spacing={2.5} sx={{ mb: 2.5 }}>
+            {isComponentVisible('monthlyMessagesChart') && (
+              <Grid item xs={12} md={6}>
+                <ChartsPaper>
+                  <ChartHeader>
+                    <Typography variant="h6">
+                      Mensagens Mensais
+                    </Typography>
+                    <ComponentVisibilityControl componentKey="monthlyMessagesChart" />
+                  </ChartHeader>
+                  <LineChartComponent 
+                    data={dashboardData.monthlyMessages} 
+                    dataKeys={[
+                      { dataKey: 'enviadas', name: 'Enviadas' },
+                      { dataKey: 'recebidas', name: 'Recebidas' },
+                      { dataKey: 'total', name: 'Total' },
+                      { dataKey: 'media_enviadas_acumulada', name: 'Média Acumulada' }
+                    ]}
+                  />
+                </ChartsPaper>
+              </Grid>
+            )}
+            
+            {isComponentVisible('monthlyTicketsChart') && (
+              <Grid item xs={12} md={6}>
+                <ChartsPaper>
+                  <ChartHeader>
+                    <Typography variant="h6">
+                      Tickets Mensais
+                    </Typography>
+                    <ComponentVisibilityControl componentKey="monthlyTicketsChart" />
+                  </ChartHeader>
+                  <LineChartComponent 
+                    data={dashboardData.monthlyTickets}
+                    dataKeys={[
+                      { dataKey: 'empresa', name: 'Empresa' },
+                      { dataKey: 'cliente', name: 'Cliente' },
+                      { dataKey: 'total', name: 'Total' },
+                      { dataKey: 'media_tickets_acumulada', name: 'Média Acumulada' }
+                    ]}
+                  />
+                </ChartsPaper>
+              </Grid>
+            )}
+          </Grid>
 
           {/* Mapa do Brasil - Apenas para aba "TODOS" */}
           {selectedQueue === 'all' && isComponentVisible('brazilMap') && (

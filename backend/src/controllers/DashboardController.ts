@@ -237,6 +237,70 @@ class DashboardController {
       return res.status(500).json({ error: "Erro interno do servidor" });
     }
   };
+
+  /**
+   * Obtém dados de mensagens mensais com acumulado
+   */
+  public getMonthlyMessagesData = async (req: Request, res: Response): Promise<Response> => {
+    const { companyId } = req.user;
+    const { startDate, endDate } = req.query as { startDate?: string; endDate?: string };
+
+    try {
+      logger.info("Iniciando getMonthlyMessagesData", { companyId, startDate, endDate });
+
+      const parsedStartDate = startDate ? new Date(startDate) : undefined;
+      const parsedEndDate = endDate ? new Date(endDate) : undefined;
+
+      // Buscar dados do cache ou gerar em tempo real
+      const data = await this.dashboardCacheService.getCachedData(
+        companyId,
+        "monthlyMessages",
+        undefined,
+        parsedStartDate,
+        parsedEndDate
+      );
+
+      return res.status(200).json(data);
+    } catch (error) {
+      logger.error("Erro em getMonthlyMessagesData", { error });
+      if (error instanceof AppError) {
+        return res.status(error.statusCode).json({ error: error.message });
+      }
+      return res.status(500).json({ error: "Erro interno do servidor" });
+    }
+  };
+
+  /**
+   * Obtém dados de tickets mensais com acumulado
+   */
+  public getMonthlyTicketsData = async (req: Request, res: Response): Promise<Response> => {
+    const { companyId } = req.user;
+    const { startDate, endDate } = req.query as { startDate?: string; endDate?: string };
+
+    try {
+      logger.info("Iniciando getMonthlyTicketsData", { companyId, startDate, endDate });
+
+      const parsedStartDate = startDate ? new Date(startDate) : undefined;
+      const parsedEndDate = endDate ? new Date(endDate) : undefined;
+
+      // Buscar dados do cache ou gerar em tempo real
+      const data = await this.dashboardCacheService.getCachedData(
+        companyId,
+        "monthlyTickets",
+        undefined,
+        parsedStartDate,
+        parsedEndDate
+      );
+
+      return res.status(200).json(data);
+    } catch (error) {
+      logger.error("Erro em getMonthlyTicketsData", { error });
+      if (error instanceof AppError) {
+        return res.status(error.statusCode).json({ error: error.message });
+      }
+      return res.status(500).json({ error: "Erro interno do servidor" });
+    }
+  };
 }
 
 export default DashboardController;

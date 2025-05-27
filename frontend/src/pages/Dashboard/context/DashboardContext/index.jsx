@@ -24,7 +24,9 @@ export const DashboardProvider = ({ children }) => {
       messagesByUserChart: true,
       comparativeTable: true,
       prospectionTable: true,
-      brazilMap: true
+      brazilMap: true,
+      monthlyMessagesChart: true,
+      monthlyTicketsChart: true
     }
   });
   
