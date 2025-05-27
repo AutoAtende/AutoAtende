@@ -30,6 +30,7 @@
     "autoprefixer": "^10.4.21",
     "axios": "1.9.0",
     "axios-retry": "^4.5.0",
+    "babel-plugin-transform-remove-console": "^6.9.4",
     "bootstrap": "^5.3.3",
     "chart.js": "^4.4.8",
     "clsx": "^2.1.1",
