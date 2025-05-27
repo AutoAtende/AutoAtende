@@ -25,10 +25,10 @@ import { styled, useTheme } from '@mui/material/styles';
 
 // Styled Components Mobile First
 const TabContainer = styled(Box)(({ theme }) => ({
-  height: '100%',
   display: 'flex',
   flexDirection: 'column',
-  overflow: 'hidden'
+  width: '100%',
+  // Remove qualquer limitação de altura para permitir rolagem natural
 }));
 
 const TabHeader = styled(Box)(({ theme }) => ({
@@ -36,7 +36,7 @@ const TabHeader = styled(Box)(({ theme }) => ({
   flexDirection: 'column',
   gap: theme.spacing(1.5),
   marginBottom: theme.spacing(2),
-  flexShrink: 0,
+  flexShrink: 0, // Não encolhe o header
   // Mobile first
   [theme.breakpoints.up('sm')]: {
     gap: theme.spacing(2),
@@ -76,25 +76,30 @@ const TabDescription = styled(Typography)(({ theme }) => ({
 }));
 
 const ContentWrapper = styled(Box)(({ theme }) => ({
-  flex: 1,
   display: 'flex',
   flexDirection: 'column',
-  overflow: 'hidden'
+  width: '100%',
+  // Remove limitações de altura e overflow para permitir crescimento natural
 }));
 
 const ContentArea = styled(Box)(({ theme, variant }) => ({
-  flex: 1,
-  overflow: 'hidden',
   display: 'flex',
   flexDirection: 'column',
+  width: '100%',
+  // Remove limitações de altura para permitir expansão completa
   ...(variant === 'paper' && {
     backgroundColor: theme.palette.background.paper,
     borderRadius: 12, // Mobile first: bordas mais arredondadas
     boxShadow: theme.palette.mode === 'dark' 
       ? '0 2px 8px rgba(0, 0, 0, 0.3)' 
       : '0 2px 8px rgba(0, 0, 0, 0.08)',
+    padding: theme.spacing(2),
     [theme.breakpoints.up('sm')]: {
       borderRadius: theme.shape.borderRadius,
+      padding: theme.spacing(2.5),
+    },
+    [theme.breakpoints.up('md')]: {
+      padding: theme.spacing(3),
     }
   }),
   ...(variant === 'padded' && {
@@ -413,11 +418,11 @@ const StandardTabContent = ({
           {showEmptyState && emptyState ? (
             <Fade in timeout={500}>
               <Box sx={{ 
-                flex: 1, 
                 display: 'flex', 
                 alignItems: 'center', 
                 justifyContent: 'center',
-                padding: theme.spacing(2)
+                padding: theme.spacing(2),
+                minHeight: '200px'
               }}>
                 {emptyState}
               </Box>
