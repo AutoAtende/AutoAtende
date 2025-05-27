@@ -47,8 +47,7 @@ async validateAndNormalizeWhatsAppNumber(
   wbot: any,
   context: string = 'número'
 ): Promise<string> {
-  
-  // Validações básicas
+  // Validações básicas (mantidas)
   if (!inputNumber || typeof inputNumber !== 'string') {
     throw new Error(`${context} não pode estar vazio ou deve ser uma string`);
   }
@@ -57,14 +56,8 @@ async validateAndNormalizeWhatsAppNumber(
     throw new Error('Instância do WhatsApp não fornecida');
   }
 
-  // Limpar o número mantendo apenas dígitos
+  // Limpa e normaliza o número (DDI + DDD + número)
   const cleanNumber = inputNumber.replace(/\D/g, "");
-  
-  if (cleanNumber.length < 8) {
-    throw new Error(`${context} muito curto: deve ter pelo menos 8 dígitos`);
-  }
-
-  // Adiciona código do país (55) se não tiver
   let processedNumber = cleanNumber.startsWith('55') ? cleanNumber : '55' + cleanNumber;
 
   // Função auxiliar para testar no WhatsApp
@@ -72,33 +65,37 @@ async validateAndNormalizeWhatsAppNumber(
     try {
       const chatId = `${number}@s.whatsapp.net`;
       const result = await wbot.onWhatsApp(chatId);
-      
-      return result && Array.isArray(result) && result.length > 0 && result[0]?.exists === true;
+      return result?.[0]?.exists === true;
     } catch (error) {
       return false;
     }
   };
 
-  // Primeira tentativa: remove um '9' após o DDD e testa
-  if (processedNumber.length >= 13) {
-    const ddd = processedNumber.substring(0, 4); // Ex: 5565
-    const numberPart = processedNumber.substring(4); // Ex: 999246188
-    
-    if (numberPart.startsWith('9')) {
-      const numberWithoutNine = ddd + numberPart.substring(1); // Ex: 556599246188
-      
-      if (await testWhatsAppNumber(numberWithoutNine)) {
-        return numberWithoutNine;
-      }
-    }
-  }
-
-  // Segunda tentativa: testa o número original
+  // 1ª Tentativa: Testa o número exatamente como foi informado
   if (await testWhatsAppNumber(processedNumber)) {
     return processedNumber;
   }
 
-  // Não encontrou em nenhuma das tentativas
+  // 2ª Tentativa: Se o número não tem nono dígito, tenta adicionar um '9'
+  const ddd = processedNumber.substring(0, 4); // '55' + DDD (ex: 5516)
+  const numberPart = processedNumber.substring(4); // Restante do número
+
+  if (numberPart.length >= 8 && !numberPart.startsWith('9')) {
+    const numberWithNine = ddd + '9' + numberPart;
+    if (await testWhatsAppNumber(numberWithNine)) {
+      return numberWithNine;
+    }
+  }
+
+  // 3ª Tentativa: Se o número tem '9' extra, tenta remover um
+  if (numberPart.startsWith('9')) {
+    const numberWithoutNine = ddd + numberPart.substring(1);
+    if (await testWhatsAppNumber(numberWithoutNine)) {
+      return numberWithoutNine;
+    }
+  }
+
+  // Se nenhuma tentativa funcionou, lança erro
   throw new Error(`${context} ${processedNumber} não existe no WhatsApp`);
 }
 

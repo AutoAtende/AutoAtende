@@ -3,7 +3,6 @@ import AppError from "../../errors/AppError";
 import Groups from "../../models/Groups";
 import Whatsapp from "../../models/Whatsapp";
 import { getWbot } from "../../libs/wbot";
-import GetWhatsAppConnected from "../../helpers/GetWhatsAppConnected";
 import { logger } from "../../utils/logger";
 
 interface Request {
@@ -43,15 +42,15 @@ const GetGroupInviteCodeService = async ({
     const wbot = await getWbot(whatsapp.id);
 
     // Verificar se o bot tem permissões para obter o código (deve ser admin)
-    const groupMetadata = await wbot.groupMetadata(group.jid);
-    const botId = wbot.user.id;
-    const isAdmin = groupMetadata.participants.some(
-      p => p.id === botId && (p.admin === 'admin' || p.admin === 'superadmin')
-    );
+    //const groupMetadata = await wbot.groupMetadata(group.jid);
+    //const botId = wbot.user.id;
+    //const isAdmin = groupMetadata.participants.some(
+    //  p => p.id === botId && (p.admin === 'admin' || p.admin === 'superadmin')
+    //);
 
-    if (!isAdmin) {
-      throw new AppError("O bot não tem permissões de administrador no grupo");
-    }
+    //if (!isAdmin) {
+    //  throw new AppError("O bot não tem permissões de administrador no grupo");
+    //}
 
     // Obter o código de convite
     const code = await wbot.groupInviteCode(group.jid);
