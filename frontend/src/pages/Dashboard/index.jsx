@@ -1,22 +1,41 @@
-import React, { useState, useEffect, useContext, useCallback } from 'react';
-import { Box, Container, Typography, Grid, Paper, Select, MenuItem, FormControl, Button, IconButton, Tooltip } from '@mui/material';
+import React, { useState, useEffect, useCallback, useMemo, memo, Suspense, lazy } from 'react';
+import { Box, Container, Typography, Grid, Paper, Select, MenuItem, FormControl, Button, IconButton, Tooltip, Skeleton, CircularProgress } from '@mui/material';
 import { styled } from '@mui/material/styles';
-import { CalendarToday, FileDownload, Settings as SettingsIcon } from '@mui/icons-material';
+import { CalendarToday, FileDownload, Settings as SettingsIcon, Refresh } from '@mui/icons-material';
 import { toast } from "../../helpers/toast";
 import { useLoading } from "../../hooks/useLoading";
 import Title from '../../components/Title';
 import DashboardCard from './components/DashboardCard';
-import BarChartComponent from './components/BarChartComponent';
-import DonutChartComponent from './components/DonutChartComponent';
-import ComparativeTable from './components/ComparativeTable';
-import ProspectionTable from './components/ProspectionTable';
-import BrazilMap from './components/BrazilMap';
 import ComponentVisibilityControl from './components/ComponentVisibilityControl';
-import DashboardConfigModal from './components/DashboardConfigModal';
 import { useDashboardContext } from './context/DashboardContext';
-import ExcelExportService from './services/ExcelExportService';
 
-// Styled Components
+// Lazy loading para componentes pesados
+const BarChartComponent = lazy(() => import('./components/BarChartComponent'));
+const DonutChartComponent = lazy(() => import('./components/DonutChartComponent'));
+const ComparativeTable = lazy(() => import('./components/ComparativeTable'));
+const ProspectionTable = lazy(() => import('./components/ProspectionTable'));
+const BrazilMap = lazy(() => import('./components/BrazilMap'));
+const DashboardConfigModal = lazy(() => import('./components/DashboardConfigModal'));
+const ExcelExportService = lazy(() => import('./services/ExcelExportService'));
+
+// Componente de loading personalizado
+const ChartSkeleton = memo(() => (
+  <Box sx={{ p: 2 }}>
+    <Skeleton variant="text" height={40} width="40%" sx={{ mb: 2 }} />
+    <Skeleton variant="rectangular" height={200} />
+  </Box>
+));
+
+const TableSkeleton = memo(() => (
+  <Box sx={{ p: 2 }}>
+    <Skeleton variant="text" height={40} width="40%" sx={{ mb: 2 }} />
+    {[...Array(5)].map((_, index) => (
+      <Skeleton key={index} variant="text" height={30} sx={{ mb: 1 }} />
+    ))}
+  </Box>
+));
+
+// Styled Components otimizados
 const StyledContainer = styled(Container)(({ theme }) => ({
   padding: theme.spacing(3),
   backgroundColor: theme.palette.grey[50],
@@ -33,12 +52,6 @@ const PageHeader = styled(Box)(({ theme }) => ({
     alignItems: 'flex-start',
     gap: theme.spacing(2),
   },
-}));
-
-const PageTitle = styled(Typography)(({ theme }) => ({
-  fontSize: '1.5rem',
-  fontWeight: 500,
-  color: theme.palette.text.primary,
 }));
 
 const FiltersContainer = styled(Box)(({ theme }) => ({
@@ -62,12 +75,6 @@ const DateFilter = styled(Paper)(({ theme }) => ({
   color: theme.palette.text.primary,
   boxShadow: 'none',
   cursor: 'pointer',
-}));
-
-const DateFilterIcon = styled(CalendarToday)(({ theme }) => ({
-  marginRight: theme.spacing(0.5),
-  color: theme.palette.primary.main,
-  fontSize: '1rem',
 }));
 
 const QueueButton = styled(Button)(({ theme, active }) => ({
@@ -104,6 +111,7 @@ const FooterContainer = styled(Box)(({ theme }) => ({
   justifyContent: 'flex-end',
   alignItems: 'center',
   marginTop: theme.spacing(2.5),
+  gap: theme.spacing(1),
   [theme.breakpoints.down('sm')]: {
     flexDirection: 'column',
     gap: theme.spacing(2),
@@ -121,9 +129,12 @@ const ExportButton = styled(Button)(({ theme }) => ({
   },
 }));
 
-const ConfigButton = styled(IconButton)(({ theme }) => ({
-  color: theme.palette.grey[700],
-  marginLeft: theme.spacing(1.25),
+const RefreshButton = styled(IconButton)(({ theme }) => ({
+  color: theme.palette.primary.main,
+  '&:hover': {
+    backgroundColor: theme.palette.primary.main,
+    color: 'white',
+  },
 }));
 
 // Data range options
@@ -132,6 +143,179 @@ const DATE_RANGES = [
   { value: 15, label: 'Últimos 15 dias' },
   { value: 30, label: 'Últimos 30 dias' },
 ];
+
+// Componente memoizado para os cards de métricas
+const MetricsCards = memo(({ dashboardData, dateRange, isComponentVisible, getComparisonPeriodText }) => (
+  <Grid container spacing={2.5} sx={{ mb: 2.5 }}>
+    {isComponentVisible('messagesCard') && (
+      <Grid item xs={12} md={4}>
+        <DashboardCard
+          icon="paper-plane"
+          title="Mensagens Enviadas"
+          value={dashboardData.messagesCount.toLocaleString()}
+          subtitle="Total no período"
+          trend={dashboardData.messagesTrend}
+          trendText={`${Math.abs(dashboardData.messagesTrend)}% em relação à ${getComparisonPeriodText(dateRange)}`}
+          visibilityControl={<ComponentVisibilityControl componentKey="messagesCard" />}
+        />
+      </Grid>
+    )}
+    
+    {isComponentVisible('responseTimeCard') && (
+      <Grid item xs={12} md={4}>
+        <DashboardCard
+          icon="clock"
+          title="Tempo Médio de Resposta"
+          value={dashboardData.avgResponseTime}
+          subtitle="Após primeira mensagem do cliente"
+          trend={dashboardData.responseTimeTrend}
+          trendText={`${Math.abs(dashboardData.responseTimeTrend)}% em relação à ${getComparisonPeriodText(dateRange)}`}
+          invertTrend={true}
+          visibilityControl={<ComponentVisibilityControl componentKey="responseTimeCard" />}
+        />
+      </Grid>
+    )}
+    
+    {isComponentVisible('clientsCard') && (
+      <Grid item xs={12} md={4}>
+        <DashboardCard
+          icon="users"
+          title="Clientes Interagidos"
+          value={dashboardData.clientsCount.toLocaleString()}
+          subtitle="No período selecionado"
+          trend={dashboardData.clientsTrend}
+          trendText={`${Math.abs(dashboardData.clientsTrend)}% em relação à ${getComparisonPeriodText(dateRange)}`}
+          visibilityControl={<ComponentVisibilityControl componentKey="clientsCard" />}
+        />
+      </Grid>
+    )}
+  </Grid>
+));
+
+// Componente memoizado para os gráficos
+const ChartsSection = memo(({ dashboardData, isComponentVisible, loadingStates }) => (
+  <Grid container spacing={2.5} sx={{ mb: 2.5 }}>
+    {isComponentVisible('messagesByDayChart') && (
+      <Grid item xs={12} md={6}>
+        <ChartsPaper>
+          <ChartHeader>
+            <Typography variant="h6">Mensagens por Dia</Typography>
+            <ComponentVisibilityControl componentKey="messagesByDayChart" />
+          </ChartHeader>
+          <Suspense fallback={<ChartSkeleton />}>
+            {loadingStates.overview ? (
+              <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
+                <CircularProgress size={40} />
+              </Box>
+            ) : (
+              <BarChartComponent data={dashboardData.messagesByDay} />
+            )}
+          </Suspense>
+        </ChartsPaper>
+      </Grid>
+    )}
+    
+    {isComponentVisible('messagesByUserChart') && (
+      <Grid item xs={12} md={6}>
+        <ChartsPaper>
+          <ChartHeader>
+            <Typography variant="h6">Mensagens por Usuário</Typography>
+            <ComponentVisibilityControl componentKey="messagesByUserChart" />
+          </ChartHeader>
+          <Suspense fallback={<ChartSkeleton />}>
+            {loadingStates.queues ? (
+              <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
+                <CircularProgress size={40} />
+              </Box>
+            ) : (
+              <DonutChartComponent data={dashboardData.messagesByUser} />
+            )}
+          </Suspense>
+        </ChartsPaper>
+      </Grid>
+    )}
+  </Grid>
+));
+
+// Componente memoizado para as tabelas
+const TablesSection = memo(({ dashboardData, isComponentVisible, loadingStates }) => (
+  <Grid container spacing={2.5} sx={{ mb: 2.5 }}>
+    {isComponentVisible('comparativeTable') && (
+      <Grid item xs={12} md={6}>
+        <ChartsPaper>
+          <ChartHeader>
+            <Typography variant="h6">Comparativo de Setores</Typography>
+            <ComponentVisibilityControl componentKey="comparativeTable" />
+          </ChartHeader>
+          <Suspense fallback={<TableSkeleton />}>
+            {loadingStates.queues ? (
+              <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
+                <CircularProgress size={40} />
+              </Box>
+            ) : (
+              <ComparativeTable data={dashboardData.comparativeData} />
+            )}
+          </Suspense>
+        </ChartsPaper>
+      </Grid>
+    )}
+    
+    {isComponentVisible('prospectionTable') && (
+      <Grid item xs={12} md={6}>
+        <ChartsPaper>
+          <ChartHeader>
+            <Typography variant="h6">Prospecção por Usuário</Typography>
+            <ComponentVisibilityControl componentKey="prospectionTable" />
+          </ChartHeader>
+          <Suspense fallback={<TableSkeleton />}>
+            {loadingStates.prospection ? (
+              <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
+                <CircularProgress size={40} />
+              </Box>
+            ) : (
+              <ProspectionTable 
+                data={dashboardData.prospectionData} 
+                compareMode={true}
+              />
+            )}
+          </Suspense>
+        </ChartsPaper>
+      </Grid>
+    )}
+  </Grid>
+));
+
+// Componente memoizado para o mapa do Brasil
+const BrazilMapSection = memo(({ dashboardData, selectedQueue, isComponentVisible, loadingStates }) => {
+  if (selectedQueue !== 'all' || !isComponentVisible('brazilMap')) {
+    return null;
+  }
+
+  return (
+    <Grid container spacing={2.5} sx={{ mb: 2.5 }}>
+      <Grid item xs={12}>
+        <ChartsPaper>
+          <ChartHeader>
+            <Typography variant="h6">Distribuição de Contatos por Estado</Typography>
+            <ComponentVisibilityControl componentKey="brazilMap" />
+          </ChartHeader>
+          <Suspense fallback={<ChartSkeleton />}>
+            {loadingStates.overview ? (
+              <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
+                <CircularProgress size={40} />
+              </Box>
+            ) : (
+              <BrazilMap 
+                contactMetrics={dashboardData.contactMetrics}
+                title=""
+              />
+            )}
+          </Suspense>
+        </ChartsPaper>
+      </Grid>
+    </Grid>
+  );
+});
 
 const Dashboard = () => {
   const { Loading } = useLoading();
@@ -146,28 +330,47 @@ const Dashboard = () => {
     dashboardData,
     getDateRangeDisplay,
     dashboardSettings,
-    loadDashboardData
+    loadDashboardData,
+    loadingStates,
+    clearCache
   } = useDashboardContext();
   
   // Estado para controlar a abertura do modal de configurações
   const [configModalOpen, setConfigModalOpen] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
   
-  // Verificar se um componente deve ser exibido
-  const isComponentVisible = (componentKey) => {
+  // Verificar se um componente deve ser exibido (memoizado)
+  const isComponentVisible = useCallback((componentKey) => {
     return dashboardSettings?.componentVisibility?.[componentKey] !== false;
-  };
+  }, [dashboardSettings?.componentVisibility]);
   
-  // Handler para mudança de faixa de data
-  const handleDateRangeChange = (event) => {
+  // Handler para mudança de faixa de data (memoizado)
+  const handleDateRangeChange = useCallback((event) => {
     setDateRange(event.target.value);
-  };
+  }, [setDateRange]);
+
+  // Handler para mudança de fila (memoizado)
+  const handleQueueChange = useCallback((queueId) => {
+    setSelectedQueue(queueId);
+  }, [setSelectedQueue]);
+
+  // Handler para refresh manual
+  const handleRefresh = useCallback(async () => {
+    clearCache();
+    await loadDashboardData();
+    toast.success('Dados atualizados com sucesso!');
+  }, [clearCache, loadDashboardData]);
   
-  // Handler para exportação para Excel
-  const handleExportToExcel = () => {
-    Loading.turnOn();
+  // Handler para exportação para Excel (memoizado)
+  const handleExportToExcel = useCallback(async () => {
+    setIsExporting(true);
     toast.info('Exportando dados para Excel...');
     
     try {
+      // Importar dinamicamente o serviço de exportação
+      const ExcelExportServiceModule = await import('./services/ExcelExportService');
+      const ExcelExportService = ExcelExportServiceModule.default;
+      
       // Formatar dados para exportação
       const dataToExport = ExcelExportService.formatDashboardDataForExport(dashboardData);
       
@@ -186,18 +389,39 @@ const Dashboard = () => {
       console.error('Erro ao exportar para Excel:', error);
       toast.error('Erro ao exportar para Excel. Por favor, tente novamente.');
     } finally {
-      Loading.turnOff();
+      setIsExporting(false);
     }
-  };
+  }, [dashboardData]);
 
-  const getComparisonPeriodText = (period) => {
+  // Função para obter texto do período de comparação (memoizada)
+  const getComparisonPeriodText = useMemo(() => {
     const periodMap = {
       7: 'semana anterior',
       15: 'quinzena anterior',
       30: 'mês anterior',
     };
-    return periodMap[period] || 'período anterior';
-  };
+    return (period) => periodMap[period] || 'período anterior';
+  }, []);
+
+  // Renderizar botões de fila (memoizado)
+  const queueButtons = useMemo(() => (
+    <Box sx={{ mb: 2.5, display: 'flex', flexWrap: 'wrap' }}>
+      {queues.map((queue) => (
+        <QueueButton
+          key={queue.id}
+          active={selectedQueue === queue.id}
+          onClick={() => handleQueueChange(queue.id)}
+        >
+          {queue.name}
+        </QueueButton>
+      ))}
+    </Box>
+  ), [queues, selectedQueue, handleQueueChange]);
+
+  // Verificar se há algum carregamento em andamento
+  const hasAnyLoading = useMemo(() => {
+    return isLoading || Object.values(loadingStates).some(state => state);
+  }, [isLoading, loadingStates]);
 
   return (
     <StyledContainer maxWidth={false}>
@@ -205,8 +429,8 @@ const Dashboard = () => {
         <Title variant="h1">Análise de Performance Operacional</Title>
         <FiltersContainer>
           <DateFilter>
-            <DateFilterIcon />
-            {getDateRangeDisplay()}
+            <CalendarToday sx={{ mr: 0.5, color: 'primary.main', fontSize: '1rem' }} />
+            {getDateRangeDisplay}
           </DateFilter>
           <FormControl size="small">
             <Select
@@ -230,38 +454,31 @@ const Dashboard = () => {
             </Select>
           </FormControl>
           
+          <Tooltip title="Atualizar Dados">
+            <RefreshButton 
+              onClick={handleRefresh} 
+              disabled={hasAnyLoading}
+              size="small"
+            >
+              <Refresh />
+            </RefreshButton>
+          </Tooltip>
+          
           <Tooltip title="Configurações do Dashboard">
-            <ConfigButton onClick={() => setConfigModalOpen(true)}>
+            <IconButton 
+              onClick={() => setConfigModalOpen(true)}
+              sx={{ color: 'grey.700' }}
+              size="small"
+            >
               <SettingsIcon />
-            </ConfigButton>
+            </IconButton>
           </Tooltip>
         </FiltersContainer>
       </PageHeader>
 
-      <Box sx={{ mb: 2.5, display: 'flex', flexWrap: 'wrap' }}>
-        {queues.map((queue) => (
-          <QueueButton
-            key={queue.id}
-            active={selectedQueue === queue.id}
-            onClick={() => setSelectedQueue(queue.id)}
-          >
-            {queue.name}
-          </QueueButton>
-        ))}
-      </Box>
+      {queueButtons}
 
-      {isLoading ? (
-        <Box sx={{ 
-          display: 'flex', 
-          justifyContent: 'center', 
-          alignItems: 'center', 
-          height: '50vh' 
-        }}>
-          <Typography variant="h6" color="text.secondary">
-            Carregando dados...
-          </Typography>
-        </Box>
-      ) : error ? (
+      {error ? (
         <Box sx={{ 
           display: 'flex', 
           justifyContent: 'center', 
@@ -275,154 +492,57 @@ const Dashboard = () => {
       ) : (
         <>
           {/* Cards de Métricas */}
-          <Grid container spacing={2.5} sx={{ mb: 2.5 }}>
-            {isComponentVisible('messagesCard') && (
-              <Grid item xs={12} md={4}>
-                <DashboardCard
-                  icon="paper-plane"
-                  title="Mensagens Enviadas"
-                  value={dashboardData.messagesCount.toLocaleString()}
-                  subtitle="Total no período"
-                  trend={dashboardData.messagesTrend}
-                  trendText={`${Math.abs(dashboardData.messagesTrend)}% em relação à ${getComparisonPeriodText(dateRange)}`}
-                  visibilityControl={<ComponentVisibilityControl componentKey="messagesCard" />}
-                />
-              </Grid>
-            )}
-            
-            {isComponentVisible('responseTimeCard') && (
-              <Grid item xs={12} md={4}>
-                <DashboardCard
-                  icon="clock"
-                  title="Tempo Médio de Resposta"
-                  value={dashboardData.avgResponseTime}
-                  subtitle="Após primeira mensagem do cliente"
-                  trend={dashboardData.responseTimeTrend}
-                  trendText={`${Math.abs(dashboardData.responseTimeTrend)}% em relação à ${getComparisonPeriodText(dateRange)}`}
-                  invertTrend={true}
-                  visibilityControl={<ComponentVisibilityControl componentKey="responseTimeCard" />}
-                />
-              </Grid>
-            )}
-            
-            {isComponentVisible('clientsCard') && (
-              <Grid item xs={12} md={4}>
-                <DashboardCard
-                  icon="users"
-                  title="Clientes Interagidos"
-                  value={dashboardData.clientsCount.toLocaleString()}
-                  subtitle="No período selecionado"
-                  trend={dashboardData.clientsTrend}
-                  trendText={`${Math.abs(dashboardData.clientsTrend)}% em relação à ${getComparisonPeriodText(dateRange)}`}
-                  visibilityControl={<ComponentVisibilityControl componentKey="clientsCard" />}
-                />
-              </Grid>
-            )}
-          </Grid>
+          <MetricsCards 
+            dashboardData={dashboardData}
+            dateRange={dateRange}
+            isComponentVisible={isComponentVisible}
+            getComparisonPeriodText={getComparisonPeriodText}
+          />
 
           {/* Gráficos */}
-          <Grid container spacing={2.5} sx={{ mb: 2.5 }}>
-            {isComponentVisible('messagesByDayChart') && (
-              <Grid item xs={12} md={6}>
-                <ChartsPaper>
-                  <ChartHeader>
-                    <Typography variant="h6">
-                      Mensagens por Dia
-                    </Typography>
-                    <ComponentVisibilityControl componentKey="messagesByDayChart" />
-                  </ChartHeader>
-                  <BarChartComponent data={dashboardData.messagesByDay} />
-                </ChartsPaper>
-              </Grid>
-            )}
-            
-            {isComponentVisible('messagesByUserChart') && (
-              <Grid item xs={12} md={6}>
-                <ChartsPaper>
-                  <ChartHeader>
-                    <Typography variant="h6">
-                      Mensagens por Usuário
-                    </Typography>
-                    <ComponentVisibilityControl componentKey="messagesByUserChart" />
-                  </ChartHeader>
-                  <DonutChartComponent data={dashboardData.messagesByUser} />
-                </ChartsPaper>
-              </Grid>
-            )}
-          </Grid>
+          <ChartsSection 
+            dashboardData={dashboardData}
+            isComponentVisible={isComponentVisible}
+            loadingStates={loadingStates}
+          />
 
           {/* Tabelas */}
-          <Grid container spacing={2.5} sx={{ mb: 2.5 }}>
-            {isComponentVisible('comparativeTable') && (
-              <Grid item xs={12} md={6}>
-                <ChartsPaper>
-                  <ChartHeader>
-                    <Typography variant="h6">
-                      Comparativo de Setores
-                    </Typography>
-                    <ComponentVisibilityControl componentKey="comparativeTable" />
-                  </ChartHeader>
-                  <ComparativeTable data={dashboardData.comparativeData} />
-                </ChartsPaper>
-              </Grid>
-            )}
-            
-            {isComponentVisible('prospectionTable') && (
-              <Grid item xs={12} md={6}>
-                <ChartsPaper>
-                  <ChartHeader>
-                    <Typography variant="h6">
-                      Prospecção por Usuário
-                    </Typography>
-                    <ComponentVisibilityControl componentKey="prospectionTable" />
-                  </ChartHeader>
-                  <ProspectionTable 
-                    data={dashboardData.prospectionData} 
-                    compareMode={true}  // Ativar modo de comparação
-                  />
-                </ChartsPaper>
-              </Grid>
-            )}
+          <TablesSection 
+            dashboardData={dashboardData}
+            isComponentVisible={isComponentVisible}
+            loadingStates={loadingStates}
+          />
 
-          {/* Mapa do Brasil - Apenas para aba "TODOS" */}
-          {selectedQueue === 'all' && isComponentVisible('brazilMap') && (
-            <Grid container spacing={2.5} sx={{ mb: 2.5 }}>
-              <Grid item xs={12}>
-                <ChartsPaper>
-                  <ChartHeader>
-                    <Typography variant="h6">
-                      Distribuição de Contatos por Estado
-                    </Typography>
-                    <ComponentVisibilityControl componentKey="brazilMap" />
-                  </ChartHeader>
-                  <BrazilMap 
-                    contactMetrics={dashboardData.contactMetrics}
-                    title=""
-                  />
-                </ChartsPaper>
-              </Grid>
-            </Grid>
-          )}
-
-
-          </Grid>
+          {/* Mapa do Brasil */}
+          <BrazilMapSection 
+            dashboardData={dashboardData}
+            selectedQueue={selectedQueue}
+            isComponentVisible={isComponentVisible}
+            loadingStates={loadingStates}
+          />
 
           {/* Footer com Botão de Exportação */}
           <FooterContainer>
-            <ExportButton startIcon={<FileDownload />} onClick={handleExportToExcel}>
-              Exportar para Excel
+            <ExportButton 
+              startIcon={<FileDownload />} 
+              onClick={handleExportToExcel}
+              disabled={isExporting || hasAnyLoading}
+            >
+              {isExporting ? 'Exportando...' : 'Exportar para Excel'}
             </ExportButton>
           </FooterContainer>
         </>
       )}
       
       {/* Modal de Configurações do Dashboard */}
-      <DashboardConfigModal 
-        open={configModalOpen} 
-        onClose={() => setConfigModalOpen(false)} 
-      />
+      <Suspense fallback={<div />}>
+        <DashboardConfigModal 
+          open={configModalOpen} 
+          onClose={() => setConfigModalOpen(false)} 
+        />
+      </Suspense>
     </StyledContainer>
   );
 };
 
-export default Dashboard;
+export default memo(Dashboard);

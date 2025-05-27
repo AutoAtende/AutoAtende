@@ -1,11 +1,69 @@
-import { useState, useEffect, useContext, useCallback } from 'react';
+import { useState, useEffect, useContext, useCallback, useRef, useMemo } from 'react';
 import { AuthContext } from '../../../context/Auth/AuthContext';
 import api from '../../../services/api';
 import { toast } from '../../../helpers/toast';
 
+// Debounce customizado
+const useDebounce = (value, delay) => {
+  const [debouncedValue, setDebouncedValue] = useState(value);
+
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedValue(value);
+    }, delay);
+
+    return () => {
+      clearTimeout(handler);
+    };
+  }, [value, delay]);
+
+  return debouncedValue;
+};
+
+// Cache simples no frontend
+class FrontendCache {
+  constructor() {
+    this.cache = new Map();
+    this.maxSize = 50; // Limite máximo de entradas
+  }
+
+  set(key, data, ttlMinutes = 3) {
+    // Remove entradas antigas se exceder o limite
+    if (this.cache.size >= this.maxSize) {
+      const firstKey = this.cache.keys().next().value;
+      this.cache.delete(firstKey);
+    }
+
+    this.cache.set(key, {
+      data,
+      timestamp: Date.now(),
+      ttl: ttlMinutes * 60 * 1000
+    });
+  }
+
+  get(key) {
+    const cached = this.cache.get(key);
+    if (!cached) return null;
+
+    if (Date.now() - cached.timestamp > cached.ttl) {
+      this.cache.delete(key);
+      return null;
+    }
+
+    return cached.data;
+  }
+
+  clear() {
+    this.cache.clear();
+  }
+}
+
+const frontendCache = new FrontendCache();
+
 const useDashboardData = () => {
   const { user } = useContext(AuthContext);
-  // Estados
+  
+  // Estados principais
   const [dateRange, setDateRange] = useState(7);
   const [selectedQueue, setSelectedQueue] = useState('all');
   const [selectedAgent, setSelectedAgent] = useState('all');
@@ -14,7 +72,15 @@ const useDashboardData = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
   
-  // Dados do dashboard
+  // Estados para controle de carregamento individual
+  const [loadingStates, setLoadingStates] = useState({
+    overview: false,
+    queues: false,
+    prospection: false,
+    contacts: false
+  });
+
+  // Dados do dashboard separados para carregamento individual
   const [dashboardData, setDashboardData] = useState({
     messagesCount: 0,
     avgResponseTime: '0m 00s',
@@ -32,180 +98,313 @@ const useDashboardData = () => {
     }
   });
 
-  // Carregar dados iniciais
+  // Referências para cancelar requests
+  const abortControllerRef = useRef(null);
+  const mountedRef = useRef(true);
+
+  // Debounce dos filtros para evitar muitas chamadas
+  const debouncedDateRange = useDebounce(dateRange, 500);
+  const debouncedSelectedQueue = useDebounce(selectedQueue, 300);
+
+  // Cleanup na desmontagem
   useEffect(() => {
-    const loadInitialData = async () => {
-      setIsLoading(true);
-      setError(null);
+    return () => {
+      mountedRef.current = false;
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
+    };
+  }, []);
+
+  // Gerar chave de cache
+  const generateCacheKey = useCallback((endpoint, params) => {
+    return `${endpoint}_${JSON.stringify(params)}_${user?.companyId}`;
+  }, [user?.companyId]);
+
+  // Função otimizada para fazer requests com cache e abort
+  const makeRequest = useCallback(async (endpoint, params = {}, cacheMinutes = 3) => {
+    const cacheKey = generateCacheKey(endpoint, params);
+    
+    // Verificar cache primeiro
+    const cached = frontendCache.get(cacheKey);
+    if (cached) {
+      return cached;
+    }
+
+    // Cancelar request anterior se existir
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+
+    // Criar novo controller
+    abortControllerRef.current = new AbortController();
+
+    try {
+      const response = await api.get(endpoint, {
+        params,
+        signal: abortControllerRef.current.signal
+      });
+
+      // Verificar se o componente ainda está montado
+      if (!mountedRef.current) return null;
+
+      // Salvar no cache
+      frontendCache.set(cacheKey, response.data, cacheMinutes);
       
+      return response.data;
+    } catch (error) {
+      if (error.name === 'CancelledError' || error.code === 'ERR_CANCELED') {
+        return null; // Request cancelado, não é erro
+      }
+      throw error;
+    }
+  }, [generateCacheKey]);
+
+  // Carregar dados iniciais (filas e usuários) - executa apenas uma vez
+  useEffect(() => {
+    let isMounted = true;
+
+    const loadInitialData = async () => {
       try {
-        // Carregar setores (queues)
-        const queuesResponse = await api.get('/queue');
-        const loadedQueues = [{ id: 'all', name: 'Todos' }, ...queuesResponse.data];
-        setQueues(loadedQueues);
-        
-        // Carregar usuários
-        const usersResponse = await api.get('/users/list');
-        setUsers([{ id: 'all', name: 'Todos os Agentes' }, ...usersResponse.data]);
-        
+        setIsLoading(true);
+        setError(null);
+
+        // Carregar em paralelo com cache
+        const [queuesData, usersData] = await Promise.all([
+          makeRequest('/queue', {}, 10), // Cache por mais tempo
+          makeRequest('/users/list', {}, 10)
+        ]);
+
+        if (!isMounted) return;
+
+        if (queuesData) {
+          const loadedQueues = [{ id: 'all', name: 'Todos' }, ...queuesData];
+          setQueues(loadedQueues);
+        }
+
+        if (usersData) {
+          const loadedUsers = [{ id: 'all', name: 'Todos os Agentes' }, ...usersData];
+          setUsers(loadedUsers);
+        }
+
       } catch (error) {
+        if (!isMounted) return;
+        
         console.error('Erro ao carregar dados iniciais', error);
         setError('Erro ao carregar dados iniciais. Por favor, tente novamente.');
         toast.error('Erro ao carregar dados iniciais. Por favor, tente novamente.');
       } finally {
-        setIsLoading(false);
+        if (isMounted) {
+          setIsLoading(false);
+        }
       }
     };
-    
+
     loadInitialData();
-  }, []);
 
-  // Recarregar dados quando mudar a faixa de data ou a queue selecionada
-  useEffect(() => {
-    if (queues.length > 0) {
-      loadDashboardData();
-    }
-  }, [dateRange, selectedQueue, queues]);
+    return () => {
+      isMounted = false;
+    };
+  }, [makeRequest]);
 
-  // Função para carregar os dados do dashboard
-  const loadDashboardData = async () => {
-    setIsLoading(true);
-    setError(null);
-    
+  // Função otimizada para carregar overview
+  const loadOverviewData = useCallback(async () => {
+    if (!queues.length) return;
+
+    setLoadingStates(prev => ({ ...prev, overview: true }));
+
     try {
-      // Calcular datas para o filtro
       const endDate = new Date();
       const startDate = new Date();
-      startDate.setDate(endDate.getDate() - dateRange);
+      startDate.setDate(endDate.getDate() - debouncedDateRange);
       
-      const startDateStr = startDate.toISOString().split('T')[0];
-      const endDateStr = endDate.toISOString().split('T')[0];
-      
-      // Seleção do endpoint com base na fila atual
-      const queueId = selectedQueue === 'all' ? null : selectedQueue;
-      let overviewEndpoint = `/dashboard/overview?startDate=${startDateStr}&endDate=${endDateStr}`;
-      let queuesEndpoint = `/dashboard/queues?startDate=${startDateStr}&endDate=${endDateStr}`;
-      
-      if (queueId) {
-        queuesEndpoint = `/dashboard/queues?startDate=${startDateStr}&endDate=${endDateStr}&queueId=${queueId}`;
-      }
-      
-      // Carregar dados principais - sempre pegar o overview geral e também os dados específicos da queue
-      const overviewResponse = await api.get(overviewEndpoint);
-      const queueMetricsResponse = await api.get(queuesEndpoint);
-      
-      // Carregar dados de prospecção
-      const prospectionResponse = await api.get(
-        `/dashboard/agent-prospection?period=${dateRange === 7 ? 'semana' : dateRange === 15 ? 'quinzena' : 'mes'}`
-      );
-      
-      // Verificar e inicializar dados para evitar erros
-      const overviewData = overviewResponse.data || {};
-      const queueMetricsData = queueMetricsResponse.data || {};
-      
-      // Se estamos em uma fila específica, usar os dados dela, senão usar os dados do overview geral
-      let messagesCount = overviewData.totalMessages || 0;
-      let avgResponseTime = overviewData.averageFirstResponseTime || 0;
-      let clientsCount = overviewData.newContacts || 0;
-      let messagesTrend = overviewData.messageTrend || 0;
-      let responseTimeTrend = overviewData.responseTrend || 0;
-      let clientsTrend = overviewData.clientTrend || 0;
-      let messagesByDay = overviewData.messagesByDay || [];
-      let contactMetrics = overviewData.contactMetrics || { total: 0, byState: {} };
-      
-      // Se temos uma fila selecionada e dados disponíveis para ela, atualizamos os valores
-      if (queueId && queueMetricsData.ticketsByQueue && queueMetricsData.ticketsByQueue.length > 0) {
-        const queueData = queueMetricsData.ticketsByQueue[0];
-        messagesCount = queueData.count || 0;
-        avgResponseTime = queueData.firstContactTime || 0;
-        clientsCount = queueData.clients || 0;
-        
-        // Para filas específicas, não temos dados de contatos por estado
-        contactMetrics = { total: 0, byState: {} };
-      }
-      
-      const ticketsByUser = queueMetricsData.ticketsByUser || [];
-      const ticketsByQueue = queueMetricsData.ticketsByQueue || [];
-      
-      // Processar dados recebidos
-      const newData = {
-        messagesCount,
-        avgResponseTime: formatResponseTime(avgResponseTime),
-        clientsCount,
-        // Limitar os valores de tendência para evitar percentuais extremos
-        messagesTrend: limitTrendValue(messagesTrend),
-        responseTimeTrend: limitTrendValue(responseTimeTrend),
-        clientsTrend: limitTrendValue(clientsTrend),
-        messagesByDay: formatMessagesByDay(messagesByDay),
-        messagesByUser: formatMessagesByUser(ticketsByUser),
-        comparativeData: formatComparativeData(ticketsByQueue),
-        prospectionData: prospectionResponse.data || [],
-        contactMetrics
+      const params = {
+        startDate: startDate.toISOString().split('T')[0],
+        endDate: endDate.toISOString().split('T')[0]
       };
+
+      const overviewData = await makeRequest('/dashboard/overview', params, 2);
       
-      setDashboardData(newData);
-      
+      if (!overviewData || !mountedRef.current) return;
+
+      // Atualizar apenas os dados do overview
+      setDashboardData(prev => ({
+        ...prev,
+        messagesCount: overviewData.totalMessages || 0,
+        avgResponseTime: formatResponseTime(overviewData.averageFirstResponseTime || 0),
+        clientsCount: overviewData.newContacts || 0,
+        messagesTrend: limitTrendValue(overviewData.messageTrend || 0),
+        responseTimeTrend: limitTrendValue(overviewData.responseTrend || 0),
+        clientsTrend: limitTrendValue(overviewData.clientTrend || 0),
+        messagesByDay: formatMessagesByDay(overviewData.messagesByDay || []),
+        contactMetrics: overviewData.contactMetrics || { total: 0, byState: {} }
+      }));
+
     } catch (error) {
-      console.error('Erro ao carregar dados do dashboard', error);
-      setError('Erro ao carregar métricas do dashboard.');
-      toast.error('Erro ao carregar métricas do dashboard.');
+      if (!mountedRef.current) return;
+      console.error('Erro ao carregar overview', error);
+      toast.error('Erro ao carregar visão geral.');
+    } finally {
+      if (mountedRef.current) {
+        setLoadingStates(prev => ({ ...prev, overview: false }));
+      }
+    }
+  }, [debouncedDateRange, queues.length, makeRequest]);
+
+  // Função otimizada para carregar dados de filas
+  const loadQueuesData = useCallback(async () => {
+    if (!queues.length) return;
+
+    setLoadingStates(prev => ({ ...prev, queues: true }));
+
+    try {
+      const endDate = new Date();
+      const startDate = new Date();
+      startDate.setDate(endDate.getDate() - debouncedDateRange);
+      
+      const params = {
+        startDate: startDate.toISOString().split('T')[0],
+        endDate: endDate.toISOString().split('T')[0]
+      };
+
+      // Adicionar queueId se não for 'all'
+      if (debouncedSelectedQueue !== 'all') {
+        params.queueId = debouncedSelectedQueue;
+      }
+
+      const queueMetricsData = await makeRequest('/dashboard/queues', params, 2);
+      
+      if (!queueMetricsData || !mountedRef.current) return;
+
+      // Atualizar dados relacionados às filas
+      setDashboardData(prev => ({
+        ...prev,
+        messagesByUser: formatMessagesByUser(queueMetricsData.ticketsByUser || []),
+        comparativeData: formatComparativeData(queueMetricsData.ticketsByQueue || [])
+      }));
+
+      // Se fila específica selecionada, atualizar métricas principais
+      if (debouncedSelectedQueue !== 'all' && queueMetricsData.ticketsByQueue?.length > 0) {
+        const queueData = queueMetricsData.ticketsByQueue[0];
+        setDashboardData(prev => ({
+          ...prev,
+          messagesCount: queueData.count || 0,
+          avgResponseTime: formatResponseTime(queueData.firstContactTime || 0),
+          clientsCount: queueData.clients || 0,
+          contactMetrics: { total: 0, byState: {} } // Reset para fila específica
+        }));
+      }
+
+    } catch (error) {
+      if (!mountedRef.current) return;
+      console.error('Erro ao carregar dados de filas', error);
+      toast.error('Erro ao carregar dados de filas.');
+    } finally {
+      if (mountedRef.current) {
+        setLoadingStates(prev => ({ ...prev, queues: false }));
+      }
+    }
+  }, [debouncedDateRange, debouncedSelectedQueue, queues.length, makeRequest]);
+
+  // Função otimizada para carregar dados de prospecção
+  const loadProspectionData = useCallback(async () => {
+    setLoadingStates(prev => ({ ...prev, prospection: true }));
+
+    try {
+      const periodMap = {
+        7: 'semana',
+        15: 'quinzena',
+        30: 'mes'
+      };
+
+      const prospectionData = await makeRequest('/dashboard/agent-prospection', {
+        period: periodMap[debouncedDateRange] || 'semana'
+      }, 5);
+
+      if (!prospectionData || !mountedRef.current) return;
+
+      setDashboardData(prev => ({
+        ...prev,
+        prospectionData: prospectionData || []
+      }));
+
+    } catch (error) {
+      if (!mountedRef.current) return;
+      console.error('Erro ao carregar dados de prospecção', error);
+      toast.error('Erro ao carregar dados de prospecção.');
+    } finally {
+      if (mountedRef.current) {
+        setLoadingStates(prev => ({ ...prev, prospection: false }));
+      }
+    }
+  }, [debouncedDateRange, makeRequest]);
+
+  // Carregar dados quando os filtros mudarem (com debounce)
+  useEffect(() => {
+    if (queues.length === 0) return;
+    
+    // Carregar dados em paralelo para melhor performance
+    Promise.all([
+      loadOverviewData(),
+      loadQueuesData(),
+      loadProspectionData()
+    ]);
+  }, [debouncedDateRange, debouncedSelectedQueue, loadOverviewData, loadQueuesData, loadProspectionData]);
+
+  // Função pública para recarregar todos os dados
+  const loadDashboardData = useCallback(async () => {
+    if (queues.length === 0) return;
+    
+    // Limpar cache para forçar reload
+    frontendCache.clear();
+    
+    setIsLoading(true);
+    try {
+      await Promise.all([
+        loadOverviewData(),
+        loadQueuesData(),
+        loadProspectionData()
+      ]);
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [loadOverviewData, loadQueuesData, loadProspectionData, queues.length]);
 
-  const getColorScale = useCallback((value, max) => {
-    const intensity = Math.pow(value / max, 0.5);
-    const minIntensity = 0.4;
-    const maxIntensity = 0.9;
-    return `rgba(25, 118, 210, ${minIntensity + (intensity * (maxIntensity - minIntensity))})`;
-  }, []);
-
-  // Funções para formatação de dados
-  const formatResponseTime = (minutes) => {
+  // Funções auxiliares memoizadas
+  const formatResponseTime = useCallback((minutes) => {
     if (!minutes) return '0m 00s';
     const mins = Math.floor(minutes);
     const secs = Math.round((minutes - mins) * 60);
     return `${mins}m ${secs.toString().padStart(2, '0')}s`;
-  };
+  }, []);
 
-  // Limitar valores de tendência para evitar percentuais extremos
-  const limitTrendValue = (trendValue, maxLimit = 200) => {
+  const limitTrendValue = useCallback((trendValue, maxLimit = 200) => {
     if (trendValue === undefined || trendValue === null) return 0;
     if (trendValue > maxLimit) return maxLimit;
     if (trendValue < -maxLimit) return -maxLimit;
     return trendValue;
-  };
+  }, []);
 
-  const formatMessagesByDay = (data) => {
-    // Se não houver dados, retornar array vazio
+  const formatMessagesByDay = useCallback((data) => {
     if (!data || data.length === 0) return [];
-
-    // Ordenar por data
     const sortedData = [...data].sort((a, b) => new Date(a.date) - new Date(b.date));
+    return sortedData.slice(-7); // Últimos 7 dias
+  }, []);
 
-    // Limitar aos últimos 7 dias
-    const last7Days = sortedData.slice(-7);
-
-    return last7Days;
-  };
-
-  const formatMessagesByUser = (data) => {
+  const formatMessagesByUser = useCallback((data) => {
     if (!data || data.length === 0) return [];
     
-    // Calcular o total de mensagens
     const total = data.reduce((sum, user) => sum + user.count, 0);
     
-    // Mapear os dados e calcular o percentual
     return data.slice(0, 5).map(user => ({
       id: user.userId,
       name: user.userName,
       value: user.count,
       percentage: Math.round((user.count / total) * 100)
     }));
-  };
+  }, []);
 
-  const formatComparativeData = (queueData) => {
+  const formatComparativeData = useCallback((queueData) => {
     if (!queueData || queueData.length === 0) return [];
     
     return queueData.map(queue => ({
@@ -217,33 +416,74 @@ const useDashboardData = () => {
       responseRate: `${queue.responseRate || 0}%`,
       firstContact: formatResponseTime(queue.firstContactTime || 0)
     }));
-  };
+  }, [formatResponseTime]);
+
+  // Função memoizada para display de datas
+  const getDateRangeDisplay = useMemo(() => {
+    const today = new Date();
+    const pastDate = new Date();
+    pastDate.setDate(today.getDate() - dateRange);
+    
+    const formatDate = (date) => {
+      return `${date.getDate().toString().padStart(2, '0')}/${(date.getMonth() + 1).toString().padStart(2, '0')}/${date.getFullYear()}`;
+    };
+    
+    return `${formatDate(pastDate)} - ${formatDate(today)}`;
+  }, [dateRange]);
+
+  // Verificar se está carregando
+  const isCurrentlyLoading = useMemo(() => {
+    return isLoading || Object.values(loadingStates).some(state => state);
+  }, [isLoading, loadingStates]);
+
+  // Handlers otimizados com useCallback
+  const handleDateRangeChange = useCallback((newDateRange) => {
+    setDateRange(newDateRange);
+  }, []);
+
+  const handleQueueChange = useCallback((newQueue) => {
+    setSelectedQueue(newQueue);
+  }, []);
+
+  const handleAgentChange = useCallback((newAgent) => {
+    setSelectedAgent(newAgent);
+  }, []);
+
+  // Limpar cache quando necessário
+  const clearCache = useCallback(() => {
+    frontendCache.clear();
+  }, []);
 
   // Retornar os dados e funções necessários
   return {
-    isLoading,
+    // Estados principais
+    isLoading: isCurrentlyLoading,
     error,
+    
+    // Filtros
     dateRange,
-    setDateRange,
+    setDateRange: handleDateRangeChange,
     selectedQueue,
-    setSelectedQueue,
+    setSelectedQueue: handleQueueChange,
     selectedAgent,
-    setSelectedAgent,
+    setSelectedAgent: handleAgentChange,
+    
+    // Dados
     queues,
     users,
     dashboardData,
+    
+    // Estados de carregamento específicos
+    loadingStates,
+    
+    // Funções
     loadDashboardData,
-    getDateRangeDisplay: () => {
-      const today = new Date();
-      const pastDate = new Date();
-      pastDate.setDate(today.getDate() - dateRange);
-      
-      const formatDate = (date) => {
-        return `${date.getDate().toString().padStart(2, '0')}/${(date.getMonth() + 1).toString().padStart(2, '0')}/${date.getFullYear()}`;
-      };
-      
-      return `${formatDate(pastDate)} - ${formatDate(today)}`;
-    }
+    clearCache,
+    getDateRangeDisplay,
+    
+    // Utilitários
+    formatResponseTime,
+    limitTrendValue
   };
 };
 
