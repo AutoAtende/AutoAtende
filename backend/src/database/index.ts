@@ -100,6 +100,7 @@ import DynamicForm from "../models/DynamicForm";
 import FormSubmission from "../models/FormSubmission";
 import LandingPage from "../models/LandingPage";
 import LandingPageMedia from "../models/LandingPageMedia";
+import DashboardCache from "../models/DashboardCache";
 import * as dbConfig from "../config/database";
 const sequelize = new Sequelize(dbConfig as any);
 
@@ -204,7 +205,8 @@ const models = [
   DynamicForm,
   FormSubmission,
   LandingPage,
-  LandingPageMedia
+  LandingPageMedia,
+  DashboardCache
 ];
 
 sequelize.addModels(models);

@@ -6,7 +6,7 @@ dotenv.config({ path: path.join(__dirname, ".env") });
 import gracefulShutdown from "http-graceful-shutdown";
 import http from "http";
 import { initRedis } from "./config/redis";
-import { startQueueProcess, shutdownQueues } from "./queues";
+import { startQueueProcess, shutdownQueues, getGeneralMonitor } from "./queues";
 import { getJwtConfig } from "./config/auth";
 import { init } from "./libs/cache";
 import { initIO } from "./libs/socket";
@@ -120,6 +120,7 @@ const initialize = async () => {
         await shutdownQueues();
         logger.info("Finalizando sistema de monitoramento de inatividade...");
         await cleanupInactivityResources();
+
 
       },
       finally: () => {

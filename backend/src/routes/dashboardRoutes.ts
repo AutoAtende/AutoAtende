@@ -68,4 +68,12 @@ dashboardRoutes.post(
   dashboardSettingsController.resetSettings
 );
 
+// Rota para forçar atualização do cache do dashboard
+dashboardRoutes.post(
+  "/dashboard/cache/refresh",
+  isAuth,
+  isAdmin,
+  dashboardController.forceUpdateCache
+);
+
 export default dashboardRoutes;

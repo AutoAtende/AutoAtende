@@ -1,13 +1,16 @@
 import { Request, Response } from "express";
 import DashboardService from "../services/DashboardService";
+import DashboardCacheService from "../services/DashboardCacheService";
 import AppError from "../errors/AppError";
 import { logger } from "../utils/logger";
 
 class DashboardController {
   private dashboardService: DashboardService;
+  private dashboardCacheService: DashboardCacheService;
 
   constructor() {
     this.dashboardService = new DashboardService();
+    this.dashboardCacheService = new DashboardCacheService();
   }
 
   public getOverview = async (req: Request, res: Response): Promise<Response> => {
@@ -20,8 +23,11 @@ class DashboardController {
       const parsedStartDate = startDate ? new Date(startDate) : undefined;
       const parsedEndDate = endDate ? new Date(endDate) : undefined;
 
-      const data = await this.dashboardService.getOverviewMetrics(
+      // Buscar dados do cache ou gerar em tempo real
+      const data = await this.dashboardCacheService.getCachedData(
         companyId,
+        "overview",
+        undefined,
         parsedStartDate,
         parsedEndDate
       );
@@ -51,11 +57,13 @@ class DashboardController {
       const parsedEndDate = endDate ? new Date(endDate) : undefined;
       const parsedQueueId = queueId ? parseInt(queueId, 10) : undefined;
 
-      const data = await this.dashboardService.getQueuesMetrics(
+      // Buscar dados do cache ou gerar em tempo real
+      const data = await this.dashboardCacheService.getCachedData(
         companyId,
+        "queues",
+        parsedQueueId,
         parsedStartDate,
-        parsedEndDate,
-        parsedQueueId
+        parsedEndDate
       );
 
       return res.status(200).json(data);
@@ -86,8 +94,14 @@ class DashboardController {
         throw new AppError("IDs de fila inválidos", 400);
       }
 
-      const data = await this.dashboardService.getQueuesComparison(
+      // Buscar dados do cache ou gerar em tempo real
+      const data = await this.dashboardCacheService.getCachedData(
         companyId,
+        "queuesComparison",
+        undefined,
+        undefined,
+        undefined,
+        undefined,
         parsedQueue1,
         parsedQueue2
       );
@@ -108,7 +122,11 @@ class DashboardController {
     try {
       logger.info("Iniciando getContactsByState", { companyId });
 
-      const data = await this.dashboardService.getContactsByState(companyId);
+      // Buscar dados do cache ou gerar em tempo real
+      const data = await this.dashboardCacheService.getCachedData(
+        companyId,
+        "contacts"
+      );
 
       return res.status(200).json(data);
     } catch (error) {
@@ -131,9 +149,10 @@ class DashboardController {
       const validPeriods = ['hoje', 'semana', 'quinzena', 'mes'];
       const parsedPeriod = validPeriods.includes(period || '') ? period : 'semana';
 
-      const data = await this.dashboardService.getAgentProspection(
+      // Buscar dados do cache ou gerar em tempo real
+      const data = await this.dashboardCacheService.getCachedData(
         companyId,
-        parsedPeriod
+        "agentProspection"
       );
 
       return res.status(200).json(data);
@@ -174,18 +193,44 @@ class DashboardController {
         throw new AppError("IDs inválidos", 400);
       }
 
-      const data = await this.dashboardService.getUserQueuesComparison(
+      // Buscar dados do cache ou gerar em tempo real
+      const data = await this.dashboardCacheService.getCachedData(
         companyId,
+        "userQueuesComparison",
+        undefined,
+        parsedStartDate,
+        parsedEndDate,
         parsedUserId,
         parsedQueue1,
-        parsedQueue2,
-        parsedStartDate,
-        parsedEndDate
+        parsedQueue2
       );
 
       return res.status(200).json(data);
     } catch (error) {
       logger.error("Erro em getUserQueuesComparison", { error });
+      if (error instanceof AppError) {
+        return res.status(error.statusCode).json({ error: error.message });
+      }
+      return res.status(500).json({ error: "Erro interno do servidor" });
+    }
+  };
+
+  /**
+   * Força a atualização do cache do dashboard para uma empresa
+   */
+  public forceUpdateCache = async (req: Request, res: Response): Promise<Response> => {
+    const { companyId } = req.user;
+
+    try {
+      logger.info("Iniciando forceUpdateCache", { companyId });
+
+      await this.dashboardCacheService.forceUpdateCache(companyId);
+
+      return res.status(200).json({ 
+        message: "Atualização do cache do dashboard iniciada com sucesso" 
+      });
+    } catch (error) {
+      logger.error("Erro em forceUpdateCache", { error });
       if (error instanceof AppError) {
         return res.status(error.statusCode).json({ error: error.message });
       }

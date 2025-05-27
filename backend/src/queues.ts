@@ -27,6 +27,7 @@ import ScheduledMessageJob from "./workers/scheduledMessageJob";
 import ScheduleMessageHandler from "./workers/handler/ScheduleMessageHandler";
 import InactivityMonitorService from "./services/FlowBuilderService/InactivityMonitorService";
 import CleanupInactiveFlowsService from "./services/FlowBuilderService/CleanupInactiveFlowsService";
+import DashboardCacheJob from "./jobs/dashboardCacheJob";
 
 
 let connection: IORedis;
@@ -62,6 +63,7 @@ declare global {
   var __workerRefs: Worker[];
   var __campaignJob: CampaignJob;
   var __scheduleMessageJob: ScheduledMessageJob;
+  var __dashboardCacheJob: DashboardCacheJob;
   var __heartbeatTimer: NodeJS.Timeout | null;
   var __healthMonitorTimer: NodeJS.Timeout | null;
 }
@@ -726,9 +728,17 @@ export async function startQueueProcess() {
             case "InvoiceCreate":
               return handleInvoiceAndCompanyStatus();
             case "InactivityMonitoring":
-  return handleInactivityMonitoring(job);
-case "InactivityCleanup":
-  return handleInactivityCleanup(job);
+              return handleInactivityMonitoring(job);
+            case "InactivityCleanup":
+              return handleInactivityCleanup(job);
+            case "DashboardCacheUpdate":
+              // Obter a instância do DashboardCacheJob do contexto global
+              if (global.__dashboardCacheJob) {
+                return global.__dashboardCacheJob.process(job);
+              } else {
+                logger.warn("DashboardCacheJob não inicializado, ignorando job");
+                return { success: false, error: "DashboardCacheJob não inicializado" };
+              }
             default:
               logger.warn(`[StartQueueProcess] Tipo de job desconhecido: ${job.name}`);
           }
@@ -891,6 +901,12 @@ case "InactivityCleanup":
         name: "InactivityCleanup", 
         every: 30 * 60 * 1000, // A cada 30 minutos
         timeout: 120000
+      },
+      {
+        queue: generalMonitor,
+        name: "DashboardCacheUpdate",
+        every: 30 * 60 * 1000, // A cada 30 minutos
+        timeout: 300000 // 5 minutos de timeout
       }
     ];
 
@@ -937,6 +953,20 @@ case "InactivityCleanup":
       // Confirmar a configuração global
       global.__scheduleMessageJob = scheduleMessageJob;
       logger.info("[StartQueueProcess] ScheduledMessageJob inicializado com sucesso");
+      
+      // Inicializar DashboardCacheJob
+      logger.info("[StartQueueProcess] Iniciando DashboardCacheJob");
+      try {
+        const dashboardCacheJob = await DashboardCacheJob.create(generalMonitor);
+        if (!dashboardCacheJob) {
+          throw new Error("[StartQueueProcess] DashboardCacheJob não foi criado corretamente");
+        }
+        global.__dashboardCacheJob = dashboardCacheJob;
+        logger.info("[StartQueueProcess] DashboardCacheJob inicializado com sucesso");
+      } catch (dashboardError) {
+        logger.error("[StartQueueProcess] Erro ao inicializar DashboardCacheJob:", dashboardError);
+        // Continuar mesmo com erro na inicialização do DashboardCacheJob
+      }
     } catch (workerError) {
       logger.error("[StartQueueProcess] Erro crítico na inicialização dos workers especializados:", workerError);
       // Propagar o erro para que seja tratado corretamente
@@ -986,6 +1016,7 @@ case "InactivityCleanup":
       workers,
       campaignJob: global.__campaignJob,
       scheduleMessageJob: global.__scheduleMessageJob,
+      dashboardCacheJob: global.__dashboardCacheJob,
       stopHeartbeat,
       stopHealthMonitor
     };
