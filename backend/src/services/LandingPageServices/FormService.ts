@@ -64,15 +64,21 @@ async validateAndNormalizeWhatsAppNumber(
   const testWhatsAppNumber = async (number: string): Promise<boolean> => {
     try {
       const chatId = `${number}@s.whatsapp.net`;
-      const result = await wbot.onWhatsApp(chatId);
-      return result?.[0]?.exists === true;
+      const [result] = await wbot.onWhatsApp(chatId);
+      if (result.exists) {
+        console.log (`${number} exists on WhatsApp, as jid: ${result.jid}`)
+        return true;
+      }
     } catch (error) {
+      console.error(`Erro ao verificar número no WhatsApp: ${error}`);
       return false;
     }
+    return false;
   };
 
   // 1ª Tentativa: Testa o número exatamente como foi informado
   if (await testWhatsAppNumber(processedNumber)) {
+    logger.info(`[PRIMEIRA] Número ${processedNumber} encontrado no WhatsApp`);
     return processedNumber;
   }
 
@@ -83,6 +89,7 @@ async validateAndNormalizeWhatsAppNumber(
   if (numberPart.length >= 8 && !numberPart.startsWith('9')) {
     const numberWithNine = ddd + '9' + numberPart;
     if (await testWhatsAppNumber(numberWithNine)) {
+      logger.info(`[SEGUNDA] Número ${numberWithNine} encontrado no WhatsApp`);
       return numberWithNine;
     }
   }
@@ -91,6 +98,7 @@ async validateAndNormalizeWhatsAppNumber(
   if (numberPart.startsWith('9')) {
     const numberWithoutNine = ddd + numberPart.substring(1);
     if (await testWhatsAppNumber(numberWithoutNine)) {
+      logger.info(`[TERCEIRA] Número ${numberWithoutNine} encontrado no WhatsApp`);
       return numberWithoutNine;
     }
   }
@@ -867,23 +875,6 @@ private async processSubmissionAsync(submissionId: number, formData: any, landin
         } catch (linkError) {
           // Enviar mensagem alternativa se não conseguir o link de convite
           logger.error(`Não foi possível obter link de convite para grupo ID: ${group.id}: ${linkError.message}`);
-
-          // CORREÇÃO: Tentar enviar mensagem informativa mesmo sem link
-          try {
-            const alternativeMessage = `Olá ${ticketCheck.contact.name}! Obrigado por se cadastrar. Em breve você receberá um convite para nosso grupo no WhatsApp.`;
-
-            await SendWhatsAppMessage({
-              body: alternativeMessage,
-              ticket: ticketCheck,
-              params: {
-                whatsappId: whatsapp.id
-              }
-            });
-
-            logger.info(`Mensagem alternativa de grupo enviada para contato ID: ${ticketCheck.contact.id}`);
-          } catch (altError) {
-            logger.error(`Erro ao enviar mensagem alternativa: ${altError.message}`);
-          }
         }
       } catch (error) {
         logger.error(`Erro ao enviar convite para grupo para contato ID: ${contact.id}: ${error.message}`);
@@ -1020,62 +1011,6 @@ private async processSubmissionAsync(submissionId: number, formData: any, landin
     logger.info(`[FIM] Processamento da submissão ID: ${submissionId} concluído`);
   }
 }
-
-  /**
-   * Método otimizado para processar campos personalizados
-   */
-  private async processCustomFields(contactId: number, data: any, companyId: number) {
-    try {
-      // Campos padronizados que devem ser excluídos
-      const excludedFields = ['name', 'email', 'number'];
-      const extraFields = [];
-
-      // Mapear campos extras rapidamente
-      for (const [key, value] of Object.entries(data)) {
-        if (!excludedFields.includes(key) && value !== null && value !== undefined && value !== '') {
-          // Processamento otimizado de valores
-          let fieldValue;
-          if (typeof value === 'object') {
-            fieldValue = JSON.stringify(value);
-          } else {
-            fieldValue = String(value);
-          }
-
-          if (fieldValue && fieldValue.trim() !== '') {
-            extraFields.push({
-              contactId,
-              name: key,
-              value: fieldValue
-            });
-          }
-        }
-      }
-
-      if (extraFields.length === 0) return;
-
-      // Usar transação para otimizar as operações de banco
-      const fieldNames = extraFields.map(f => f.name);
-
-      await Promise.all([
-        // Remover campos existentes em batch
-        ContactCustomField.destroy({
-          where: {
-            contactId,
-            name: { [Op.in]: fieldNames }
-          }
-        }),
-
-        // Inserir novos campos em batch
-        extraFields.length > 0 ?
-          ContactCustomField.bulkCreate(extraFields) :
-          Promise.resolve()
-      ]);
-
-      logger.info(`${extraFields.length} campos personalizados processados para o contato ${contactId}`);
-    } catch (error) {
-      logger.error(`Erro ao processar campos personalizados: ${error.message}`);
-    }
-  }
 
   /**
    * Método otimizado para aplicar tags
