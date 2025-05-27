@@ -1,6 +1,6 @@
-import styled from 'styled-components'
+import { styled } from '@mui/material/styles';
 
-export const NotificationWarningMessageUser = styled.section`
-    background: #fff9c4;
-    padding: 6px;
-`
+export const NotificationWarningMessageUser = styled('section')({
+  background: '#fff9c4',
+  padding: '6px'
+});

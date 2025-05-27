@@ -1,11 +1,12 @@
-import styled from 'styled-components'
+import { styled } from '@mui/material/styles';
 
-export const ButtonGroup = styled.section`
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    width: 100%;
-    gap: 17px;
-    padding: 10px;
-`
-export const DialogTitle = styled.section``
+export const ButtonGroup = styled('section')({
+  display: 'flex',
+  justifyContent: 'center',
+  alignItems: 'center',
+  width: '100%',
+  gap: '17px',
+  padding: '10px'
+});
+
+export const DialogTitle = styled('section')({});

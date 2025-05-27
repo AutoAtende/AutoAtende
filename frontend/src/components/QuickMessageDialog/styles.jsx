@@ -1,26 +1,27 @@
-import { Paper } from "@mui/material";
-import styled from "styled-components";
+import { styled } from '@mui/material/styles';
+import { Paper } from '@mui/material';
 
-export const PaperContainer = styled(Paper)`
-  width: 100%;
-  padding: 5px;
-  justify-content: center;
-  align-items: center;
-  align-self: center;
-  display: grid;
-  grid-template-columns: 1fr 1fr 1fr 1fr 1fr;
-  gap: 5px;
-  @media (max-width: 768px) {
-    grid-template-columns: 1fr;
+export const PaperContainer = styled(Paper)(({ theme }) => ({
+  width: '100%',
+  padding: '5px',
+  justifyContent: 'center',
+  alignItems: 'center',
+  alignSelf: 'center',
+  display: 'grid',
+  gridTemplateColumns: '1fr 1fr 1fr 1fr 1fr',
+  gap: '5px',
+  [theme.breakpoints.down('md')]: {
+    gridTemplateColumns: '1fr'
   }
-`;
+}));
 
-export const VariableContainer = styled.section`
-  width: 100%;
-  margin-top: 6px;
-`;
-export const MessageInfoContainer = styled.section`
-  position: relative;
-  top: 5px;
-  margin-bottom: 17px;
-`;
+export const VariableContainer = styled('section')({
+  width: '100%',
+  marginTop: '6px'
+});
+
+export const MessageInfoContainer = styled('section')({
+  position: 'relative',
+  top: '5px',
+  marginBottom: '17px'
+});

@@ -124,7 +124,6 @@
     "react-youtube": "^10.1.0",
     "recharts": "^2.15.1",
     "socket.io-client": "4.8.1",
-    "styled-components": "^5.3.11",
     "swagger-ui-dist": "^5.20.1",
     "tailwindcss": "^3.4.17",
     "text-mask-addons": "^3.8.0",

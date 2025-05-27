@@ -1,19 +1,30 @@
-import styled, { createGlobalStyle } from 'styled-components'
+import { styled } from '@mui/material/styles';
 
-export const Row = styled.div`
-  display: ${({ display }) => display || 'grid'};
-  margin-top: ${({ marginTop }) => marginTop || '0px'};
-  margin: ${({ margin }) => margin};
-  gap: ${({ gap }) => (gap ? gap + 'px' : '32px')};
-  justify-content: ${({ justifyContent }) => justifyContent || 'space-between'};
-  align-items: ${({ alignItems }) => alignItems};
-  width: ${({ width }) => width};
-  grid-column: ${({ gridColumn }) => gridColumn};
-  grid-template-columns: ${({ columns }) =>
-    `${columns} !important` || '1fr 1fr'};
-  @media (max-width: 767px) {
-    display: flex;
-    flex-direction: column;
-    gap: ${({ gap }) => (gap ? gap + 'px' : '32px')};
+export const Row = styled('div')(({ 
+  theme,
+  display = 'grid',
+  marginTop = '0px',
+  margin,
+  gap = '32px',
+  justifyContent = 'space-between',
+  alignItems,
+  width,
+  gridColumn,
+  columns
+}) => ({
+  display: display,
+  marginTop: marginTop,
+  margin: margin,
+  gap: gap ? `${gap}px` : '32px',
+  justifyContent: justifyContent,
+  alignItems: alignItems,
+  width: width,
+  gridColumn: gridColumn,
+  gridTemplateColumns: columns ? `${columns} !important` : '1fr 1fr',
+  
+  [theme.breakpoints.down('md')]: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: gap ? `${gap}px` : '32px'
   }
-`
+}));
