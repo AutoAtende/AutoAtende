@@ -146,7 +146,7 @@ const Settings = () => {
           title="Configurações do Sistema"
           description="Configure os parâmetros gerais do sistema"
           icon={<SettingsOutlined />}
-          variant="padded"
+          variant="default"
         >
           <Options 
             settings={settings}
@@ -184,9 +184,12 @@ const Settings = () => {
           title="Gerenciamento de Planos"
           description="Configure os planos disponíveis no sistema"
           icon={<AssignmentOutlined />}
-          variant="padded"
+          variant="default"
         >
-          <OnlyForSuperUser user={user} yes={() => <PlansManager />} />
+          <OnlyForSuperUser 
+            user={user} 
+            yes={() => <PlansManager />} 
+          />
         </StandardTabContent>
       );
     }
@@ -199,9 +202,12 @@ const Settings = () => {
           title="Gerenciamento de Ajudas"
           description="Configure os tutoriais e ajudas do sistema"
           icon={<HelpOutlined />}
-          variant="padded"
+          variant="default"
         >
-          <OnlyForSuperUser user={user} yes={() => <HelpsManager />} />
+          <OnlyForSuperUser 
+            user={user} 
+            yes={() => <HelpsManager />} 
+          />
         </StandardTabContent>
       );
     }
@@ -214,7 +220,7 @@ const Settings = () => {
           title="Personalização da Marca"
           description="Configure a identidade visual do sistema"
           icon={<LabelOutlined />}
-          variant="padded"
+          variant="default"
         >
           <Whitelabel settings={settings} />
         </StandardTabContent>
@@ -229,9 +235,12 @@ const Settings = () => {
           title="Gateway de Pagamento"
           description="Configure os métodos de pagamento"
           icon={<PaymentOutlined />}
-          variant="padded"
+          variant="default"
         >
-          <OnlyForSuperUser user={user} yes={() => <PaymentGateway settings={settings} />} />
+          <OnlyForSuperUser 
+            user={user} 
+            yes={() => <PaymentGateway settings={settings} />} 
+          />
         </StandardTabContent>
       );
     }
@@ -244,7 +253,7 @@ const Settings = () => {
           title="Motivos de Encerramento"
           description="Configure os motivos disponíveis para encerramento de tickets"
           icon={<ReportProblemOutlined />}
-          variant="padded"
+          variant="default"
         >
           <Reason />
         </StandardTabContent>

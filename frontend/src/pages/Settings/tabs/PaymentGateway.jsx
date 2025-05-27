@@ -17,13 +17,12 @@ import {
   CreditCard as CardIcon
 } from '@mui/icons-material';
 
-import StandardTabContent from "../../../components/shared/StandardTabContent";
 import useSettings from "../../../hooks/useSettings";
 import { toast } from "../../../helpers/toast";
 import EfiSettings from "./components/EfiSettings";
 import StripeSettings from "./components/StripeSettings";
 
-const PaymentGateway = ({ settings }) => {
+const PaymentGateway = ({ settings, hideLayout = false }) => {
   const [paymentGateway, setPaymentGateway] = useState("");
   const [loading, setLoading] = useState(false);
   const { update } = useSettings();
@@ -73,13 +72,21 @@ const PaymentGateway = ({ settings }) => {
     }
   };
 
-  return (
-    <StandardTabContent
-      title="Gateway de Pagamento"
-      description="Configure o método de processamento de pagamentos"
-      icon={<PaymentIcon />}
-      variant="padded"
-    >
+  const content = (
+    <Box sx={{ 
+      height: hideLayout ? 'auto' : '100%',
+      overflow: hideLayout ? 'visible' : 'auto',
+      p: hideLayout ? 0 : 2,
+      ...(hideLayout && {
+        '&::-webkit-scrollbar': {
+          width: 6
+        },
+        '&::-webkit-scrollbar-thumb': {
+          backgroundColor: 'divider',
+          borderRadius: 3
+        }
+      })
+    }}>
       <Stack spacing={3}>
         {/* Seleção do Gateway */}
         <Card>
@@ -188,8 +195,10 @@ const PaymentGateway = ({ settings }) => {
           </Alert>
         )}
       </Stack>
-    </StandardTabContent>
+    </Box>
   );
+
+  return content;
 };
 
 export default PaymentGateway;

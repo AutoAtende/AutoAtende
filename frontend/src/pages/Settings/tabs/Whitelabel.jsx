@@ -30,7 +30,6 @@ import {
   Info
 } from '@mui/icons-material';
 
-import StandardTabContent from "../../../components/shared/StandardTabContent";
 import BaseButton from "../../../components/shared/BaseButton";
 import StandardModal from "../../../components/shared/StandardModal";
 import { toast } from "../../../helpers/toast";
@@ -121,7 +120,7 @@ function capitalizeFirstLetter(string) {
   return string?.charAt(0).toUpperCase() + string?.slice(1) || '';
 }
 
-const Whitelabel = ({ settings }) => {
+const Whitelabel = ({ settings, hideLayout = false }) => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const { colorMode } = useContext(ColorModeContext);
@@ -425,90 +424,81 @@ const Whitelabel = ({ settings }) => {
 
   // Renderização das configurações gerais
   const renderGeneralSettings = useMemo(() => (
-    <StandardTabContent
-      title="Configurações Gerais"
-      description="Configure informações básicas do sistema"
-      variant="padded"
-    >
-      <Card>
-        <CardContent>
-          <Grid container spacing={3}>
-            <Grid item xs={12} md={6}>
-              <TextField
-                fullWidth
-                label="Nome do Sistema"
-                value={generalSettings.appName}
-                onChange={handleGeneralChange("appName")}
-                variant="outlined"
-                size="small"
-              />
-            </Grid>
-            <Grid item xs={12} md={6}>
-              <TextField
-                fullWidth
-                label="Copyright"
-                value={generalSettings.copyright}
-                onChange={handleGeneralChange("copyright")}
-                variant="outlined"
-                size="small"
-              />
-            </Grid>
-            <Grid item xs={12} md={6}>
-              <TextField
-                fullWidth
-                label="Link da Política de Privacidade"
-                value={generalSettings.privacy}
-                onChange={handleGeneralChange("privacy")}
-                variant="outlined"
-                size="small"
-              />
-            </Grid>
-            <Grid item xs={12} md={6}>
-              <TextField
-                fullWidth
-                label="Link dos Termos de Uso"
-                value={generalSettings.terms}
-                onChange={handleGeneralChange("terms")}
-                variant="outlined"
-                size="small"
-              />
-            </Grid>
+    <Card>
+      <CardContent>
+        <Typography variant="h6" gutterBottom>Configurações Gerais</Typography>
+        <Grid container spacing={3}>
+          <Grid item xs={12} md={6}>
+            <TextField
+              fullWidth
+              label="Nome do Sistema"
+              value={generalSettings.appName}
+              onChange={handleGeneralChange("appName")}
+              variant="outlined"
+              size="small"
+            />
           </Grid>
-          
-          <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 3 }}>
-            <BaseButton
-              variant="contained"
-              onClick={saveGeneralSettings}
-              disabled={!hasUnsavedChanges || loading}
-              icon={loading ? <CircularProgress size={20} /> : <Save />}
-            >
-              Salvar Alterações
-            </BaseButton>
-          </Box>
-        </CardContent>
-      </Card>
-    </StandardTabContent>
+          <Grid item xs={12} md={6}>
+            <TextField
+              fullWidth
+              label="Copyright"
+              value={generalSettings.copyright}
+              onChange={handleGeneralChange("copyright")}
+              variant="outlined"
+              size="small"
+            />
+          </Grid>
+          <Grid item xs={12} md={6}>
+            <TextField
+              fullWidth
+              label="Link da Política de Privacidade"
+              value={generalSettings.privacy}
+              onChange={handleGeneralChange("privacy")}
+              variant="outlined"
+              size="small"
+            />
+          </Grid>
+          <Grid item xs={12} md={6}>
+            <TextField
+              fullWidth
+              label="Link dos Termos de Uso"
+              value={generalSettings.terms}
+              onChange={handleGeneralChange("terms")}
+              variant="outlined"
+              size="small"
+            />
+          </Grid>
+        </Grid>
+        
+        <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 3 }}>
+          <BaseButton
+            variant="contained"
+            onClick={saveGeneralSettings}
+            disabled={!hasUnsavedChanges || loading}
+            icon={loading ? <CircularProgress size={20} /> : <Save />}
+          >
+            Salvar Alterações
+          </BaseButton>
+        </Box>
+      </CardContent>
+    </Card>
   ), [generalSettings, hasUnsavedChanges, loading, handleGeneralChange, saveGeneralSettings]);
 
   // Renderização das configurações de cores
   const renderColorSettings = useMemo(() => (
-    <StandardTabContent
-      title="Cores do Tema"
-      description="Personalize as cores da interface"
-      variant="padded"
-      actions={
-        <Stack direction="row" spacing={2}>
-          <BaseButton
-            variant="outlined"
-            onClick={resetColorsToDefault}
-            disabled={loading}
-            icon={<Refresh />}
-          >
-            Restaurar Padrão
-          </BaseButton>
-        </Stack>
-      }
-    >
+    <Box>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+        <Typography variant="h6">Cores do Tema</Typography>
+        <BaseButton
+          variant="outlined"
+          onClick={resetColorsToDefault}
+          disabled={loading}
+          icon={<Refresh />}
+        >
+          Restaurar Padrão
+        </BaseButton>
+      </Box>
+
       <Card>
         <CardContent>
           {Object.entries(colorGroups).map(([groupName, colorKeys]) => (
@@ -594,7 +584,7 @@ const Whitelabel = ({ settings }) => {
           </Stack>
         </Box>
       </Popover>
-    </StandardTabContent>
+    </Box>
   ), [
     colorSettings, 
     colorPickerAnchor, 
@@ -610,11 +600,8 @@ const Whitelabel = ({ settings }) => {
 
   // Renderização das configurações de imagens
   const renderImageSettings = useMemo(() => (
-    <StandardTabContent
-      title="Logos e Imagens"
-      description="Personalize as imagens do sistema"
-      variant="padded"
-    >
+    <Box>
+      <Typography variant="h6" gutterBottom>Logos e Imagens</Typography>
       <Grid container spacing={3}>
         {imageFiles.map((imageKey) => {
           const imagePath = imageSettings[imageKey] 
@@ -699,7 +686,7 @@ const Whitelabel = ({ settings }) => {
           );
         })}
       </Grid>
-    </StandardTabContent>
+    </Box>
   ), [imageSettings, loading, uploadImage, deleteImage, getImagePath, getDefaultImage]);
 
   const renderContent = () => {
@@ -715,10 +702,59 @@ const Whitelabel = ({ settings }) => {
     }
   };
 
+  // Se hideLayout for true, renderiza tudo em uma única tela com rolagem
+  if (hideLayout) {
+    return (
+      <Box sx={{ 
+        height: '100%', 
+        overflow: 'auto',
+        p: 2,
+        '&::-webkit-scrollbar': {
+          width: 6
+        },
+        '&::-webkit-scrollbar-thumb': {
+          backgroundColor: 'divider',
+          borderRadius: 3
+        }
+      }}>
+        <Stack spacing={4}>
+          {renderGeneralSettings}
+          {renderColorSettings}
+          {renderImageSettings}
+        </Stack>
+
+        {/* Loading overlay */}
+        {loading && (
+          <Box
+            sx={{
+              position: 'fixed',
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              bgcolor: 'rgba(0,0,0,0.3)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              zIndex: 1300
+            }}
+          >
+            <Card sx={{ p: 3 }}>
+              <Stack direction="row" spacing={2} alignItems="center">
+                <CircularProgress size={24} />
+                <Typography>Processando...</Typography>
+              </Stack>
+            </Card>
+          </Box>
+        )}
+      </Box>
+    );
+  }
+
   return (
-    <Box>
+    <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
       {/* Navegação por seções */}
-      <Paper sx={{ mb: 3 }}>
+      <Paper sx={{ mb: 3, flexShrink: 0 }}>
         <Stack direction={isMobile ? "column" : "row"} spacing={0}>
           {sections.map((section, index) => (
             <BaseButton
@@ -740,7 +776,20 @@ const Whitelabel = ({ settings }) => {
       </Paper>
 
       {/* Conteúdo da seção ativa */}
-      {renderContent()}
+      <Box sx={{ 
+        flex: 1, 
+        overflow: 'auto',
+        p: 2,
+        '&::-webkit-scrollbar': {
+          width: 6
+        },
+        '&::-webkit-scrollbar-thumb': {
+          backgroundColor: 'divider',
+          borderRadius: 3
+        }
+      }}>
+        {renderContent()}
+      </Box>
 
       {/* Loading overlay */}
       {loading && (
