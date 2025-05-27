@@ -59,7 +59,7 @@ module.exports = {
                         ]
                     }
                 },
-            }
+            },
             {
                 test: /\.m?js$/,
                 resolve: {
