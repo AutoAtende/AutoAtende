@@ -1,27 +1,24 @@
-import React, { useState, useEffect, useContext } from "react";
-import SettingsIcon from '@mui/icons-material/Settings';
-import ScheduleIcon from '@mui/icons-material/Schedule';
-import AssignmentIcon from '@mui/icons-material/Assignment';
-import HelpIcon from '@mui/icons-material/Help';
-import LabelIcon from '@mui/icons-material/Label';
-import PaymentIcon from '@mui/icons-material/Payment';
-import ReportProblemIcon from '@mui/icons-material/ReportProblem';
+import React, { useState, useEffect, useContext, useCallback } from "react";
+import { 
+  SettingsOutlined,
+  ScheduleOutlined,
+  AssignmentOutlined,
+  HelpOutlined,
+  LabelOutlined,
+  PaymentOutlined,
+  ReportProblemOutlined
+} from "@mui/icons-material";
 
-import MainContainer from "../../components/MainContainer";
-import MainHeader from "../../components/MainHeader";
-import Title from "../../components/Title";
-import { Paper, Tabs, Tab, useMediaQuery } from "@mui/material";
-import makeStyles from '@mui/styles/makeStyles';
-import Reason from "../../components/Reason";
-import TabPanel from "../../components/TabPanel";
-import SpeedDialTabs from "../../components/SpeedDialTabs";
-
+import StandardPageLayout from "../../components/shared/StandardPageLayout";
+import StandardTabContent from "../../components/shared/StandardTabContent";
 import SchedulesForm from "../../components/SchedulesForm";
-import PlansManager from "../../components/PlansManager";
-import HelpsManager from "../../components/HelpsManager";
-import Options from "../../components/Settings/Options";
-import Whitelabel from "../../components/Settings/Whitelabel";
-import PaymentGateway from "../../components/Settings/PaymentGateway";
+import PlansManager from "./tabs/PlansManager";
+import HelpsManager from "./tabs/HelpsManager";
+import Options from "./tabs/Options";
+import Whitelabel from "./tabs/Whitelabel";
+import PaymentGateway from "./tabs/PaymentGateway";
+import Reason from "./tabs/Reason";
+import StandardEmptyState from "../../components/shared/StandardEmptyState";
 import { i18n } from "../../translate/i18n";
 import { toast } from "../../helpers/toast";
 import { AuthContext } from "../../context/Auth/AuthContext";
@@ -29,218 +26,260 @@ import useCompanies from "../../hooks/useCompanies";
 import useSettings from "../../hooks/useSettings";
 import OnlyForSuperUser from "../../components/OnlyForSuperUser";
 import usePlans from "../../hooks/usePlans";
-
 import { useLoading } from "../../hooks/useLoading";
 
-const useStyles = makeStyles((theme) => ({
-  root: {
-    flex: 1,
-    backgroundColor: theme.palette.background.paper,
-  },
-  mainPaper: {
-    ...theme.scrollbarStyles,
-    overflowY: "scroll",
-    flex: 1,
-  },
-  tab: {
-    backgroundColor: theme.palette.options,
-    borderRadius: 4,
-  },
-  paper: {
-    ...theme.scrollbarStyles,
-    overflowY: "scroll",
-    padding: theme.spacing(2),
-    display: "flex",
-    alignItems: "center",
-    width: "100%",
-  },
-  container: {
-    width: "100%",
-    maxHeight: "100%",
-  },
-  control: {
-    padding: theme.spacing(1),
-  },
-  textfield: {
-    width: "100%",
-  }
-}));
-
 const Settings = () => {
-  const classes = useStyles();
   const { user } = useContext(AuthContext);
-  const [tab, setTab] = useState("options");
+  const [activeTab, setActiveTab] = useState(0);
   const [schedules, setSchedules] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [settings, setSettings] = useState({});
-
+  const [settings, setSettings] = useState([]);
   const [schedulesEnabled, setSchedulesEnabled] = useState(false);
   const [reasonEnabled, setReasonEnabled] = useState("disabled");
-
- 
+  const [showWhiteLabel, setShowWhiteLabel] = useState(false);
+  
   const { find, updateSchedules } = useCompanies();
   const { getAll: getAllSettings } = useSettings();
   const { getPlanCompany } = usePlans();
-  const [showWhiteLabel, setShowWhiteLabel] = useState(false);
   const { Loading } = useLoading();
 
-  const isMobile = useMediaQuery('(max-width:600px)');
-
-  useEffect(() => {
-    async function findData() {
-      setLoading(true);
-      try {
-        Loading.turnOn()
-        const companyId = localStorage.getItem("companyId");
-        const company = await find(companyId);
-        const settingList = await getAllSettings();
-        const planConfigs = await getPlanCompany(undefined, companyId);
-
-        setSchedules(company.schedules);
-        setSettings(settingList);
-        setShowWhiteLabel(planConfigs.plan.whiteLabel);
-        setReasonEnabled(settingList.enableReasonWhenCloseTicket?.value || "disabled");
-        setSchedulesEnabled(settingList.scheduleType === "company");
-      } catch (e) {
-        toast.error(e);
-      } finally {
-        Loading.turnOff()
-      }
-      setLoading(false);
-    }
-    findData();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  const handleTabChange = (event, newValue) => {
-    setTab(newValue);
-  };
-
-  const handleSubmitSchedules = async (data) => {
+  // Memoizar a função de carregamento de dados
+  const loadData = useCallback(async () => {
+    if (loading) return;
+    
     setLoading(true);
     try {
-      setSchedules(data);
-      await updateSchedules({ id: company.id, schedules: data });
-      toast.success("Horários atualizados com sucesso.");
-    } catch (e) {
-      toast.error(e);
-    }
-    setLoading(false);
-  };
-
-  const isSuper = () => {
-    return user.super;
-  };
-
-  const actions = [
-    { icon: <SettingsIcon />, name: i18n.t("settings.tabs.params"), value: "options" },
-    { icon: <ScheduleIcon />, name: i18n.t("settings.tabs.schedules"), value: "schedules", condition: schedulesEnabled },
-    { icon: <AssignmentIcon />, name: i18n.t("settings.tabs.plans"), value: "plans", condition: isSuper() },
-    { icon: <HelpIcon />, name: i18n.t("settings.tabs.helps"), value: "helps", condition: isSuper() },
-    { icon: <LabelIcon />, name: "Whitelabel", value: "whitelabel", condition: showWhiteLabel },
-    { icon: <PaymentIcon />, name: "Pagamentos", value: "paymentGateway", condition: isSuper() },
-    { icon: <ReportProblemIcon />, name: "Motivos de Encerramento", value: "closureReasons", condition: reasonEnabled === "enabled" },
-  ].filter(action => action.condition !== false);
-
-  const renderTabPanels = () => (
-    <Paper className={classes.paper} elevation={0}>
-      <TabPanel className={classes.container} value={tab} name="options">
-        <Options 
-          settings={settings}
-          scheduleTypeChanged={(value) => setSchedulesEnabled(value === "company")}
-          enableReasonWhenCloseTicketChanged={(value) => setReasonEnabled(value || "disabled")}
-        />
-      </TabPanel>
+      Loading.turnOn();
+      const companyId = localStorage.getItem("companyId");
       
-    
-      {schedulesEnabled && (
-        <TabPanel className={classes.container} value={tab} name="schedules">
+      const [company, settingList, planConfigs] = await Promise.all([
+        find(companyId),
+        getAllSettings(),
+        getPlanCompany(undefined, companyId)
+      ]);
+
+      setSchedules(company.schedules || []);
+      setSettings(settingList || []);
+      setShowWhiteLabel(planConfigs?.plan?.whiteLabel || false);
+      
+      const reasonSetting = settingList.find(s => s.key === "enableReasonWhenCloseTicket");
+      setReasonEnabled(reasonSetting?.value || "disabled");
+      
+      const scheduleSetting = settingList.find(s => s.key === "scheduleType");
+      setSchedulesEnabled(scheduleSetting?.value === "company");
+      
+    } catch (error) {
+      console.error("Erro ao carregar configurações:", error);
+      toast.error("Erro ao carregar configurações");
+    } finally {
+      setLoading(false);
+      Loading.turnOff();
+    }
+  }, [find, getAllSettings, getPlanCompany, Loading, loading]);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
+
+  const handleSubmitSchedules = useCallback(async (data) => {
+    setLoading(true);
+    try {
+      const companyId = localStorage.getItem("companyId");
+      setSchedules(data);
+      await updateSchedules({ id: companyId, schedules: data });
+      toast.success("Horários atualizados com sucesso.");
+    } catch (error) {
+      console.error("Erro ao atualizar horários:", error);
+      toast.error("Erro ao atualizar horários");
+    } finally {
+      setLoading(false);
+    }
+  }, [updateSchedules]);
+
+  const handleScheduleTypeChange = useCallback((value) => {
+    setSchedulesEnabled(value === "company");
+  }, []);
+
+  const handleReasonChange = useCallback((value) => {
+    setReasonEnabled(value || "disabled");
+  }, []);
+
+  // Definir as abas disponíveis
+  const tabs = [
+    {
+      label: i18n.t("settings.tabs.params"),
+      icon: <SettingsOutlined />
+    },
+    ...(schedulesEnabled ? [{
+      label: i18n.t("settings.tabs.schedules"),
+      icon: <ScheduleOutlined />
+    }] : []),
+    ...(user.super ? [{
+      label: i18n.t("settings.tabs.plans"),
+      icon: <AssignmentOutlined />
+    }] : []),
+    ...(user.super ? [{
+      label: i18n.t("settings.tabs.helps"),
+      icon: <HelpOutlined />
+    }] : []),
+    ...(showWhiteLabel ? [{
+      label: "Whitelabel",
+      icon: <LabelOutlined />
+    }] : []),
+    ...(user.super ? [{
+      label: "Pagamentos",
+      icon: <PaymentOutlined />
+    }] : []),
+    ...(reasonEnabled === "enabled" ? [{
+      label: "Motivos de Encerramento",
+      icon: <ReportProblemOutlined />
+    }] : [])
+  ];
+
+  const renderTabContent = () => {
+    let currentIndex = 0;
+
+    // Aba Parâmetros
+    if (activeTab === currentIndex) {
+      return (
+        <StandardTabContent
+          title="Configurações do Sistema"
+          description="Configure os parâmetros gerais do sistema"
+          icon={<SettingsOutlined />}
+          variant="padded"
+        >
+          <Options 
+            settings={settings}
+            scheduleTypeChanged={handleScheduleTypeChange}
+            enableReasonWhenCloseTicketChanged={handleReasonChange}
+          />
+        </StandardTabContent>
+      );
+    }
+    currentIndex++;
+
+    // Aba Horários
+    if (schedulesEnabled && activeTab === currentIndex) {
+      return (
+        <StandardTabContent
+          title="Horários de Funcionamento"
+          description="Configure os horários de atendimento da empresa"
+          icon={<ScheduleOutlined />}
+          variant="padded"
+        >
           <SchedulesForm
             loading={loading}
             onSubmit={handleSubmitSchedules}
             initialValues={schedules}
           />
-        </TabPanel>
-      )}
+        </StandardTabContent>
+      );
+    }
+    if (schedulesEnabled) currentIndex++;
 
-      <OnlyForSuperUser user={user} yes={() => (
-        <>
-          <TabPanel className={classes.container} value={tab} name="plans">
-            <PlansManager />
-          </TabPanel>
-          
-          <TabPanel className={classes.container} value={tab} name="helps">
-            <HelpsManager />
-          </TabPanel>
-          
-          <TabPanel className={classes.container} value={tab} name="paymentGateway">
-            <PaymentGateway settings={settings} />
-          </TabPanel>
-        </>
-      )} />
+    // Aba Planos (Super User)
+    if (user.super && activeTab === currentIndex) {
+      return (
+        <StandardTabContent
+          title="Gerenciamento de Planos"
+          description="Configure os planos disponíveis no sistema"
+          icon={<AssignmentOutlined />}
+          variant="padded"
+        >
+          <OnlyForSuperUser user={user} yes={() => <PlansManager />} />
+        </StandardTabContent>
+      );
+    }
+    if (user.super) currentIndex++;
 
-      {showWhiteLabel && (
-        <TabPanel className={classes.container} value={tab} name="whitelabel">
+    // Aba Ajudas (Super User)
+    if (user.super && activeTab === currentIndex) {
+      return (
+        <StandardTabContent
+          title="Gerenciamento de Ajudas"
+          description="Configure os tutoriais e ajudas do sistema"
+          icon={<HelpOutlined />}
+          variant="padded"
+        >
+          <OnlyForSuperUser user={user} yes={() => <HelpsManager />} />
+        </StandardTabContent>
+      );
+    }
+    if (user.super) currentIndex++;
+
+    // Aba Whitelabel
+    if (showWhiteLabel && activeTab === currentIndex) {
+      return (
+        <StandardTabContent
+          title="Personalização da Marca"
+          description="Configure a identidade visual do sistema"
+          icon={<LabelOutlined />}
+          variant="padded"
+        >
           <Whitelabel settings={settings} />
-        </TabPanel>
-      )}
+        </StandardTabContent>
+      );
+    }
+    if (showWhiteLabel) currentIndex++;
 
-      {reasonEnabled === "enabled" && (
-        <TabPanel className={classes.container} value={tab} name="closureReasons">
+    // Aba Pagamentos (Super User)
+    if (user.super && activeTab === currentIndex) {
+      return (
+        <StandardTabContent
+          title="Gateway de Pagamento"
+          description="Configure os métodos de pagamento"
+          icon={<PaymentOutlined />}
+          variant="padded"
+        >
+          <OnlyForSuperUser user={user} yes={() => <PaymentGateway settings={settings} />} />
+        </StandardTabContent>
+      );
+    }
+    if (user.super) currentIndex++;
+
+    // Aba Motivos de Encerramento
+    if (reasonEnabled === "enabled" && activeTab === currentIndex) {
+      return (
+        <StandardTabContent
+          title="Motivos de Encerramento"
+          description="Configure os motivos disponíveis para encerramento de tickets"
+          icon={<ReportProblemOutlined />}
+          variant="padded"
+        >
           <Reason />
-        </TabPanel>
-      )}
-    </Paper>
-  );
+        </StandardTabContent>
+      );
+    }
+
+    // Estado vazio se nenhuma aba foi encontrada
+    return (
+      <StandardEmptyState
+        type="error"
+        title="Aba não encontrada"
+        description="A aba selecionada não está disponível."
+      />
+    );
+  };
 
   return (
-    <MainContainer className={classes.root}>
-      <MainHeader>
-        <Title>{i18n.t("settings.title")}</Title>
-      </MainHeader>
-      <Paper className={classes.mainPaper} elevation={1}>
-        {isMobile ? (
-          <>
-            <SpeedDialTabs actions={actions} onChange={setTab} />
-            {renderTabPanels()}
-          </>
-        ) : (
-          <>
-            <Tabs
-              value={tab}
-              onChange={handleTabChange}
-              indicatorColor="primary"
-              textColor="primary"
-              variant="scrollable"
-              scrollButtons
-              className={classes.tab}
-              allowScrollButtonsMobile
-            >
-              <Tab label={i18n.t("settings.tabs.params")} value="options" />
-              {schedulesEnabled && (
-                <Tab label={i18n.t("settings.tabs.schedules")} value="schedules" />
-              )}
-              {isSuper() && (
-                <Tab label={i18n.t("settings.tabs.plans")} value="plans" />
-              )}
-              {isSuper() && (
-                <Tab label={i18n.t("settings.tabs.helps")} value="helps" />
-              )}
-              {showWhiteLabel && (
-                <Tab label="Whitelabel" value="whitelabel" />
-              )}
-              {isSuper() && (
-                <Tab label="Pagamentos" value="paymentGateway" />
-              )}
-              {reasonEnabled === "enabled" && (
-                <Tab label="Motivos de Encerramento" value="closureReasons" />
-              )}
-            </Tabs>
-            {renderTabPanels()}
-          </>
-        )}
-      </Paper>
-    </MainContainer>
+    <StandardPageLayout
+      title={i18n.t("settings.title")}
+      subtitle="Configure os parâmetros e funcionalidades do sistema"
+      tabs={tabs}
+      activeTab={activeTab}
+      onTabChange={(event, newValue) => setActiveTab(newValue)}
+      loading={loading}
+      showEmptyState={tabs.length === 0}
+      emptyState={
+        <StandardEmptyState
+          type="default"
+          title="Nenhuma configuração disponível"
+          description="Não há configurações disponíveis para o seu perfil de usuário."
+        />
+      }
+    >
+      {renderTabContent()}
+    </StandardPageLayout>
   );
 };
 
