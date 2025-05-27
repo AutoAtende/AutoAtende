@@ -53,10 +53,13 @@ module.exports = {
                                 runtime: 'automatic'
                             }]
                         ],
-                        plugins: ['@babel/plugin-transform-runtime']
+                        plugins: [
+                            '@babel/plugin-transform-runtime',
+                            ['transform-remove-console', { exclude: ['error', 'warn'] }] // Remove console.log
+                        ]
                     }
                 },
-            },
+            }
             {
                 test: /\.m?js$/,
                 resolve: {
@@ -120,11 +123,11 @@ module.exports = {
         }),
         new webpack.DefinePlugin({
             'process.env': JSON.stringify(
-              Object.fromEntries(
-                Object.entries(process.env).filter(([key]) => key.startsWith('REACT_APP_'))
-              )
+                Object.fromEntries(
+                    Object.entries(process.env).filter(([key]) => key.startsWith('REACT_APP_'))
+                )
             )
-          }),
+        }),
         // Adicionar plugin para polyfills globais
         new webpack.ProvidePlugin({
             process: 'process/browser',
