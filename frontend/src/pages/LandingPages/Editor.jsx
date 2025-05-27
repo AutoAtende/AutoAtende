@@ -15,7 +15,6 @@ import {
   Edit as EditIcon,
   Description as DescriptionIcon,
   Assignment as FormIcon,
-  Event as EventIcon,
   Palette as PaletteIcon,
   Notifications as NotificationsIcon,
   Settings as SettingsIcon
@@ -32,7 +31,6 @@ import BaseModal from '../../components/shared/BaseModal';
 // Tabs do editor
 import BasicInfoTab from './components/tabs/BasicInfoTab';
 import FormConfigTab from './components/tabs/FormConfigTab';
-import EventConfigTab from './components/tabs/EventConfigTab';
 import AppearanceTab from './components/tabs/AppearanceTab';
 import NotificationsTab from './components/tabs/NotificationsTab';
 import AdvancedConfigTab from './components/tabs/AdvancedConfigTab';
@@ -341,10 +339,6 @@ const LandingPageEditor = () => {
       icon: <FormIcon />
     },
     {
-      label: "Evento",
-      icon: <EventIcon />
-    },
-    {
       label: "Aparência",
       icon: <PaletteIcon />
     },
@@ -387,13 +381,6 @@ const LandingPageEditor = () => {
           />
         );
       case 3:
-        return (
-          <EventConfigTab
-            landingPage={landingPage}
-            setLandingPage={setLandingPage}
-          />
-        );
-      case 4:
         return (
           <AppearanceTab
             landingPage={landingPage}

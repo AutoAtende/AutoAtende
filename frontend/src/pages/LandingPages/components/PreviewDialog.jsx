@@ -29,8 +29,8 @@ const AnimatedBox = animated(Box);
 const AnimatedPaper = animated(Paper);
 
 // Componente principal que será usado dentro do BaseModal
-const PreviewContent = ({ landingPage, form }) => {
-  const { user } = useContext(AuthContext);
+const PreviewContent = ({ landingPage = {}, form = {} }) => {
+  const { user = {} } = useContext(AuthContext) || {};
   const [deviceView, setDeviceView] = useState('desktop');
   const [showQrCode, setShowQrCode] = useState(false);
   const theme = useTheme();
@@ -50,7 +50,7 @@ const PreviewContent = ({ landingPage, form }) => {
   
   // Copiar URL da landing page
   const handleCopyUrl = () => {
-    const url = `${window.location.origin}/l/${user.companyId}/${landingPage.slug}`;
+    const url = `${window.location.origin}/l/${user?.companyId || ''}/${landingPage?.slug || ''}`;
     navigator.clipboard.writeText(url);
   };
   
@@ -157,18 +157,18 @@ const PreviewContent = ({ landingPage, form }) => {
               <head>
                 <meta charset="UTF-8">
                 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-                <title>${landingPage.title || 'Landing Page'}</title>
+                <title>${landingPage?.title || 'Landing Page'}</title>
                 <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
                 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
                 <style>
                   body {
-                    color: ${landingPage.appearance.textColor || '#000000'};
-                    background-color: ${landingPage.appearance.backgroundColor || '#ffffff'};
-                    ${landingPage.appearance.backgroundImage ? `background-image: url(${landingPage.appearance.backgroundImage});` : ''}
-                    ${landingPage.appearance.backgroundPosition ? `background-position: ${landingPage.appearance.backgroundPosition};` : ''}
-                    ${landingPage.appearance.backgroundRepeat ? 'background-repeat: repeat;' : 'background-repeat: no-repeat;'}
-                    ${landingPage.appearance.backgroundSize ? `background-size: ${landingPage.appearance.backgroundSize};` : ''}
-                    ${landingPage.appearance.backgroundAttachment ? `background-attachment: ${landingPage.appearance.backgroundAttachment};` : ''}
+                    color: ${landingPage?.appearance?.textColor || '#000000'};
+                    background-color: ${landingPage?.appearance?.backgroundColor || '#ffffff'};
+                    ${landingPage?.appearance?.backgroundImage ? `background-image: url(${landingPage.appearance.backgroundImage});` : ''}
+                    ${landingPage?.appearance?.backgroundPosition ? `background-position: ${landingPage.appearance.backgroundPosition};` : ''}
+                    ${landingPage?.appearance?.backgroundRepeat ? 'background-repeat: repeat;' : 'background-repeat: no-repeat;'}
+                    ${landingPage?.appearance?.backgroundSize ? `background-size: ${landingPage.appearance.backgroundSize};` : ''}
+                    ${landingPage?.appearance?.backgroundAttachment ? `background-attachment: ${landingPage.appearance.backgroundAttachment};` : ''}
                     padding: 0;
                     margin: 0;
                   }
@@ -358,7 +358,7 @@ const generateFieldHtml = (field) => {
 };
 
 // Componente wrapper para compatibilidade (quando usado como modal separado)
-const PreviewDialog = ({ open, onClose, landingPage, form }) => {
+const PreviewDialog = ({ open, onClose, landingPage = {}, form = {} }) => {
   if (!open) return null;
   
   return (

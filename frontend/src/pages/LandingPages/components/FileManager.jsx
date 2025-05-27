@@ -63,10 +63,10 @@ const FileTypeIcon = ({ mimeType, fontSize = 'large' }) => {
 };
 
 // Componente para previsualisar arquivos
-const FilePreview = ({ file, onClose, onDelete, landingPageId }) => {
+const FilePreview = ({ file = {}, onClose, onDelete, landingPageId }) => {
   const [loading, setLoading] = useState(false);
   const theme = useTheme();
-  const { isAuth, user } = useContext(AuthContext);  
+  const { isAuth, user } = useContext(AuthContext) || {};  
   // Animações
   const fadeIn = useSpring({
     from: { opacity: 0, transform: 'translateY(20px)' },
@@ -253,6 +253,11 @@ const FileManager = ({
   onFileSelect = null,
   landingPageId = null // Parâmetro obrigatório para as rotas!
 }) => {
+  // Verificar se o landingPageId foi fornecido
+  if (!landingPageId) {
+    console.error('landingPageId é obrigatório para o FileManager');
+  }
+
   // Verificação para landingPageId obrigatório
   if (!landingPageId) {
     console.error('FileManager: landingPageId é obrigatório para as operações do gerenciador de arquivos');

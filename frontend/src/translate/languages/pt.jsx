@@ -6244,6 +6244,7 @@ const messages = {
         // Lista de fluxos
         list: {
           title: "Construtor de Fluxos",
+          inactivityMonitor: "Monitor de Inatividade",
           searchPlaceholder: "Buscar por nome",
           viewStats: "Ver Estatísticas",
           newFlow: "Novo Fluxo",

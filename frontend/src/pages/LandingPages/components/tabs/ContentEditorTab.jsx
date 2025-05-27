@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useTheme } from '@mui/material/styles';
 import {
   Box,
@@ -139,11 +139,11 @@ const ContentEditorTab = ({ landingPage, setLandingPage }) => {
   
   // Atualizar o conteúdo quando a landing page mudar
   useEffect(() => {
-    if (landingPage.content) {
+    if (landingPage && landingPage.content) {
       setHtmlCode(landingPage.content);
       setOriginalHtmlCode(landingPage.content);
     }
-  }, [landingPage.id, landingPage.content]); // Atualizar apenas quando o ID ou conteúdo mudar
+  }, [landingPage?.id, landingPage?.content]); // Atualizar apenas quando o ID ou conteúdo mudar
   
   // Animações
   const fadeIn = useSpring({
@@ -237,6 +237,11 @@ const ContentEditorTab = ({ landingPage, setLandingPage }) => {
       // Para o editor visual (React-Quill)
       if (quillRef.current) {
         const quill = quillRef.current.getEditor();
+        if (!quill) {
+          console.error('Quill editor not initialized');
+          return;
+        }
+        
         const range = quill.getSelection() || { index: quill.getLength(), length: 0 };
         
         if (file.mimeType.startsWith('image/')) {
@@ -246,16 +251,15 @@ const ContentEditorTab = ({ landingPage, setLandingPage }) => {
           // Também atualizar o HTML original se estamos preservando
           if (preserveHtml) {
             const insertPoint = originalHtmlCode.length; // Inserir no final se não tivermos como determinar a posição
-            setOriginalHtmlCode(
-              originalHtmlCode.substring(0, insertPoint) + 
-              insertHtml + 
-              originalHtmlCode.substring(insertPoint)
-            );
+            const newHtmlCode = originalHtmlCode.substring(0, insertPoint) + 
+                              insertHtml + 
+                              originalHtmlCode.substring(insertPoint);
+            setOriginalHtmlCode(newHtmlCode);
             
             // Atualizar o estado da landing page com o HTML original
             setLandingPage(prev => ({
               ...prev,
-              content: originalHtmlCode
+              content: newHtmlCode
             }));
           }
         } else {
@@ -265,16 +269,15 @@ const ContentEditorTab = ({ landingPage, setLandingPage }) => {
           // Também atualizar o HTML original se estamos preservando
           if (preserveHtml) {
             const insertPoint = originalHtmlCode.length;
-            setOriginalHtmlCode(
-              originalHtmlCode.substring(0, insertPoint) + 
-              insertHtml + 
-              originalHtmlCode.substring(insertPoint)
-            );
+            const newHtmlCode = originalHtmlCode.substring(0, insertPoint) + 
+                              insertHtml + 
+                              originalHtmlCode.substring(insertPoint);
+            setOriginalHtmlCode(newHtmlCode);
             
             // Atualizar o estado da landing page com o HTML original
             setLandingPage(prev => ({
               ...prev,
-              content: originalHtmlCode
+              content: newHtmlCode
             }));
           }
         }
@@ -318,7 +321,7 @@ const ContentEditorTab = ({ landingPage, setLandingPage }) => {
   };
   
   // Configurar handler do Bootstrap
-  const quillModules = {
+  const quillModules = useMemo(() => ({
     ...modules,
     toolbar: {
       ...modules.toolbar,
@@ -326,6 +329,8 @@ const ContentEditorTab = ({ landingPage, setLandingPage }) => {
         'bootstrap': function() {
           if (quillRef.current) {
             const quill = quillRef.current.getEditor();
+            if (!quill) return;
+            
             const range = quill.getSelection() || { index: quill.getLength(), length: 0 };
             
             const bootstrapHtml = `
@@ -348,13 +353,19 @@ const ContentEditorTab = ({ landingPage, setLandingPage }) => {
         }
       }
     }
-  };
+  }), [modules, preserveHtml, originalHtmlCode, setLandingPage]);
 
   // Para salvar modificações do editor visual no HTML original
   const handleVisualEditorSave = () => {
     if (preserveHtml && activeTab === 0) {
       // Obter HTML atual do editor
-      const currentContent = quillRef.current ? quillRef.current.getEditor().root.innerHTML : htmlCode;
+      let currentContent = htmlCode;
+      if (quillRef.current) {
+        const quill = quillRef.current.getEditor();
+        if (quill && quill.root) {
+          currentContent = quill.root.innerHTML;
+        }
+      }
       
       // Perguntar ao usuário se deseja substituir o HTML original
       const confirmed = window.confirm("Deseja substituir o HTML original com o conteúdo atual do editor visual? Isso pode afetar elementos HTML complexos.");
@@ -531,7 +542,7 @@ const ContentEditorTab = ({ landingPage, setLandingPage }) => {
               <ReactQuill
                 ref={quillRef}
                 theme="snow"
-                value={htmlCode}
+                value={htmlCode || ''}
                 onChange={handleContentChange}
                 modules={quillModules}
                 formats={formats}
