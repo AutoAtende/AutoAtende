@@ -47,7 +47,6 @@ import {
 } from "@fortawesome/free-solid-svg-icons";
 import WhatsAppIcon from '@mui/icons-material/WhatsApp';
 
-import StandardTabContent from "../../../components/shared/StandardTabContent";
 import BaseButton from "../../../components/shared/BaseButton";
 import StandardModal from "../../../components/shared/StandardModal";
 import { i18n } from "../../../translate/i18n";
@@ -71,6 +70,30 @@ const openAiModels = [
 ];
 
 // Styled Components
+const OptionsContainer = styled(Box)(({ theme }) => ({
+  height: '100%',
+  display: 'flex',
+  flexDirection: 'column',
+  overflow: 'hidden'
+}));
+
+const OptionsContent = styled(Box)(({ theme }) => ({
+  flex: 1,
+  overflow: 'auto',
+  padding: theme.spacing(2),
+  [theme.breakpoints.up('sm')]: {
+    padding: theme.spacing(3),
+  },
+  // Scroll customizado
+  '&::-webkit-scrollbar': {
+    width: 6
+  },
+  '&::-webkit-scrollbar-thumb': {
+    backgroundColor: theme.palette.divider,
+    borderRadius: 3
+  }
+}));
+
 const StyledCard = styled(Card)(({ theme }) => ({
   marginBottom: theme.spacing(2),
   transition: 'all 0.2s ease-in-out',
@@ -102,7 +125,12 @@ const SettingRow = styled(Box)(({ theme }) => ({
   }
 }));
 
-const Options = ({ settings, scheduleTypeChanged, enableReasonWhenCloseTicketChanged }) => {
+const SectionNavigation = styled(Paper)(({ theme }) => ({
+  marginBottom: theme.spacing(3),
+  flexShrink: 0
+}));
+
+const Options = ({ settings, scheduleTypeChanged, enableReasonWhenCloseTicketChanged, hideLayout = false }) => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const { user } = useContext(AuthContext);
@@ -828,10 +856,30 @@ const Options = ({ settings, scheduleTypeChanged, enableReasonWhenCloseTicketCha
     );
   }
 
+  // Se hideLayout for true, não renderiza a navegação por seções
+  if (hideLayout) {
+    return (
+      <OptionsContainer>
+        <OptionsContent>
+          {renderContent()}
+          
+          {/* Indicador de alterações não salvas */}
+          {hasChanges && (
+            <Alert severity="info" sx={{ mt: 2 }}>
+              <Typography variant="body2">
+                Você tem alterações não salvas. Elas serão salvas automaticamente ao sair do campo.
+              </Typography>
+            </Alert>
+          )}
+        </OptionsContent>
+      </OptionsContainer>
+    );
+  }
+
   return (
-    <Box>
+    <OptionsContainer>
       {/* Navegação por seções */}
-      <Paper sx={{ mb: 3 }}>
+      <SectionNavigation>
         <Stack direction={isMobile ? "column" : "row"} spacing={0}>
           {sections.map((section, index) => (
             <BaseButton
@@ -850,22 +898,22 @@ const Options = ({ settings, scheduleTypeChanged, enableReasonWhenCloseTicketCha
             </BaseButton>
           ))}
         </Stack>
-      </Paper>
+      </SectionNavigation>
 
       {/* Conteúdo da seção ativa */}
-      <Box>
+      <OptionsContent>
         {renderContent()}
-      </Box>
-
-      {/* Indicador de alterações não salvas */}
-      {hasChanges && (
-        <Alert severity="info" sx={{ mt: 2 }}>
-          <Typography variant="body2">
-            Você tem alterações não salvas. Elas serão salvas automaticamente ao sair do campo.
-          </Typography>
-        </Alert>
-      )}
-    </Box>
+        
+        {/* Indicador de alterações não salvas */}
+        {hasChanges && (
+          <Alert severity="info" sx={{ mt: 2 }}>
+            <Typography variant="body2">
+              Você tem alterações não salvas. Elas serão salvas automaticamente ao sair do campo.
+            </Typography>
+          </Alert>
+        )}
+      </OptionsContent>
+    </OptionsContainer>
   );
 };
 
@@ -875,13 +923,15 @@ Options.propTypes = {
     value: PropTypes.any
   })),
   scheduleTypeChanged: PropTypes.func,
-  enableReasonWhenCloseTicketChanged: PropTypes.func
+  enableReasonWhenCloseTicketChanged: PropTypes.func,
+  hideLayout: PropTypes.bool
 };
 
 Options.defaultProps = {
   settings: [],
   scheduleTypeChanged: () => {},
-  enableReasonWhenCloseTicketChanged: () => {}
+  enableReasonWhenCloseTicketChanged: () => {},
+  hideLayout: false
 };
 
 export default React.memo(Options);
