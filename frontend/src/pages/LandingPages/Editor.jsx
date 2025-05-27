@@ -387,14 +387,14 @@ const LandingPageEditor = () => {
             setLandingPage={setLandingPage}
           />
         );
-      case 5:
+      case 4:
         return (
           <NotificationsTab
             landingPage={landingPage}
             setLandingPage={setLandingPage}
           />
         );
-      case 6:
+      case 5:
         return (
           <AdvancedConfigTab
             landingPage={landingPage}
