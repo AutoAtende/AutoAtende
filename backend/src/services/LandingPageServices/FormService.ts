@@ -7,13 +7,12 @@ import LandingPage from '../../models/LandingPage';
 import Contact from '../../models/Contact';
 import ContactCustomField from '../../models/ContactCustomField';
 import ContactTags from '../../models/ContactTags';
-import { getWbot } from "../../libs/wbot";
+import { getWbot, Session } from "../../libs/wbot";
 import { SendPresenceStatus } from "../../helpers/SendPresenceStatus";
 import CreateOrUpdateContactService from "../ContactServices/CreateOrUpdateContactService";
 import GetGroupInviteCodeService from "../GroupServices/GetGroupInviteCodeService";
 import { verifyMessage } from "../WbotServices/MessageListener/Verifiers/VerifyMessage";
 import { logger } from "../../utils/logger";
-import GetDefaultWhatsApp from "../../helpers/GetDefaultWhatsApp";
 import Whatsapp from "../../models/Whatsapp";
 import Groups from "../../models/Groups";
 import FindOrCreateTicketService from "../TicketServices/FindOrCreateTicketService";
@@ -23,9 +22,9 @@ import CreateMessageService from "../MessageServices/CreateMessageService";
 import { getIO } from "../../libs/socket";
 import { notifyUpdate } from "../TicketServices/UpdateTicketService";
 import { Mutex } from "async-mutex";
-import GetTicketWbot from "../../helpers/GetTicketWbot";
 import SendWhatsAppMediaImage from "../WbotServices/SendWhatsappMediaImage";
 import SendWhatsAppMessage from "../WbotServices/SendWhatsAppMessage";
+import SetTicketMessagesAsRead from '@helpers/SetTicketMessagesAsRead';
 
 // Mutex para sincronização de criação de tickets
 const createTicketMutex = new Mutex();
@@ -44,7 +43,7 @@ export class FormService {
  */
 async validateAndNormalizeWhatsAppNumber(
   inputNumber: string,
-  wbot: any,
+  wbot: Session,
   context: string = 'número'
 ): Promise<string> {
   // Validações básicas (mantidas)
@@ -57,7 +56,7 @@ async validateAndNormalizeWhatsAppNumber(
   }
 
   // Limpa e normaliza o número (DDI + DDD + número)
-  const cleanNumber = inputNumber.replace(/\D/g, "");
+  const cleanNumber = inputNumber.replace(/[\s\D]/g, "");
   let processedNumber = cleanNumber.startsWith('55') ? cleanNumber : '55' + cleanNumber;
 
   // Função auxiliar para testar no WhatsApp
@@ -108,8 +107,11 @@ async validateAndNormalizeWhatsAppNumber(
 }
 
 /**
- * Normaliza número de telefone removendo espaços e caracteres especiais
- * Mantém apenas dígitos e garante formato DDIDDDNUMERO
+ * Normaliza número de telefone para o formato +DDIDDDNUMERO
+ * Remove espaços e caracteres especiais, garante formato correto
+ * 
+ * @param phoneNumber - Número de telefone de entrada
+ * @returns Número normalizado no formato +DDIDDDNUMERO
  */
 private normalizePhoneNumber(phoneNumber: string): string {
   if (!phoneNumber || typeof phoneNumber !== 'string') {
@@ -117,20 +119,23 @@ private normalizePhoneNumber(phoneNumber: string): string {
   }
 
   // Remove todos os caracteres não numéricos
-  const cleanNumber = phoneNumber.replace(/\D/g, '');
+  const cleanNumber = phoneNumber.replace(/[\s\D]/g, "");
+
   
   if (cleanNumber.length < 8) {
     throw new Error('Número de telefone muito curto');
   }
 
   // Adiciona código do país (55) se não tiver
-  let normalizedNumber = cleanNumber.startsWith('55') ? cleanNumber : '55' + cleanNumber;
+  let processedNumber = cleanNumber.startsWith('55') ? cleanNumber : '55' + cleanNumber;
   
-  return normalizedNumber;
+  // Retorna no formato +DDIDDDNUMERO
+  return `+${processedNumber}`;
 }
 
 /**
  * Cria ou atualiza contato de forma consistente
+ * CORREÇÃO: Usar formato +DDIDDDNUMERO para salvar no banco
  */
 private async createOrUpdateContactConsistent(
   contactData: {
@@ -141,10 +146,10 @@ private async createOrUpdateContactConsistent(
   formData: any,
   companyId: number,
   whatsappId: number,
-  wbot: any
+  wbot: Session
 ): Promise<Contact> {
   try {
-    // Normalizar número antes de buscar/criar contato
+    // CORREÇÃO: Normalizar número no formato +DDIDDDNUMERO
     const normalizedNumber = this.normalizePhoneNumber(contactData.number);
     
     logger.info(`Processando contato com número normalizado: ${normalizedNumber}`);
@@ -184,17 +189,17 @@ private async createOrUpdateContactConsistent(
       // Contato não existe - criar novo
       logger.info(`Criando novo contato com número: ${normalizedNumber}`);
       
-      const newContactData = {
+      // CORREÇÃO: Usar número normalizado para criar contato
+      contact = await Contact.create({
         name: contactData.name.trim(),
-        number: normalizedNumber,
+        number: normalizedNumber, // Formato +DDIDDDNUMERO
         email: contactData.email?.trim() || '',
         isGroup: false,
         companyId,
         whatsappId
-      };
-
-      contact = await CreateOrUpdateContactService(newContactData, wbot);
-      logger.info(`Novo contato criado ID: ${contact.id}`);
+      });
+      
+      logger.info(`Novo contato criado ID: ${contact.id} com número ${normalizedNumber}`);
     }
 
     // Processar campos extras do formulário
@@ -486,11 +491,7 @@ private async processContactExtraFields(contactId: number, formData: any, compan
 
 /**
  * Método para processamento assíncrono (não bloqueia a resposta ao cliente)
- * Implementando o fluxo correto de mensagens:
- * 1. Enviar mensagem de confirmação ao contato
- * 2. Enviar mensagem interna no ticket
- * 3. Enviar mensagem com link de grupo
- * 4. Notificar o responsável pela landing page
+ * CORREÇÃO: Criar SEMPRE um novo ticket, nunca reutilizar
  */
 private async processSubmissionAsync(submissionId: number, formData: any, landingPage: any, form: any, companyId: number) {
   logger.info(`[INICIO] Processando submissão ID: ${submissionId} para empresa ID: ${companyId}`);
@@ -504,19 +505,6 @@ private async processSubmissionAsync(submissionId: number, formData: any, landin
     }
     logger.info(`Submissão ${submissionId} encontrada com sucesso`);
 
-    // Preparação dos dados de contato em paralelo com a obtenção da conexão WhatsApp
-    logger.debug(`Buscando conexão WhatsApp padrão para empresa ${companyId}`);
-    let [whatsapp] = await Promise.all([
-      GetDefaultWhatsApp(companyId)
-    ]);
-
-    if (!whatsapp) {
-      logger.error(`Não foi possível encontrar uma conexão WhatsApp para a empresa ${companyId}`);
-      return;
-    }
-    logger.info(`Conexão WhatsApp ID: ${whatsapp.id} encontrada para empresa ${companyId}`);
-
-    // CORREÇÃO: Recarregar a landing page com todas as configurações necessárias
     const fullLandingPage = await LandingPage.findByPk(landingPage.id, {
       attributes: [
         'id', 'title', 'slug', 'content', 'active', 'companyId',
@@ -544,6 +532,8 @@ private async processSubmissionAsync(submissionId: number, formData: any, landin
     // ===============================================
     // IDENTIFICAR E OBTER A CONEXÃO WHATSAPP CORRETA
     // ===============================================
+
+    let whatsapp: Whatsapp;
 
     // 1. Verificar se há uma conexão específica configurada na landing page
     if (fullLandingPage.advancedConfig?.notificationConnectionId) {
@@ -606,15 +596,23 @@ private async processSubmissionAsync(submissionId: number, formData: any, landin
     await this.applyContactTags(contact.id, fullLandingPage.advancedConfig?.contactTags, companyId);
     logger.info(`Tags aplicadas com sucesso para contato ID: ${contact.id}`);
 
-    // Criar ticket usando a conexão específica
-    let ticket;
+    // CORREÇÃO: SEMPRE criar um novo ticket para cada submissão de formulário
+    let ticket: Ticket;
     try {
-      logger.debug(`Iniciando criação de ticket para contato ID: ${contact.id} usando conexão ID: ${whatsapp.id}`);
+      logger.debug(`Criando NOVO ticket para contato ID: ${contact.id} usando conexão ID: ${whatsapp.id}`);
       await createTicketMutex.runExclusive(async () => {
-        logger.debug(`Mutex adquirido, encontrando ou criando ticket`);
-        // Usar a conexão específica para criar o ticket
-        ticket = await FindOrCreateTicketService(contact, whatsapp.id, 0, companyId, 0, null, false, false, false);
-        logger.info(`Ticket ID: ${ticket.id} encontrado/criado com sucesso usando conexão ID: ${whatsapp.id}`);
+        logger.debug(`Mutex adquirido, criando novo ticket`);
+        
+        // CORREÇÃO: Criar ticket diretamente usando Contact.create para garantir novo ticket
+        ticket = await Ticket.create({
+          contactId: contact.id,
+          whatsappId: whatsapp.id,
+          companyId,
+          status: 'open',
+          isGroup: false,
+        });
+        
+        logger.info(`NOVO ticket ID: ${ticket.id} criado com sucesso para submissão de formulário`);
 
         // Criar tracking logo após o ticket
         logger.debug(`Criando tracking para ticket ID: ${ticket.id}`);
@@ -627,11 +625,11 @@ private async processSubmissionAsync(submissionId: number, formData: any, landin
       });
 
       if (!ticket) {
-        logger.error(`Não foi possível criar ou encontrar um ticket para contato ID: ${contact.id}`);
-        throw new Error('Não foi possível criar ou encontrar um ticket');
+        logger.error(`Não foi possível criar um novo ticket para contato ID: ${contact.id}`);
+        throw new Error('Não foi possível criar um novo ticket');
       }
     } catch (ticketError) {
-      logger.error(`Erro na criação do ticket para contato ID: ${contact.id}: ${ticketError.message}`);
+      logger.error(`Erro na criação do novo ticket para contato ID: ${contact.id}: ${ticketError.message}`);
       return;
     }
 
@@ -669,15 +667,43 @@ private async processSubmissionAsync(submissionId: number, formData: any, landin
           throw new Error('Contato não encontrado ou número inválido');
         }
 
+              // Preparar dados da mensagem
+      const formattedData = Object.entries(formData)
+      .map(([key, value]) => `*${key}:* ${value}`)
+      .join('\n');
+
+    const messageText = `*Nova submissão de formulário - ${fullLandingPage.title}*\n\n${formattedData}\n\n_Enviado via landing page_`;
+    const messageId = uuidv4();
+
+    // Criar mensagem associada ao ticket
+    const messageData = {
+      id: messageId,
+      ticketId: ticketCheck.id,
+      body: messageText,
+      contactId: contact.id,
+      fromMe: true,
+      read: true,
+      mediaType: 'chat',
+      internalMessage: true
+    };
+
+    await CreateMessageService({
+      messageData,
+      ticket: ticketCheck,
+      companyId,
+      internalMessage: true
+    });
+
         // Enviar presença para o contato antes da mensagem
         await SendPresenceStatus(
           wbot,
-          `${ticketCheck.contact.number}@s.whatsapp.net`
+          `${ticketCheck.contact.number.replace('+', '')}@s.whatsapp.net`
         );
 
+        let messageInfo;
         if (confirmConfig.imageUrl) {
           // Enviar mensagem com imagem
-          await SendWhatsAppMediaImage({
+          messageInfo = await SendWhatsAppMediaImage({
             ticket: ticketCheck,
             url: confirmConfig.imageUrl,
             caption: confirmConfig.caption || 'Obrigado por se cadastrar!',
@@ -688,7 +714,7 @@ private async processSubmissionAsync(submissionId: number, formData: any, landin
           });
         } else {
           // Enviar apenas texto
-          await SendWhatsAppMessage({
+          messageInfo = await SendWhatsAppMessage({
             body: confirmConfig.caption || 'Obrigado por se cadastrar!',
             ticket: ticketCheck,
             params: {
@@ -696,6 +722,8 @@ private async processSubmissionAsync(submissionId: number, formData: any, landin
             }
           });
         }
+        await SetTicketMessagesAsRead(ticketCheck);
+        await verifyMessage(messageInfo, ticketCheck, ticketCheck.contact);
 
         confirmationSent = true;
         logger.info(`Mensagem de confirmação enviada com sucesso para contato ID: ${contact.id}`);
@@ -705,66 +733,6 @@ private async processSubmissionAsync(submissionId: number, formData: any, landin
       }
     } else {
       logger.info(`Mensagem de confirmação não configurada/habilitada para landing page ID: ${fullLandingPage.id}`);
-    }
-
-    // Pequeno delay
-    await new Promise(resolve => setTimeout(resolve, 1000));
-
-    // 2. Enviar mensagem interna no ticket
-    logger.info(`[PASSO 2] Criando mensagem interna no ticket ID: ${ticket.id}`);
-    try {
-      // Verificar ticket
-      const ticketCheck = await Ticket.findByPk(ticket.id);
-      if (!ticketCheck) {
-        throw new Error('Ticket não encontrado para criar mensagem interna');
-      }
-
-      // Preparar dados da mensagem
-      const formattedData = Object.entries(formData)
-        .map(([key, value]) => `*${key}:* ${value}`)
-        .join('\n');
-
-      const messageText = `*Nova submissão de formulário - ${fullLandingPage.title}*\n\n${formattedData}\n\n_Enviado via landing page_`;
-      const messageId = uuidv4();
-
-      // Criar mensagem associada ao ticket
-      const messageData = {
-        id: messageId,
-        ticketId: ticketCheck.id,
-        body: messageText,
-        contactId: contact.id,
-        fromMe: true,
-        read: true,
-        mediaType: 'chat',
-        mediaUrl: null,
-        ack: 1,
-        queueId: ticketCheck.queueId,
-        internalMessage: true
-      };
-
-      await CreateMessageService({
-        messageData,
-        ticket: ticketCheck,
-        companyId,
-        isForceDeleteConnection: false,
-        internalMessage: true
-      });
-
-      // Notificar sobre a atualização do ticket
-      try {
-        const io = getIO();
-        if (io) {
-          notifyUpdate(io, ticketCheck, ticketCheck.id, companyId);
-        }
-      } catch (socketError) {
-        logger.error(`Erro na notificação socket.io: ${socketError.message}`);
-      }
-
-      internalMessageSent = true;
-      logger.info(`Mensagem interna no ticket criada com sucesso para ticket ID: ${ticket.id}`);
-    } catch (error) {
-      logger.error(`Erro ao criar mensagem interna no ticket ID: ${ticket.id}: ${error.message}`);
-      // Continuar mesmo com erro
     }
 
     // Pequeno delay
@@ -842,12 +810,13 @@ private async processSubmissionAsync(submissionId: number, formData: any, landin
           // Enviar presença para o contato antes da mensagem
           await SendPresenceStatus(
             wbot,
-            `${ticketCheck.contact.number}@s.whatsapp.net`
+            `${ticketCheck.contact.number.replace('+', '')}@s.whatsapp.net`
           );
 
+          let messageInfo;
           if (hasCustomImage) {
             // Enviar com imagem
-            await SendWhatsAppMediaImage({
+            messageInfo = await SendWhatsAppMediaImage({
               ticket: ticketCheck,
               url: fullLandingPage.advancedConfig.groupInviteMessage.imageUrl,
               caption: fullMessage,
@@ -858,7 +827,7 @@ private async processSubmissionAsync(submissionId: number, formData: any, landin
             });
           } else {
             // Enviar apenas texto
-            await SendWhatsAppMessage({
+            messageInfo = await SendWhatsAppMessage({
               body: fullMessage,
               ticket: ticketCheck,
               quotedMsg: null,
@@ -869,6 +838,9 @@ private async processSubmissionAsync(submissionId: number, formData: any, landin
               }
             });
           }
+          await SetTicketMessagesAsRead(ticketCheck);
+
+          await verifyMessage(messageInfo, ticketCheck, ticketCheck.contact);
 
           groupInviteSent = true;
           logger.info(`Convite para grupo ID: ${fullLandingPage.advancedConfig.inviteGroupId} enviado com sucesso para contato ID: ${ticketCheck.contact.id}`);
@@ -895,17 +867,10 @@ private async processSubmissionAsync(submissionId: number, formData: any, landin
       try {
         logger.info(`Notificação configurada para número: ${fullLandingPage.notificationConfig.whatsAppNumber}`);
 
-        // Validar número antes de tentar enviar
-        const notificationNumber = fullLandingPage.notificationConfig.whatsAppNumber.replace(/\D/g, "");
-        if (!notificationNumber || notificationNumber.length < 10) {
-          logger.error(`Número de notificação inválido: ${notificationNumber}`);
-          throw new Error('Número de notificação inválido');
-        }
-
-        let processedNumber = notificationNumber;
+        let processedNumber = fullLandingPage.notificationConfig.whatsAppNumber;
 
         processedNumber = await this.validateAndNormalizeWhatsAppNumber(
-          notificationNumber,
+          fullLandingPage.notificationConfig.whatsAppNumber,
           wbot,
           'número de notificação'
         );
@@ -913,16 +878,25 @@ private async processSubmissionAsync(submissionId: number, formData: any, landin
         // Etapa 6: Número validado com sucesso, prosseguir com a criação do contato
         logger.info(`Número de notificação ${processedNumber} validado com sucesso no WhatsApp`);
 
-        // Criar ou atualizar contato para o responsável
+        // CORREÇÃO: Criar contato usando formato +DDIDDDNUMERO
+        const normalizedAdminNumber = this.normalizePhoneNumber(processedNumber);
+        
         let adminContact: Contact;
         try {
-          adminContact = await CreateOrUpdateContactService({
-            name: `Admin - ${fullLandingPage.title}`,
-            number: processedNumber,
-            isGroup: false,
-            companyId,
-            whatsappId: whatsapp.id
-          }, wbot);
+          adminContact = await Contact.findOrCreate({
+            where: {
+              number: normalizedAdminNumber,
+              companyId
+            },
+            defaults: {
+              name: `Admin - ${fullLandingPage.title}`,
+              number: normalizedAdminNumber, // Formato +DDIDDDNUMERO
+              email: '',
+              isGroup: false,
+              companyId,
+              whatsappId: whatsapp.id
+            }
+          }).then(([contact]) => contact);
 
           logger.debug(`Contato para administrador criado/atualizado com ID: ${adminContact.id}`);
         } catch (contactError) {
@@ -930,24 +904,19 @@ private async processSubmissionAsync(submissionId: number, formData: any, landin
           throw contactError;
         }
 
-        // Verificar se o contato do responsável já tem um ticket
+        // CORREÇÃO: Criar NOVO ticket para o responsável (não reutilizar)
         let adminTicket: Ticket;
         try {
-          adminTicket = await FindOrCreateTicketService(
-            adminContact,
-            whatsapp.id,
-            0,
+          adminTicket = await Ticket.create({
+            contactId: adminContact.id,
+            whatsappId: whatsapp.id,
             companyId,
-            0,
-            null,
-            false,
-            false,
-            false
-          );
+            status: 'open',
+          });
 
-          logger.debug(`Ticket para administrador encontrado/criado com ID: ${adminTicket.id}`);
+          logger.debug(`Novo ticket para administrador criado com ID: ${adminTicket.id}`);
         } catch (ticketError) {
-          logger.error(`Erro ao criar ticket para o responsável: ${ticketError.message}`);
+          logger.error(`Erro ao criar novo ticket para o responsável: ${ticketError.message}`);
           throw ticketError;
         }
 
@@ -968,17 +937,19 @@ private async processSubmissionAsync(submissionId: number, formData: any, landin
         // Enviar presença para o contato antes da mensagem
         await SendPresenceStatus(
           wbot,
-          `${adminContact.number}@s.whatsapp.net`
+          `${adminContact.number.replace('+', '')}@s.whatsapp.net`
         );
 
         // Enviar mensagem usando o ticket do administrador
-        await SendWhatsAppMessage({
+        const messageInfo = await SendWhatsAppMessage({
           body: message,
           ticket: adminTicket,
           params: {
             whatsappId: whatsapp.id
           }
         });
+        await SetTicketMessagesAsRead(adminTicket);
+        await verifyMessage(messageInfo, adminTicket, adminContact);
 
         notificationSent = true;
         logger.info(`Notificação enviada com sucesso para o responsável: ${processedNumber}`);
