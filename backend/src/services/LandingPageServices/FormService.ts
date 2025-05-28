@@ -726,6 +726,7 @@ private async processSubmissionAsync(submissionId: number, formData: any, landin
         await verifyMessage(messageInfo, ticketCheck, ticketCheck.contact);
 
         confirmationSent = true;
+        internalMessageSent = true;
         logger.info(`Mensagem de confirmação enviada com sucesso para contato ID: ${contact.id}`);
       } catch (error) {
         logger.error(`Erro ao enviar mensagem de confirmação para contato ID: ${contact.id}: ${error.message}`);
