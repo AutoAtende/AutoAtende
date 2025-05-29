@@ -1,4 +1,4 @@
-import { MessageUpsertType, proto, WASocket } from "bail-lite";
+import { MessageUpsertType, proto, WASocket } from "baileys";
 import {
   convertTextToSpeechAndSaveToFile,
   keepOnlySpecifiedChars,

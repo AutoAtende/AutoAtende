@@ -1,4 +1,4 @@
-import { proto } from "bail-lite";
+import { proto } from "baileys";
 
 export function getStatus(msg: proto.IWebMessageInfo, msgType: string) {
     if (msg.status == proto.WebMessageInfo.Status.PENDING) {

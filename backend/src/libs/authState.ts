@@ -2,8 +2,8 @@
     AuthenticationCreds,
     AuthenticationState,
     SignalDataTypeMap
-  } from "bail-lite";
-  import { BufferJSON, initAuthCreds, proto } from "bail-lite";
+  } from "baileys";
+  import { BufferJSON, initAuthCreds, proto } from "baileys";
   import Whatsapp from "../models/Whatsapp";
   import BaileysKeys from "../models/BaileysKeys";
   import { logger } from "../utils/logger";

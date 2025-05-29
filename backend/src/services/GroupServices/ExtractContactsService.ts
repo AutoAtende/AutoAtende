@@ -3,7 +3,7 @@ import { Boom } from "@hapi/boom";
 import ShowWhatsAppByCompanyIdByDefaultService from "../WhatsappService/ShowWhatsAppByCompanyIdByDefaultService";
 import { getWbot } from "../../libs/wbot";
 import { getIO } from "../../libs/socket";
-import { GroupParticipant } from "bail-lite";
+import { GroupParticipant } from "baileys";
 import { Server as SocketIO } from "socket.io";
 import * as fs from "fs";
 import * as path from "path";

@@ -1,7 +1,7 @@
 import {
   BinaryNode,
   Contact as BContact
-} from "bail-lite";
+} from "baileys";
 import { Mutex } from "async-mutex";
 import { Session } from "../../libs/wbot";
 import Contact from "../../models/Contact";

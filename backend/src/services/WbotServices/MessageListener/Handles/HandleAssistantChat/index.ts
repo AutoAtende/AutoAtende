@@ -1,4 +1,4 @@
-import { proto } from "bail-lite";
+import { proto } from "baileys";
 import { Session } from "../../../../../libs/wbot";
 import { OpenAI } from "openai";
 import Assistant from "../../../../../models/Assistant";
@@ -13,7 +13,7 @@ import { logger } from "../../../../../utils/logger";
 import fetch from "node-fetch";
 import fs from "fs";
 import path from "path";
-import { downloadContentFromMessage } from "bail-lite";
+import { downloadContentFromMessage } from "baileys";
 import { publicFolder } from "../../../../../config/upload";
 import VoiceConfig from "../../../../../models/VoiceConfig";
 import TranscriptionService from "../../../../../services/AssistantServices/TranscriptionService";
