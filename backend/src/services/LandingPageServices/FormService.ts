@@ -29,182 +29,182 @@ const createTicketMutex = new Mutex();
 
 export class FormService {
 
-/**
- * Valida e normaliza número no WhatsApp
- * Testa primeiro o número original, se não encontrar remove um '9' e testa novamente
- * 
- * @param inputNumber - Número de telefone de entrada
- * @param wbot - Instância do WhatsApp (Baileys)
- * @param context - Contexto para logs (opcional)
- * @returns Número válido no WhatsApp
- * @throws Error se número não existir no WhatsApp
- */
-async validateAndNormalizeWhatsAppNumber(
-  inputNumber: string,
-  wbot: Session,
-  context: string = 'número'
-): Promise<string> {
-  // Validações básicas (mantidas)
-  if (!inputNumber || typeof inputNumber !== 'string') {
-    throw new Error(`${context} não pode estar vazio ou deve ser uma string`);
-  }
+  /**
+   * Valida e normaliza número no WhatsApp
+   * Testa primeiro o número original, se não encontrar remove um '9' e testa novamente
+   * 
+   * @param inputNumber - Número de telefone de entrada
+   * @param wbot - Instância do WhatsApp (Baileys)
+   * @param context - Contexto para logs (opcional)
+   * @returns Número válido no WhatsApp
+   * @throws Error se número não existir no WhatsApp
+   */
+  async validateAndNormalizeWhatsAppNumber(
+    inputNumber: string,
+    wbot: Session,
+    context: string = 'número'
+  ): Promise<string> {
+    // Validações básicas (mantidas)
+    if (!inputNumber || typeof inputNumber !== 'string') {
+      throw new Error(`${context} não pode estar vazio ou deve ser uma string`);
+    }
 
-  if (!wbot) {
-    throw new Error('Instância do WhatsApp não fornecida');
-  }
+    if (!wbot) {
+      throw new Error('Instância do WhatsApp não fornecida');
+    }
 
-  // Limpa e normaliza o número (DDI + DDD + número)
-  const cleanNumber = inputNumber.replace(/[\s\D]/g, "");
-  let processedNumber = cleanNumber.startsWith('55') ? cleanNumber : '55' + cleanNumber;
+    // Limpa e normaliza o número (DDI + DDD + número)
+    const cleanNumber = inputNumber.replace(/[\s\D]/g, "");
+    let processedNumber = cleanNumber.startsWith('55') ? cleanNumber : '55' + cleanNumber;
 
-  // Função auxiliar para testar no WhatsApp
-  const testWhatsAppNumber = async (number: string): Promise<boolean> => {
-    try {
-      const chatId = `${number}@s.whatsapp.net`;
-      const [result] = await wbot.onWhatsApp(chatId);
-      if (result.exists) {
-        console.log (`${number} exists on WhatsApp, as jid: ${result.jid}`)
-        return true;
+    // Função auxiliar para testar no WhatsApp
+    const testWhatsAppNumber = async (number: string): Promise<boolean> => {
+      try {
+        const chatId = `${number}@s.whatsapp.net`;
+        const [result] = await wbot.onWhatsApp(chatId);
+        if (result.exists) {
+          console.log(`${number} exists on WhatsApp, as jid: ${result.jid}`)
+          return true;
+        }
+      } catch (error) {
+        console.error(`Erro ao verificar número no WhatsApp: ${error}`);
+        return false;
       }
-    } catch (error) {
-      console.error(`Erro ao verificar número no WhatsApp: ${error}`);
       return false;
+    };
+
+    // 1ª Tentativa: Testa o número exatamente como foi informado
+    if (await testWhatsAppNumber(processedNumber)) {
+      logger.info(`[PRIMEIRA] Número ${processedNumber} encontrado no WhatsApp`);
+      return processedNumber;
     }
-    return false;
-  };
 
-  // 1ª Tentativa: Testa o número exatamente como foi informado
-  if (await testWhatsAppNumber(processedNumber)) {
-    logger.info(`[PRIMEIRA] Número ${processedNumber} encontrado no WhatsApp`);
-    return processedNumber;
-  }
+    // 2ª Tentativa: Se o número não tem nono dígito, tenta adicionar um '9'
+    const ddd = processedNumber.substring(0, 4); // '55' + DDD (ex: 5516)
+    const numberPart = processedNumber.substring(4); // Restante do número
 
-  // 2ª Tentativa: Se o número não tem nono dígito, tenta adicionar um '9'
-  const ddd = processedNumber.substring(0, 4); // '55' + DDD (ex: 5516)
-  const numberPart = processedNumber.substring(4); // Restante do número
-
-  if (numberPart.length >= 8 && !numberPart.startsWith('9')) {
-    const numberWithNine = ddd + '9' + numberPart;
-    if (await testWhatsAppNumber(numberWithNine)) {
-      logger.info(`[SEGUNDA] Número ${numberWithNine} encontrado no WhatsApp`);
-      return numberWithNine;
-    }
-  }
-
-  // 3ª Tentativa: Se o número tem '9' extra, tenta remover um
-  if (numberPart.startsWith('9')) {
-    const numberWithoutNine = ddd + numberPart.substring(1);
-    if (await testWhatsAppNumber(numberWithoutNine)) {
-      logger.info(`[TERCEIRA] Número ${numberWithoutNine} encontrado no WhatsApp`);
-      return numberWithoutNine;
-    }
-  }
-
-  // Se nenhuma tentativa funcionou, lança erro
-  throw new Error(`${context} ${processedNumber} não existe no WhatsApp`);
-}
-
-/**
- * Normaliza número de telefone para o formato +DDIDDDNUMERO
- * Remove espaços e caracteres especiais, garante formato correto
- * 
- * @param phoneNumber - Número de telefone de entrada
- * @returns Número normalizado no formato +DDIDDDNUMERO
- */
-private normalizePhoneNumber(phoneNumber: string): string {
-  if (!phoneNumber || typeof phoneNumber !== 'string') {
-    throw new Error('Número de telefone inválido');
-  }
-
-  // Remove todos os caracteres não numéricos
-  const cleanNumber = phoneNumber.replace(/[\s\D]/g, "");
-
-  
-  if (cleanNumber.length < 8) {
-    throw new Error('Número de telefone muito curto');
-  }
-
-  // Adiciona código do país (55) se não tiver
-  let processedNumber = cleanNumber.startsWith('55') ? cleanNumber : '55' + cleanNumber;
-  
-  // Retorna no formato +DDIDDDNUMERO
-  return `+${processedNumber}`;
-}
-
-/**
- * Cria ou atualiza contato usando o serviço padrão
- */
-private async createOrUpdateContactConsistent(
-  contactData: {
-    name: string;
-    number: string;
-    email?: string;
-  },
-  formData: any,
-  companyId: number,
-  whatsappId: number,
-  wbot: Session
-): Promise<Contact> {
-  try {
-    // Normalizar número no formato +DDIDDDNUMERO
-    const normalizedNumber = this.normalizePhoneNumber(contactData.number);
-    
-    logger.info(`Processando contato com número normalizado: ${normalizedNumber}`);
-
-    // Preparar campos extras do formulário
-    const extraInfo = this.prepareExtraInfo(formData);
-
-    // Usar o serviço padrão de criação/atualização de contato
-    const contact = await CreateOrUpdateContactService({
-      name: contactData.name.trim(),
-      number: normalizedNumber,
-      email: contactData.email?.trim() || "",
-      isGroup: false,
-      companyId,
-      whatsappId,
-      extraInfo: extraInfo as ExtraInfo[]
-    }, wbot);
-
-    logger.info(`Contato processado com sucesso ID: ${contact.id} para o número ${normalizedNumber}`);
-    
-    return contact;
-  } catch (error) {
-    logger.error(`Erro ao criar/atualizar contato: ${error.message}`);
-    throw new Error(`Erro ao processar contato: ${error.message}`);
-  }
-}
-
-/**
- * Prepara campos extras do formulário para o formato do serviço
- */
-private prepareExtraInfo(formData: any): Array<{name: string, value: string}> {
-  // Campos padrão que não devem ser salvos como extra fields
-  const standardFields = ['name', 'email', 'number'];
-  const extraInfo: Array<{name: string, value: string}> = [];
-
-  // Identificar campos extras
-  for (const [fieldName, fieldValue] of Object.entries(formData)) {
-    if (!standardFields.includes(fieldName) && 
-        fieldValue !== null && 
-        fieldValue !== undefined && 
-        String(fieldValue).trim() !== '') {
-      
-      let processedValue = String(fieldValue).trim();
-      
-      // Se for objeto ou array, converter para JSON
-      if (typeof fieldValue === 'object') {
-        processedValue = JSON.stringify(fieldValue);
+    if (numberPart.length >= 8 && !numberPart.startsWith('9')) {
+      const numberWithNine = ddd + '9' + numberPart;
+      if (await testWhatsAppNumber(numberWithNine)) {
+        logger.info(`[SEGUNDA] Número ${numberWithNine} encontrado no WhatsApp`);
+        return numberWithNine;
       }
+    }
 
-      extraInfo.push({
-        name: fieldName,
-        value: processedValue
-      });
+    // 3ª Tentativa: Se o número tem '9' extra, tenta remover um
+    if (numberPart.startsWith('9')) {
+      const numberWithoutNine = ddd + numberPart.substring(1);
+      if (await testWhatsAppNumber(numberWithoutNine)) {
+        logger.info(`[TERCEIRA] Número ${numberWithoutNine} encontrado no WhatsApp`);
+        return numberWithoutNine;
+      }
+    }
+
+    // Se nenhuma tentativa funcionou, lança erro
+    throw new Error(`${context} ${processedNumber} não existe no WhatsApp`);
+  }
+
+  /**
+   * Normaliza número de telefone para o formato +DDIDDDNUMERO
+   * Remove espaços e caracteres especiais, garante formato correto
+   * 
+   * @param phoneNumber - Número de telefone de entrada
+   * @returns Número normalizado no formato +DDIDDDNUMERO
+   */
+  private normalizePhoneNumber(phoneNumber: string): string {
+    if (!phoneNumber || typeof phoneNumber !== 'string') {
+      throw new Error('Número de telefone inválido');
+    }
+
+    // Remove todos os caracteres não numéricos
+    const cleanNumber = phoneNumber.replace(/[\s\D]/g, "");
+
+
+    if (cleanNumber.length < 8) {
+      throw new Error('Número de telefone muito curto');
+    }
+
+    // Adiciona código do país (55) se não tiver
+    let processedNumber = cleanNumber.startsWith('55') ? cleanNumber : '55' + cleanNumber;
+
+    // Retorna no formato +DDIDDDNUMERO
+    return `+${processedNumber}`;
+  }
+
+  /**
+   * Cria ou atualiza contato usando o serviço padrão
+   */
+  private async createOrUpdateContactConsistent(
+    contactData: {
+      name: string;
+      number: string;
+      email?: string;
+    },
+    formData: any,
+    companyId: number,
+    whatsappId: number,
+    wbot: Session
+  ): Promise<Contact> {
+    try {
+      // Normalizar número no formato +DDIDDDNUMERO
+      const normalizedNumber = this.normalizePhoneNumber(contactData.number);
+
+      logger.info(`Processando contato com número normalizado: ${normalizedNumber}`);
+
+      // Preparar campos extras do formulário
+      const extraInfo = this.prepareExtraInfo(formData);
+
+      // Usar o serviço padrão de criação/atualização de contato
+      const contact = await CreateOrUpdateContactService({
+        name: contactData.name.trim(),
+        number: normalizedNumber,
+        email: contactData.email?.trim() || "",
+        isGroup: false,
+        companyId,
+        whatsappId,
+        extraInfo: extraInfo as ExtraInfo[]
+      }, wbot);
+
+      logger.info(`Contato processado com sucesso ID: ${contact.id} para o número ${normalizedNumber}`);
+
+      return contact;
+    } catch (error) {
+      logger.error(`Erro ao criar/atualizar contato: ${error.message}`);
+      throw new Error(`Erro ao processar contato: ${error.message}`);
     }
   }
 
-  return extraInfo;
-}
+  /**
+   * Prepara campos extras do formulário para o formato do serviço
+   */
+  private prepareExtraInfo(formData: any): Array<{ name: string, value: string }> {
+    // Campos padrão que não devem ser salvos como extra fields
+    const standardFields = ['name', 'email', 'number'];
+    const extraInfo: Array<{ name: string, value: string }> = [];
+
+    // Identificar campos extras
+    for (const [fieldName, fieldValue] of Object.entries(formData)) {
+      if (!standardFields.includes(fieldName) &&
+        fieldValue !== null &&
+        fieldValue !== undefined &&
+        String(fieldValue).trim() !== '') {
+
+        let processedValue = String(fieldValue).trim();
+
+        // Se for objeto ou array, converter para JSON
+        if (typeof fieldValue === 'object') {
+          processedValue = JSON.stringify(fieldValue);
+        }
+
+        extraInfo.push({
+          name: fieldName,
+          value: processedValue
+        });
+      }
+    }
+
+    return extraInfo;
+  }
 
   /**
    * Busca um formulário pelo ID
@@ -425,490 +425,545 @@ private prepareExtraInfo(formData: any): Array<{name: string, value: string}> {
     }
   }
 
-/**
- * Método para processamento assíncrono (não bloqueia a resposta ao cliente)
- * CORREÇÃO: Criar SEMPRE um novo ticket, nunca reutilizar
- */
-private async processSubmissionAsync(submissionId: number, formData: any, landingPage: any, form: any, companyId: number) {
-  logger.info(`[INICIO] Processando submissão ID: ${submissionId} para empresa ID: ${companyId}`);
-  try {
-    // Buscar a submissão completa
-    logger.debug(`Buscando dados da submissão ${submissionId} no banco de dados`);
-    const submission = await FormSubmission.findByPk(submissionId);
-    if (!submission) {
-      logger.error(`Submissão ${submissionId} não encontrada para processamento.`);
-      return;
-    }
-    logger.info(`Submissão ${submissionId} encontrada com sucesso`);
-
-    const fullLandingPage = await LandingPage.findByPk(landingPage.id, {
-      attributes: [
-        'id', 'title', 'slug', 'content', 'active', 'companyId',
-        'appearance', 'formConfig', 'eventConfig', 'notificationConfig', 'advancedConfig'
-      ]
-    });
-
-    if (!fullLandingPage) {
-      logger.error(`Landing page ${landingPage.id} não encontrada para processamento.`);
-      return;
-    }
-
-    // CORREÇÃO: Debug detalhado das configurações
-    logger.info(`[DEBUG] Configurações da landing page ${fullLandingPage.id}:`, {
-      notificationConfig: fullLandingPage.notificationConfig,
-      advancedConfig: fullLandingPage.advancedConfig,
-      hasNotificationConfig: !!fullLandingPage.notificationConfig,
-      hasAdvancedConfig: !!fullLandingPage.advancedConfig,
-      enableWhatsApp: fullLandingPage.notificationConfig?.enableWhatsApp,
-      whatsAppNumber: fullLandingPage.notificationConfig?.whatsAppNumber,
-      inviteGroupId: fullLandingPage.advancedConfig?.inviteGroupId,
-      notificationConnectionId: fullLandingPage.advancedConfig?.notificationConnectionId
-    });
-
-    // ===============================================
-    // IDENTIFICAR E OBTER A CONEXÃO WHATSAPP CORRETA
-    // ===============================================
-
-    let whatsapp: Whatsapp;
-
-    // 1. Verificar se há uma conexão específica configurada na landing page
-    if (fullLandingPage.advancedConfig?.notificationConnectionId) {
-      const connectionId = fullLandingPage.advancedConfig.notificationConnectionId;
-      logger.info(`Tentando usar conexão específica ID: ${connectionId} configurada na landing page`);
-
-      whatsapp = await Whatsapp.findOne({
-        where: {
-          id: connectionId,
-          companyId,
-          status: 'CONNECTED'
-        }
-      });
-
-      if (whatsapp) {
-        logger.info(`Conexão específica ID: ${whatsapp.id} encontrada e será usada para todas as mensagens`);
-      } else {
-        logger.warn(`Conexão específica ID: ${connectionId} não encontrada ou não está ativa`);
-      }
-    }
-
-    // Obter instância do WhatsApp
-    logger.debug(`Obtendo instância do WhatsApp ID: ${whatsapp.id}`);
-    const wbot = await getWbot(whatsapp.id);
-    logger.info(`Instância do WhatsApp obtida com sucesso`);
-
-    // CORREÇÃO: Validar e normalizar número antes de criar contato
-    let processedNumber: string;
+  // CORREÇÃO: Método para envio de mensagem de confirmação ao contato
+  private async sendConfirmationMessage(
+    wbot: Session,
+    ticket: Ticket,
+    contact: Contact,
+    confirmConfig: any,
+    formData: any,
+    landingPageTitle: string
+  ): Promise<boolean> {
     try {
-      processedNumber = await this.validateAndNormalizeWhatsAppNumber(formData.number, wbot, 'número do contato');
-      logger.info(`Número ${formData.number} validado e normalizado para: ${processedNumber}`);
-    } catch (numberError) {
-      logger.error(`Erro na validação do número ${formData.number}: ${numberError.message}`);
-      throw new Error(`Número de WhatsApp inválido: ${numberError.message}`);
-    }
+      logger.info(`[CONFIRMAÇÃO] Enviando mensagem de confirmação para contato ID: ${contact.id}`);
 
-    // Usar método consistente para criar/atualizar contato
-    let contact: Contact;
-    try {
-      contact = await this.createOrUpdateContactConsistent(
-        {
-          name: formData.name,
-          number: processedNumber,
-          email: formData.email || ""
-        },
-        formData,
-        companyId,
-        whatsapp.id,
-        wbot
-      );
+      // Preparar dados da mensagem
+      const formattedData = Object.entries(formData)
+        .map(([key, value]) => `*${key}:* ${value}`)
+        .join('\n');
 
-      logger.info(`Contato processado com sucesso ID: ${contact.id} para o número ${processedNumber}`);
-    } catch (error) {
-      logger.error(`Erro ao processar contato: ${error.message}`);
-      throw new Error(`Erro ao salvar contato: ${error.message}`);
-    }
+      let messageText = confirmConfig.caption || 'Obrigado por se cadastrar!';
 
-    // Aplicar tags em paralelo
-    logger.debug(`Aplicando tags para contato ID: ${contact.id}`);
-    await this.applyContactTags(contact.id, fullLandingPage.advancedConfig?.contactTags, companyId);
-    logger.info(`Tags aplicadas com sucesso para contato ID: ${contact.id}`);
+      // Substituir variáveis na mensagem
+      messageText = messageText.replace(/{landing_page}/g, landingPageTitle);
+      messageText = messageText.replace(/{nome}/g, contact.name);
+      messageText = messageText.replace(/{data}/g, new Date().toLocaleString('pt-BR'));
 
-    // CORREÇÃO: SEMPRE criar um novo ticket para cada submissão de formulário
-    let ticket: Ticket;
-    try {
-      logger.debug(`Criando NOVO ticket para contato ID: ${contact.id} usando conexão ID: ${whatsapp.id}`);
-      await createTicketMutex.runExclusive(async () => {
-        logger.debug(`Mutex adquirido, criando novo ticket`);
-        
-        // CORREÇÃO: Criar ticket diretamente usando Contact.create para garantir novo ticket
-        ticket = await Ticket.create({
-          contactId: contact.id,
-          whatsappId: whatsapp.id,
-          companyId,
-          status: 'open',
-          isGroup: false,
-        });
-        
-        logger.info(`NOVO ticket ID: ${ticket.id} criado com sucesso para submissão de formulário`);
+      const messageId = uuidv4();
+      const contactJid = `${contact.number.replace('+', '')}@s.whatsapp.net`;
 
-        // Criar tracking logo após o ticket
-        logger.debug(`Criando tracking para ticket ID: ${ticket.id}`);
-        await FindOrCreateATicketTrakingService({
-          ticketId: ticket.id,
-          companyId,
-          whatsappId: whatsapp.id // Usar a mesma conexão específica
-        });
-        logger.info(`Tracking para ticket ID: ${ticket.id} criado com sucesso`);
-      });
+      // Enviar presença para o contato antes da mensagem
+      await SendPresenceStatus(wbot, contactJid);
 
-      if (!ticket) {
-        logger.error(`Não foi possível criar um novo ticket para contato ID: ${contact.id}`);
-        throw new Error('Não foi possível criar um novo ticket');
-      }
-    } catch (ticketError) {
-      logger.error(`Erro na criação do novo ticket para contato ID: ${contact.id}: ${ticketError.message}`);
-      return;
-    }
+      let sentMessage;
 
-    // Atividade de envio de mensagens em sequência, TODAS usando a mesma conexão WhatsApp
-    let confirmationSent = false;
-    let internalMessageSent = false;
-    let groupInviteSent = false;
-    let notificationSent = false;
+      // CORREÇÃO: Verificar se há imagem e enviá-la corretamente
+      if (confirmConfig.imageUrl) {
+        logger.info(`[CONFIRMAÇÃO] Enviando mensagem com imagem: ${confirmConfig.imageUrl}`);
 
-    // 1. Enviar mensagem de confirmação ao contato
-    logger.info(`[PASSO 1] Enviando mensagem de confirmação ao contato ID: ${contact.id} via conexão ID: ${whatsapp.id}`);
-    if (fullLandingPage.notificationConfig?.confirmationMessage?.enabled) {
-      try {
-        // Preparar dados da configuração de confirmação
-        const confirmConfig = fullLandingPage.notificationConfig.confirmationMessage;
-        logger.debug(`Configuração de confirmação: enabled=${confirmConfig.enabled}, hasImage=${!!confirmConfig.imageUrl}`);
-
-        // Verificar ticket e garantir que o contato existe
-        const ticketCheck = await Ticket.findByPk(ticket.id, {
-          include: [
-            {
-              model: Contact,
-              as: 'contact'
-            }
-          ]
-        });
-
-        if (!ticketCheck) {
-          throw new Error('Ticket não encontrado para envio de confirmação');
-        }
-
-        // Garantir que temos o contato correto
-        if (!ticketCheck.contact || !ticketCheck.contact.number) {
-          logger.error(`Contato não encontrado ou número inválido para ticket ID: ${ticket.id}`);
-          throw new Error('Contato não encontrado ou número inválido');
-        }
-
-        // Preparar dados da mensagem
-        const formattedData = Object.entries(formData)
-          .map(([key, value]) => `*${key}:* ${value}`)
-          .join('\n');
-
-        const messageText = `*Nova submissão de formulário - ${fullLandingPage.title}*\n\n${formattedData}\n\n_Enviado via landing page_`;
-        const messageId = uuidv4();
-
-        // Criar mensagem associada ao ticket
-        const messageData = {
-          id: messageId,
-          ticketId: ticketCheck.id,
-          body: messageText,
-          contactId: contact.id,
-          fromMe: true,
-          read: true,
-          mediaType: 'chat',
-          internalMessage: true
-        };
-
-        await CreateMessageService({
-          messageData,
-          ticket: ticketCheck,
-          companyId,
-          internalMessage: true
-        });
-
-        // Enviar presença para o contato antes da mensagem
-        await SendPresenceStatus(
-          wbot,
-          `${ticketCheck.contact.number.replace('+', '')}@s.whatsapp.net`
-        );
-
-        let sentMessage;
-        if (confirmConfig.imageUrl) {
-          // Enviar mensagem com imagem
-          sentMessage = await wbot.sendMessage(
-            `${ticketCheck.contact.number.replace('+', '')}@${ticketCheck.isGroup ? "g.us" : "s.whatsapp.net"}`,
-            {
-              image: {
-                url: confirmConfig.imageUrl
-              },
-              caption: confirmConfig.caption || 'Obrigado por se cadastrar!'
-            }
-          );
-        } else {
-          // Enviar apenas texto
-          sentMessage = await wbot.sendMessage(
-            `${ticketCheck.contact.number.replace('+', '')}@${ticketCheck.isGroup ? "g.us" : "s.whatsapp.net"}`,
-            {
-              text: confirmConfig.caption || 'Obrigado por se cadastrar!'
-            }
-          );
-        }
-
-        await SetTicketMessagesAsRead(ticketCheck);
-        await verifyMessage(sentMessage, ticketCheck, ticketCheck.contact);
-
-        confirmationSent = true;
-        internalMessageSent = true;
-        logger.info(`Mensagem de confirmação enviada com sucesso para contato ID: ${contact.id}`);
-      } catch (error) {
-        logger.error(`Erro ao enviar mensagem de confirmação para contato ID: ${contact.id}: ${error.message}`);
-        // Continuar mesmo com erro
-      }
-    } else {
-      logger.info(`Mensagem de confirmação não configurada/habilitada para landing page ID: ${fullLandingPage.id}`);
-    }
-
-    // Pequeno delay
-    await new Promise(resolve => setTimeout(resolve, 1000));
-
-    // 3. Enviar mensagem com link de grupo (se configurado)
-    logger.info(`[PASSO 3] Enviando convite para grupo (se configurado) via conexão ID: ${whatsapp.id}`);
-    // CORREÇÃO: Usar fullLandingPage em vez de landingPage
-    if (fullLandingPage.advancedConfig?.inviteGroupId) {
-      try {
-        logger.info(`Grupo configurado ID: ${fullLandingPage.advancedConfig.inviteGroupId}, iniciando processo de convite`);
-
-        // Validar grupo antes de tentar enviar
-        const group = await Groups.findOne({
-          where: {
-            id: fullLandingPage.advancedConfig.inviteGroupId,
-            companyId,
-            whatsappId: whatsapp.id
-          }
-        });
-
-        if (!group) {
-          logger.error(`Grupo ID: ${fullLandingPage.advancedConfig.inviteGroupId} não encontrado para conexão ${whatsapp.id}`);
-          throw new Error(`Grupo não encontrado`);
-        }
-
-        logger.info(`Grupo encontrado: ${group.subject}, obtendo link de convite`);
-
-        // Verificar ticket com inclusão do contato
-        const ticketCheck = await Ticket.findByPk(ticket.id, {
-          include: [
-            {
-              model: Contact,
-              as: 'contact'
-            }
-          ]
-        });
-
-        if (!ticketCheck) {
-          throw new Error('Ticket não encontrado para enviar convite');
-        }
-
-        // Verificar permissões de administrador 
         try {
-          // Obter o link de convite do grupo com tratamento de erro específico
-          logger.debug(`Obtendo link de convite para grupo ID: ${group.id} via WhatsApp ID: ${whatsapp.id}`);
+          // Verificar se a URL da imagem está acessível
+          const imageUrlToUse = confirmConfig.imageUrl.startsWith('http')
+            ? confirmConfig.imageUrl
+            : `${process.env.BACKEND_URL || 'http://localhost:8080'}${confirmConfig.imageUrl}`;
 
-          const inviteLink = await GetGroupInviteCodeService({
-            companyId,
-            groupId: group.id.toString()
-          }).catch(err => {
-            logger.error(`Erro detalhado ao obter código de convite: ${JSON.stringify(err)}`);
-            throw new Error(`Erro ao obter o código de convite do grupo: ${err.message || 'O bot não tem permissões de administrador no grupo'}`);
+          logger.info(`[CONFIRMAÇÃO] URL da imagem a ser enviada: ${imageUrlToUse}`);
+
+          sentMessage = await wbot.sendMessage(contactJid, {
+            image: {
+              url: imageUrlToUse
+            },
+            caption: messageText
           });
 
-          if (!inviteLink) {
-            throw new Error('Não foi possível obter o link de convite para o grupo');
+          logger.info(`[CONFIRMAÇÃO] Mensagem com imagem enviada com sucesso`);
+        } catch (imageError) {
+          logger.error(`[CONFIRMAÇÃO] Erro ao enviar imagem, enviando apenas texto: ${imageError.message}`);
+
+          // Fallback: enviar apenas texto se a imagem falhar
+          sentMessage = await wbot.sendMessage(contactJid, {
+            text: messageText
+          });
+        }
+      } else {
+        logger.info(`[CONFIRMAÇÃO] Enviando apenas mensagem de texto`);
+
+        // Enviar apenas texto
+        sentMessage = await wbot.sendMessage(contactJid, {
+          text: messageText
+        });
+      }
+
+      // Criar registro da mensagem no banco
+      const messageData = {
+        id: messageId,
+        ticketId: ticket.id,
+        body: messageText,
+        contactId: contact.id,
+        fromMe: true,
+        read: true,
+        mediaType: confirmConfig.imageUrl ? 'image' : 'chat',
+        mediaUrl: confirmConfig.imageUrl || null,
+        internalMessage: false
+      };
+
+      await CreateMessageService({
+        messageData,
+        ticket: ticket,
+        companyId: ticket.companyId
+      });
+
+      await SetTicketMessagesAsRead(ticket);
+      await verifyMessage(sentMessage, ticket, contact);
+
+      logger.info(`[CONFIRMAÇÃO] Mensagem de confirmação processada com sucesso para contato ID: ${contact.id}`);
+      return true;
+
+    } catch (error) {
+      logger.error(`[CONFIRMAÇÃO] Erro ao enviar mensagem de confirmação: ${error.message}`);
+      logger.error(`[CONFIRMAÇÃO] Stack: ${error.stack}`);
+      return false;
+    }
+  }
+
+  // CORREÇÃO: Método para envio de convite para grupo com imagem
+  private async sendGroupInvitation(
+    wbot: Session,
+    ticket: Ticket,
+    contact: Contact,
+    group: any,
+    groupConfig: any,
+    landingPageTitle: string
+  ): Promise<boolean> {
+    try {
+      logger.info(`[GRUPO] Enviando convite para grupo ID: ${group.id} para contato ID: ${contact.id}`);
+
+      // Obter o link de convite do grupo
+      const inviteLink = await GetGroupInviteCodeService({
+        companyId: ticket.companyId,
+        groupId: group.id.toString()
+      });
+
+      if (!inviteLink) {
+        throw new Error('Não foi possível obter o link de convite para o grupo');
+      }
+
+      logger.info(`[GRUPO] Link de convite obtido: ${inviteLink}`);
+
+      // Preparar mensagem personalizada ou usar padrão
+      const isConfigEnabled = groupConfig?.enabled === true;
+      const hasCustomMessage = isConfigEnabled && groupConfig?.message;
+      const hasCustomImage = isConfigEnabled && groupConfig?.imageUrl;
+
+      let message = hasCustomMessage
+        ? groupConfig.message.replace(/{nome}/g, contact.name)
+        : `Olá! Obrigado por se cadastrar em ${landingPageTitle}. Você foi convidado para participar do nosso grupo no WhatsApp.`;
+
+      // Adicionar link no final da mensagem
+      const fullMessage = `${message}\n\nClique no link abaixo para entrar:\n${inviteLink}`;
+
+      const contactJid = `${contact.number.replace('+', '')}@s.whatsapp.net`;
+
+      // Enviar presença para o contato antes da mensagem
+      await SendPresenceStatus(wbot, contactJid);
+
+      let sentMessage;
+
+      // CORREÇÃO: Verificar se há imagem e enviá-la corretamente
+      if (hasCustomImage) {
+        logger.info(`[GRUPO] Enviando convite com imagem: ${groupConfig.imageUrl}`);
+
+        try {
+          // Verificar se a URL da imagem está acessível
+          const imageUrlToUse = groupConfig.imageUrl.startsWith('http')
+            ? groupConfig.imageUrl
+            : `${process.env.BACKEND_URL || 'http://localhost:8080'}${groupConfig.imageUrl}`;
+
+          logger.info(`[GRUPO] URL da imagem a ser enviada: ${imageUrlToUse}`);
+
+          sentMessage = await wbot.sendMessage(contactJid, {
+            image: {
+              url: imageUrlToUse
+            },
+            caption: fullMessage
+          });
+
+          logger.info(`[GRUPO] Convite com imagem enviado com sucesso`);
+        } catch (imageError) {
+          logger.error(`[GRUPO] Erro ao enviar imagem, enviando apenas texto: ${imageError.message}`);
+
+          // Fallback: enviar apenas texto se a imagem falhar
+          sentMessage = await wbot.sendMessage(contactJid, {
+            text: fullMessage
+          });
+        }
+      } else {
+        logger.info(`[GRUPO] Enviando convite apenas com texto`);
+
+        // Enviar apenas texto
+        sentMessage = await wbot.sendMessage(contactJid, {
+          text: fullMessage
+        });
+      }
+
+      // Criar registro da mensagem no banco
+      const messageId = uuidv4();
+      const messageData = {
+        id: messageId,
+        ticketId: ticket.id,
+        body: fullMessage,
+        contactId: contact.id,
+        fromMe: true,
+        read: true,
+        mediaType: hasCustomImage ? 'image' : 'chat',
+        mediaUrl: hasCustomImage ? groupConfig.imageUrl : null,
+        internalMessage: false
+      };
+
+      await CreateMessageService({
+        messageData,
+        ticket: ticket,
+        companyId: ticket.companyId
+      });
+
+      await SetTicketMessagesAsRead(ticket);
+      await verifyMessage(sentMessage, ticket, contact);
+
+      logger.info(`[GRUPO] Convite para grupo enviado com sucesso para contato ID: ${contact.id}`);
+      return true;
+
+    } catch (error) {
+      logger.error(`[GRUPO] Erro ao enviar convite para grupo: ${error.message}`);
+      logger.error(`[GRUPO] Stack: ${error.stack}`);
+      return false;
+    }
+  }
+
+  // CORREÇÃO: Atualizar o método processSubmissionAsync para usar os novos métodos
+  private async processSubmissionAsync(submissionId: number, formData: any, landingPage: any, form: any, companyId: number) {
+    logger.info(`[INICIO] Processando submissão ID: ${submissionId} para empresa ID: ${companyId}`);
+    try {
+      // Buscar a submissão completa
+      logger.debug(`Buscando dados da submissão ${submissionId} no banco de dados`);
+      const submission = await FormSubmission.findByPk(submissionId);
+      if (!submission) {
+        logger.error(`Submissão ${submissionId} não encontrada para processamento.`);
+        return;
+      }
+      logger.info(`Submissão ${submissionId} encontrada com sucesso`);
+
+      const fullLandingPage = await LandingPage.findByPk(landingPage.id, {
+        attributes: [
+          'id', 'title', 'slug', 'content', 'active', 'companyId',
+          'appearance', 'formConfig', 'eventConfig', 'notificationConfig', 'advancedConfig'
+        ]
+      });
+
+      if (!fullLandingPage) {
+        logger.error(`Landing page ${landingPage.id} não encontrada para processamento.`);
+        return;
+      }
+
+      // Debug detalhado das configurações
+      logger.info(`[DEBUG] Configurações da landing page ${fullLandingPage.id}:`, {
+        notificationConfig: fullLandingPage.notificationConfig,
+        advancedConfig: fullLandingPage.advancedConfig,
+        hasNotificationConfig: !!fullLandingPage.notificationConfig,
+        hasAdvancedConfig: !!fullLandingPage.advancedConfig,
+        enableWhatsApp: fullLandingPage.notificationConfig?.enableWhatsApp,
+        whatsAppNumber: fullLandingPage.notificationConfig?.whatsAppNumber,
+        inviteGroupId: fullLandingPage.advancedConfig?.inviteGroupId,
+        notificationConnectionId: fullLandingPage.advancedConfig?.notificationConnectionId
+      });
+
+      // Identificar e obter a conexão WhatsApp correta
+      let whatsapp: Whatsapp;
+
+      if (fullLandingPage.advancedConfig?.notificationConnectionId) {
+        const connectionId = fullLandingPage.advancedConfig.notificationConnectionId;
+        logger.info(`Tentando usar conexão específica ID: ${connectionId} configurada na landing page`);
+
+        whatsapp = await Whatsapp.findOne({
+          where: {
+            id: connectionId,
+            companyId,
+            status: 'CONNECTED'
+          }
+        });
+
+        if (whatsapp) {
+          logger.info(`Conexão específica ID: ${whatsapp.id} encontrada e será usada para todas as mensagens`);
+        } else {
+          logger.warn(`Conexão específica ID: ${connectionId} não encontrada ou não está ativa`);
+          throw new Error('Conexão WhatsApp não encontrada ou inativa');
+        }
+      } else {
+        throw new Error('Nenhuma conexão WhatsApp configurada');
+      }
+
+      // Obter instância do WhatsApp
+      logger.debug(`Obtendo instância do WhatsApp ID: ${whatsapp.id}`);
+      const wbot = await getWbot(whatsapp.id);
+      logger.info(`Instância do WhatsApp obtida com sucesso`);
+
+      // Validar e normalizar número antes de criar contato
+      let processedNumber: string;
+      try {
+        processedNumber = await this.validateAndNormalizeWhatsAppNumber(formData.number, wbot, 'número do contato');
+        logger.info(`Número ${formData.number} validado e normalizado para: ${processedNumber}`);
+      } catch (numberError) {
+        logger.error(`Erro na validação do número ${formData.number}: ${numberError.message}`);
+        throw new Error(`Número de WhatsApp inválido: ${numberError.message}`);
+      }
+
+      // Usar método consistente para criar/atualizar contato
+      let contact: Contact;
+      try {
+        contact = await this.createOrUpdateContactConsistent(
+          {
+            name: formData.name,
+            number: processedNumber,
+            email: formData.email || ""
+          },
+          formData,
+          companyId,
+          whatsapp.id,
+          wbot
+        );
+
+        logger.info(`Contato processado com sucesso ID: ${contact.id} para o número ${processedNumber}`);
+      } catch (error) {
+        logger.error(`Erro ao processar contato: ${error.message}`);
+        throw new Error(`Erro ao salvar contato: ${error.message}`);
+      }
+
+      // Aplicar tags em paralelo
+      logger.debug(`Aplicando tags para contato ID: ${contact.id}`);
+      await this.applyContactTags(contact.id, fullLandingPage.advancedConfig?.contactTags, companyId);
+      logger.info(`Tags aplicadas com sucesso para contato ID: ${contact.id}`);
+
+      // SEMPRE criar um novo ticket para cada submissão de formulário
+      let ticket: Ticket;
+      try {
+        logger.debug(`Criando NOVO ticket para contato ID: ${contact.id} usando conexão ID: ${whatsapp.id}`);
+        await createTicketMutex.runExclusive(async () => {
+          logger.debug(`Mutex adquirido, criando novo ticket`);
+
+          ticket = await Ticket.create({
+            contactId: contact.id,
+            whatsappId: whatsapp.id,
+            companyId,
+            status: 'open',
+            isGroup: false,
+          });
+
+          logger.info(`NOVO ticket ID: ${ticket.id} criado com sucesso para submissão de formulário`);
+
+          // Criar tracking logo após o ticket
+          logger.debug(`Criando tracking para ticket ID: ${ticket.id}`);
+          await FindOrCreateATicketTrakingService({
+            ticketId: ticket.id,
+            companyId,
+            whatsappId: whatsapp.id
+          });
+          logger.info(`Tracking para ticket ID: ${ticket.id} criado com sucesso`);
+        });
+
+        if (!ticket) {
+          logger.error(`Não foi possível criar um novo ticket para contato ID: ${contact.id}`);
+          throw new Error('Não foi possível criar um novo ticket');
+        }
+      } catch (ticketError) {
+        logger.error(`Erro na criação do novo ticket para contato ID: ${contact.id}: ${ticketError.message}`);
+        return;
+      }
+
+      // Envio de mensagens em sequência
+      let confirmationSent = false;
+      let groupInviteSent = false;
+      let notificationSent = false;
+
+      // 1. Enviar mensagem de confirmação ao contato
+      logger.info(`[PASSO 1] Enviando mensagem de confirmação ao contato ID: ${contact.id} via conexão ID: ${whatsapp.id}`);
+      if (fullLandingPage.notificationConfig?.confirmationMessage?.enabled) {
+        try {
+          const confirmConfig = fullLandingPage.notificationConfig.confirmationMessage;
+          logger.debug(`Configuração de confirmação: enabled=${confirmConfig.enabled}, hasImage=${!!confirmConfig.imageUrl}`);
+
+          confirmationSent = await this.sendConfirmationMessage(
+            wbot,
+            ticket,
+            contact,
+            confirmConfig,
+            formData,
+            fullLandingPage.title
+          );
+
+          if (confirmationSent) {
+            logger.info(`Mensagem de confirmação enviada com sucesso para contato ID: ${contact.id}`);
+          }
+        } catch (error) {
+          logger.error(`Erro ao enviar mensagem de confirmação para contato ID: ${contact.id}: ${error.message}`);
+        }
+      } else {
+        logger.info(`Mensagem de confirmação não configurada/habilitada para landing page ID: ${fullLandingPage.id}`);
+      }
+
+      // Pequeno delay
+      await new Promise(resolve => setTimeout(resolve, 1000));
+
+      // 2. Enviar mensagem com link de grupo (se configurado)
+      logger.info(`[PASSO 2] Enviando convite para grupo (se configurado) via conexão ID: ${whatsapp.id}`);
+      if (fullLandingPage.advancedConfig?.inviteGroupId) {
+        try {
+          logger.info(`Grupo configurado ID: ${fullLandingPage.advancedConfig.inviteGroupId}, iniciando processo de convite`);
+
+          // Validar grupo antes de tentar enviar
+          const group = await Groups.findOne({
+            where: {
+              id: fullLandingPage.advancedConfig.inviteGroupId,
+              companyId,
+              whatsappId: whatsapp.id
+            }
+          });
+
+          if (!group) {
+            logger.error(`Grupo ID: ${fullLandingPage.advancedConfig.inviteGroupId} não encontrado para conexão ${whatsapp.id}`);
+            throw new Error(`Grupo não encontrado`);
           }
 
-          logger.debug(`Link de convite obtido com sucesso: ${inviteLink}`);
+          logger.info(`Grupo encontrado: ${group.subject}, enviando convite`);
 
-          // Verificar se há configuração para mensagem personalizada
-          const isConfigEnabled = fullLandingPage.advancedConfig?.groupInviteMessage?.enabled === true;
-          const hasCustomMessage = isConfigEnabled && fullLandingPage.advancedConfig?.groupInviteMessage?.message;
-          const hasCustomImage = isConfigEnabled && fullLandingPage.advancedConfig?.groupInviteMessage?.imageUrl;
+          groupInviteSent = await this.sendGroupInvitation(
+            wbot,
+            ticket,
+            contact,
+            group,
+            fullLandingPage.advancedConfig?.groupInviteMessage,
+            fullLandingPage.title
+          );
 
-          // Preparar mensagem personalizada ou usar padrão
-          const message = hasCustomMessage
-            ? fullLandingPage.advancedConfig.groupInviteMessage.message.replace(/{nome}/g, ticketCheck.contact.name)
-            : `Olá! Obrigado por se cadastrar em ${fullLandingPage.title}. Você foi convidado para participar do nosso grupo no WhatsApp.`;
+          if (groupInviteSent) {
+            logger.info(`Convite para grupo ID: ${fullLandingPage.advancedConfig.inviteGroupId} enviado com sucesso para contato ID: ${contact.id}`);
+          }
+        } catch (error) {
+          logger.error(`Erro ao enviar convite para grupo para contato ID: ${contact.id}: ${error.message}`);
+        }
+      } else {
+        logger.info(`Convite para grupo não configurado para landing page ID: ${fullLandingPage.id}`);
+      }
 
-          // Adicionar link no final da mensagem
-          const fullMessage = `${message}\n\nClique no link abaixo para entrar:\n${inviteLink}`;
+      // Pequeno delay
+      await new Promise(resolve => setTimeout(resolve, 1000));
+
+      // 3. Notificar o responsável pela landing page (se configurado)
+      logger.info(`[PASSO 3] Enviando notificação ao responsável (se configurado) via conexão ID: ${whatsapp.id}`);
+      if (fullLandingPage.notificationConfig?.enableWhatsApp &&
+        fullLandingPage.notificationConfig?.whatsAppNumber) {
+        try {
+          logger.info(`Notificação configurada para número: ${fullLandingPage.notificationConfig.whatsAppNumber}`);
+
+          let processedNumber = await this.validateAndNormalizeWhatsAppNumber(
+            fullLandingPage.notificationConfig.whatsAppNumber,
+            wbot,
+            'número de notificação'
+          );
+
+          logger.info(`Número de notificação ${processedNumber} validado com sucesso no WhatsApp`);
+
+          // Criar contato usando formato +DDIDDDNUMERO
+          const normalizedAdminNumber = this.normalizePhoneNumber(processedNumber);
+
+          let adminContact: Contact;
+          try {
+            adminContact = await CreateOrUpdateContactService({
+              name: `Admin - ${fullLandingPage.title}`,
+              number: normalizedAdminNumber,
+              email: '',
+              isGroup: false,
+              companyId,
+              whatsappId: whatsapp.id
+            }, wbot);
+
+            logger.debug(`Contato para administrador criado/atualizado com ID: ${adminContact.id}`);
+          } catch (contactError) {
+            logger.error(`Erro ao criar/atualizar contato do responsável: ${contactError.message}`);
+            throw contactError;
+          }
+
+          // Criar NOVO ticket para o responsável
+          let adminTicket: Ticket;
+          try {
+            adminTicket = await Ticket.create({
+              contactId: adminContact.id,
+              whatsappId: whatsapp.id,
+              companyId,
+              status: 'open',
+            });
+
+            logger.debug(`Novo ticket para administrador criado com ID: ${adminTicket.id}`);
+          } catch (ticketError) {
+            logger.error(`Erro ao criar novo ticket para o responsável: ${ticketError.message}`);
+            throw ticketError;
+          }
+
+          // Preparar mensagem
+          let message = fullLandingPage.notificationConfig.messageTemplate || 'Nova submissão de {landing_page} - {contact_name}';
+
+          // Substituir variáveis
+          for (const [key, value] of Object.entries(formData)) {
+            message = message.replace(new RegExp(`{${key}}`, 'g'), String(value));
+          }
+
+          message = message.replace(/{landing_page}/g, fullLandingPage.title);
+          message = message.replace(/{date}/g, new Date().toLocaleString('pt-BR'));
+          message = message.replace(/{submission_id}/g, String(submission.id));
+          message = message.replace(/{contact_name}/g, contact.name);
+          message = message.replace(/{contact_number}/g, contact.number);
 
           // Enviar presença para o contato antes da mensagem
           await SendPresenceStatus(
             wbot,
-            `${ticketCheck.contact.number.replace('+', '')}@s.whatsapp.net`
+            `${adminContact.number.replace('+', '')}@s.whatsapp.net`
           );
 
-          let sentMessage;
-          if (hasCustomImage) {
-            // Enviar com imagem
-            sentMessage = await wbot.sendMessage(
-              `${ticketCheck.contact.number.replace('+', '')}@${ticketCheck.isGroup ? "g.us" : "s.whatsapp.net"}`,
-              {
-                image: {
-                  url: fullLandingPage.advancedConfig.groupInviteMessage.imageUrl
-                },
-                caption: fullMessage
-              }
-            );
-          } else {
-            // Enviar apenas texto
-            sentMessage = await wbot.sendMessage(
-              `${ticketCheck.contact.number.replace('+', '')}@${ticketCheck.isGroup ? "g.us" : "s.whatsapp.net"}`,
-              {
-                text: fullMessage
-              }
-            );
-          }
-          
-          await SetTicketMessagesAsRead(ticketCheck);
-          await verifyMessage(sentMessage, ticketCheck, ticketCheck.contact);
+          // Enviar mensagem usando o ticket do administrador
+          const sentMessage = await wbot.sendMessage(
+            `${adminContact.number.replace('+', '')}@${adminTicket.isGroup ? "g.us" : "s.whatsapp.net"}`,
+            {
+              text: message
+            }
+          );
 
-          groupInviteSent = true;
-          logger.info(`Convite para grupo ID: ${fullLandingPage.advancedConfig.inviteGroupId} enviado com sucesso para contato ID: ${ticketCheck.contact.id}`);
-        } catch (linkError) {
-          // Enviar mensagem alternativa se não conseguir o link de convite
-          logger.error(`Não foi possível obter link de convite para grupo ID: ${group.id}: ${linkError.message}`);
+          await SetTicketMessagesAsRead(adminTicket);
+          await verifyMessage(sentMessage, adminTicket, adminContact);
+
+          notificationSent = true;
+          logger.info(`Notificação enviada com sucesso para o responsável: ${processedNumber}`);
+        } catch (error) {
+          logger.error(`Erro ao enviar notificação para o responsável: ${error.message}`);
         }
-      } catch (error) {
-        logger.error(`Erro ao enviar convite para grupo para contato ID: ${contact.id}: ${error.message}`);
-        // Continuar mesmo com erro
+      } else {
+        logger.info(`Notificação para responsável não configurada para landing page ID: ${fullLandingPage.id}`);
       }
-    } else {
-      logger.info(`Convite para grupo não configurado para landing page ID: ${fullLandingPage.id}`);
-    }
 
-    // Pequeno delay
-    await new Promise(resolve => setTimeout(resolve, 1000));
-
-    // 4. Notificar o responsável pela landing page (se configurado)
-    logger.info(`[PASSO 4] Enviando notificação ao responsável (se configurado) via conexão ID: ${whatsapp.id}`);
-    // CORREÇÃO: Usar fullLandingPage e verificar configuração correta
-    if (fullLandingPage.notificationConfig?.enableWhatsApp &&
-      fullLandingPage.notificationConfig?.whatsAppNumber) {
-      try {
-        logger.info(`Notificação configurada para número: ${fullLandingPage.notificationConfig.whatsAppNumber}`);
-
-        let processedNumber = fullLandingPage.notificationConfig.whatsAppNumber;
-
-        processedNumber = await this.validateAndNormalizeWhatsAppNumber(
-          fullLandingPage.notificationConfig.whatsAppNumber,
-          wbot,
-          'número de notificação'
-        );
-
-        // Etapa 6: Número validado com sucesso, prosseguir com a criação do contato
-        logger.info(`Número de notificação ${processedNumber} validado com sucesso no WhatsApp`);
-
-        // CORREÇÃO: Criar contato usando formato +DDIDDDNUMERO
-        const normalizedAdminNumber = this.normalizePhoneNumber(processedNumber);
-        
-        let adminContact: Contact;
-        try {
-          adminContact = await CreateOrUpdateContactService({
-            name: `Admin - ${fullLandingPage.title}`,
-            number: normalizedAdminNumber,
-            email: '',
-            isGroup: false,
-            companyId,
-            whatsappId: whatsapp.id
-          }, wbot);
-
-          logger.debug(`Contato para administrador criado/atualizado com ID: ${adminContact.id}`);
-        } catch (contactError) {
-          logger.error(`Erro ao criar/atualizar contato do responsável: ${contactError.message}`);
-          throw contactError;
-        }
-
-        // CORREÇÃO: Criar NOVO ticket para o responsável (não reutilizar)
-        let adminTicket: Ticket;
-        try {
-          adminTicket = await Ticket.create({
-            contactId: adminContact.id,
-            whatsappId: whatsapp.id,
-            companyId,
-            status: 'open',
-          });
-
-          logger.debug(`Novo ticket para administrador criado com ID: ${adminTicket.id}`);
-        } catch (ticketError) {
-          logger.error(`Erro ao criar novo ticket para o responsável: ${ticketError.message}`);
-          throw ticketError;
-        }
-
-        // Preparar mensagem
-        let message = fullLandingPage.notificationConfig.messageTemplate || 'Nova submissão de {landing_page} - {contact_name}';
-
-        // Substituir variáveis
-        for (const [key, value] of Object.entries(formData)) {
-          message = message.replace(new RegExp(`{${key}}`, 'g'), String(value));
-        }
-
-        message = message.replace(/{landing_page}/g, fullLandingPage.title);
-        message = message.replace(/{date}/g, new Date().toLocaleString('pt-BR'));
-        message = message.replace(/{submission_id}/g, String(submission.id));
-        message = message.replace(/{contact_name}/g, contact.name);
-        message = message.replace(/{contact_number}/g, contact.number);
-
-        // Enviar presença para o contato antes da mensagem
-        await SendPresenceStatus(
-          wbot,
-          `${adminContact.number.replace('+', '')}@s.whatsapp.net`
-        );
-
-        // Enviar mensagem usando o ticket do administrador
-        const sentMessage = await wbot.sendMessage(
-          `${adminContact.number.replace('+', '')}@${adminTicket.isGroup ? "g.us" : "s.whatsapp.net"}`,
-          {
-            text: message
-          }
-        );
-        
-        await SetTicketMessagesAsRead(adminTicket);
-        await verifyMessage(sentMessage, adminTicket, adminContact);
-
-        notificationSent = true;
-        logger.info(`Notificação enviada com sucesso para o responsável: ${processedNumber}`);
-      } catch (error) {
-        logger.error(`Erro ao enviar notificação para o responsável: ${error.message}`);
-        // Continuar mesmo com erro
-      }
-    } else {
-      logger.info(`Notificação para responsável não configurada para landing page ID: ${fullLandingPage.id}`);
-      logger.debug(`enableWhatsApp: ${fullLandingPage.notificationConfig?.enableWhatsApp}, whatsAppNumber: ${fullLandingPage.notificationConfig?.whatsAppNumber}`);
-    }
-
-    // Resumo do processamento para facilitar debugging
-    logger.info(`Resumo do processamento da submissão ${submissionId}:
+      // Resumo do processamento
+      logger.info(`Resumo do processamento da submissão ${submissionId}:
   - Conexão WhatsApp utilizada: ID: ${whatsapp.id}
   - Mensagem de confirmação: ${confirmationSent ? 'ENVIADA' : 'FALHOU/NÃO CONFIGURADA'}
-  - Mensagem interna no ticket: ${internalMessageSent ? 'ENVIADA' : 'FALHOU'}
   - Convite para grupo: ${groupInviteSent ? 'ENVIADO' : 'FALHOU/NÃO CONFIGURADO'}
   - Notificação ao responsável: ${notificationSent ? 'ENVIADA' : 'FALHOU/NÃO CONFIGURADA'}`);
 
-    // Marcar como processado após envio das mensagens
-    logger.debug(`Atualizando status da submissão ${submissionId} para processado=true`);
-    await submission.update({ processed: true });
+      // Marcar como processado após envio das mensagens
+      logger.debug(`Atualizando status da submissão ${submissionId} para processado=true`);
+      await submission.update({ processed: true });
 
-    logger.info(`Submissão ${submissionId} processada com sucesso.`);
-  } catch (error) {
-    logger.error(`Erro no processamento assíncrono da submissão ${submissionId}: ${error.message}`);
-    logger.debug(`Stack trace do erro: ${error.stack}`);
-  } finally {
-    logger.info(`[FIM] Processamento da submissão ID: ${submissionId} concluído`);
+      logger.info(`Submissão ${submissionId} processada com sucesso.`);
+    } catch (error) {
+      logger.error(`Erro no processamento assíncrono da submissão ${submissionId}: ${error.message}`);
+      throw error;
+    }
   }
-}
 
   /**
    * Método otimizado para aplicar tags

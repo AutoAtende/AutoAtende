@@ -31,7 +31,7 @@ const ImageUploader = ({
   currentImage,
   onImageUpload,
   maxSize = 1024 * 1024, // 1MB default
-  acceptedTypes = ['image/jpeg', 'image/png'],
+  acceptedTypes = ['image/jpeg', 'image/png', 'image/jpg', 'image/gif', 'image/webp'],
   height = 150,
   width = '100%',
   landingPageId
@@ -62,7 +62,9 @@ const ImageUploader = ({
   
   // Handler para click no botão de upload
   const handleButtonClick = () => {
-    fileInputRef.current.click();
+    if (fileInputRef.current) {
+      fileInputRef.current.click();
+    }
   };
   
   // Handler para arrastar e soltar arquivos
@@ -99,27 +101,35 @@ const ImageUploader = ({
   // Handler para seleção de arquivo
   const handleFileSelect = (event) => {
     const files = event.target.files;
-    if (files.length > 0) {
+    if (files && files.length > 0) {
       handleFile(files[0]);
       // Limpar o input para permitir selecionar o mesmo arquivo novamente
-      event.target.value = null;
+      event.target.value = '';
     }
   };
   
   // Processamento de arquivo
   const handleFile = async (file) => {
+    console.log('[IMAGE UPLOADER] Iniciando upload do arquivo:', {
+      name: file.name,
+      type: file.type,
+      size: file.size
+    });
+
     // Validar tipo de arquivo
     if (!acceptedTypes.includes(file.type)) {
-      setError(`Tipo de arquivo não suportado. Tipos aceitos: ${acceptedTypes.join(', ')}`);
-      toast.error(`Tipo de arquivo não suportado: ${file.type}`);
+      const errorMsg = `Tipo de arquivo não suportado. Tipos aceitos: ${acceptedTypes.join(', ')}`;
+      setError(errorMsg);
+      toast.error(errorMsg);
       return;
     }
     
     // Validar tamanho
     if (file.size > maxSize) {
       const maxSizeInMB = (maxSize / (1024 * 1024)).toFixed(2);
-      setError(`Arquivo muito grande. Tamanho máximo: ${maxSizeInMB}MB`);
-      toast.error(`Arquivo muito grande. Máximo: ${maxSizeInMB}MB`);
+      const errorMsg = `Arquivo muito grande. Tamanho máximo: ${maxSizeInMB}MB`;
+      setError(errorMsg);
+      toast.error(errorMsg);
       return;
     }
     
@@ -129,28 +139,64 @@ const ImageUploader = ({
       setError('');
       setUploadProgress(0);
       
+      console.log('[IMAGE UPLOADER] Criando FormData para upload');
       const formData = new FormData();
-      formData.append('file', file); //
+      formData.append('file', file);
       
-      const response = await api.post(`/landing-pages/${landingPageId}/media/upload`, formData, {
+      // Log do FormData para debug
+      console.log('[IMAGE UPLOADER] FormData criado:', {
+        hasFile: formData.has('file'),
+        landingPageId: landingPageId
+      });
+      
+      const uploadUrl = `/landing-pages/${landingPageId}/media/upload`;
+      console.log('[IMAGE UPLOADER] URL de upload:', uploadUrl);
+      
+      const response = await api.post(uploadUrl, formData, {
         headers: {
           'Content-Type': 'multipart/form-data'
         },
         onUploadProgress: (progressEvent) => {
-          const progress = Math.round((progressEvent.loaded * 100) / progressEvent.total);
-          setUploadProgress(progress);
+          if (progressEvent.total) {
+            const progress = Math.round((progressEvent.loaded * 100) / progressEvent.total);
+            setUploadProgress(progress);
+            console.log('[IMAGE UPLOADER] Progresso do upload:', progress + '%');
+          }
         }
       });
       
-      // Sucesso no upload
-      const imageUrl = response.data.url;
-      onImageUpload(imageUrl);
-      enqueueSnackbar('Imagem enviada com sucesso!', { variant: 'success' });
+      console.log('[IMAGE UPLOADER] Resposta do servidor:', response.data);
+      
+      // Verificar se a resposta contém os dados esperados
+      if (response.data && response.data.success && response.data.data && response.data.data.url) {
+        const imageUrl = response.data.data.url;
+        console.log('[IMAGE UPLOADER] URL da imagem recebida:', imageUrl);
+        
+        onImageUpload(imageUrl);
+        toast.success('Imagem enviada com sucesso!');
+      } else {
+        console.error('[IMAGE UPLOADER] Resposta inválida do servidor:', response.data);
+        throw new Error('Resposta inválida do servidor');
+      }
       
     } catch (error) {
-      console.error('Erro ao fazer upload da imagem:', error);
-      setError('Falha ao fazer upload da imagem. Tente novamente.');
-      toast.error('Falha ao fazer upload da imagem');
+      console.error('[IMAGE UPLOADER] Erro no upload:', error);
+      
+      let errorMessage = 'Falha ao fazer upload da imagem. Tente novamente.';
+      
+      if (error.response) {
+        console.error('[IMAGE UPLOADER] Erro da resposta:', error.response.data);
+        errorMessage = error.response.data?.error || errorMessage;
+      } else if (error.request) {
+        console.error('[IMAGE UPLOADER] Erro na requisição:', error.request);
+        errorMessage = 'Erro de conexão com o servidor';
+      } else {
+        console.error('[IMAGE UPLOADER] Erro geral:', error.message);
+        errorMessage = error.message || errorMessage;
+      }
+      
+      setError(errorMessage);
+      toast.error(errorMessage);
     } finally {
       setLoading(false);
       setUploadProgress(0);
@@ -288,8 +334,5 @@ const ImageUploader = ({
     </Box>
   );
 };
-
-// Componente de Box animado
-const AnimatedBox = animated(Box);
 
 export default ImageUploader;

@@ -8,16 +8,23 @@ import LandingPageMediaController from '../controllers/LandingPageMediaControlle
 import uploadConfig from '../config/upload';
 
 const landingPageRoutes = Router();
-const upload = multer(uploadConfig);
 
-// O FormController já é exportado como uma instância singleton
+// Configuração do upload com as correções
+const upload = multer({
+  storage: uploadConfig.storage,
+  fileFilter: uploadConfig.fileFilter,
+  limits: {
+    fileSize: uploadConfig.fileSize
+  }
+});
+
+// Instanciar controladores
 const landingPageMediaController = new LandingPageMediaController();
 const landingPageController = new LandingPageController();
 
-// Limitador de taxa para submissões de formulário - acessando o método estático diretamente da classe
-// Esta é a linha corrigida:
-const FormControllerClass = Object.getPrototypeOf(FormController).constructor;
-const formSubmissionRateLimiter = FormControllerClass.getFormSubmissionRateLimiter();
+// CORREÇÃO: Acessar o limitador de taxa corretamente
+// Importar a classe FormController diretamente
+import FormControllerClass from '../controllers/FormController';
 
 // Rotas públicas para landing pages
 landingPageRoutes.get('/landing-pages/company/:companyId/l/:slug', landingPageController.renderPublic);
@@ -31,7 +38,7 @@ landingPageRoutes.post('/landing-pages/company/:companyId/l/:landingPageId/visit
 // Rota pública para submissão de formulário (com rate limiting)
 landingPageRoutes.post(
   '/landing-pages/company/:companyId/l/:landingPageId/form/:formId/submit',
-  formSubmissionRateLimiter,
+
   FormController.submitForm
 );
 
@@ -58,19 +65,39 @@ landingPageRoutes.delete('/forms/:id', isAuth, isAdmin, FormController.destroy);
 landingPageRoutes.get('/landing-pages/:landingPageId/submissions', isAuth, isAdmin, FormController.getSubmissions);
 landingPageRoutes.get('/forms/:formId/submissions', isAuth, isAdmin, FormController.getSubmissions);
 
-
-// Gerenciamento de arquivos para landing pages
+// CORREÇÃO: Gerenciamento de arquivos para landing pages com middleware personalizado
 landingPageRoutes.post(
   '/landing-pages/:landingPageId/media/upload',
   isAuth,
   isAdmin,
+  // Middleware personalizado para definir typeArch antes do upload
   (req, res, next) => {
     req.body.typeArch = "landingPage";
+    req.body.fileId = req.params.landingPageId;
     next();
   },
-  upload.single('file'),
+  // Handler de erro do multer
+  (req, res, next) => {
+    upload.single('file')(req, res, (err) => {
+      if (err instanceof multer.MulterError) {
+        console.error('[MULTER ERROR]', err);
+        return res.status(400).json({
+          success: false,
+          error: `Erro no upload: ${err.message}`
+        });
+      } else if (err) {
+        console.error('[UPLOAD ERROR]', err);
+        return res.status(400).json({
+          success: false,
+          error: err.message
+        });
+      }
+      next();
+    });
+  },
   landingPageMediaController.upload
 );
+
 landingPageRoutes.get('/landing-pages/:landingPageId/media', isAuth, isAdmin, landingPageMediaController.list);
 landingPageRoutes.delete('/landing-pages/:landingPageId/media/:id', isAuth, isAdmin, landingPageMediaController.delete);
 

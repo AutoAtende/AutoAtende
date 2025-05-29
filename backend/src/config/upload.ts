@@ -5,7 +5,12 @@ import { v4 as uuidv4 } from "uuid";
 import Whatsapp from "../models/Whatsapp";
 import { logger } from "../utils/logger";
 
-export const publicFolder = process.env.BACKEND_PUBLIC_PATH;
+export const publicFolder = process.env.BACKEND_PUBLIC_PATH || path.resolve(__dirname, '..', '..', 'public');
+
+// Garantir que a pasta pública existe
+if (!fs.existsSync(publicFolder)) {
+  fs.mkdirSync(publicFolder, { recursive: true });
+}
 
 // Configuração principal
 export default {
@@ -21,9 +26,9 @@ export default {
         const landingPageId = req.params.landingPageId;
         
         // Log detalhado
-        logger.info(`Iniciando upload - TypeArch: ${typeArch}, FileId: ${fileId}, FileListId: ${fileListId}, LandingPageId: ${landingPageId}`);
-        logger.info(`Iniciando upload - TypeArch: ${typeArch}, FileId: ${fileId}, FileListId: ${fileListId}`);
-        logger.info(`Informações do arquivo: ${file.originalname}, ${file.mimetype}`);
+        logger.info(`[UPLOAD DESTINATION] Iniciando processamento de destino`);
+        logger.info(`[UPLOAD DESTINATION] TypeArch: ${typeArch}, FileId: ${fileId}, FileListId: ${fileListId}, LandingPageId: ${landingPageId}`);
+        logger.info(`[UPLOAD DESTINATION] Arquivo: ${file.originalname}, MIME: ${file.mimetype}`);
 
         // Verificação de companyId
         if (!companyId) {
@@ -47,30 +52,36 @@ export default {
         
         // Criar diretório da empresa se não existir
         if (!fs.existsSync(companyPath)) {
+          logger.info(`[UPLOAD DESTINATION] Criando diretório da empresa: ${companyPath}`);
           fs.mkdirSync(companyPath, { recursive: true });
-          fs.chmodSync(companyPath, 0o777);
+          fs.chmodSync(companyPath, 0o755);
         }
 
         // Determinar o diretório de destino
         let folder = companyPath;
 
-        // CORREÇÃO: Verificar se é um upload de Landing Page (sem 's' no typeArch)
-        if (typeArch === "landingPage" || req.path.includes("/landing-pages/") && req.path.includes("/media/upload")) {
-          // Pasta standard para landing pages
+        // CORREÇÃO: Verificar se é um upload de Landing Page
+        if (typeArch === "landingPage" || 
+            req.path.includes("/landing-pages/") && 
+            req.path.includes("/media/upload")) {
+          
+          logger.info(`[UPLOAD DESTINATION] Detectado upload de Landing Page`);
+          
+          // Pasta para landing pages
           const landingPageDir = path.resolve(companyPath, "landingPages");
           if (!fs.existsSync(landingPageDir)) {
+            logger.info(`[UPLOAD DESTINATION] Criando diretório de landing pages: ${landingPageDir}`);
             fs.mkdirSync(landingPageDir, { recursive: true });
-            fs.chmodSync(landingPageDir, 0o777);
-            logger.info(`Diretório de landing pages criado: ${landingPageDir}`);
+            fs.chmodSync(landingPageDir, 0o755);
           }
           
           // Se tiver ID da landing page, criar subdiretório específico
           if (landingPageId) {
             const specificLandingPageDir = path.resolve(landingPageDir, landingPageId.toString());
             if (!fs.existsSync(specificLandingPageDir)) {
+              logger.info(`[UPLOAD DESTINATION] Criando diretório específico da landing page: ${specificLandingPageDir}`);
               fs.mkdirSync(specificLandingPageDir, { recursive: true });
-              fs.chmodSync(specificLandingPageDir, 0o777);
-              logger.info(`Diretório específico da landing page criado: ${specificLandingPageDir}`);
+              fs.chmodSync(specificLandingPageDir, 0o755);
             }
             folder = specificLandingPageDir;
           } else {
@@ -81,10 +92,9 @@ export default {
           req.body.typeArch = "landingPage";
           req.body.fileId = landingPageId || "landingPage";
           
-          logger.info(`Destino de upload para landing page: ${folder}`);
+          logger.info(`[UPLOAD DESTINATION] Destino final para landing page: ${folder}`);
           return cb(null, folder);
         }
-        
         
         // Tratamento para uploadList
         const isFileListUpload = req.path.includes("/uploadList/");
@@ -95,26 +105,23 @@ export default {
         } 
         // Garantir que typeArch esteja definido para uploads do flow-builder
         else if (req.path.includes("/flow-builder/media/upload")) {
-          // Força typeArch como flowBuilder para uploads desta rota
           typeArch = "flowBuilder";
           req.body.typeArch = "flowBuilder";
-          
-          // Criar diretório específico para o FlowBuilder
           folder = path.resolve(companyPath, "flowBuilder");
-          logger.info("Definindo typeArch como flowBuilder para upload de mídia do flow-builder");
+          logger.info("[UPLOAD DESTINATION] Definindo typeArch como flowBuilder para upload de mídia do flow-builder");
         }
         // Tratamento específico para quick-messages
         else if (req.path.includes("/quick-messages/")) {
           typeArch = "quickMessage";
           req.body.typeArch = "quickMessage";
           folder = path.resolve(companyPath, "quickMessage");
-          logger.info("Definindo typeArch como quickMessage para upload de resposta rápida");
+          logger.info("[UPLOAD DESTINATION] Definindo typeArch como quickMessage para upload de resposta rápida");
         }
         else if (req.path.includes("/professionals/profile-image")){
           typeArch = "professionals";
           req.body.typeArch = "professionals";
           folder = path.resolve(companyPath, "professionals");
-          logger.info("Definindo typeArch como professionals para uplload de foto de perfil de profissional");
+          logger.info("[UPLOAD DESTINATION] Definindo typeArch como professionals para upload de foto de perfil de profissional");
         }
         // Tratamento para outros tipos
         else if (typeArch) {
@@ -155,24 +162,24 @@ export default {
 
         // Garantir que o diretório existe com permissões adequadas
         if (!fs.existsSync(folder)) {
-          logger.info(`Criando diretório: ${folder}`);
+          logger.info(`[UPLOAD DESTINATION] Criando diretório: ${folder}`);
           fs.mkdirSync(folder, { recursive: true });
-          fs.chmodSync(folder, 0o777);
+          fs.chmodSync(folder, 0o755);
         } else {
           // Verificar e ajustar permissões mesmo se o diretório já existir
           try {
             fs.accessSync(folder, fs.constants.W_OK);
           } catch (err) {
-            logger.info(`Ajustando permissões para diretório existente: ${folder}`);
-            fs.chmodSync(folder, 0o777);
+            logger.info(`[UPLOAD DESTINATION] Ajustando permissões para diretório existente: ${folder}`);
+            fs.chmodSync(folder, 0o755);
           }
         }
 
-        logger.info(`Destino final: ${folder}`);
+        logger.info(`[UPLOAD DESTINATION] Destino final confirmado: ${folder}`);
         cb(null, folder);
       } catch (err) {
-        logger.error(`Erro ao definir destino: ${err.message}`);
-        logger.error(err.stack);
+        logger.error(`[UPLOAD DESTINATION] Erro ao definir destino: ${err.message}`);
+        logger.error(`[UPLOAD DESTINATION] Stack: ${err.stack}`);
         cb(err, null);
       }
     },
@@ -199,12 +206,31 @@ export default {
         // Preservar informação do nome original
         req.body.originalFilename = sanitizedName;
 
-        logger.info(`Gerando nome do arquivo: ${fileName} - Original: ${sanitizedName}`);
+        logger.info(`[UPLOAD FILENAME] Gerando nome: ${fileName} - Original: ${sanitizedName}`);
         cb(null, fileName);
       } catch (err) {
-        logger.error(`Erro ao gerar nome do arquivo: ${err.message}`);
+        logger.error(`[UPLOAD FILENAME] Erro ao gerar nome do arquivo: ${err.message}`);
         cb(err, null);
       }
     }
-  })
+  }),
+  
+  // Filtros de arquivo para Landing Pages
+  fileFilter: (req: any, file: any, cb: any) => {
+    // Para landing pages, permitir apenas imagens
+    if (req.path.includes("/landing-pages/") && req.path.includes("/media/upload")) {
+      const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp', 'image/svg+xml'];
+      
+      if (allowedTypes.includes(file.mimetype)) {
+        logger.info(`[UPLOAD FILTER] Arquivo de imagem aceito: ${file.mimetype}`);
+        cb(null, true);
+      } else {
+        logger.error(`[UPLOAD FILTER] Tipo de arquivo não permitido para landing page: ${file.mimetype}`);
+        cb(new Error(`Tipo de arquivo não permitido. Tipos aceitos: ${allowedTypes.join(', ')}`), false);
+      }
+    } else {
+      // Para outros tipos de upload, permitir tudo
+      cb(null, true);
+    }
+  }
 };
