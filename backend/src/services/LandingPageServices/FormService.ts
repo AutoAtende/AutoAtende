@@ -348,7 +348,7 @@ private async sendConfirmationMessage(
     }
 
     // Criar registro da mensagem no banco
-    const messageData = {
+    let messageData = {
       id: messageId,
       ticketId: ticket.id,
       body: messageText,
@@ -365,6 +365,25 @@ private async sendConfirmationMessage(
       ticket: ticket,
       companyId: ticket.companyId
     });
+
+        // Criar registro da mensagem no banco
+         messageData = {
+          id: messageId,
+          ticketId: ticket.id,
+          body: messageText,
+          contactId: contact.id,
+          fromMe: true,
+          read: true,
+          mediaType: 'chat',
+          mediaUrl: null,
+          internalMessage: true
+        };
+    
+        await CreateMessageService({
+          messageData,
+          ticket: ticket,
+          companyId: ticket.companyId
+        });
 
     await SetTicketMessagesAsRead(ticket);
     await verifyMessage(sentMessage, ticket, contact);
