@@ -2,7 +2,7 @@ import {
   downloadContentFromMessage,
   MediaType,
   proto
-} from "baileys";
+} from "bail-lite";
 import { Session } from "../libs/wbot";
 import Ticket from "../models/Ticket";
 import { getMessageMedia } from "../services/WbotServices/MessageListener/Get/GetMessageMedia";

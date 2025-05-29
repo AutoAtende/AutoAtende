@@ -1,4 +1,4 @@
-import { WASocket, WAMessage } from "baileys";
+import { WASocket, WAMessage } from "bail-lite";
 
 import AppError from "../../errors/AppError";
 import GetTicketWbot from "../../helpers/GetTicketWbot";

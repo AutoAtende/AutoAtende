@@ -1,7 +1,7 @@
 import Ticket from "../../models/Ticket";
 import TicketTag from "../../models/TicketTag";
 import QueueIntegrations from "../../models/QueueIntegrations";
-import { WASocket, proto } from "baileys";
+import { WASocket, proto } from "bail-lite";
 import { getBodyMessage } from "../WbotServices/MessageListener/Get/GetBodyMessage";
 import { logger } from "../../utils/logger";
 import { isNil } from "../../utils/helpers";
