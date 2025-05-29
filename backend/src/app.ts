@@ -21,6 +21,7 @@ if (process.env.DEBUG_TRACE == 'false') {
 }
 
 const app = express();
+app.set('trust proxy', true);
 
 process.on("uncaughtException", err => {
   logger.error(`Uncaught Exception: ${err.message}`);
