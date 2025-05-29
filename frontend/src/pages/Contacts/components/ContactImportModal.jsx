@@ -1,11 +1,6 @@
 import React, { useState, useContext, useEffect } from 'react';
+import PropTypes from 'prop-types';
 import {
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  Button,
-  Typography,
   Box,
   Stepper,
   Step,
@@ -16,9 +11,7 @@ import {
   ListItem,
   ListItemText,
   ListItemIcon,
-  Divider,
   CircularProgress,
-  IconButton,
   Alert,
   FormControl,
   InputLabel,
@@ -36,7 +29,10 @@ import {
   TableRow,
   Grid,
   Switch,
-  FormControlLabel
+  FormControlLabel,
+  Button,
+  Typography,
+  Stack
 } from '@mui/material';
 import {
   CloudUpload as CloudUploadIcon,
@@ -57,15 +53,18 @@ import { styled } from '@mui/material/styles';
 import { useSpring, animated } from 'react-spring';
 import { parse } from 'papaparse';
 import * as XLSX from 'xlsx';
+
+// Standard Components
+import StandardModal from "../../../components/shared/StandardModal";
+
 import { i18n } from "../../../translate/i18n";
 import api from '../../../services/api';
 import { toast } from "../../../helpers/toast";
 import { AuthContext } from "../../../context/Auth/AuthContext";
 import { GlobalContext } from "../../../context/GlobalContext";
 import { SocketContext } from '../../../context/Socket/SocketContext';
-// Removemos a importação de CheckContactNumber que não existe no frontend
 
-// Componentes estilizados
+// Componentes estilizados com padrão Standard
 const AnimatedBox = animated(Box);
 
 const UploadContainer = styled(Paper)(({ theme, isDragActive }) => ({
@@ -78,20 +77,38 @@ const UploadContainer = styled(Paper)(({ theme, isDragActive }) => ({
   cursor: 'pointer',
   border: `2px dashed ${isDragActive ? theme.palette.primary.main : theme.palette.divider}`,
   backgroundColor: isDragActive ? `${theme.palette.primary.light}20` : theme.palette.background.paper,
-  borderRadius: theme.shape.borderRadius,
+  borderRadius: theme.breakpoints.down('sm') ? 12 : 8,
   transition: 'all 0.3s ease',
   minHeight: 200,
   '&:hover': {
     borderColor: theme.palette.primary.main,
     backgroundColor: `${theme.palette.primary.light}10`,
+  },
+  [theme.breakpoints.down('sm')]: {
+    padding: theme.spacing(2),
+    minHeight: 180,
   }
 }));
 
 const StyledListItem = styled(ListItem)(({ theme, hasError }) => ({
-  borderRadius: theme.shape.borderRadius,
+  borderRadius: theme.breakpoints.down('sm') ? 8 : 6,
   marginBottom: theme.spacing(1),
   backgroundColor: hasError ? `${theme.palette.error.light}20` : `${theme.palette.success.light}20`,
   borderLeft: `3px solid ${hasError ? theme.palette.error.main : theme.palette.success.main}`,
+  padding: theme.spacing(1.5),
+  [theme.breakpoints.down('sm')]: {
+    padding: theme.spacing(1),
+  }
+}));
+
+const ResponsiveButton = styled(Button)(({ theme }) => ({
+  borderRadius: theme.breakpoints.down('sm') ? 12 : 8,
+  minHeight: theme.breakpoints.down('sm') ? 44 : 40,
+  fontWeight: 600,
+  textTransform: 'none',
+  [theme.breakpoints.down('sm')]: {
+    padding: theme.spacing(1.5, 2),
+  }
 }));
 
 const ContactImportModal = ({ open, onClose, onSuccess }) => {
@@ -129,6 +146,7 @@ const ContactImportModal = ({ open, onClose, onSuccess }) => {
   const [isFullContact, setIsFullContact] = useState(false);
   const [progress, setProgress] = useState(0);
   const [progressMessage, setProgressMessage] = useState('');
+
   // Passos do processo de importação
   const steps = [
     i18n.t('contacts.import.steps.selectFile') || 'Selecionar Arquivo',
@@ -282,8 +300,6 @@ const ContactImportModal = ({ open, onClose, onSuccess }) => {
           } catch (error) {
             console.error('Erro ao processar arquivo Excel:', error);
             toast.error(i18n.t('contacts.import.errorMessages.parsingFailed') || 'Falha ao processar arquivo');
-
-
             setFile(null);
           } finally {
             setProcessingData(false);
@@ -291,7 +307,8 @@ const ContactImportModal = ({ open, onClose, onSuccess }) => {
         };
         
         reader.onerror = () => {
-          toast.error(i18n.t('contacts.import.errorMessages.readFailed') || 'Falha ao ler arquivo');          setFile(null);
+          toast.error(i18n.t('contacts.import.errorMessages.readFailed') || 'Falha ao ler arquivo');
+          setFile(null);
           setProcessingData(false);
         };
         
@@ -301,7 +318,7 @@ const ContactImportModal = ({ open, onClose, onSuccess }) => {
         parse(fileObj, {
           header: true,
           skipEmptyLines: true,
-          delimiter: ';', // Define o separador como ponto e vírgula, comum em CSVs brasileiros
+          delimiter: ';',
           complete: (results) => {
             if (results.data.length === 0) {
               toast.error(i18n.t('contacts.import.errorMessages.emptyFile') || 'Arquivo vazio');
@@ -318,8 +335,6 @@ const ContactImportModal = ({ open, onClose, onSuccess }) => {
           error: (error) => {
             console.error('Erro ao analisar CSV:', error);
             toast.error(i18n.t('contacts.import.errorMessages.parsingFailed') || 'Falha ao processar arquivo');
-
-
             setFile(null);
             setProcessingData(false);
           }
@@ -502,7 +517,8 @@ const ContactImportModal = ({ open, onClose, onSuccess }) => {
       // Validar mapeamentos antes de avançar para a revisão
       const isValid = await validateMappingsAndData();
       if (!isValid) {
-        toast.error(i18n.t('contacts.import.errorMessages.validationFailed') || 'Validação falhou. Corrija os erros antes de continuar.');        return;
+        toast.error(i18n.t('contacts.import.errorMessages.validationFailed') || 'Validação falhou. Corrija os erros antes de continuar.');
+        return;
       }
     }
     
@@ -582,179 +598,178 @@ const ContactImportModal = ({ open, onClose, onSuccess }) => {
   };
   
   // Monitorar status da importação assíncrona
-// No componente ContactImportModal.jsx
-const pollImportStatus = (jobId) => {
-  let attemptCount = 0;
-  const maxAttempts = 60; // 5 minutos (60 x 5s)
-  
-  // Obter o socket com base no ID da empresa
-  const companyId = localStorage.getItem("companyId");
-  const socket = socketManager.GetSocket(companyId);
-  const importEventName = `company-${companyId}-contact-import`;
-  
-  // Função para lidar com eventos do socket
-  const handleImportEvent = (data) => {
-    console.log("Socket import event received:", data);
+  const pollImportStatus = (jobId) => {
+    let attemptCount = 0;
+    const maxAttempts = 60; // 5 minutos (60 x 5s)
     
-    if (data.jobId !== jobId) return; // Ignora eventos de outros jobs
+    // Obter o socket com base no ID da empresa
+    const companyId = localStorage.getItem("companyId");
+    const socket = socketManager.GetSocket(companyId);
+    const importEventName = `company-${companyId}-contact-import`;
     
-    if (data.action === "complete") {
-      // Importação completada com sucesso
-      clearInterval(statusInterval);
+    // Função para lidar com eventos do socket
+    const handleImportEvent = (data) => {
+      console.log("Socket import event received:", data);
       
-      setImportResults({
-        total: data.data?.total || fileData.length,
-        successful: data.data?.successful || 0,
-        failed: data.data?.failed || 0,
-        errors: data.data?.errors || [],
-      });
+      if (data.jobId !== jobId) return; // Ignora eventos de outros jobs
       
-      toast.success(i18n.t("contacts.import.success", { 
-        count: data.data?.successful || 0
-      }) || `${data.data?.successful || 0} contatos importados com sucesso`);
-      
-      setActiveStep(3);
-      setLoading(false);
-      
-      // Atualizar lista de contatos após 1 segundo
-      setTimeout(() => {
-        setMakeRequest(Math.random());
-        // Opcional: fechar o modal automaticamente após mais 2 segundos
-        setTimeout(() => {
-          onClose();
-        }, 2000);
-      }, 1000);
-      
-      // Remover listener após conclusão
-      socket.off(importEventName, handleImportEvent);
-    } 
-    else if (data.action === "error") {
-      // Erro na importação
-      clearInterval(statusInterval);
-      
-      setImportResults({
-        total: fileData.length,
-        successful: data.data?.successful || 0,
-        failed: data.data?.failed || (fileData.length - (data.data?.successful || 0)),
-        errors: [{ 
-          message: data.error || i18n.t("contacts.import.errors.generalError") || 'Erro geral na importação'
-        }],
-      });
-      
-      toast.error(data.error || i18n.t("contacts.import.errorMessages.importFailed") || 'Falha na importação');
-      
-      setActiveStep(3);
-      setLoading(false);
-      
-      // Remover listener após conclusão
-      socket.off(importEventName, handleImportEvent);
-    }
-    else if (data.action === "progress") {
-      // Atualizar progresso
-      if (data.data) {
-        setProgress(data.data.percentage || 0);
-        setProgressMessage(data.data.message || 'Processando...');
-        
-        if (data.data.processed) {
-          setProgressMessage(prev => 
-            `${data.data.message || 'Processando...'} (Processados: ${data.data.processed}, Válidos: ${data.data.valid}, Inválidos: ${data.data.invalid})`
-          );
-        }
-      }
-    }
-  };
-  
-  // Adicionar listener para o evento
-  socket.on(importEventName, handleImportEvent);
-  
-  // Configurar verificação periódica como fallback
-  const statusInterval = setInterval(async () => {
-    try {
-      attemptCount++;
-      
-      if (attemptCount > maxAttempts) {
+      if (data.action === "complete") {
+        // Importação completada com sucesso
         clearInterval(statusInterval);
-        socket.off(importEventName, handleImportEvent);
-        
-        throw new Error(i18n.t("contacts.import.errors.timeout") || 'Tempo de importação excedido');
-      }
-      
-      const { data } = await api.get(`/contacts/import-status/${jobId}`);
-      
-      // Verificação secundária via API (caso o socket não funcione)
-      if (data.status === 'completed') {
-        clearInterval(statusInterval);
-        socket.off(importEventName, handleImportEvent);
         
         setImportResults({
-          total: data.total || fileData.length,
-          successful: data.successful || 0,
-          failed: data.failed || 0,
-          errors: data.errors || [],
+          total: data.data?.total || fileData.length,
+          successful: data.data?.successful || 0,
+          failed: data.data?.failed || 0,
+          errors: data.data?.errors || [],
         });
         
         toast.success(i18n.t("contacts.import.success", { 
-          count: data.successful || 0
-        }) || `${data.successful || 0} contatos importados com sucesso`);
+          count: data.data?.successful || 0
+        }) || `${data.data?.successful || 0} contatos importados com sucesso`);
         
         setActiveStep(3);
         setLoading(false);
         
-        // Atualizar lista de contatos
-        setMakeRequest(Math.random());
+        // Atualizar lista de contatos após 1 segundo
+        setTimeout(() => {
+          setMakeRequest(Math.random());
+          // Opcional: fechar o modal automaticamente após mais 2 segundos
+          setTimeout(() => {
+            onClose();
+          }, 2000);
+        }, 1000);
+        
+        // Remover listener após conclusão
+        socket.off(importEventName, handleImportEvent);
       } 
-      else if (data.status === 'error') {
+      else if (data.action === "error") {
         // Erro na importação
         clearInterval(statusInterval);
-        socket.off(importEventName, handleImportEvent);
         
         setImportResults({
           total: fileData.length,
-          successful: data.successful || 0,
-          failed: data.failed || (fileData.length - (data.successful || 0)),
-          errors: data.errors || [{
+          successful: data.data?.successful || 0,
+          failed: data.data?.failed || (fileData.length - (data.data?.successful || 0)),
+          errors: [{ 
             message: data.error || i18n.t("contacts.import.errors.generalError") || 'Erro geral na importação'
           }],
         });
         
-        toast.error(i18n.t("contacts.import.errorMessages.importFailed") || 'Falha na importação');
+        toast.error(data.error || i18n.t("contacts.import.errorMessages.importFailed") || 'Falha na importação');
         
         setActiveStep(3);
         setLoading(false);
-      }
-    } catch (error) {
-      console.error('Erro ao verificar status:', error);
-      
-      // Apenas emitir erro e finalizar após várias tentativas ou em caso de erro crítico
-      if (attemptCount > maxAttempts / 2 || error.message.includes('excedido')) {
-        clearInterval(statusInterval);
+        
+        // Remover listener após conclusão
         socket.off(importEventName, handleImportEvent);
-        
-        setImportResults({
-          total: fileData.length,
-          successful: 0,
-          failed: fileData.length,
-          errors: [{
-            message: error.message || i18n.t("contacts.import.errors.statusCheckFailed") || 'Falha ao verificar status da importação'
-          }],
-        });
-        
-        toast.error(i18n.t("contacts.import.errors.statusCheckFailed") || 'Falha ao verificar status da importação');
-        
-        setActiveStep(3);
-        setLoading(false);
       }
-    }
-  }, 5000); // Verificar a cada 5 segundos
+      else if (data.action === "progress") {
+        // Atualizar progresso
+        if (data.data) {
+          setProgress(data.data.percentage || 0);
+          setProgressMessage(data.data.message || 'Processando...');
+          
+          if (data.data.processed) {
+            setProgressMessage(prev => 
+              `${data.data.message || 'Processando...'} (Processados: ${data.data.processed}, Válidos: ${data.data.valid}, Inválidos: ${data.data.invalid})`
+            );
+          }
+        }
+      }
+    };
+    
+    // Adicionar listener para o evento
+    socket.on(importEventName, handleImportEvent);
+    
+    // Configurar verificação periódica como fallback
+    const statusInterval = setInterval(async () => {
+      try {
+        attemptCount++;
+        
+        if (attemptCount > maxAttempts) {
+          clearInterval(statusInterval);
+          socket.off(importEventName, handleImportEvent);
+          
+          throw new Error(i18n.t("contacts.import.errors.timeout") || 'Tempo de importação excedido');
+        }
+        
+        const { data } = await api.get(`/contacts/import-status/${jobId}`);
+        
+        // Verificação secundária via API (caso o socket não funcione)
+        if (data.status === 'completed') {
+          clearInterval(statusInterval);
+          socket.off(importEventName, handleImportEvent);
+          
+          setImportResults({
+            total: data.total || fileData.length,
+            successful: data.successful || 0,
+            failed: data.failed || 0,
+            errors: data.errors || [],
+          });
+          
+          toast.success(i18n.t("contacts.import.success", { 
+            count: data.successful || 0
+          }) || `${data.successful || 0} contatos importados com sucesso`);
+          
+          setActiveStep(3);
+          setLoading(false);
+          
+          // Atualizar lista de contatos
+          setMakeRequest(Math.random());
+        } 
+        else if (data.status === 'error') {
+          // Erro na importação
+          clearInterval(statusInterval);
+          socket.off(importEventName, handleImportEvent);
+          
+          setImportResults({
+            total: fileData.length,
+            successful: data.successful || 0,
+            failed: data.failed || (fileData.length - (data.successful || 0)),
+            errors: data.errors || [{
+              message: data.error || i18n.t("contacts.import.errors.generalError") || 'Erro geral na importação'
+            }],
+          });
+          
+          toast.error(i18n.t("contacts.import.errorMessages.importFailed") || 'Falha na importação');
+          
+          setActiveStep(3);
+          setLoading(false);
+        }
+      } catch (error) {
+        console.error('Erro ao verificar status:', error);
+        
+        // Apenas emitir erro e finalizar após várias tentativas ou em caso de erro crítico
+        if (attemptCount > maxAttempts / 2 || error.message.includes('excedido')) {
+          clearInterval(statusInterval);
+          socket.off(importEventName, handleImportEvent);
+          
+          setImportResults({
+            total: fileData.length,
+            successful: 0,
+            failed: fileData.length,
+            errors: [{
+              message: error.message || i18n.t("contacts.import.errors.statusCheckFailed") || 'Falha ao verificar status da importação'
+            }],
+          });
+          
+          toast.error(i18n.t("contacts.import.errors.statusCheckFailed") || 'Falha ao verificar status da importação');
+          
+          setActiveStep(3);
+          setLoading(false);
+        }
+      }
+    }, 5000); // Verificar a cada 5 segundos
 
-  // Retornamos uma função de cleanup que será chamada quando o componente for desmontado
-  return () => {
-    clearInterval(statusInterval);
-    if (socket) {
-      socket.off(importEventName, handleImportEvent);
-    }
+    // Retornamos uma função de cleanup que será chamada quando o componente for desmontado
+    return () => {
+      clearInterval(statusInterval);
+      if (socket) {
+        socket.off(importEventName, handleImportEvent);
+      }
+    };
   };
-};
   
   // Baixar modelo de importação
   const downloadTemplate = () => {
@@ -816,7 +831,7 @@ const pollImportStatus = (jobId) => {
     switch (activeStep) {
       case 0:
         return (
-          <Box sx={{ p: 2 }}>
+          <Box sx={{ p: isMobile ? 2 : 3 }}>
             <Typography variant="subtitle1" gutterBottom>
               {i18n.t('contacts.import.selectFilePrompt') || 'Selecione um arquivo CSV ou Excel para importar contatos'}
             </Typography>
@@ -848,7 +863,7 @@ const pollImportStatus = (jobId) => {
                   <>
                     <CloudUploadIcon 
                       color="primary" 
-                      sx={{ fontSize: 48, mb: 2 }} 
+                      sx={{ fontSize: { xs: 48, sm: 64 }, mb: 2 }} 
                     />
                     <Typography variant="body1" gutterBottom>
                       {i18n.t('contacts.import.dragAndDrop') || 'Arraste e solte seu arquivo aqui'}
@@ -856,13 +871,13 @@ const pollImportStatus = (jobId) => {
                     <Typography variant="body2" color="textSecondary">
                       {i18n.t('contacts.import.or') || 'ou'}
                     </Typography>
-                    <Button
+                    <ResponsiveButton
                       variant="outlined"
                       component="span"
                       sx={{ mt: 2 }}
                     >
                       {i18n.t('contacts.import.browse') || 'Procurar'}
-                    </Button>
+                    </ResponsiveButton>
                     <Typography variant="caption" color="textSecondary" sx={{ mt: 2 }}>
                       {i18n.t('contacts.import.supportedFormats') || 'Formatos suportados: CSV, XLS, XLSX'}
                     </Typography>
@@ -875,21 +890,21 @@ const pollImportStatus = (jobId) => {
               <Typography variant="subtitle2" gutterBottom>
                 {i18n.t('contacts.import.needTemplate') || 'Precisa de um modelo?'}
               </Typography>
-              <Button
+              <ResponsiveButton
                 variant="text"
                 startIcon={<DownloadIcon />}
                 onClick={downloadTemplate}
                 disabled={processingData}
               >
                 {i18n.t('contacts.import.downloadTemplate') || 'Baixar modelo'}
-              </Button>
+              </ResponsiveButton>
             </Box>
           </Box>
         );
         
       case 1:
         return (
-          <Box sx={{ p: 2 }}>
+          <Box sx={{ p: isMobile ? 2 : 3 }}>
             <Typography variant="subtitle1" gutterBottom>
               {i18n.t('contacts.import.mapFields') || 'Mapeie os campos do arquivo com os campos de contato'}
             </Typography>
@@ -918,592 +933,611 @@ const pollImportStatus = (jobId) => {
                     value={mappings.name}
                     onChange={handleMappingChange('name')}
                     label={i18n.t('contacts.form.name') || 'Nome'}
-                  ><MenuItem value="">
-                  <em>{i18n.t('contacts.import.selectField') || 'Selecione um campo'}</em>
-                </MenuItem>
-                {headers.map((header) => (
-                  <MenuItem key={header} value={header}>
-                    {header}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-          </Grid>
-          
-          <Grid item xs={12} sm={6}>
-            <FormControl fullWidth required>
-              <InputLabel>{i18n.t('contacts.form.number') || 'Número'}</InputLabel>
-              <Select
-                value={mappings.number}
-                onChange={handleMappingChange('number')}
-                label={i18n.t('contacts.form.number') || 'Número'}
-              >
-                <MenuItem value="">
-                  <em>{i18n.t('contacts.import.selectField') || 'Selecione um campo'}</em>
-                </MenuItem>
-                {headers.map((header) => (
-                  <MenuItem key={header} value={header}>
-                    {header}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-          </Grid>
-          
-          <Grid item xs={12} sm={6}>
-            <FormControl fullWidth>
-              <InputLabel>{i18n.t('contacts.form.email') || 'Email'}</InputLabel>
-              <Select
-                value={mappings.email}
-                onChange={handleMappingChange('email')}
-                label={i18n.t('contacts.form.email') || 'Email'}
-              >
-                <MenuItem value="">
-                  <em>{i18n.t('contacts.import.selectField') || 'Selecione um campo'}</em>
-                </MenuItem>
-                {headers.map((header) => (
-                  <MenuItem key={header} value={header}>
-                    {header}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-          </Grid>
-          
-          <Grid item xs={12} sm={6}>
-            <FormControl fullWidth>
-              <InputLabel>{i18n.t('contacts.form.company') || 'Empresa'}</InputLabel>
-              <Select
-                value={mappings.company}
-                onChange={handleMappingChange('company')}
-                label={i18n.t('contacts.form.company') || 'Empresa'}
-              >
-                <MenuItem value="">
-                  <em>{i18n.t('contacts.import.selectField') || 'Selecione um campo'}</em>
-                </MenuItem>
-                {headers.map((header) => (
-                  <MenuItem key={header} value={header}>
-                    {header}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-          </Grid>
-          
-          <Grid item xs={12} sm={6}>
-            <FormControl fullWidth>
-              <InputLabel>{i18n.t('contacts.form.position') || 'Cargo'}</InputLabel>
-              <Select
-                value={mappings.position}
-                onChange={handleMappingChange('position')}
-                label={i18n.t('contacts.form.position') || 'Cargo'}
-              >
-                <MenuItem value="">
-                  <em>{i18n.t('contacts.import.selectField') || 'Selecione um campo'}</em>
-                </MenuItem>
-                {headers.map((header) => (
-                  <MenuItem key={header} value={header}>
-                    {header}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-          </Grid>
-        </Grid>
-        
-        {isFullContact && (
-          <Box sx={{ mt: 4 }}>
-            <Typography variant="subtitle2" gutterBottom>
-              {i18n.t('contacts.import.extraFields') || 'Campos adicionais'}
-            </Typography>
-            
-            <Alert severity="info" sx={{ mb: 2 }}>
-              {i18n.t('contacts.import.extraFieldsInfo') || 'Mapeie campos adicionais que serão importados como informações extras do contato.'}
-            </Alert>
-            
-            {Object.keys(extraFieldMappings).length > 0 ? (
-              <Grid container spacing={2}>
-                {Object.entries(extraFieldMappings).map(([fieldKey, fieldValue], index) => (
-                  <Grid item xs={12} sm={6} key={fieldKey}>
-                    <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                      <TextField
-                        label={i18n.t('contacts.import.extraFieldName') || 'Nome do campo extra'}
-                        variant="outlined"
-                        size="small"
-                        fullWidth
-                        value={fieldKey.replace('extraField', '')}
-                        disabled
-                        sx={{ mr: 1 }}
-                      />
-                      <FormControl fullWidth sx={{ flexGrow: 1 }}>
-                        <InputLabel>{i18n.t('contacts.import.value') || 'Valor'}</InputLabel>
-                        <Select
-                          value={fieldValue}
-                          onChange={handleExtraFieldMappingChange(fieldKey)}
-                          label={i18n.t('contacts.import.value') || 'Valor'}
-                          size="small"
-                        >
-                          <MenuItem value="">
-                            <em>{i18n.t('contacts.import.selectField') || 'Selecione um campo'}</em>
-                          </MenuItem>
-                          {headers.map((header) => (
-                            <MenuItem key={header} value={header}>
-                              {header}
-                            </MenuItem>
-                          ))}
-                        </Select>
-                      </FormControl>
-                      <IconButton 
-                        onClick={() => handleRemoveExtraField(fieldKey)}
-                        color="error"
-                        size="small"
-                        sx={{ ml: 1 }}
-                      >
-                        <CloseIcon fontSize="small" />
-                      </IconButton>
-                    </Box>
-                  </Grid>
-                ))}
+                  >
+                    <MenuItem value="">
+                      <em>{i18n.t('contacts.import.selectField') || 'Selecione um campo'}</em>
+                    </MenuItem>
+                    {headers.map((header) => (
+                      <MenuItem key={header} value={header}>
+                        {header}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
               </Grid>
-            ) : (
-              <Typography variant="body2" color="textSecondary" sx={{ mb: 2 }}>
-                {i18n.t('contacts.import.noExtraFields') || 'Nenhum campo adicional mapeado.'}
-              </Typography>
+              
+              <Grid item xs={12} sm={6}>
+                <FormControl fullWidth required>
+                  <InputLabel>{i18n.t('contacts.form.number') || 'Número'}</InputLabel>
+                  <Select
+                    value={mappings.number}
+                    onChange={handleMappingChange('number')}
+                    label={i18n.t('contacts.form.number') || 'Número'}
+                  >
+                    <MenuItem value="">
+                      <em>{i18n.t('contacts.import.selectField') || 'Selecione um campo'}</em>
+                    </MenuItem>
+                    {headers.map((header) => (
+                      <MenuItem key={header} value={header}>
+                        {header}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              </Grid>
+              
+              <Grid item xs={12} sm={6}>
+                <FormControl fullWidth>
+                  <InputLabel>{i18n.t('contacts.form.email') || 'Email'}</InputLabel>
+                  <Select
+                    value={mappings.email}
+                    onChange={handleMappingChange('email')}
+                    label={i18n.t('contacts.form.email') || 'Email'}
+                  >
+                    <MenuItem value="">
+                      <em>{i18n.t('contacts.import.selectField') || 'Selecione um campo'}</em>
+                    </MenuItem>
+                    {headers.map((header) => (
+                      <MenuItem key={header} value={header}>
+                        {header}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              </Grid>
+              
+              <Grid item xs={12} sm={6}>
+                <FormControl fullWidth>
+                  <InputLabel>{i18n.t('contacts.form.company') || 'Empresa'}</InputLabel>
+                  <Select
+                    value={mappings.company}
+                    onChange={handleMappingChange('company')}
+                    label={i18n.t('contacts.form.company') || 'Empresa'}
+                  >
+                    <MenuItem value="">
+                      <em>{i18n.t('contacts.import.selectField') || 'Selecione um campo'}</em>
+                    </MenuItem>
+                    {headers.map((header) => (
+                      <MenuItem key={header} value={header}>
+                        {header}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              </Grid>
+              
+              <Grid item xs={12} sm={6}>
+                <FormControl fullWidth>
+                  <InputLabel>{i18n.t('contacts.form.position') || 'Cargo'}</InputLabel>
+                  <Select
+                    value={mappings.position}
+                    onChange={handleMappingChange('position')}
+                    label={i18n.t('contacts.form.position') || 'Cargo'}
+                  >
+                    <MenuItem value="">
+                      <em>{i18n.t('contacts.import.selectField') || 'Selecione um campo'}</em>
+                    </MenuItem>
+                    {headers.map((header) => (
+                      <MenuItem key={header} value={header}>
+                        {header}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              </Grid>
+            </Grid>
+            
+            {isFullContact && (
+              <Box sx={{ mt: 4 }}>
+                <Typography variant="subtitle2" gutterBottom>
+                  {i18n.t('contacts.import.extraFields') || 'Campos adicionais'}
+                </Typography>
+                
+                <Alert severity="info" sx={{ mb: 2 }}>
+                  {i18n.t('contacts.import.extraFieldsInfo') || 'Mapeie campos adicionais que serão importados como informações extras do contato.'}
+                </Alert>
+                
+                {Object.keys(extraFieldMappings).length > 0 ? (
+                  <Grid container spacing={2}>
+                    {Object.entries(extraFieldMappings).map(([fieldKey, fieldValue], index) => (
+                      <Grid item xs={12} sm={6} key={fieldKey}>
+                        <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                          <TextField
+                            label={i18n.t('contacts.import.extraFieldName') || 'Nome do campo extra'}
+                            variant="outlined"
+                            size="small"
+                            fullWidth
+                            value={fieldKey.replace('extraField', '')}
+                            disabled
+                            sx={{ mr: 1 }}
+                          />
+                          <FormControl fullWidth sx={{ flexGrow: 1 }}>
+                            <InputLabel>{i18n.t('contacts.import.value') || 'Valor'}</InputLabel>
+                            <Select
+                              value={fieldValue}
+                              onChange={handleExtraFieldMappingChange(fieldKey)}
+                              label={i18n.t('contacts.import.value') || 'Valor'}
+                              size="small"
+                            >
+                              <MenuItem value="">
+                                <em>{i18n.t('contacts.import.selectField') || 'Selecione um campo'}</em>
+                              </MenuItem>
+                              {headers.map((header) => (
+                                <MenuItem key={header} value={header}>
+                                  {header}
+                                </MenuItem>
+                              ))}
+                            </Select>
+                          </FormControl>
+                          <ResponsiveButton
+                            onClick={() => handleRemoveExtraField(fieldKey)}
+                            color="error"
+                            size="small"
+                            sx={{ ml: 1, minWidth: 'auto', p: 1 }}
+                          >
+                            <CloseIcon fontSize="small" />
+                          </ResponsiveButton>
+                        </Box>
+                      </Grid>
+                    ))}
+                  </Grid>
+                ) : (
+                  <Typography variant="body2" color="textSecondary" sx={{ mb: 2 }}>
+                    {i18n.t('contacts.import.noExtraFields') || 'Nenhum campo adicional mapeado.'}
+                  </Typography>
+                )}
+                
+                <ResponsiveButton
+                  variant="outlined"
+                  size="small"
+                  startIcon={<InfoIcon />}
+                  onClick={handleAddExtraField}
+                  sx={{ mt: 1 }}
+                >
+                  {i18n.t('contacts.import.addExtraField') || 'Adicionar campo extra'}
+                </ResponsiveButton>
+              </Box>
             )}
             
-            <Button
-              variant="outlined"
-              size="small"
-              startIcon={<InfoIcon />}
-              onClick={handleAddExtraField}
-              sx={{ mt: 1 }}
-            >
-              {i18n.t('contacts.import.addExtraField') || 'Adicionar campo extra'}
-            </Button>
-          </Box>
-        )}
-        
-        {validationErrors.length > 0 && (
-          <Box sx={{ mt: 3 }}>
-            <Alert severity="warning" sx={{ mb: 2 }}>
-              {i18n.t('contacts.import.validationErrors', { count: validationErrors.length }) || `Foram encontrados ${validationErrors.length} erros de validação`}
-            </Alert>
-            
-            <List dense>
-              {validationErrors.map((error, index) => (
-                <StyledListItem key={index} hasError={true}>
-                  <ListItemIcon>
-                    <ErrorIcon color="error" />
-                  </ListItemIcon>
-                  <ListItemText
-                    primary={error.message}
-                    secondary={error.type === 'data' && (
-                      <Box sx={{ mt: 1 }}>
-                        <Typography variant="body2">
-                          {i18n.t('contacts.import.errorDetails', { count: error.details.length }) || `${error.details.length} registros com problemas`}
-                        </Typography>
-                        <Box sx={{ mt: 1, maxHeight: 100, overflow: 'auto' }}>
-                          {error.details.slice(0, 3).map((detail, idx) => (
-                            <Typography key={idx} variant="caption" display="block">
-                              {i18n.t('contacts.import.rowError', { 
-                                row: detail.row,
-                                error: detail.errors[0].message
-                              }) || `Linha ${detail.row}: ${detail.errors[0].message}`}
-                            </Typography>
-                          ))}
-                          {error.details.length > 3 && (
-                            <Typography variant="caption" color="error">
-                              {i18n.t('contacts.import.moreErrors', { 
-                                count: error.details.length - 3
-                              }) || `...e mais ${error.details.length - 3} erros`}
-                            </Typography>
-                          )}
-                        </Box>
-                      </Box>
-                    )}
-                  />
-                </StyledListItem>
-              ))}
-            </List>
-          </Box>
-        )}
-      </Box>
-    );
-    
-  case 2:
-    return (
-      <Box sx={{ p: 2 }}>
-        <Typography variant="subtitle1" gutterBottom>
-          {i18n.t('contacts.import.reviewAndImport') || 'Revisar e importar'}
-        </Typography>
-        
-        <Alert severity="info" sx={{ mb: 3 }}>
-          {i18n.t('contacts.import.reviewInfo') || 'Verifique se os dados estão corretos antes de iniciar a importação.'}
-        </Alert>
-        
-        <Box sx={{ mb: 3 }}>
-          <Typography variant="subtitle2" gutterBottom>
-            {i18n.t('contacts.import.summary') || 'Resumo'}
-          </Typography>
-          
-          <Paper sx={{ p: 2 }}>
-            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2 }}>
-              <Box>
-                <Typography variant="body2" color="textSecondary">
-                  {i18n.t('contacts.import.totalRecords') || 'Total de registros'}
-                </Typography>
-                <Typography variant="h6">
-                  {fileData.length}
-                </Typography>
-              </Box>
-              
-              <Box>
-                <Typography variant="body2" color="textSecondary">
-                  {i18n.t('contacts.import.validRecords') || 'Registros válidos'}
-                </Typography>
-                <Typography variant="h6" color="success.main">
-                  {fileData.length - validationErrors.reduce((acc, curr) => 
-                    curr.type === 'data' ? acc + curr.details.length : acc, 0
-                  )}
-                </Typography>
-              </Box>
-              
-              {validationErrors.some(e => e.type === 'data') && (
-                <Box>
-                  <Typography variant="body2" color="textSecondary">
-                    {i18n.t('contacts.import.invalidRecords') || 'Registros com avisos'}
-                  </Typography>
-                  <Typography variant="h6" color="warning.main">
-                  {validationErrors.reduce((acc, curr) => 
-                      curr.type === 'data' ? acc + curr.details.length : acc, 0
-                    )}
-                  </Typography>
-                </Box>
-              )}
-
-              <Box>
-                <Typography variant="body2" color="textSecondary">
-                  {i18n.t('contacts.import.importMode') || 'Modo de importação'}
-                </Typography>
-                <Typography variant="h6">
-                  {isFullContact 
-                    ? (i18n.t('contacts.import.fullContactMode') || 'Cadastro completo') 
-                    : (i18n.t('contacts.import.basicContactMode') || 'Cadastro básico')}
-                </Typography>
-              </Box>
-            </Box>
-          </Paper>
-        </Box>
-        
-        <Box sx={{ mb: 3 }}>
-          <Typography variant="subtitle2" gutterBottom>
-            {i18n.t('contacts.import.mappedFields') || 'Campos mapeados'}
-          </Typography>
-          
-          <Paper sx={{ p: 2 }}>
-            <Grid container spacing={2}>
-              {Object.entries(mappings).map(([field, value]) => (
-                value && (
-                  <Grid item xs={12} sm={6} key={field}>
-                    <Box>
-                      <Typography variant="body2" color="textSecondary">
-                        {i18n.t(`contacts.form.${field}`) || field}
-                      </Typography>
-                      <Typography variant="body1">
-                        {value ? value : <em>{i18n.t('contacts.import.notMapped') || 'Não mapeado'}</em>}
-                      </Typography>
-                    </Box>
-                  </Grid>
-                )
-              ))}
-
-              {isFullContact && Object.entries(extraFieldMappings).map(([field, value]) => (
-                value && (
-                  <Grid item xs={12} sm={6} key={field}>
-                    <Box>
-                      <Typography variant="body2" color="textSecondary">
-                        {i18n.t('contacts.import.extraField') || 'Campo extra'}: {field.replace('extraField', '')}
-                      </Typography>
-                      <Typography variant="body1">
-                        {value}
-                      </Typography>
-                    </Box>
-                  </Grid>
-                )
-              ))}
-            </Grid>
-          </Paper>
-        </Box>
-        
-        <Box>
-          <Typography variant="subtitle2" gutterBottom>
-            {i18n.t('contacts.import.previewData') || 'Visualização dos dados'}
-          </Typography>
-          
-          <Paper sx={{ overflow: 'auto', maxHeight: 300 }}>
-            <Box sx={{ minWidth: 650 }}>
-              <Table stickyHeader size="small">
-                <TableHead>
-                  <TableRow>
-                    <TableCell>#</TableCell>
-                    {Object.entries(mappings)
-                      .filter(([_, value]) => value)
-                      .map(([field, value]) => (
-                        <TableCell key={field}>
-                          {i18n.t(`contacts.form.${field}`) || field}
-                        </TableCell>
-                      ))}
-                    {isFullContact && Object.entries(extraFieldMappings)
-                      .filter(([_, value]) => value)
-                      .map(([field, _]) => (
-                        <TableCell key={field}>
-                          {field.replace('extraField', '')}
-                        </TableCell>
-                      ))}
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {fileData.slice(0, 5).map((row, index) => (
-                    <TableRow key={index}>
-                      <TableCell>{index + 1}</TableCell>
-                      {Object.entries(mappings)
-                        .filter(([_, value]) => value)
-                        .map(([field, value]) => (
-                          <TableCell key={field}>
-                            {row[value] || '-'}
-                          </TableCell>
-                        ))}
-                      {isFullContact && Object.entries(extraFieldMappings)
-                        .filter(([_, value]) => value)
-                        .map(([field, value]) => (
-                          <TableCell key={field}>
-                            {row[value] || '-'}
-                          </TableCell>
-                        ))}
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </Box>
-          </Paper>
-          
-          {fileData.length > 5 && (
-            <Typography variant="caption" color="textSecondary" sx={{ mt: 1, display: 'block' }}>
-              {i18n.t('contacts.import.showingFirst', { count: 5, total: fileData.length }) || `Mostrando os primeiros 5 de ${fileData.length} registros`}
-            </Typography>
-          )}
-        </Box>
-      </Box>
-    );
-    
-  case 3:
-    return (
-      <Box sx={{ p: 2 }}>
-        {loading ? (
-          <Box sx={{ textAlign: 'center', py: 4 }}>
-            <CircularProgress size={60} sx={{ mb: 3 }} />
-            <Typography variant="h6" gutterBottom>
-              {i18n.t('contacts.import.importingContacts') || 'Importando contatos...'}
-            </Typography>
-            <Typography variant="body2" color="textSecondary">
-              {i18n.t('contacts.import.pleaseWait') || 'Por favor, aguarde. Isso pode levar alguns minutos.'}
-            </Typography>
-          </Box>
-        ) : (
-          <>
-            <Box sx={{ textAlign: 'center', mb: 4 }}>
-              {importResults.successful > 0 ? (
-                <>
-                  <CheckCircleIcon 
-                    color="success" 
-                    sx={{ fontSize: 64, mb: 2 }} 
-                  />
-                  <Typography variant="h6" gutterBottom>
-                    {i18n.t('contacts.import.importComplete') || 'Importação concluída'}
-                  </Typography>
-                </>
-              ) : (
-                <>
-                  <ErrorIcon 
-                    color="error" 
-                    sx={{ fontSize: 64, mb: 2 }} 
-                  />
-                  <Typography variant="h6" gutterBottom>
-                    {i18n.t('contacts.import.importFailed') || 'Falha na importação'}
-                  </Typography>
-                </>
-              )}
-            </Box>
-            
-            <Paper sx={{ p: 2, mb: 3 }}>
-              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 3, justifyContent: 'center' }}>
-                <Box sx={{ textAlign: 'center' }}>
-                  <Typography variant="body2" color="textSecondary">
-                    {i18n.t('contacts.import.totalProcessed') || 'Total processado'}
-                  </Typography>
-                  <Typography variant="h5">
-                    {importResults.total}
-                  </Typography>
-                </Box>
-                
-                <Box sx={{ textAlign: 'center' }}>
-                  <Typography variant="body2" color="textSecondary">
-                    {i18n.t('contacts.import.successful') || 'Sucesso'}
-                  </Typography>
-                  <Typography variant="h5" color="success.main">
-                    {importResults.successful}
-                  </Typography>
-                </Box>
-                
-                <Box sx={{ textAlign: 'center' }}>
-                  <Typography variant="body2" color="textSecondary">
-                    {i18n.t('contacts.import.failed') || 'Falhas'}
-                  </Typography>
-                  <Typography variant="h5" color="error.main">
-                    {importResults.failed}
-                  </Typography>
-                </Box>
-              </Box>
-            </Paper>
-            
-            {importResults.errors.length > 0 && (
-              <Box>
-                <Typography variant="subtitle2" gutterBottom>
-                  {i18n.t('contacts.import.errors') || 'Erros'}
-                </Typography>
+            {validationErrors.length > 0 && (
+              <Box sx={{ mt: 3 }}>
+                <Alert severity="warning" sx={{ mb: 2 }}>
+                  {i18n.t('contacts.import.validationErrors', { count: validationErrors.length }) || `Foram encontrados ${validationErrors.length} erros de validação`}
+                </Alert>
                 
                 <List dense>
-                  {importResults.errors.slice(0, 5).map((error, index) => (
+                  {validationErrors.map((error, index) => (
                     <StyledListItem key={index} hasError={true}>
                       <ListItemIcon>
                         <ErrorIcon color="error" />
                       </ListItemIcon>
                       <ListItemText
                         primary={error.message}
-                        secondary={error.details && (
-                          <Typography variant="caption">
-                            {error.details}
-                          </Typography>
+                        secondary={error.type === 'data' && (
+                          <Box sx={{ mt: 1 }}>
+                            <Typography variant="body2">
+                              {i18n.t('contacts.import.errorDetails', { count: error.details.length }) || `${error.details.length} registros com problemas`}
+                            </Typography>
+                            <Box sx={{ mt: 1, maxHeight: 100, overflow: 'auto' }}>
+                              {error.details.slice(0, 3).map((detail, idx) => (
+                                <Typography key={idx} variant="caption" display="block">
+                                  {i18n.t('contacts.import.rowError', { 
+                                    row: detail.row,
+                                    error: detail.errors[0].message
+                                  }) || `Linha ${detail.row}: ${detail.errors[0].message}`}
+                                </Typography>
+                              ))}
+                              {error.details.length > 3 && (
+                                <Typography variant="caption" color="error">
+                                  {i18n.t('contacts.import.moreErrors', { 
+                                    count: error.details.length - 3
+                                  }) || `...e mais ${error.details.length - 3} erros`}
+                                </Typography>
+                              )}
+                            </Box>
+                          </Box>
                         )}
                       />
                     </StyledListItem>
                   ))}
                 </List>
-                
-                {importResults.errors.length > 5 && (
-                  <Typography variant="body2" color="error" sx={{ mt: 1 }}>
-                    {i18n.t('contacts.import.moreErrors', { 
-                      count: importResults.errors.length - 5 
-                    }) || `...e mais ${importResults.errors.length - 5} erros`}
-                  </Typography>
-                )}
               </Box>
             )}
+          </Box>
+        );
+      
+      case 2:
+        return (
+          <Box sx={{ p: isMobile ? 2 : 3 }}>
+            <Typography variant="subtitle1" gutterBottom>
+              {i18n.t('contacts.import.reviewAndImport') || 'Revisar e importar'}
+            </Typography>
             
-            <Box sx={{ mt: 4, textAlign: 'center' }}>
-              {importResults.successful > 0 ? (
-                <Typography variant="body1">
-                  {i18n.t('contacts.import.successMessage', { 
-                    count: importResults.successful 
-                  }) || `${importResults.successful} contatos foram importados com sucesso.`}
-                </Typography>
-              ) : (
-                <Typography variant="body1" color="error">
-                  {i18n.t('contacts.import.failureMessage') || 'Nenhum contato foi importado. Verifique os erros e tente novamente.'}
+            <Alert severity="info" sx={{ mb: 3 }}>
+              {i18n.t('contacts.import.reviewInfo') || 'Verifique se os dados estão corretos antes de iniciar a importação.'}
+            </Alert>
+            
+            <Box sx={{ mb: 3 }}>
+              <Typography variant="subtitle2" gutterBottom>
+                {i18n.t('contacts.import.summary') || 'Resumo'}
+              </Typography>
+              
+              <Paper sx={{ p: 2 }}>
+                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2 }}>
+                  <Box>
+                    <Typography variant="body2" color="textSecondary">
+                      {i18n.t('contacts.import.totalRecords') || 'Total de registros'}
+                    </Typography>
+                    <Typography variant="h6">
+                      {fileData.length}
+                    </Typography>
+                  </Box>
+                  
+                  <Box>
+                    <Typography variant="body2" color="textSecondary">
+                      {i18n.t('contacts.import.validRecords') || 'Registros válidos'}
+                    </Typography>
+                    <Typography variant="h6" color="success.main">
+                      {fileData.length - validationErrors.reduce((acc, curr) => 
+                        curr.type === 'data' ? acc + curr.details.length : acc, 0
+                      )}
+                    </Typography>
+                  </Box>
+                  
+                  {validationErrors.some(e => e.type === 'data') && (
+                    <Box>
+                      <Typography variant="body2" color="textSecondary">
+                        {i18n.t('contacts.import.invalidRecords') || 'Registros com avisos'}
+                      </Typography>
+                      <Typography variant="h6" color="warning.main">
+                      {validationErrors.reduce((acc, curr) => 
+                          curr.type === 'data' ? acc + curr.details.length : acc, 0
+                        )}
+                      </Typography>
+                    </Box>
+                  )}
+
+                  <Box>
+                    <Typography variant="body2" color="textSecondary">
+                      {i18n.t('contacts.import.importMode') || 'Modo de importação'}
+                    </Typography>
+                    <Typography variant="h6">
+                      {isFullContact 
+                        ? (i18n.t('contacts.import.fullContactMode') || 'Cadastro completo') 
+                        : (i18n.t('contacts.import.basicContactMode') || 'Cadastro básico')}
+                    </Typography>
+                  </Box>
+                </Box>
+              </Paper>
+            </Box>
+            
+            <Box sx={{ mb: 3 }}>
+              <Typography variant="subtitle2" gutterBottom>
+                {i18n.t('contacts.import.mappedFields') || 'Campos mapeados'}
+              </Typography>
+              
+              <Paper sx={{ p: 2 }}>
+                <Grid container spacing={2}>
+                  {Object.entries(mappings).map(([field, value]) => (
+                    value && (
+                      <Grid item xs={12} sm={6} key={field}>
+                        <Box>
+                          <Typography variant="body2" color="textSecondary">
+                            {i18n.t(`contacts.form.${field}`) || field}
+                          </Typography>
+                          <Typography variant="body1">
+                            {value ? value : <em>{i18n.t('contacts.import.notMapped') || 'Não mapeado'}</em>}
+                          </Typography>
+                        </Box>
+                      </Grid>
+                    )
+                  ))}
+
+                  {isFullContact && Object.entries(extraFieldMappings).map(([field, value]) => (
+                    value && (
+                      <Grid item xs={12} sm={6} key={field}>
+                        <Box>
+                          <Typography variant="body2" color="textSecondary">
+                            {i18n.t('contacts.import.extraField') || 'Campo extra'}: {field.replace('extraField', '')}
+                          </Typography>
+                          <Typography variant="body1">
+                            {value}
+                          </Typography>
+                        </Box>
+                      </Grid>
+                    )
+                  ))}
+                </Grid>
+              </Paper>
+            </Box>
+            
+            <Box>
+              <Typography variant="subtitle2" gutterBottom>
+                {i18n.t('contacts.import.previewData') || 'Visualização dos dados'}
+              </Typography>
+              
+              <Paper sx={{ overflow: 'auto', maxHeight: 300 }}>
+                <Box sx={{ minWidth: 650 }}>
+                  <Table stickyHeader size="small">
+                    <TableHead>
+                      <TableRow>
+                        <TableCell>#</TableCell>
+                        {Object.entries(mappings)
+                          .filter(([_, value]) => value)
+                          .map(([field, value]) => (
+                            <TableCell key={field}>
+                              {i18n.t(`contacts.form.${field}`) || field}
+                            </TableCell>
+                          ))}
+                        {isFullContact && Object.entries(extraFieldMappings)
+                          .filter(([_, value]) => value)
+                          .map(([field, _]) => (
+                            <TableCell key={field}>
+                              {field.replace('extraField', '')}
+                            </TableCell>
+                          ))}
+                      </TableRow>
+                    </TableHead>
+                    <TableBody>
+                      {fileData.slice(0, 5).map((row, index) => (
+                        <TableRow key={index}>
+                          <TableCell>{index + 1}</TableCell>
+                          {Object.entries(mappings)
+                            .filter(([_, value]) => value)
+                            .map(([field, value]) => (
+                              <TableCell key={field}>
+                                {row[value] || '-'}
+                              </TableCell>
+                            ))}
+                          {isFullContact && Object.entries(extraFieldMappings)
+                            .filter(([_, value]) => value)
+                            .map(([field, value]) => (
+                              <TableCell key={field}>
+                                {row[value] || '-'}
+                              </TableCell>
+                            ))}
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </Box>
+              </Paper>
+              
+              {fileData.length > 5 && (
+                <Typography variant="caption" color="textSecondary" sx={{ mt: 1, display: 'block' }}>
+                  {i18n.t('contacts.import.showingFirst', { count: 5, total: fileData.length }) || `Mostrando os primeiros 5 de ${fileData.length} registros`}
                 </Typography>
               )}
             </Box>
-          </>
-        )}
+          </Box>
+        );
+      
+      case 3:
+        return (
+          <Box sx={{ p: isMobile ? 2 : 3 }}>
+            {loading ? (
+              <Box sx={{ textAlign: 'center', py: 4 }}>
+                <CircularProgress size={60} sx={{ mb: 3 }} />
+                <Typography variant="h6" gutterBottom>
+                  {i18n.t('contacts.import.importingContacts') || 'Importando contatos...'}
+                </Typography>
+                <Typography variant="body2" color="textSecondary">
+                  {i18n.t('contacts.import.pleaseWait') || 'Por favor, aguarde. Isso pode levar alguns minutos.'}
+                </Typography>
+                {progress > 0 && (
+                  <Box sx={{ mt: 2, width: '100%' }}>
+                    <LinearProgress variant="determinate" value={progress} />
+                    <Typography variant="caption" sx={{ mt: 1 }}>
+                      {progressMessage}
+                    </Typography>
+                  </Box>
+                )}
+              </Box>
+            ) : (
+              <>
+                <Box sx={{ textAlign: 'center', mb: 4 }}>
+                  {importResults.successful > 0 ? (
+                    <>
+                      <CheckCircleIcon 
+                        color="success" 
+                        sx={{ fontSize: 64, mb: 2 }} 
+                      />
+                      <Typography variant="h6" gutterBottom>
+                        {i18n.t('contacts.import.importComplete') || 'Importação concluída'}
+                      </Typography>
+                    </>
+                  ) : (
+                    <>
+                      <ErrorIcon 
+                        color="error" 
+                        sx={{ fontSize: 64, mb: 2 }} 
+                      />
+                      <Typography variant="h6" gutterBottom>
+                        {i18n.t('contacts.import.importFailed') || 'Falha na importação'}
+                      </Typography>
+                    </>
+                  )}
+                </Box>
+                
+                <Paper sx={{ p: 2, mb: 3 }}>
+                  <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 3, justifyContent: 'center' }}>
+                    <Box sx={{ textAlign: 'center' }}>
+                      <Typography variant="body2" color="textSecondary">
+                        {i18n.t('contacts.import.totalProcessed') || 'Total processado'}
+                      </Typography>
+                      <Typography variant="h5">
+                        {importResults.total}
+                      </Typography>
+                    </Box>
+                    
+                    <Box sx={{ textAlign: 'center' }}>
+                      <Typography variant="body2" color="textSecondary">
+                        {i18n.t('contacts.import.successful') || 'Sucesso'}
+                      </Typography>
+                      <Typography variant="h5" color="success.main">
+                        {importResults.successful}
+                      </Typography>
+                    </Box>
+                    
+                    <Box sx={{ textAlign: 'center' }}>
+                      <Typography variant="body2" color="textSecondary">
+                        {i18n.t('contacts.import.failed') || 'Falhas'}
+                      </Typography>
+                      <Typography variant="h5" color="error.main">
+                        {importResults.failed}
+                      </Typography>
+                    </Box>
+                  </Box>
+                </Paper>
+                
+                {importResults.errors.length > 0 && (
+                  <Box>
+                    <Typography variant="subtitle2" gutterBottom>
+                      {i18n.t('contacts.import.errors') || 'Erros'}
+                    </Typography>
+                    
+                    <List dense>
+                      {importResults.errors.slice(0, 5).map((error, index) => (
+                        <StyledListItem key={index} hasError={true}>
+                          <ListItemIcon>
+                            <ErrorIcon color="error" />
+                          </ListItemIcon>
+                          <ListItemText
+                            primary={error.message}
+                            secondary={error.details && (
+                              <Typography variant="caption">
+                                {error.details}
+                              </Typography>
+                            )}
+                          />
+                        </StyledListItem>
+                      ))}
+                    </List>
+                    
+                    {importResults.errors.length > 5 && (
+                      <Typography variant="body2" color="error" sx={{ mt: 1 }}>
+                        {i18n.t('contacts.import.moreErrors', { 
+                          count: importResults.errors.length - 5 
+                        }) || `...e mais ${importResults.errors.length - 5} erros`}
+                      </Typography>
+                    )}
+                  </Box>
+                )}
+                
+                <Box sx={{ mt: 4, textAlign: 'center' }}>
+                  {importResults.successful > 0 ? (
+                    <Typography variant="body1">
+                      {i18n.t('contacts.import.successMessage', { 
+                        count: importResults.successful 
+                      }) || `${importResults.successful} contatos foram importados com sucesso.`}
+                    </Typography>
+                  ) : (
+                    <Typography variant="body1" color="error">
+                      {i18n.t('contacts.import.failureMessage') || 'Nenhum contato foi importado. Verifique os erros e tente novamente.'}
+                    </Typography>
+                  )}
+                </Box>
+              </>
+            )}
+          </Box>
+        );
+      
+      default:
+        return null;
+    }
+  };
+
+  // Determinar as ações do modal baseadas no passo atual
+  const getModalActions = () => {
+    const actions = [];
+
+    if (activeStep === 0) {
+      actions.push({
+        label: i18n.t('buttons.cancel') || 'Cancelar',
+        onClick: onClose,
+        disabled: loading || processingData,
+        color: 'inherit'
+      });
+    } else if (activeStep === steps.length - 1) {
+      actions.push(
+        {
+          label: i18n.t('contacts.import.importAnother') || 'Importar mais contatos',
+          onClick: handleReset,
+          disabled: loading,
+          variant: 'outlined'
+        },
+        {
+          label: i18n.t('buttons.finish') || 'Finalizar',
+          onClick: handleFinish,
+          disabled: loading,
+          variant: 'contained'
+        }
+      );
+    } else {
+      actions.push(
+        {
+          label: i18n.t('buttons.back') || 'Voltar',
+          onClick: handleBack,
+          disabled: loading,
+          variant: 'outlined'
+        },
+        {
+          label: activeStep === steps.length - 2 
+            ? (i18n.t('contacts.import.import') || 'Importar') 
+            : (i18n.t('buttons.next') || 'Avançar'),
+          onClick: handleNext,
+          disabled: loading || (activeStep === 1 && (!mappings.name || !mappings.number)),
+          variant: 'contained'
+        }
+      );
+    }
+
+    return actions;
+  };
+
+  return (
+    <StandardModal
+      open={open}
+      onClose={loading ? undefined : onClose}
+      title={i18n.t('contacts.import.title') || 'Importar Contatos'}
+      subtitle={`Passo ${activeStep + 1} de ${steps.length}: ${steps[activeStep]}`}
+      size="large"
+      loading={loading}
+      closeOnBackdrop={!loading}
+      closeOnEscape={!loading}
+      actions={getModalActions()}
+      fullScreenMobile
+    >
+      <Box sx={{ mb: 3 }}>
+        <Stepper 
+          activeStep={activeStep} 
+          alternativeLabel={!isMobile}
+          orientation={isMobile ? 'vertical' : 'horizontal'}
+          sx={{
+            '& .MuiStepLabel-root': {
+              fontSize: isMobile ? '0.875rem' : '0.8125rem'
+            }
+          }}
+        >
+          {steps.map((label) => (
+            <Step key={label}>
+              <StepLabel>{label}</StepLabel>
+            </Step>
+          ))}
+        </Stepper>
       </Box>
-    );
-    
-  default:
-    return null;
-}
+      
+      <AnimatedBox style={fadeIn}>
+        {renderStepContent()}
+      </AnimatedBox>
+    </StandardModal>
+  );
 };
 
-return (
-<Dialog
-  open={open}
-  onClose={loading ? undefined : onClose}
-  maxWidth="md"
-  fullWidth
-  fullScreen={isMobile}
->
-  <DialogTitle>
-    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-      <Typography variant="h6">
-        {i18n.t('contacts.import.title') || 'Importar Contatos'}
-      </Typography>
-      
-      <IconButton
-        onClick={loading ? undefined : onClose}
-        disabled={loading}
-      >
-        <CloseIcon />
-      </IconButton>
-    </Box>
-  </DialogTitle>
-  
-  <Divider />
-  
-  <Box sx={{ px: 3, pt: 3 }}>
-    <Stepper activeStep={activeStep} alternativeLabel>
-      {steps.map((label) => (
-        <Step key={label}>
-          <StepLabel>{label}</StepLabel>
-        </Step>
-      ))}
-    </Stepper>
-  </Box>
-  
-  <DialogContent>
-    <AnimatedBox style={fadeIn}>
-      {renderStepContent()}
-    </AnimatedBox>
-  </DialogContent>
-  
-  <Divider />
-  
-  <DialogActions sx={{ px: 3, py: 2 }}>
-    {activeStep === 0 ? (
-      <Button onClick={onClose} disabled={loading}>
-        {i18n.t('buttons.cancel') || 'Cancelar'}
-      </Button>
-    ) : activeStep === steps.length - 1 ? (
-      <>
-        <Button onClick={handleReset} disabled={loading}>
-          {i18n.t('contacts.import.importAnother') || 'Importar mais contatos'}
-        </Button>
-        <Button 
-          variant="contained" 
-          onClick={handleFinish}
-          disabled={loading}
-        >
-          {i18n.t('buttons.finish') || 'Finalizar'}
-        </Button>
-      </>
-    ) : (
-      <>
-        <Button onClick={handleBack} disabled={loading}>
-          {i18n.t('buttons.back') || 'Voltar'}
-        </Button>
-        <Button 
-          variant="contained" 
-          onClick={handleNext}
-          disabled={loading || (activeStep === 1 && (!mappings.name || !mappings.number))}
-        >
-          {activeStep === steps.length - 2 
-            ? (i18n.t('contacts.import.import') || 'Importar') 
-            : (i18n.t('buttons.next') || 'Avançar')}
-        </Button>
-      </>
-    )}
-  </DialogActions>
-</Dialog>
-);
+ContactImportModal.propTypes = {
+  open: PropTypes.bool.isRequired,
+  onClose: PropTypes.func.isRequired,
+  onSuccess: PropTypes.func
 };
 
 export default ContactImportModal;
-                  

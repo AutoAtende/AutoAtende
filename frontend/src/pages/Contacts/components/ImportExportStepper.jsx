@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useContext } from 'react';
+import PropTypes from 'prop-types';
 import { 
   Stepper,
   Step,
@@ -13,30 +14,43 @@ import {
   Box,
   Alert,
   LinearProgress,
-  Button
+  Button,
+  useTheme,
+  useMediaQuery,
+  InputLabel,
+  Stack
 } from '@mui/material';
 
 // Icons
-import CloudUploadIcon from '@mui/icons-material/CloudUpload';
-import CloudDownloadIcon from '@mui/icons-material/CloudDownload';
-import PhoneAndroidIcon from '@mui/icons-material/PhoneAndroid';
-import TableChartIcon from '@mui/icons-material/TableChart';
-import InsertDriveFileIcon from '@mui/icons-material/InsertDriveFile';
-import CancelIcon from '@mui/icons-material/Cancel';
-import ArrowBackIcon from '@mui/icons-material/ArrowBack';
-import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
-import CheckCircleIcon from '@mui/icons-material/CheckCircle';
+import {
+  CloudUpload as CloudUploadIcon,
+  CloudDownload as CloudDownloadIcon,
+  PhoneAndroid as PhoneAndroidIcon,
+  TableChart as TableChartIcon,
+  InsertDriveFile as InsertDriveFileIcon,
+  Cancel as CancelIcon,
+  ArrowBack as ArrowBackIcon,
+  ArrowForward as ArrowForwardIcon,
+  CheckCircle as CheckCircleIcon
+} from '@mui/icons-material';
+
+// Standard Components
+import StandardModal from '../../../components/shared/StandardModal';
+
+// Existing Components
+import ContactImportModal from './ContactImportModal';
 
 // Helpers e Context
 import { toast } from '../../../helpers/toast';
 import { i18n } from '../../../translate/i18n';
 import { GlobalContext } from '../../../context/GlobalContext';
 import { SocketContext } from '../../../context/Socket/SocketContext';
-import BaseModal from '../../../components/shared/BaseModal';
 import api from '../../../services/api';
-import ContactImportModal from './ContactImportModal';
 
 const ImportExportStepper = ({ open, onClose, mode = 'import' }) => {
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+  
   const [activeStep, setActiveStep] = useState(0);
   const [importType, setImportType] = useState('');
   const [selectedConnection, setSelectedConnection] = useState('');
@@ -234,56 +248,133 @@ const ImportExportStepper = ({ open, onClose, mode = 'import' }) => {
     switch (step) {
       case 0:
         return (
-          <FormControl fullWidth sx={{ mt: 2 }}>
-            <RadioGroup
-              value={importType}
-              onChange={handleTypeChange}
-            >
-              {mode === 'import' && (
+          <Box sx={{ mt: 2 }}>
+            <Typography variant="subtitle1" gutterBottom sx={{ mb: 3 }}>
+              {mode === 'import' 
+                ? 'Escolha como deseja importar os contatos:' 
+                : 'Escolha o formato para exportar os contatos:'}
+            </Typography>
+            
+            <FormControl fullWidth>
+              <RadioGroup
+                value={importType}
+                onChange={handleTypeChange}
+                sx={{ gap: 2 }}
+              >
+                {mode === 'import' && (
+                  <FormControlLabel 
+                    value="phone" 
+                    control={<Radio />} 
+                    label={
+                      <Stack direction="row" alignItems="center" spacing={2}>
+                        <PhoneAndroidIcon color="primary" />
+                        <Box>
+                          <Typography variant="body1" fontWeight={600}>
+                            Agenda do Telefone
+                          </Typography>
+                          <Typography variant="body2" color="textSecondary">
+                            Importar contatos diretamente do WhatsApp
+                          </Typography>
+                        </Box>
+                      </Stack>
+                    }
+                    sx={{
+                      border: 1,
+                      borderColor: importType === 'phone' ? 'primary.main' : 'divider',
+                      borderRadius: isMobile ? 3 : 2,
+                      p: 2,
+                      m: 0,
+                      backgroundColor: importType === 'phone' ? 'primary.light' + '10' : 'transparent',
+                      '&:hover': {
+                        borderColor: 'primary.main',
+                        backgroundColor: 'primary.light' + '05'
+                      }
+                    }}
+                  />
+                )}
+                
                 <FormControlLabel 
-                  value="phone" 
+                  value="csv" 
                   control={<Radio />} 
                   label={
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                      <PhoneAndroidIcon />
-                      Agenda do Telefone
-                    </Box>
+                    <Stack direction="row" alignItems="center" spacing={2}>
+                      <TableChartIcon color="primary" />
+                      <Box>
+                        <Typography variant="body1" fontWeight={600}>
+                          Arquivo CSV
+                        </Typography>
+                        <Typography variant="body2" color="textSecondary">
+                          {mode === 'import' 
+                            ? 'Importar de planilha CSV com separador ponto e vírgula'
+                            : 'Exportar para planilha CSV'}
+                        </Typography>
+                      </Box>
+                    </Stack>
                   }
+                  sx={{
+                    border: 1,
+                    borderColor: importType === 'csv' ? 'primary.main' : 'divider',
+                    borderRadius: isMobile ? 3 : 2,
+                    p: 2,
+                    m: 0,
+                    backgroundColor: importType === 'csv' ? 'primary.light' + '10' : 'transparent',
+                    '&:hover': {
+                      borderColor: 'primary.main',
+                      backgroundColor: 'primary.light' + '05'
+                    }
+                  }}
                 />
-              )}
-              <FormControlLabel 
-                value="csv" 
-                control={<Radio />} 
-                label={
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                    <TableChartIcon />
-                    Arquivo CSV
-                  </Box>
-                }
-              />
-              <FormControlLabel 
-                value="xls" 
-                control={<Radio />} 
-                label={
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                    <InsertDriveFileIcon />
-                    Arquivo XLS/XLSX
-                  </Box>
-                }
-              />
-            </RadioGroup>
-          </FormControl>
+                
+                <FormControlLabel 
+                  value="xls" 
+                  control={<Radio />} 
+                  label={
+                    <Stack direction="row" alignItems="center" spacing={2}>
+                      <InsertDriveFileIcon color="primary" />
+                      <Box>
+                        <Typography variant="body1" fontWeight={600}>
+                          Arquivo Excel
+                        </Typography>
+                        <Typography variant="body2" color="textSecondary">
+                          {mode === 'import' 
+                            ? 'Importar de planilha Excel (.xlsx ou .xls)'
+                            : 'Exportar para planilha Excel'}
+                        </Typography>
+                      </Box>
+                    </Stack>
+                  }
+                  sx={{
+                    border: 1,
+                    borderColor: importType === 'xls' ? 'primary.main' : 'divider',
+                    borderRadius: isMobile ? 3 : 2,
+                    p: 2,
+                    m: 0,
+                    backgroundColor: importType === 'xls' ? 'primary.light' + '10' : 'transparent',
+                    '&:hover': {
+                      borderColor: 'primary.main',
+                      backgroundColor: 'primary.light' + '05'
+                    }
+                  }}
+                />
+              </RadioGroup>
+            </FormControl>
+          </Box>
         );
 
       case 1:
         return (
-          <Box sx={{ mt: 2, display: 'flex', flexDirection: 'column', gap: 2 }}>
+          <Box sx={{ mt: 2, display: 'flex', flexDirection: 'column', gap: 3 }}>
+            <Typography variant="subtitle1" gutterBottom>
+              Configurações da {mode === 'import' ? 'importação' : 'exportação'}:
+            </Typography>
+            
             {importType === 'phone' ? (
               <FormControl fullWidth>
+                <InputLabel>Conexão WhatsApp</InputLabel>
                 <Select
                   value={selectedConnection}
                   onChange={(e) => setSelectedConnection(e.target.value)}
-                  displayEmpty
+                  label="Conexão WhatsApp"
                 >
                   <MenuItem value="">Selecione uma conexão</MenuItem>
                   {connections.map((conn) => (
@@ -304,18 +395,34 @@ const ImportExportStepper = ({ open, onClose, mode = 'import' }) => {
                       style={{ display: 'none' }}
                       id="file-input"
                     />
-                    <Button
-                      variant="outlined"
-                      onClick={() => document.getElementById('file-input').click()}
-                      startIcon={<CloudUploadIcon />}
-                    >
-                      Selecionar arquivo
-                    </Button>
-                    {file && (
-                      <Typography variant="body2">
-                        Arquivo selecionado: {file.name}
+                    <Box sx={{ 
+                      border: 2, 
+                      borderStyle: 'dashed', 
+                      borderColor: 'divider',
+                      borderRadius: isMobile ? 3 : 2,
+                      p: 3,
+                      textAlign: 'center',
+                      backgroundColor: 'background.paper'
+                    }}>
+                      <CloudUploadIcon 
+                        sx={{ fontSize: 48, color: 'primary.main', mb: 2 }} 
+                      />
+                      <Typography variant="body1" gutterBottom>
+                        {file ? file.name : 'Nenhum arquivo selecionado'}
                       </Typography>
-                    )}
+                      <Button
+                        variant="outlined"
+                        onClick={() => document.getElementById('file-input').click()}
+                        startIcon={<CloudUploadIcon />}
+                        sx={{
+                          borderRadius: isMobile ? 3 : 2,
+                          textTransform: 'none',
+                          fontWeight: 600
+                        }}
+                      >
+                        {file ? 'Alterar arquivo' : 'Selecionar arquivo'}
+                      </Button>
+                    </Box>
                   </>
                 )}
                 
@@ -324,22 +431,81 @@ const ImportExportStepper = ({ open, onClose, mode = 'import' }) => {
                     <Radio
                       checked={isFullContact}
                       onChange={(e) => setIsFullContact(e.target.checked)}
+                      color="primary"
                     />
                   }
-                  label="Cadastro completo (incluir campos adicionais)"
+                  label={
+                    <Box>
+                      <Typography variant="body1" fontWeight={600}>
+                        Cadastro completo
+                      </Typography>
+                      <Typography variant="body2" color="textSecondary">
+                        Incluir campos adicionais como empresa, cargo e informações extras
+                      </Typography>
+                    </Box>
+                  }
+                  sx={{
+                    border: 1,
+                    borderColor: isFullContact ? 'primary.main' : 'divider',
+                    borderRadius: isMobile ? 3 : 2,
+                    p: 2,
+                    m: 0,
+                    backgroundColor: isFullContact ? 'primary.light' + '10' : 'transparent',
+                    '&:hover': {
+                      borderColor: 'primary.main',
+                      backgroundColor: 'primary.light' + '05'
+                    }
+                  }}
+                />
+
+                <FormControlLabel
+                  control={
+                    <Radio
+                      checked={!isFullContact}
+                      onChange={(e) => setIsFullContact(!e.target.checked)}
+                      color="primary"
+                    />
+                  }
+                  label={
+                    <Box>
+                      <Typography variant="body1" fontWeight={600}>
+                        Cadastro básico
+                      </Typography>
+                      <Typography variant="body2" color="textSecondary">
+                        Apenas nome, número e email
+                      </Typography>
+                    </Box>
+                  }
+                  sx={{
+                    border: 1,
+                    borderColor: !isFullContact ? 'primary.main' : 'divider',
+                    borderRadius: isMobile ? 3 : 2,
+                    p: 2,
+                    m: 0,
+                    backgroundColor: !isFullContact ? 'primary.light' + '10' : 'transparent',
+                    '&:hover': {
+                      borderColor: 'primary.main',
+                      backgroundColor: 'primary.light' + '05'
+                    }
+                  }}
                 />
 
                 {importType === 'csv' && (
-                  <Alert severity="info">
-                    O arquivo CSV deve conter as colunas "nome" e "número" e "email", separadas por ponto e vírgula (;)
-                    {isFullContact && ' e pode incluir campos adicionais como outros campos customizados'}
+                  <Alert severity="info" sx={{ borderRadius: isMobile ? 3 : 2 }}>
+                    <Typography variant="body2">
+                      <strong>Importante:</strong> O arquivo CSV deve conter as colunas "Nome" e "Número" obrigatoriamente, 
+                      separadas por ponto e vírgula (;)
+                      {isFullContact && '. Campos adicionais como "Email", "Empresa" e "Cargo" são opcionais.'}
+                    </Typography>
                   </Alert>
                 )}
 
                 {importType === 'xls' && (
-                  <Alert severity="info">
-                    A planilha deve conter as colunas "nome" e "número" e "email"
-                    {isFullContact && ' e pode incluir campos adicionais como outros campos customizados'}
+                  <Alert severity="info" sx={{ borderRadius: isMobile ? 3 : 2 }}>
+                    <Typography variant="body2">
+                      <strong>Importante:</strong> A planilha deve conter as colunas "Nome" e "Número" obrigatoriamente
+                      {isFullContact && '. Campos adicionais como "Email", "Empresa" e "Cargo" são opcionais.'}
+                    </Typography>
                   </Alert>
                 )}
               </>
@@ -351,34 +517,87 @@ const ImportExportStepper = ({ open, onClose, mode = 'import' }) => {
         return (
           <Box sx={{ mt: 2 }}>
             {importing && (
-              <Box sx={{ mb: 2 }}>
-                <LinearProgress variant="determinate" value={progress} />
-                <Typography variant="body2" sx={{ mt: 1, textAlign: 'center' }}>
+              <Box sx={{ mb: 3 }}>
+                <Typography variant="h6" gutterBottom align="center">
+                  {mode === 'import' ? 'Importando contatos...' : 'Processando exportação...'}
+                </Typography>
+                <LinearProgress variant="determinate" value={progress} sx={{ mb: 1 }} />
+                <Typography variant="body2" align="center" color="textSecondary">
                   {progress}% concluído
                 </Typography>
+                {progressMessage && (
+                  <Typography variant="caption" align="center" display="block" sx={{ mt: 1 }}>
+                    {progressMessage}
+                  </Typography>
+                )}
               </Box>
             )}
 
-            <Typography variant="h6" sx={{ mb: 2 }}>
+            <Typography variant="h6" sx={{ mb: 3 }}>
               {mode === 'import' 
-                ? 'Confirme os dados abaixo antes de iniciar a importação:'
+                ? 'Confirme os dados antes de iniciar a importação:'
                 : 'Seu arquivo está pronto para download!'}
             </Typography>
 
-            <Typography variant="body1" sx={{ mb: 1 }}>
-              Tipo: {importType === 'phone' ? 'Agenda do Telefone' : importType.toUpperCase()}
-            </Typography>
+            <Box sx={{ 
+              border: 1, 
+              borderColor: 'divider',
+              borderRadius: isMobile ? 3 : 2,
+              p: 3,
+              backgroundColor: 'background.paper'
+            }}>
+              <Stack spacing={2}>
+                <Box display="flex" justifyContent="space-between">
+                  <Typography variant="body2" color="textSecondary">
+                    Tipo:
+                  </Typography>
+                  <Typography variant="body1" fontWeight={600}>
+                    {importType === 'phone' ? 'Agenda do Telefone' : 
+                     importType === 'csv' ? 'Arquivo CSV' : 'Arquivo Excel'}
+                  </Typography>
+                </Box>
 
-            {importType !== 'phone' && (
-              <Typography variant="body1" sx={{ mb: 1 }}>
-                Formato: {isFullContact ? 'Cadastro Completo' : 'Cadastro Básico'}
-              </Typography>
-            )}
+                {importType !== 'phone' && (
+                  <Box display="flex" justifyContent="space-between">
+                    <Typography variant="body2" color="textSecondary">
+                      Formato:
+                    </Typography>
+                    <Typography variant="body1" fontWeight={600}>
+                      {isFullContact ? 'Cadastro Completo' : 'Cadastro Básico'}
+                    </Typography>
+                  </Box>
+                )}
 
-            {mode === 'import' && importType !== 'phone' && file && (
-              <Typography variant="body1">
-                Arquivo: {file.name}
-              </Typography>
+                {mode === 'import' && importType !== 'phone' && file && (
+                  <Box display="flex" justifyContent="space-between">
+                    <Typography variant="body2" color="textSecondary">
+                      Arquivo:
+                    </Typography>
+                    <Typography variant="body1" fontWeight={600}>
+                      {file.name}
+                    </Typography>
+                  </Box>
+                )}
+
+                {importType === 'phone' && selectedConnection && (
+                  <Box display="flex" justifyContent="space-between">
+                    <Typography variant="body2" color="textSecondary">
+                      Conexão:
+                    </Typography>
+                    <Typography variant="body1" fontWeight={600}>
+                      {connections.find(c => c.id === selectedConnection)?.name || selectedConnection}
+                    </Typography>
+                  </Box>
+                )}
+              </Stack>
+            </Box>
+
+            {mode === 'export' && (
+              <Alert severity="success" sx={{ mt: 3, borderRadius: isMobile ? 3 : 2 }}>
+                <Typography variant="body2">
+                  Clique em "Concluir" para fazer o download do arquivo de contatos.
+                </Typography>
+              </Alert>
             )}
           </Box>
         );
@@ -409,22 +628,28 @@ const ImportExportStepper = ({ open, onClose, mode = 'import' }) => {
     }
   };
 
-  const modalActions = [
-    {
+  const getModalActions = () => {
+    const actions = [];
+
+    actions.push({
       label: 'Cancelar',
       onClick: onClose,
       disabled: importing,
       color: 'inherit',
       icon: <CancelIcon />
-    },
-    activeStep > 0 && {
-      label: 'Voltar',
-      onClick: handleBack,
-      disabled: importing,
-      color: 'inherit',
-      icon: <ArrowBackIcon />
-    },
-    {
+    });
+
+    if (activeStep > 0) {
+      actions.push({
+        label: 'Voltar',
+        onClick: handleBack,
+        disabled: importing,
+        color: 'inherit',
+        icon: <ArrowBackIcon />
+      });
+    }
+
+    actions.push({
       label: importing ? 'Processando...' : activeStep === steps.length - 1 ? 'Concluir' : 'Próximo',
       onClick: handleNext,
       disabled: isNextButtonDisabled(),
@@ -436,8 +661,10 @@ const ImportExportStepper = ({ open, onClose, mode = 'import' }) => {
           : activeStep === steps.length - 1 
             ? <CheckCircleIcon />
             : <ArrowForwardIcon />
-    }
-  ].filter(Boolean);
+    });
+
+    return actions;
+  };
 
   // Se estamos mostrando o novo modal de importação
   if (showContactImportModal) {
@@ -454,16 +681,24 @@ const ImportExportStepper = ({ open, onClose, mode = 'import' }) => {
   }
 
   return (
-    <BaseModal
+    <StandardModal
       open={open}
       onClose={onClose}
       title={mode === 'import' ? 'Importar Contatos' : 'Exportar Contatos'}
-      actions={modalActions}
+      subtitle={`Passo ${activeStep + 1} de ${steps.length}: ${steps[activeStep]}`}
+      actions={getModalActions()}
       loading={importing}
-      maxWidth="sm"
+      size="medium"
+      closeOnBackdrop={!importing}
+      closeOnEscape={!importing}
     >
       <Box sx={{ mt: 2 }}>
-        <Stepper activeStep={activeStep} sx={{ mb: 3 }}>
+        <Stepper 
+          activeStep={activeStep} 
+          sx={{ mb: 3 }}
+          alternativeLabel={!isMobile}
+          orientation={isMobile ? 'vertical' : 'horizontal'}
+        >
           {steps.map((label) => (
             <Step key={label}>
               <StepLabel>{label}</StepLabel>
@@ -474,8 +709,14 @@ const ImportExportStepper = ({ open, onClose, mode = 'import' }) => {
         {renderStepContent(activeStep)}
         {renderProgress()}
       </Box>
-    </BaseModal>
+    </StandardModal>
   );
+};
+
+ImportExportStepper.propTypes = {
+  open: PropTypes.bool.isRequired,
+  onClose: PropTypes.func.isRequired,
+  mode: PropTypes.oneOf(['import', 'export']).isRequired
 };
 
 export default ImportExportStepper;

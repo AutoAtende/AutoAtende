@@ -706,7 +706,10 @@ const StandardTable = ({
                       <TableCell align="right">
                         <IconButton
                           size="small"
-                          onClick={(event) => handleOpenActionsMenu(event, item)}
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            handleOpenActionsMenu(event, item)}
+                          }
                           color="primary"
                         >
                           <MoreVertIcon />

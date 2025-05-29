@@ -1,57 +1,50 @@
 import React, { useCallback, useContext, useEffect, useRef, useState } from "react";
 import { useHistory } from "react-router-dom";
-import { styled, useTheme, alpha } from "@mui/material/styles";
+import PropTypes from 'prop-types';
 
 // MUI Components
 import {
   Box,
-  Paper,
-  Typography,
-  TextField,
-  InputAdornment,
-  IconButton,
-  Stack,
   Avatar,
   Chip,
-  Tooltip,
-  Menu,
-  MenuItem,
-  Button,
+  Typography,
   Checkbox,
-  Grid,
-  Skeleton,
-  TableContainer,
-  Table,
-  TableHead,
-  TableBody,
-  TableRow,
-  TableCell,
-  useMediaQuery
+  IconButton,
+  Stack,
+  TextField,
+  InputAdornment,
+  CircularProgress,
+  Tooltip,
+  useTheme,
+  Paper,
+  Button
 } from "@mui/material";
 
 // MUI Icons
-import SearchIcon from "@mui/icons-material/Search";
-import WhatsAppIcon from "@mui/icons-material/WhatsApp";
-import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
-import EditIcon from "@mui/icons-material/Edit";
-import LockIcon from '@mui/icons-material/Lock';
-import LockOpenIcon from '@mui/icons-material/LockOpen';
-import AddBoxOutlinedIcon from "@mui/icons-material/AddBoxOutlined";
-import DeleteForever from "@mui/icons-material/DeleteForeverOutlined";
-import CloudUploadIcon from '@mui/icons-material/CloudUpload';
-import CloudDownloadIcon from '@mui/icons-material/CloudDownload';
-import ArrowDropDownIcon from "@mui/icons-material/ArrowDropDown";
-import MoreVertIcon from '@mui/icons-material/MoreVert';
+import {
+  Add as AddIcon,
+  CloudUpload as ImportIcon,
+  CloudDownload as ExportIcon,
+  Delete as DeleteIcon,
+  Edit as EditIcon,
+  WhatsApp as WhatsAppIcon,
+  Lock as LockIcon,
+  LockOpen as LockOpenIcon,
+  ContactPhone as ContactIcon,
+  Search as SearchIcon
+} from "@mui/icons-material";
 
-// Components
+// Standard Components
+import StandardPageLayout from "../../components/shared/StandardPageLayout";
+import StandardEmptyState from "../../components/shared/StandardEmptyState";
+
+// Existing Components
 import ContactModal from "./components/ContactModal";
 import NewTicketModal from "../../components/NewTicketModal";
 import ConfirmationModal from "../../components/ConfirmationModal";
-import Title from "../../components/Title";
-import { Can } from "../../components/Can";
-import ContactsEmptyState from './components/ContactsEmptyState';
-import ImportExportStepper from './components/ImportExportStepper';
 import TagFilterComponent from './components/TagFilterComponent';
+import ImportExportStepper from './components/ImportExportStepper';
+import { Can } from "../../components/Can";
 
 // Contexts
 import { AuthContext } from "../../context/Auth/AuthContext";
@@ -66,127 +59,305 @@ import { getInitials } from "../../helpers/getInitials";
 import formatSerializedId from "../../utils/formatSerializedId";
 import { useLoading } from "../../hooks/useLoading";
 
-// Estilos Modernos
-const PageContainer = styled(Box)(({ theme }) => ({
-  padding: theme.spacing(3),
-  height: "100%",
-  display: "flex",
-  flexDirection: "column",
-  gap: theme.spacing(3),
-  [theme.breakpoints.down('sm')]: {
-    padding: theme.spacing(2),
-    gap: theme.spacing(2),
+// Componente de Ações do Contato - Simplificado e Seguro
+const ContactActions = React.memo(({ contact, user, onStartChat, onBlock, onEdit, onDelete }) => {
+  const handleStartChat = useCallback((e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    console.log('Clicou em iniciar chat para:', contact.name);
+    if (onStartChat && typeof onStartChat === 'function') {
+      onStartChat(contact);
+    }
+  }, [contact, onStartChat]);
+
+  const handleBlock = useCallback((e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    console.log('Clicou em bloquear para:', contact.name);
+    if (onBlock && typeof onBlock === 'function') {
+      onBlock(contact);
+    }
+  }, [contact, onBlock]);
+
+  const handleEdit = useCallback((e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    console.log('Clicou em editar contato ID:', contact.id);
+    if (onEdit && typeof onEdit === 'function') {
+      onEdit(contact.id);
+    }
+  }, [contact.id, onEdit]);
+
+  const handleDelete = useCallback((e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    console.log('Clicou em excluir para:', contact.name);
+    if (onDelete && typeof onDelete === 'function') {
+      onDelete(contact);
+    }
+  }, [contact, onDelete]);
+
+  // Verificações de segurança
+  if (!contact || typeof contact !== 'object') {
+    console.error('ContactActions: contact inválido', contact);
+    return null;
   }
-}));
 
-const HeaderContainer = styled(Paper)(({ theme }) => ({
-  padding: theme.spacing(3),
-  borderRadius: theme.shape.borderRadius,
-  backgroundColor: theme.palette.background.paper,
-  boxShadow: "0 2px 10px rgba(0,0,0,0.05)",
-  [theme.breakpoints.down('sm')]: {
-    padding: theme.spacing(2),
+  if (!user || typeof user !== 'object') {
+    console.error('ContactActions: user inválido', user);
+    return null;
   }
-}));
 
-const SearchAndActionsContainer = styled(Box)(({ theme }) => ({
-  display: "flex",
-  gap: theme.spacing(2),
-  marginTop: theme.spacing(2),
-  [theme.breakpoints.down("md")]: {
-    flexDirection: "column",
-    gap: theme.spacing(1.5),
-  }
-}));
+  return (
+    <Stack direction="row" spacing={0.5}>
+      {user.profile !== 'user' && !contact.isGroup && (
+        <Tooltip title="Iniciar Chat" arrow>
+          <IconButton
+            size="small"
+            color="primary"
+            onClick={handleStartChat}
+            aria-label="Iniciar chat"
+          >
+            <WhatsAppIcon fontSize="small" />
+          </IconButton>
+        </Tooltip>
+      )}
 
-// Tabela moderna com cabeçalho fixo
-const ModernTableContainer = styled(TableContainer)(({ theme }) => ({
-  height: "100%",
-  display: "flex",
-  flexDirection: "column",
-  overflow: "hidden",
-  backgroundColor: theme.palette.background.paper,
-  borderRadius: theme.shape.borderRadius,
-  boxShadow: "0 2px 10px rgba(0,0,0,0.05)",
-}));
+      {!contact.isGroup && (
+        <Tooltip 
+          title={contact.active === false ? "Desbloquear" : "Bloquear"} 
+          arrow
+        >
+          <IconButton
+            size="small"
+            color={contact.active === false ? 'success' : 'error'}
+            onClick={handleBlock}
+            aria-label={contact.active === false ? "Desbloquear" : "Bloquear"}
+          >
+            {contact.active === false 
+              ? <LockOpenIcon fontSize="small" /> 
+              : <LockIcon fontSize="small" />}
+          </IconButton>
+        </Tooltip>
+      )}
 
-const TableHeader = styled(TableHead)(({ theme }) => ({
-  backgroundColor: theme.palette.mode === 'dark' 
-    ? alpha(theme.palette.primary.dark, 0.1)
-    : alpha(theme.palette.primary.light, 0.1),
-  zIndex: 11,
-  position: "sticky",
-  top: 0,
-  '& th': {
-    fontWeight: 600,
-    color: theme.palette.text.primary,
-    borderBottom: `1px solid ${theme.palette.divider}`,
-  }
-}));
+      <Tooltip title="Editar" arrow>
+        <IconButton
+          size="small"
+          color="primary"
+          onClick={handleEdit}
+          aria-label="Editar contato"
+        >
+          <EditIcon fontSize="small" />
+        </IconButton>
+      </Tooltip>
 
-const ScrollableTableBody = styled(TableBody)(({ theme }) => ({
-  overflowY: "auto",
-  height: "100%",
-}));
+      <Tooltip title="Excluir" arrow>
+        <IconButton
+          size="small"
+          color="error"
+          onClick={handleDelete}
+          aria-label="Excluir contato"
+        >
+          <DeleteIcon fontSize="small" />
+        </IconButton>
+      </Tooltip>
+    </Stack>
+  );
+});
 
-const StyledTableRow = styled(TableRow)(({ theme, selected }) => ({
-  cursor: 'pointer',
-  backgroundColor: selected ? alpha(theme.palette.primary.main, 0.08) : 'inherit',
-  '&:hover': {
-    backgroundColor: alpha(theme.palette.primary.main, 0.04),
-  },
-  // Efeito de transição suave
-  transition: 'background-color 0.2s ease',
-}));
+ContactActions.displayName = 'ContactActions';
 
-const StyledTableCell = styled(TableCell)(({ theme, align }) => ({
-  borderBottom: `1px solid ${theme.palette.divider}`,
-  padding: theme.spacing(1.5),
-  fontSize: '0.875rem',
-  textAlign: align || 'left',
-  whiteSpace: 'nowrap',
-  overflow: 'hidden',
-  textOverflow: 'ellipsis',
-  [theme.breakpoints.down('sm')]: {
-    padding: theme.spacing(1),
-  }
-}));
+ContactActions.propTypes = {
+  contact: PropTypes.object.isRequired,
+  user: PropTypes.object.isRequired,
+  onStartChat: PropTypes.func.isRequired,
+  onBlock: PropTypes.func.isRequired,
+  onEdit: PropTypes.func.isRequired,
+  onDelete: PropTypes.func.isRequired
+};
 
-const ActionsCell = styled(StyledTableCell)(({ theme }) => ({
-  width: '120px',
-  [theme.breakpoints.down('sm')]: {
-    width: '60px',
-  }
-}));
-
-// Actions Button Component
-const ActionButtonsContainer = styled(Stack)(({ theme }) => ({
-  flexDirection: "row",
-  gap: theme.spacing(1),
-  [theme.breakpoints.down("sm")]: {
-    flexDirection: "column",
-    gap: theme.spacing(0.5),
-  }
-}));
-
-// Componente de Contatos
-const Contacts = () => {
+// Componente de Item de Contato - Simplificado e Seguro
+const ContactItem = React.memo(({ 
+  contact, 
+  user, 
+  selected, 
+  onSelect, 
+  onStartChat, 
+  onBlock, 
+  onEdit, 
+  onDelete,
+  showCheckbox = false 
+}) => {
   const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
-  const isTablet = useMediaQuery(theme.breakpoints.down('md'));
+
+  const handleRowClick = useCallback((e) => {
+    // Previne clique quando é em um botão de ação
+    const target = e.target;
+    if (target.closest('button') || target.closest('[role="button"]') || target.closest('.MuiIconButton-root')) {
+      return;
+    }
+    // Não faz nada no clique da linha por enquanto
+  }, []);
+
+  const handleCheckboxChange = useCallback((e) => {
+    e.stopPropagation();
+    if (onSelect && typeof onSelect === 'function') {
+      onSelect(contact, !selected);
+    }
+  }, [contact, selected, onSelect]);
+
+  // Verificações de segurança
+  if (!contact || typeof contact !== 'object') {
+    console.error('ContactItem: contact inválido', contact);
+    return null;
+  }
+
+  if (!user || typeof user !== 'object') {
+    console.error('ContactItem: user inválido', user);
+    return null;
+  }
+
+  return (
+    <Paper
+      elevation={1}
+      sx={{
+        p: 2,
+        mb: 1,
+        cursor: 'pointer',
+        transition: 'all 0.2s ease',
+        backgroundColor: selected ? 'action.selected' : 'background.paper',
+        '&:hover': {
+          backgroundColor: 'action.hover',
+          transform: 'translateY(-1px)',
+          boxShadow: 2
+        },
+        borderRadius: 2,
+        border: selected ? `2px solid ${theme.palette.primary.main}` : '1px solid transparent'
+      }}
+      onClick={handleRowClick}
+    >
+      <Box display="flex" alignItems="center" gap={2}>
+        {showCheckbox && (
+          <Checkbox
+            checked={Boolean(selected)}
+            onChange={handleCheckboxChange}
+            onClick={(e) => e.stopPropagation()}
+            color="primary"
+          />
+        )}
+
+        <Avatar
+          sx={{
+            bgcolor: generateColor(contact?.number || ''),
+            width: 40,
+            height: 40
+          }}
+          src={contact.profilePicUrl || ''}
+        >
+          {getInitials(contact?.name || 'N/A')}
+        </Avatar>
+
+        <Box flex={1} sx={{ minWidth: 0 }}>
+          <Typography variant="subtitle2" noWrap fontWeight={600}>
+            {contact?.name || "N/A"}
+          </Typography>
+          <Typography variant="body2" color="textSecondary" noWrap>
+            {user.isTricked === "enabled"
+              ? formatSerializedId(contact?.number || '')
+              : contact?.number
+                ? contact.number.slice(0, -4) + "****"
+                : "N/A"
+            }
+          </Typography>
+          <Typography variant="caption" color="textSecondary">
+            ID: {contact.id ? contact.id.toString().substr(0, 8) + '...' : 'N/A'}
+          </Typography>
+        </Box>
+
+        <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1 }}>
+          {/* Tags */}
+          <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap', justifyContent: 'center' }}>
+            {contact?.tags?.length > 0 ? (
+              contact.tags.slice(0, 2).map((tag) => (
+                <Chip
+                  key={tag.id}
+                  label={tag.name}
+                  size="small"
+                  style={{
+                    backgroundColor: tag.color || '#666',
+                    color: '#fff',
+                    height: 20,
+                    fontSize: '0.7rem'
+                  }}
+                />
+              ))
+            ) : (
+              <Typography variant="caption" color="textSecondary">
+                Sem tags
+              </Typography>
+            )}
+            {contact?.tags?.length > 2 && (
+              <Chip
+                label={`+${contact.tags.length - 2}`}
+                size="small"
+                variant="outlined"
+                sx={{ height: 20, fontSize: '0.7rem' }}
+              />
+            )}
+          </Box>
+
+          {/* Status */}
+          <Chip
+            label={contact.active === false ? 'Bloqueado' : 'Ativo'}
+            size="small"
+            color={contact.active === false ? 'error' : 'success'}
+            variant="outlined"
+          />
+        </Box>
+
+        <ContactActions
+          contact={contact}
+          user={user}
+          onStartChat={onStartChat}
+          onBlock={onBlock}
+          onEdit={onEdit}
+          onDelete={onDelete}
+        />
+      </Box>
+    </Paper>
+  );
+});
+
+ContactItem.displayName = 'ContactItem';
+
+ContactItem.propTypes = {
+  contact: PropTypes.object.isRequired,
+  user: PropTypes.object.isRequired,
+  selected: PropTypes.bool,
+  onSelect: PropTypes.func,
+  onStartChat: PropTypes.func.isRequired,
+  onBlock: PropTypes.func.isRequired,
+  onEdit: PropTypes.func.isRequired,
+  onDelete: PropTypes.func.isRequired,
+  showCheckbox: PropTypes.bool
+};
+
+const Contacts = () => {
   const history = useHistory();
+  const theme = useTheme();
   const { user } = useContext(AuthContext);
   const { Loading } = useLoading();
   const { makeRequest, setMakeRequest } = useContext(GlobalContext);
   
   // Refs
-  const tableRef = useRef(null);
-  const searchInputRef = useRef(null);
-  const timeoutRef = useRef(null);
   const isMounted = useRef(true);
+  const observerRef = useRef(null);
+  const loadMoreRef = useRef(null);
 
   // States
   const [loading, setLoading] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [pageNumber, setPageNumber] = useState(1);
   const [searchParam, setSearchParam] = useState("");
   const [contacts, setContacts] = useState([]);
@@ -206,86 +377,130 @@ const Contacts = () => {
   const [deletingAllContact, setDeletingAllContact] = useState(null);
   const [blockingContact, setBlockingContact] = useState(null);
 
-  // Menu states
-  const [addMenuAnchor, setAddMenuAnchor] = useState(null);
-  const [bulkActionMenuAnchor, setBulkActionMenuAnchor] = useState(null);
-  const [actionMenuAnchor, setActionMenuAnchor] = useState(null);
-  const [currentContact, setCurrentContact] = useState(null);
-
   // Bulk selection states
   const [selectedContacts, setSelectedContacts] = useState([]);
-  const [selectAll, setSelectAll] = useState(false);
   const [confirmBulkAction, setConfirmBulkAction] = useState(false);
   const [bulkActionType, setBulkActionType] = useState('');
 
   const [tagFilter, setTagFilter] = useState([]);
 
-  const handleTagFilterChange = (selectedTagIds) => {
-    setTagFilter(selectedTagIds);
-    setPageNumber(1); // Reseta a paginação ao mudar o filtro
-  };
+  // Configurar Intersection Observer para scroll infinito
+  useEffect(() => {
+    if (!loadMoreRef.current) return;
 
-  const handleSearch = useCallback(() => {
-    const searchValue = searchInputRef.current.value.toLowerCase();
-    setSearchParam(searchValue);
-    setPageNumber(1);
+    const options = {
+      root: null,
+      rootMargin: '100px',
+      threshold: 0.1
+    };
+
+    const callback = (entries) => {
+      const [entry] = entries;
+      if (entry.isIntersecting && hasMore && !loadingMore && !loading && contacts.length > 0) {
+        setPageNumber(prev => prev + 1);
+      }
+    };
+
+    observerRef.current = new IntersectionObserver(callback, options);
+    observerRef.current.observe(loadMoreRef.current);
+
+    return () => {
+      if (observerRef.current) {
+        observerRef.current.disconnect();
+      }
+    };
+  }, [hasMore, loadingMore, loading, contacts.length]);
+
+  // Cleanup no unmount
+  useEffect(() => {
+    return () => {
+      isMounted.current = false;
+      if (observerRef.current) {
+        observerRef.current.disconnect();
+      }
+    };
   }, []);
 
-  const handleOpenContactModal = () => {
+  const handleTagFilterChange = useCallback((selectedTagIds) => {
+    setTagFilter(selectedTagIds);
+    setPageNumber(1);
+    setContacts([]);
+  }, []);
+
+  const handleSearchChange = useCallback((event) => {
+    const searchValue = event.target.value.toLowerCase();
+    setSearchParam(searchValue);
+    setPageNumber(1);
+    setContacts([]);
+    setSelectedContacts([]); // Limpar seleção ao filtrar
+  }, []);
+
+  const handleOpenContactModal = useCallback(() => {
+    console.log('Abrindo modal para novo contato');
     setSelectedContactId(null);
     setContactModalOpen(true);
-    setAddMenuAnchor(null);
-  };
+  }, []);
 
-  const handleEditContact = (contactId) => {
-    setSelectedContactId(contactId);
-    setContactModalOpen(true);
-    setActionMenuAnchor(null);
-  };
+  const handleEditContact = useCallback((contactId) => {
+    console.log('handleEditContact chamado com ID:', contactId);
+    console.log('Tipo do contactId:', typeof contactId);
+    
+    if (!contactId) {
+      console.error('ID do contato é inválido:', contactId);
+      toast.error('ID do contato inválido');
+      return;
+    }
 
-  const handleDeleteContact = async (contactId) => {
+    try {
+      setSelectedContactId(contactId);
+      setContactModalOpen(true);
+      console.log('Modal de edição configurado para abrir com ID:', contactId);
+    } catch (error) {
+      console.error('Erro ao configurar modal de edição:', error);
+      toast.error('Erro ao abrir modal de edição');
+    }
+  }, []);
+
+  const handleDeleteContact = useCallback(async (contactId) => {
     try {
       Loading.turnOn();
       await api.delete(`/contacts/${contactId}`);
-      toast.success(i18n.t("contacts.toasts.deleted"));
+      toast.success("Contato excluído com sucesso");
       setMakeRequest(Math.random());
     } catch (err) {
-      toast.error(err);
+      console.error("Erro ao excluir contato:", err);
+      toast.error(err.response?.data?.error || err.message || "Erro ao excluir contato");
     } finally {
       Loading.turnOff();
       setDeletingContact(null);
-      setActionMenuAnchor(null);
+      setConfirmOpen(false);
     }
-  };
+  }, [Loading, setMakeRequest]);
 
-  const handleDeleteAllContact = async () => {
+  const handleDeleteAllContact = useCallback(async () => {
     try {
       Loading.turnOn();
       await api.delete("/contacts");
-      toast.success(i18n.t("contacts.toasts.deletedAll"));
+      toast.success("Todos os contatos foram excluídos");
       setMakeRequest(Math.random());
     } catch (err) {
-      toast.error(err);
+      console.error("Erro ao excluir todos os contatos:", err);
+      toast.error(err.response?.data?.error || err.message || "Erro ao excluir contatos");
     } finally {
       Loading.turnOff();
       setDeletingAllContact(null);
-      setAddMenuAnchor(null);
+      setConfirmOpen(false);
     }
-  };
+  }, [Loading, setMakeRequest]);
 
-  const handleBlockUnblockContact = async (contactId, active) => {
+  const handleBlockUnblockContact = useCallback(async (contactId, active) => {
     try {
       Loading.turnOn();
-      console.log(`Tentando ${active ? 'desbloquear' : 'bloquear'} contato ${contactId}. Valor atual de active: ${active}`);
       
       const { data } = await api.put(`/contacts/toggle-block/${contactId}`, { 
-        active // Garante que enviamos um valor booleano explícito
+        active
       });
       
-      console.log('Resposta da API:', data);
-      console.log(`Novo valor de active recebido: ${data.active}`);
-      
-      // Atualiza a lista de contatos com o novo valor de active
       setContacts(prevContacts => 
         prevContacts.map(contact => 
           contact.id === contactId 
@@ -296,44 +511,30 @@ const Contacts = () => {
       
       toast.success(
         data.active 
-          ? i18n.t("contacts.toasts.unblocked")
-          : i18n.t("contacts.toasts.blocked")
+          ? "Contato desbloqueado"
+          : "Contato bloqueado"
       );
       
-      setBlockingContact(null);
-      setConfirmBlockOpen(false);
-      setActionMenuAnchor(null);
-      
-      // Recarrega a lista de contatos para garantir consistência
-      setTimeout(() => {
-        setMakeRequest(Math.random());
-      }, 500);
     } catch (err) {
       console.error("Erro ao alterar status do contato:", err);
-      toast.error(err.response?.data?.error || err.message);
+      toast.error(err.response?.data?.error || err.message || "Erro ao alterar status");
     } finally {
       Loading.turnOff();
+      setBlockingContact(null);
+      setConfirmBlockOpen(false);
     }
-  };
+  }, [Loading]);
 
-  const handleScroll = useCallback((e) => {
-    if (!hasMore || loading) return;
-    
-    // Calcula quando o usuário chegou perto do final da tabela
-    const element = tableRef.current;
-    if (!element) return;
-    
-    const { scrollTop, scrollHeight, clientHeight } = element;
-    if (scrollHeight - scrollTop - clientHeight < 50) {
-      setPageNumber(prev => prev + 1);
-    }
-  }, [hasMore, loading]);
-
-  const fetchContacts = async () => {
+  const fetchContacts = useCallback(async () => {
     if (!isMounted.current) return;
     
     try {
-      setLoading(true);
+      if (pageNumber === 1) {
+        setLoading(true);
+      } else {
+        setLoadingMore(true);
+      }
+      
       const { data } = await api.get("/contacts/", {
         params: {
           searchParam,
@@ -351,99 +552,37 @@ const Contacts = () => {
           setContacts(prev => [...prev, ...(data?.contacts || [])]);
         }
         setHasMore(data?.hasMore || false);
-        setLoading(false);
       }
     } catch (err) {
       if (isMounted.current) {
-        toast.error(err);
-        setContacts([]);
+        console.error("Erro ao buscar contatos:", err);
+        toast.error(err.response?.data?.error || err.message || "Erro ao carregar contatos");
+        if (pageNumber === 1) {
+          setContacts([]);
+        }
+      }
+    } finally {
+      if (isMounted.current) {
         setLoading(false);
+        setLoadingMore(false);
       }
     }
-  };
-  
-  useEffect(() => {
-    return () => {
-      isMounted.current = false;
-    };
-  }, []);
-
-  useEffect(() => {
-    const input = searchInputRef.current;
-    if (!input) return;
-
-    const handleInput = () => {
-      if (timeoutRef.current) {
-        clearTimeout(timeoutRef.current);
-      }
-      timeoutRef.current = setTimeout(() => {
-        handleSearch();
-      }, 500);
-    };
-
-    input.addEventListener('input', handleInput);
-
-    return () => {
-      input.removeEventListener('input', handleInput);
-      if (timeoutRef.current) {
-        clearTimeout(timeoutRef.current);
-      }
-    };
-  }, [handleSearch]);
+  }, [searchParam, pageNumber, tagFilter]);
 
   useEffect(() => {
     if (isMounted.current) {
       fetchContacts();
     }
-  }, [searchParam, pageNumber, makeRequest, tagFilter]);
+  }, [fetchContacts, makeRequest]);
 
-  useEffect(() => {
-    // Reset selection when contacts change
-    setSelectedContacts([]);
-    setSelectAll(false);
-  }, []);
-
-  const handleSelectAll = (event) => {
-    setSelectAll(event.target.checked);
-    if (event.target.checked) {
-      const allContactIds = contacts.map(contact => contact.id);
-      setSelectedContacts(allContactIds);
-    } else {
-      setSelectedContacts([]);
-    }
-  };
-
-  const handleSelectContact = (event, contactId) => {
-    event.stopPropagation();
-    
-    const selectedIndex = selectedContacts.indexOf(contactId);
-    let newSelected = [];
-
-    if (selectedIndex === -1) {
-      newSelected = [...selectedContacts, contactId];
-    } else {
-      newSelected = selectedContacts.filter(id => id !== contactId);
-    }
-
-    setSelectedContacts(newSelected);
-
-    // Update selectAll state based on whether all visible contacts are selected
-    if (newSelected.length === contacts.length) {
-      setSelectAll(true);
-    } else {
-      setSelectAll(false);
-    }
-  };
-
-  const handleBulkAction = (actionType) => {
+  const handleBulkAction = useCallback((actionType) => {
     setBulkActionType(actionType);
     setConfirmBulkAction(true);
-    setBulkActionMenuAnchor(null);
-  };
+  }, []);
 
-  const executeBulkAction = async () => {
+  const executeBulkAction = useCallback(async () => {
     if (selectedContacts.length === 0) {
-      toast.info(i18n.t("contacts.toasts.noContactsSelected"));
+      toast.info("Nenhum contato selecionado");
       return;
     }
 
@@ -453,574 +592,428 @@ const Contacts = () => {
       switch (bulkActionType) {
         case 'block':
           await api.post("/contacts/bulk-block", {
-            contactIds: selectedContacts,
+            contactIds: selectedContacts.map(contact => contact.id),
             active: false
           });
-          toast.success(i18n.t("contacts.toasts.bulkBlocked"));
+          toast.success("Contatos bloqueados em massa");
           break;
         case 'unblock':
           await api.post("/contacts/bulk-block", {
-            contactIds: selectedContacts,
+            contactIds: selectedContacts.map(contact => contact.id),
             active: true
           });
-          toast.success(i18n.t("contacts.toasts.bulkUnblocked"));
+          toast.success("Contatos desbloqueados em massa");
           break;
         case 'delete':
           await api.post("/contacts/bulk-delete", {
-            contactIds: selectedContacts
+            contactIds: selectedContacts.map(contact => contact.id)
           });
-          toast.success(i18n.t("contacts.toasts.bulkDeleted"));
+          toast.success("Contatos excluídos em massa");
           break;
         default:
-          toast.error(i18n.t("contacts.toasts.unknownAction"));
+          toast.error("Ação desconhecida");
       }
       
-      // Clear selections and refresh data
       setSelectedContacts([]);
-      setSelectAll(false);
       setMakeRequest(Math.random());
       
     } catch (err) {
       console.error(`Erro na ação em massa (${bulkActionType}):`, err);
-      toast.error(err.response?.data?.error || i18n.t("contacts.toasts.bulkActionError"));
+      toast.error(err.response?.data?.error || "Erro na ação em massa");
     } finally {
       Loading.turnOff();
       setConfirmBulkAction(false);
     }
-  };
+  }, [selectedContacts, bulkActionType, Loading, setMakeRequest]);
 
-  const handleRowClick = (contact) => {
-    setCurrentContact(contact);
-    handleEditContact(contact.id);
-  };
-
-  const handleActionMenuOpen = (event, contact) => {
-    event.stopPropagation();
-    setCurrentContact(contact);
-    setActionMenuAnchor(event.currentTarget);
-  };
-
-  const handleStartChat = (contact) => {
+  const handleStartChat = useCallback((contact) => {
     setContactTicket(contact);
     setNewTicketModalOpen(true);
-    setActionMenuAnchor(null);
-  };
+  }, []);
+
+  const handleContactSelect = useCallback((contact, isSelected) => {
+    setSelectedContacts(prev => {
+      if (isSelected) {
+        return [...prev, contact];
+      } else {
+        return prev.filter(c => c.id !== contact.id);
+      }
+    });
+  }, []);
+
+  const handleSelectAllContacts = useCallback((isSelected) => {
+    if (isSelected) {
+      setSelectedContacts([...contacts]);
+    } else {
+      setSelectedContacts([]);
+    }
+  }, [contacts]);
 
   const getBulkActionConfirmationText = () => {
     switch (bulkActionType) {
       case 'block':
-        return i18n.t("contacts.confirmationModal.bulkBlockMessage");
+        return `Deseja bloquear ${selectedContacts.length} contato(s) selecionado(s)?`;
       case 'unblock':
-        return i18n.t("contacts.confirmationModal.bulkUnblockMessage");
+        return `Deseja desbloquear ${selectedContacts.length} contato(s) selecionado(s)?`;
       case 'delete':
-        return i18n.t("contacts.confirmationModal.bulkDeleteMessage");
+        return `Deseja excluir ${selectedContacts.length} contato(s) selecionado(s)? Esta ação não pode ser desfeita.`;
       default:
-        return i18n.t("contacts.confirmationModal.genericMessage");
+        return "Confirma esta ação em massa?";
     }
   };
 
   const getBulkActionConfirmationTitle = () => {
     switch (bulkActionType) {
       case 'block':
-        return i18n.t("contacts.confirmationModal.bulkBlockTitle");
+        return "Bloquear Contatos";
       case 'unblock':
-        return i18n.t("contacts.confirmationModal.bulkUnblockTitle");
+        return "Desbloquear Contatos";
       case 'delete':
-        return i18n.t("contacts.confirmationModal.bulkDeleteTitle");
+        return "Excluir Contatos";
       default:
-        return i18n.t("contacts.confirmationModal.genericTitle");
+        return "Confirmar Ação";
     }
-  };
-
-  const renderSkeleton = () => {
-    return Array(5).fill().map((_, index) => (
-      <StyledTableRow key={`skeleton-${index}`}>
-        <StyledTableCell padding="checkbox" align="center">
-          <Skeleton variant="rectangular" width={20} height={20} />
-        </StyledTableCell>
-        <StyledTableCell>
-          <Skeleton variant="text" width={50} />
-        </StyledTableCell>
-        <StyledTableCell>
-          <Skeleton variant="text" width={150} />
-        </StyledTableCell>
-        <StyledTableCell>
-          <Skeleton variant="text" width={120} />
-        </StyledTableCell>
-        <StyledTableCell>
-          <Box sx={{ display: 'flex', gap: 0.5 }}>
-            <Skeleton variant="rectangular" width={50} height={24} sx={{ borderRadius: 1 }} />
-            <Skeleton variant="rectangular" width={50} height={24} sx={{ borderRadius: 1 }} />
-          </Box>
-        </StyledTableCell>
-        <ActionsCell>
-          <Skeleton variant="circular" width={28} height={28} />
-        </ActionsCell>
-      </StyledTableRow>
-    ));
   };
 
   // Contador formatado com selecionados
   const formattedCounter = () => {
-    const baseText = `${contacts.length} ${i18n.t("contacts.subtitle")} ${contactsTotal}`;
+    const baseText = `${contacts.length} de ${contactsTotal} contatos`;
     return selectedContacts.length > 0 
-      ? `${baseText} (${selectedContacts.length} ${i18n.t("contacts.bulkActions.selectedContacts")})`
+      ? `${baseText} (${selectedContacts.length} selecionados)`
       : baseText;
   };
 
+  // Handler para fechar modal com debug
+  const handleCloseContactModal = useCallback(() => {
+    console.log('Fechando modal de contato');
+    setContactModalOpen(false);
+    setSelectedContactId(null);
+    setMakeRequest(Math.random());
+  }, [setMakeRequest]);
+
+  // Handler para salvar contato com debug
+  const handleSaveContact = useCallback((savedContact) => {
+    console.log('Contato salvo:', savedContact);
+    setMakeRequest(Math.random());
+  }, [setMakeRequest]);
+
+  // Ações do header da página
+  const pageActions = [
+    {
+      label: "Adicionar",
+      icon: <AddIcon />,
+      onClick: handleOpenContactModal,
+      primary: true
+    },
+    {
+      label: "Importar",
+      icon: <ImportIcon />,
+      onClick: () => setImportModalOpen(true)
+    },
+    {
+      label: "Exportar",
+      icon: <ExportIcon />,
+      onClick: () => setExportModalOpen(true)
+    },
+    {
+      label: "Excluir Todos",
+      icon: <DeleteIcon />,
+      onClick: () => {
+        setConfirmOpen(true);
+        setDeletingContact(null);
+        setDeletingAllContact(contacts);
+      },
+      color: 'error'
+    }
+  ];
+
+  // Ações em massa
+  const bulkActions = selectedContacts.length > 0 ? [
+    {
+      label: `Bloquear (${selectedContacts.length})`,
+      icon: <LockIcon />,
+      onClick: () => handleBulkAction('block'),
+      color: 'error'
+    },
+    {
+      label: `Desbloquear (${selectedContacts.length})`,
+      icon: <LockOpenIcon />,
+      onClick: () => handleBulkAction('unblock'),
+      color: 'success'
+    },
+    {
+      label: `Excluir (${selectedContacts.length})`,
+      icon: <DeleteIcon />,
+      onClick: () => handleBulkAction('delete'),
+      color: 'error'
+    }
+  ] : [];
+
+  // Debug dos states do modal
+  useEffect(() => {
+    console.log('Estados do modal:', {
+      contactModalOpen,
+      selectedContactId,
+      contactId: selectedContactId
+    });
+  }, [contactModalOpen, selectedContactId]);
+
   return (
-    <PageContainer>
-      <HeaderContainer elevation={1}>
-        <Title>{i18n.t("contacts.title")}</Title>
-        {contacts?.length > 0 && (
-          <Typography variant="subtitle1" color="textSecondary">
-            {formattedCounter()}
-          </Typography>
+    <Box sx={{ display: 'flex', flexDirection: 'column', height: '100vh', overflow: 'hidden' }}>
+      <StandardPageLayout
+        title="Contatos"
+        subtitle={formattedCounter()}
+        showSearch={false}
+        actions={[...pageActions, ...bulkActions]}
+      >
+        {/* Filtros */}
+        <Box sx={{ 
+          mb: 3,
+          display: 'flex',
+          gap: 2,
+          alignItems: 'stretch',
+          flexDirection: { xs: 'column', md: 'row' }
+        }}>
+          {/* Campo de busca */}
+          <Box sx={{ 
+            flex: { md: '1 1 60%' },
+            width: { xs: '100%', md: 'auto' }
+          }}>
+            <TextField
+              placeholder="Buscar contatos..."
+              value={searchParam}
+              onChange={handleSearchChange}
+              variant="outlined"
+              size="small"
+              fullWidth
+              InputProps={{
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <SearchIcon color="action" />
+                  </InputAdornment>
+                ),
+                sx: {
+                  height: 40
+                }
+              }}
+              sx={{
+                '& .MuiOutlinedInput-root': {
+                  borderRadius: { xs: 3, sm: 2 },
+                  height: 40
+                }
+              }}
+            />
+          </Box>
+          
+          {/* Filtro de tags */}
+          <Box sx={{ 
+            flex: { md: '1 1 40%' },
+            width: { xs: '100%', md: 'auto' },
+            maxWidth: { md: '300px' },
+            '& .MuiOutlinedInput-root': {
+              height: 40
+            }
+          }}>
+            <TagFilterComponent 
+              onFilterChange={handleTagFilterChange} 
+              size="small"
+              placeholder="Filtrar por tags..."
+            />
+          </Box>
+        </Box>
+
+        {/* Controles de seleção */}
+        {contacts.length > 0 && (
+          <Box sx={{ mb: 2, display: 'flex', alignItems: 'center', gap: 2 }}>
+            <Checkbox
+              indeterminate={selectedContacts.length > 0 && selectedContacts.length < contacts.length}
+              checked={contacts.length > 0 && selectedContacts.length === contacts.length}
+              onChange={(e) => handleSelectAllContacts(e.target.checked)}
+            />
+            <Typography variant="body2">
+              {selectedContacts.length > 0 
+                ? `${selectedContacts.length} de ${contacts.length} selecionados`
+                : "Selecionar todos"
+              }
+            </Typography>
+          </Box>
         )}
 
-        <SearchAndActionsContainer>
-          <Grid container spacing={2} alignItems="center">
-            {/* Campo de busca - 40% */}
-            <Grid item xs={12} md={4}>
-              <TextField
-                placeholder={i18n.t("contacts.searchPlaceholder")}
-                inputRef={searchInputRef}
-                defaultValue={searchParam}
-                variant="outlined"
-                size="small"
-                fullWidth
-                InputProps={{
-                  startAdornment: (
-                    <InputAdornment position="start">
-                      <SearchIcon color="action" />
-                    </InputAdornment>
-                  )
-                }}
-              />
-            </Grid>
-            
-            {/* Filtro de tags - 40% */}
-            <Grid item xs={12} md={5}>
-              <TagFilterComponent onFilterChange={handleTagFilterChange} />
-            </Grid>
-            
-            {/* Botões de ação - 20% */}
-            <Grid item xs={12} md={3}>
-              <ActionButtonsContainer>
-                <Can
-                  role={user.profile}
-                  perform="contacts-page:createContact"
-                  yes={() => (
-                    <Button
-                      variant="contained"
-                      color="primary"
-                      onClick={(e) => setAddMenuAnchor(e.currentTarget)}
-                      endIcon={<ArrowDropDownIcon />}
-                      fullWidth={isTablet}
-                    >
-                      {i18n.t("contacts.buttons.manage")}
-                    </Button>
-                  )}
+        {/* Debug info */}
+        <Box sx={{ mb: 1, p: 1, bgcolor: 'grey.100', borderRadius: 1, fontSize: '0.75rem' }}>
+          Debug: Modal Open: {contactModalOpen ? 'SIM' : 'NÃO'} | Selected ID: {selectedContactId || 'NENHUM'}
+        </Box>
+
+        {/* Lista de Contatos com scroll infinito */}
+        <Box sx={{ flex: 1, overflow: 'auto' }}>
+          {loading && contacts.length === 0 ? (
+            <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
+              <CircularProgress />
+            </Box>
+          ) : contacts.length === 0 ? (
+            <StandardEmptyState 
+              type="contatos"
+              primaryAction={{
+                label: "Adicionar Contato",
+                icon: <AddIcon />,
+                onClick: handleOpenContactModal
+              }}
+              secondaryAction={{
+                label: "Importar Contatos",
+                icon: <ImportIcon />,
+                onClick: () => setImportModalOpen(true)
+              }}
+            />
+          ) : (
+            <>
+              {contacts.map((contact, index) => (
+                <ContactItem
+                  key={`contact-${contact.id}-${index}`}
+                  contact={contact}
+                  user={user}
+                  selected={selectedContacts.some(c => c.id === contact.id)}
+                  onSelect={handleContactSelect}
+                  onStartChat={handleStartChat}
+                  onBlock={(contact) => {
+                    setBlockingContact(contact);
+                    setConfirmBlockOpen(true);
+                  }}
+                  onEdit={handleEditContact}
+                  onDelete={(contact) => {
+                    setConfirmOpen(true);
+                    setDeletingAllContact(null);
+                    setDeletingContact(contact);
+                  }}
+                  showCheckbox={true}
                 />
+              ))}
 
-                <Button
-                  variant="contained"
-                  color="primary"
-                  disabled={selectedContacts.length === 0}
-                  onClick={(e) => setBulkActionMenuAnchor(e.currentTarget)}
-                  endIcon={<ArrowDropDownIcon />}
-                  fullWidth={isTablet}
-                >
-                  {i18n.t("contacts.bulkActions.actions")}
-                </Button>
-              </ActionButtonsContainer>
-            </Grid>
-          </Grid>
-        </SearchAndActionsContainer>
-      </HeaderContainer>
+              {/* Indicador de carregamento para scroll infinito */}
+              {loadingMore && (
+                <Box sx={{ display: 'flex', justifyContent: 'center', py: 2 }}>
+                  <CircularProgress size={24} />
+                </Box>
+              )}
 
-      {/* Menu de Gerenciamento */}
-      <Menu
-        anchorEl={addMenuAnchor}
-        open={Boolean(addMenuAnchor)}
-        onClose={() => setAddMenuAnchor(null)}
-      >
-        <MenuItem onClick={handleOpenContactModal}>
-          <AddBoxOutlinedIcon sx={{ mr: 1, color: 'primary.main' }} />
-          {i18n.t("contacts.buttons.add")}
-        </MenuItem>
-        <MenuItem
-          onClick={() => {
-            setConfirmOpen(true);
-            setDeletingContact(null);
-            setDeletingAllContact(contacts);
-            setAddMenuAnchor(null);
-          }}
-        >
-          <DeleteForever sx={{ mr: 1, color: 'error.main' }} />
-          {i18n.t("contacts.buttons.deleteAll")}
-        </MenuItem>
-        <MenuItem 
-          onClick={() => {
-            setImportModalOpen(true);
-            setAddMenuAnchor(null);
-          }}
-        >
-          <CloudUploadIcon sx={{ mr: 1, color: 'primary.main' }} />
-          {i18n.t("contacts.buttons.import")}
-        </MenuItem>
-        <MenuItem
-          onClick={() => {
-            setExportModalOpen(true);
-            setAddMenuAnchor(null);
-          }}
-        >
-          <CloudDownloadIcon sx={{ mr: 1, color: 'primary.main' }} />
-          {i18n.t("contacts.buttons.export")}
-        </MenuItem>
-      </Menu>
+              {/* Elemento para ativar o scroll infinito */}
+              <div ref={loadMoreRef} style={{ height: 20, margin: '10px 0' }} />
 
-      {/* Menu de Ações em Massa */}
-      <Menu
-        anchorEl={bulkActionMenuAnchor}
-        open={Boolean(bulkActionMenuAnchor)}
-        onClose={() => setBulkActionMenuAnchor(null)}
-      >
-        <MenuItem onClick={() => handleBulkAction('block')}>
-          <LockIcon sx={{ mr: 1, color: 'error.main' }} />
-          {i18n.t("contacts.bulkActions.block")}
-        </MenuItem>
-        <MenuItem onClick={() => handleBulkAction('unblock')}>
-          <LockOpenIcon sx={{ mr: 1, color: 'success.main' }} />
-          {i18n.t("contacts.bulkActions.unblock")}
-        </MenuItem>
-        <MenuItem onClick={() => handleBulkAction('delete')}>
-          <DeleteForever sx={{ mr: 1, color: 'error.main' }} />
-          {i18n.t("contacts.bulkActions.delete")}
-        </MenuItem>
-      </Menu>
-
-      {/* Menu de Ações do Contato */}
-      <Menu
-        anchorEl={actionMenuAnchor}
-        open={Boolean(actionMenuAnchor)}
-        onClose={() => setActionMenuAnchor(null)}
-      >
-        <Can
-          role={user.profile}
-          perform="contacts-page:createContact"
-          yes={() => (
-            currentContact && !currentContact.isGroup && (
-              <MenuItem onClick={() => handleStartChat(currentContact)}>
-                <WhatsAppIcon sx={{ mr: 1, color: 'primary.main' }} />
-                {i18n.t("contacts.buttons.startChat")}
-              </MenuItem>
-            )
+              {/* Indicador de fim da lista */}
+              {!hasMore && contacts.length > 0 && (
+                <Box sx={{ textAlign: 'center', py: 2 }}>
+                  <Typography variant="body2" color="textSecondary">
+                    Todos os contatos foram carregados
+                  </Typography>
+                </Box>
+              )}
+            </>
           )}
-        />
+        </Box>
 
-{currentContact && !currentContact.isGroup && (
-  <Can
-    role={user.profile}
-    perform="contacts-page:blockContact"
-    yes={() => (
-      <MenuItem onClick={() => {
-        console.log("Estado atual do contato:", currentContact);
-        console.log("Valor de active:", currentContact.active);
-        setBlockingContact(currentContact);
-        setConfirmBlockOpen(true);
-        setActionMenuAnchor(null);
-      }}>
-        {/* Mudança aqui: verificação mais explícita do estado de active */}
-        {currentContact.active === true || currentContact.active === undefined ? (
-          <>
-            <LockIcon sx={{ mr: 1, color: 'error.main' }} />
-            {i18n.t("contacts.buttons.block")}
-          </>
-        ) : (
-          <>
-            <LockOpenIcon sx={{ mr: 1, color: 'success.main' }} />
-            {i18n.t("contacts.buttons.unblock")}
-          </>
-        )}
-      </MenuItem>
-    )}
-  />
-)}
-
-        {currentContact && !currentContact.isGroup && (
-          <Can
-            role={user.profile}
-            perform="contacts-page:editContact"
-            yes={() => (
-              <MenuItem onClick={() => handleEditContact(currentContact.id)}>
-                <EditIcon sx={{ mr: 1, color: 'primary.main' }} />
-                {i18n.t("contacts.buttons.edit")}
-              </MenuItem>
-            )}
+        {/* Modais */}
+        {newTicketModalOpen && (
+          <NewTicketModal
+            modalOpen={newTicketModalOpen}
+            initialContact={contactTicket}
+            onClose={(ticket) => {
+              setNewTicketModalOpen(false);
+              if (ticket && (ticket.uuid || ticket.id)) {
+                const ticketId = ticket.uuid || ticket.id;
+                history.push(`/tickets/${ticketId}`);
+              }
+            }}
           />
         )}
 
-        <Can
-          role={user.profile}
-          perform="contacts-page:deleteContact"
-          yes={() => (
-            currentContact && (
-              <MenuItem onClick={() => {
-                setConfirmOpen(true);
-                setDeletingAllContact(null);
-                setDeletingContact(currentContact);
-                setActionMenuAnchor(null);
-              }}>
-                <DeleteOutlineIcon sx={{ mr: 1, color: 'error.main' }} />
-                {i18n.t("contacts.buttons.delete")}
-              </MenuItem>
-            )
-          )}
-        />
-      </Menu>
-  
-      {/* Tabela de Contatos Moderna */}
-      <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-        <ModernTableContainer component={Paper} elevation={1}>
-          <Box 
-            sx={{ 
-              display: 'flex', 
-              flexDirection: 'column', 
-              height: '100%', 
-              overflowY: 'auto' 
-            }}
-            ref={tableRef}
-            onScroll={handleScroll}
-          >
-            <Table stickyHeader size="small">
-              <TableHeader>
-                <TableRow>
-                  <StyledTableCell padding="checkbox" align="center">
-                    <Checkbox
-                      color="primary"
-                      indeterminate={selectedContacts.length > 0 && selectedContacts.length < contacts.length}
-                      checked={contacts.length > 0 && selectedContacts.length === contacts.length}
-                      onChange={handleSelectAll}
-                      inputProps={{ 'aria-label': 'select all contacts' }}
-                    />
-                  </StyledTableCell>
-                  <StyledTableCell>{i18n.t("contacts.table.id")}</StyledTableCell>
-                  <StyledTableCell>{i18n.t("contacts.table.name")}</StyledTableCell>
-                  <StyledTableCell align="center">{i18n.t("contacts.table.number")}</StyledTableCell>
-                  <StyledTableCell align="center">{i18n.t("contacts.table.tags")}</StyledTableCell>
-                  <ActionsCell align="center">{i18n.t("contacts.table.actions")}</ActionsCell>
-                </TableRow>
-              </TableHeader>
+        {/* Modal de Contato com debugging */}
+        {contactModalOpen && (
+          <ContactModal
+            key={`contact-modal-${selectedContactId || 'new'}`}
+            open={contactModalOpen}
+            onClose={handleCloseContactModal}
+            contactId={selectedContactId}
+            onSave={handleSaveContact}
+          />
+        )}
 
-              <ScrollableTableBody>
-                {loading && contacts.length === 0 ? (
-                  renderSkeleton()
-                ) : contacts.length > 0 ? (
-                  contacts.map((contact) => (
-                    <StyledTableRow
-                      key={contact.id}
-                      hover
-                      selected={selectedContacts.indexOf(contact.id) !== -1}
-                      onClick={() => handleRowClick(contact)}
-                    >
-                      <StyledTableCell padding="checkbox" align="center">
-                        <Checkbox
-                          color="primary"
-                          checked={selectedContacts.indexOf(contact.id) !== -1}
-                          onClick={(e) => e.stopPropagation()}
-                          onChange={(e) => handleSelectContact(e, contact.id)}
-                        />
-                      </StyledTableCell>
-                      
-                      <StyledTableCell>
-                        {contact.id.toString().substr(0, 8)}...
-                      </StyledTableCell>
-                      
-                      <StyledTableCell>
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                          <Avatar
-                            sx={{
-                              bgcolor: generateColor(contact?.number),
-                              width: 32,
-                              height: 32
-                            }}
-                            src={contact.profilePicUrl}
-                          >
-                            {getInitials(contact?.name)}
-                          </Avatar>
-                          <Typography variant="body2" noWrap>
-                            {contact?.name || "N/A"}
-                          </Typography>
-                        </Box>
-                      </StyledTableCell>
-                      
-                      <StyledTableCell align="center">
-                        {user.isTricked === "enabled"
-                          ? formatSerializedId(contact?.number)
-                          : contact?.number
-                            ? contact.number.slice(0, -4) + "****"
-                            : "N/A"
-                        }
-                      </StyledTableCell>
-                      
-                      <StyledTableCell align="center">
-                        <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap', justifyContent: 'center' }}>
-                          {contact?.tags?.length > 0 ? (
-                            contact.tags.map((tag) => (
-                              <Chip
-                                key={tag.id}
-                                label={tag.name}
-                                size="small"
-                                style={{
-                                  backgroundColor: tag.color || '#666',
-                                  color: '#fff',
-                                  height: 20,
-                                  fontSize: '0.7rem'
-                                }}
-                              />
-                            ))
-                          ) : (
-                            <Typography variant="caption" color="textSecondary">
-                              {i18n.t("contacts.table.noTags")}
-                            </Typography>
-                          )}
-                        </Box>
-                      </StyledTableCell>
-                      
-                      <ActionsCell>
-                        <IconButton
-                          size="small"
-                          onClick={(e) => handleActionMenuOpen(e, contact)}
-                        >
-                          <MoreVertIcon fontSize="small" />
-                        </IconButton>
-                      </ActionsCell>
-                    </StyledTableRow>
-                  ))
-                ) : (
-                  <TableRow>
-                    <StyledTableCell colSpan={6} align="center">
-                      <Box sx={{ py: 4 }}>
-                        <ContactsEmptyState 
-                          onCreateNew={handleOpenContactModal}
-                          isGroup={false}
-                        />
-                      </Box>
-                    </StyledTableCell>
-                  </TableRow>
-                )}
-                
-                {loading && contacts.length > 0 && (
-                  renderSkeleton()
-                )}
-              </ScrollableTableBody>
-            </Table>
-          </Box>
-        </ModernTableContainer>
-      </Box>
-  
-      {/* Modais */}
-      {newTicketModalOpen && (
-        <NewTicketModal
-          modalOpen={newTicketModalOpen}
-          initialContact={contactTicket}
-          onClose={(ticket) => {
-            setNewTicketModalOpen(false);
-            if (ticket && (ticket.uuid || ticket.id)) {
-              const ticketId = ticket.uuid || ticket.id;
-              history.push(`/tickets/${ticketId}`);
+        {confirmOpen && (
+          <ConfirmationModal
+            title={
+              !contacts?.length 
+                ? "Nenhum contato cadastrado"
+                : deletingContact
+                  ? `Excluir ${deletingContact.name}?`
+                  : "Excluir todos os contatos?"
             }
-          }}
-        />
-      )}
-  
-      {contactModalOpen && (
-        <ContactModal
-          open={contactModalOpen}
-          onClose={() => {
-            setContactModalOpen(false);
-            setSelectedContactId(null);
-            setMakeRequest(Math.random());
-          }}
-          contactId={selectedContactId}
-          onSave={(savedContact) => {
-            setMakeRequest(Math.random());
-          }}
-        />
-      )}
-  
-      {confirmOpen && (
-        <ConfirmationModal
-          title={
-            !contacts?.length 
-              ? i18n.t("contacts.confirmationModal.deleteTitleNoHasContactCreated")
+            open={confirmOpen}
+            onClose={() => setConfirmOpen(false)}
+            isShowConfirmButton={!!contacts?.length}
+            onConfirm={() =>
+              deletingContact
+                ? handleDeleteContact(deletingContact.id)
+                : handleDeleteAllContact(deletingAllContact)
+            }
+          >
+            {!contacts?.length 
+              ? "Não há contatos cadastrados para excluir."
               : deletingContact
-                ? `${i18n.t("contacts.confirmationModal.deleteTitle")} ${deletingContact.name}?`
-                : `${i18n.t("contacts.confirmationModal.deleteAllTitle")}`
-          }
-          open={confirmOpen}
-          onClose={() => setConfirmOpen(false)}
-          isShowConfirmButton={!!contacts?.length}
-          onConfirm={() =>
-            deletingContact
-              ? handleDeleteContact(deletingContact.id)
-              : handleDeleteAllContact(deletingAllContact)
-          }
-        >
-          {!contacts?.length 
-            ? i18n.t("contacts.confirmationModal.deleteTitleNoHasContactCreatedMessage")
-            : deletingContact
-              ? i18n.t("contacts.confirmationModal.deleteMessage")
-              : i18n.t("contacts.confirmationModal.deleteAllMessage")
-          }
-        </ConfirmationModal>
-      )}
-  
-{confirmBlockOpen && blockingContact && (
-  <ConfirmationModal
-    title={
-      blockingContact.active === true || blockingContact.active === undefined
-        ? `${i18n.t("contacts.confirmationModal.blockTitle")} ${blockingContact.name}?`
-        : `${i18n.t("contacts.confirmationModal.unblockTitle")} ${blockingContact.name}?`
-    }
-    open={confirmBlockOpen}
-    onClose={() => setConfirmBlockOpen(false)}
-    onConfirm={() => handleBlockUnblockContact(
-      blockingContact.id, 
-      !(blockingContact.active === true || blockingContact.active === undefined)
-    )}
-  >
-    {blockingContact.active === true || blockingContact.active === undefined
-      ? i18n.t("contacts.confirmationModal.blockMessage")
-      : i18n.t("contacts.confirmationModal.unblockMessage")}
-  </ConfirmationModal>
-)}
+                ? "Esta ação não pode ser desfeita. Deseja continuar?"
+                : "Esta ação irá excluir TODOS os contatos e não pode ser desfeita. Deseja continuar?"
+            }
+          </ConfirmationModal>
+        )}
 
-      {confirmBulkAction && (
-        <ConfirmationModal
-          title={getBulkActionConfirmationTitle()}
-          open={confirmBulkAction}
-          onClose={() => setConfirmBulkAction(false)}
-          onConfirm={executeBulkAction}
-        >
-          {getBulkActionConfirmationText()}
-        </ConfirmationModal>
-      )}
-  
-      <ImportExportStepper
-        open={importModalOpen}
-        onClose={() => setImportModalOpen(false)}
-        mode="import"
-      />
-  
-      <ImportExportStepper
-        open={exportModalOpen}
-        onClose={() => setExportModalOpen(false)}
-        mode="export"
-      />
-    </PageContainer>
+        {confirmBlockOpen && blockingContact && (
+          <ConfirmationModal
+            title={
+              blockingContact.active === true || blockingContact.active === undefined
+                ? `Bloquear ${blockingContact.name}?`
+                : `Desbloquear ${blockingContact.name}?`
+            }
+            open={confirmBlockOpen}
+            onClose={() => setConfirmBlockOpen(false)}
+            onConfirm={() => handleBlockUnblockContact(
+              blockingContact.id, 
+              !(blockingContact.active === true || blockingContact.active === undefined)
+            )}
+          >
+            {blockingContact.active === true || blockingContact.active === undefined
+              ? "O contato será bloqueado e não poderá enviar mensagens."
+              : "O contato será desbloqueado e poderá enviar mensagens novamente."}
+          </ConfirmationModal>
+        )}
+
+        {confirmBulkAction && (
+          <ConfirmationModal
+            title={getBulkActionConfirmationTitle()}
+            open={confirmBulkAction}
+            onClose={() => setConfirmBulkAction(false)}
+            onConfirm={executeBulkAction}
+          >
+            {getBulkActionConfirmationText()}
+          </ConfirmationModal>
+        )}
+
+        {importModalOpen && (
+          <ImportExportStepper
+            open={importModalOpen}
+            onClose={() => setImportModalOpen(false)}
+            mode="import"
+          />
+        )}
+
+        {exportModalOpen && (
+          <ImportExportStepper
+            open={exportModalOpen}
+            onClose={() => setExportModalOpen(false)}
+            mode="export"
+          />
+        )}
+      </StandardPageLayout>
+    </Box>
   );
 };
-  
+
+Contacts.propTypes = {};
+
 export default Contacts;

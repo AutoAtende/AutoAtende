@@ -1,17 +1,87 @@
 import React, { useState } from 'react';
+import PropTypes from 'prop-types';
 import {
   Button,
   Menu,
   MenuItem,
-  Stack
+  Stack,
+  useMediaQuery,
+  useTheme,
+  Tooltip
 } from '@mui/material';
-import AddBoxOutlinedIcon from "@mui/icons-material/AddBoxOutlined";
-import DeleteForever from "@mui/icons-material/DeleteForeverOutlined";
-import CloudUploadIcon from '@mui/icons-material/CloudUpload';
-import CloudDownloadIcon from '@mui/icons-material/CloudDownload';
-import ArrowDropDownIcon from "@mui/icons-material/ArrowDropDown";
+import {
+  Add as AddIcon,
+  Delete as DeleteIcon,
+  CloudUpload as ImportIcon,
+  CloudDownload as ExportIcon,
+  ArrowDropDown as ArrowDropDownIcon
+} from '@mui/icons-material';
+
+// Componente de Botão Responsivo seguindo padrão Standard
+const ResponsiveActionButton = ({ 
+  label, 
+  icon, 
+  onClick, 
+  variant = "contained", 
+  color = "primary",
+  disabled = false,
+  endIcon,
+  sx = {},
+  ...props 
+}) => {
+  const theme = useTheme();
+  const isXs = useMediaQuery(theme.breakpoints.only('xs'));
+
+  const button = (
+    <Button
+      variant={variant}
+      color={color}
+      onClick={onClick}
+      disabled={disabled}
+      startIcon={!isXs ? icon : null}
+      endIcon={!isXs ? endIcon : null}
+      fullWidth={isXs}
+      sx={{
+        minHeight: isXs ? 44 : 40,
+        borderRadius: isXs ? 12 : 8,
+        fontWeight: 600,
+        textTransform: 'none',
+        ...(isXs && {
+          minWidth: 44,
+          padding: theme.spacing(1.5),
+          '& .MuiButton-startIcon': {
+            margin: 0
+          }
+        }),
+        ...sx
+      }}
+      {...props}
+    >
+      {isXs ? icon : label}
+    </Button>
+  );
+
+  return isXs ? (
+    <Tooltip title={label} arrow placement="top">
+      {button}
+    </Tooltip>
+  ) : button;
+};
+
+ResponsiveActionButton.propTypes = {
+  label: PropTypes.string.isRequired,
+  icon: PropTypes.node.isRequired,
+  onClick: PropTypes.func.isRequired,
+  variant: PropTypes.string,
+  color: PropTypes.string,
+  disabled: PropTypes.bool,
+  endIcon: PropTypes.node,
+  sx: PropTypes.object
+};
 
 export const ActionButtons = ({ onImport, onExport, onAdd, onDeleteAll }) => {
+  const theme = useTheme();
+  const isXs = useMediaQuery(theme.breakpoints.only('xs'));
   const [addMenuAnchor, setAddMenuAnchor] = useState(null);
   const [importExportMenuAnchor, setImportExportMenuAnchor] = useState(null);
 
@@ -32,66 +102,135 @@ export const ActionButtons = ({ onImport, onExport, onAdd, onDeleteAll }) => {
   };
 
   return (
-    <Stack direction="row" spacing={1}>
-      <Button
-        variant="contained"
-        color="primary"
+    <Stack 
+      direction={isXs ? "column" : "row"} 
+      spacing={isXs ? 1 : 1.5}
+      sx={{ width: isXs ? '100%' : 'auto' }}
+    >
+      {/* Botão Adicionar/Remover */}
+      <ResponsiveActionButton
+        label="Adicionar/Remover"
+        icon={<AddIcon />}
         onClick={handleAddMenuOpen}
         endIcon={<ArrowDropDownIcon />}
-        size="small"
-      >
-        Adicionar/Remover
-      </Button>
+        color="primary"
+      />
+      
       <Menu
         anchorEl={addMenuAnchor}
         open={Boolean(addMenuAnchor)}
         onClose={handleAddMenuClose}
+        PaperProps={{
+          sx: {
+            borderRadius: isXs ? 3 : 2,
+            minWidth: 180
+          }
+        }}
       >
-        <MenuItem onClick={() => {
-          onAdd();
-          handleAddMenuClose();
-        }}>
-          <AddBoxOutlinedIcon sx={{ mr: 1 }} />
+        <MenuItem 
+          onClick={() => {
+            onAdd();
+            handleAddMenuClose();
+          }}
+          sx={{ 
+            borderRadius: 1,
+            mx: 1,
+            my: 0.5,
+            minHeight: 40,
+            display: 'flex',
+            alignItems: 'center',
+            gap: 1
+          }}
+        >
+          <AddIcon sx={{ fontSize: '1.125rem' }} />
           Adicionar
         </MenuItem>
-        <MenuItem onClick={() => {
-          onDeleteAll();
-          handleAddMenuClose();
-        }}>
-          <DeleteForever sx={{ mr: 1 }} />
+        <MenuItem 
+          onClick={() => {
+            onDeleteAll();
+            handleAddMenuClose();
+          }}
+          sx={{ 
+            borderRadius: 1,
+            mx: 1,
+            my: 0.5,
+            minHeight: 40,
+            display: 'flex',
+            alignItems: 'center',
+            gap: 1,
+            color: 'error.main'
+          }}
+        >
+          <DeleteIcon sx={{ fontSize: '1.125rem' }} />
           Excluir Todos
         </MenuItem>
       </Menu>
 
-      <Button
-        variant="contained"
-        color="primary"
+      {/* Botão Importar/Exportar */}
+      <ResponsiveActionButton
+        label="Importar/Exportar"
+        icon={<ImportIcon />}
         onClick={handleImportExportMenuOpen}
         endIcon={<ArrowDropDownIcon />}
-        size="small"
-      >
-        Importar/Exportar
-      </Button>
+        color="primary"
+        variant="outlined"
+      />
+      
       <Menu
         anchorEl={importExportMenuAnchor}
         open={Boolean(importExportMenuAnchor)}
         onClose={handleImportExportMenuClose}
+        PaperProps={{
+          sx: {
+            borderRadius: isXs ? 3 : 2,
+            minWidth: 180
+          }
+        }}
       >
-        <MenuItem onClick={() => {
-          onImport();
-          handleImportExportMenuClose();
-        }}>
-          <CloudUploadIcon sx={{ mr: 1 }} />
+        <MenuItem 
+          onClick={() => {
+            onImport();
+            handleImportExportMenuClose();
+          }}
+          sx={{ 
+            borderRadius: 1,
+            mx: 1,
+            my: 0.5,
+            minHeight: 40,
+            display: 'flex',
+            alignItems: 'center',
+            gap: 1
+          }}
+        >
+          <ImportIcon sx={{ fontSize: '1.125rem' }} />
           Importar
         </MenuItem>
-        <MenuItem onClick={() => {
-          onExport();
-          handleImportExportMenuClose();
-        }}>
-          <CloudDownloadIcon sx={{ mr: 1 }} />
+        <MenuItem 
+          onClick={() => {
+            onExport();
+            handleImportExportMenuClose();
+          }}
+          sx={{ 
+            borderRadius: 1,
+            mx: 1,  
+            my: 0.5,
+            minHeight: 40,
+            display: 'flex',
+            alignItems: 'center',
+            gap: 1
+          }}
+        >
+          <ExportIcon sx={{ fontSize: '1.125rem' }} />
           Exportar
         </MenuItem>
       </Menu>
     </Stack>
   );
+};
+
+ActionButtons.propTypes = {
+  onImport: PropTypes.func.isRequired,
+  onExport: PropTypes.func.isRequired,
+  onAdd: PropTypes.func.isRequired,
+  onDeleteAll: PropTypes.func.isRequired
 };
