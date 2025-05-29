@@ -1,5 +1,7 @@
 import { Op } from 'sequelize';
 import { v4 as uuidv4 } from 'uuid';
+import fs from 'fs';
+import path from 'path';
 import AppError from '../../errors/AppError';
 import DynamicForm from '../../models/DynamicForm';
 import FormSubmission from '../../models/FormSubmission';
@@ -23,188 +25,479 @@ import { getIO } from "../../libs/socket";
 import { notifyUpdate } from "../TicketServices/UpdateTicketService";
 import { Mutex } from "async-mutex";
 import SetTicketMessagesAsRead from '@helpers/SetTicketMessagesAsRead';
+import { publicFolder } from '../../config/upload';
 
 // Mutex para sincronização de criação de tickets
 const createTicketMutex = new Mutex();
 
 export class FormService {
 
-  /**
-   * Valida e normaliza número no WhatsApp
-   * Testa primeiro o número original, se não encontrar remove um '9' e testa novamente
-   * 
-   * @param inputNumber - Número de telefone de entrada
-   * @param wbot - Instância do WhatsApp (Baileys)
-   * @param context - Contexto para logs (opcional)
-   * @returns Número válido no WhatsApp
-   * @throws Error se número não existir no WhatsApp
-   */
-  async validateAndNormalizeWhatsAppNumber(
-    inputNumber: string,
-    wbot: Session,
-    context: string = 'número'
-  ): Promise<string> {
-    // Validações básicas (mantidas)
-    if (!inputNumber || typeof inputNumber !== 'string') {
-      throw new Error(`${context} não pode estar vazio ou deve ser uma string`);
+/**
+ * Converte URL da imagem para caminho local e retorna buffer/stream
+ */
+private async getImageBuffer(imageUrl: string, companyId: number): Promise<Buffer | null> {
+  try {
+    if (!imageUrl) return null;
+
+    logger.info(`[IMAGE BUFFER] Buscando imagem: ${imageUrl}`);
+
+    let imagePath: string | null = null;
+
+    // Caso 1: URL relativa começando com /public/
+    if (imageUrl.startsWith('/public/')) {
+      const relativePath = imageUrl.replace(/^\/public\//, '');
+      imagePath = path.resolve(publicFolder, relativePath);
+      logger.info(`[IMAGE BUFFER] Caminho relativo detectado: ${imagePath}`);
     }
-
-    if (!wbot) {
-      throw new Error('Instância do WhatsApp não fornecida');
+    
+    // Caso 2: URL relativa sem /public/
+    else if (imageUrl.startsWith('public/')) {
+      const relativePath = imageUrl.replace(/^public\//, '');
+      imagePath = path.resolve(publicFolder, relativePath);
+      logger.info(`[IMAGE BUFFER] Caminho público detectado: ${imagePath}`);
     }
-
-    // Limpa e normaliza o número (DDI + DDD + número)
-    const cleanNumber = inputNumber.replace(/[\s\D]/g, "");
-    let processedNumber = cleanNumber.startsWith('55') ? cleanNumber : '55' + cleanNumber;
-
-    // Função auxiliar para testar no WhatsApp
-    const testWhatsAppNumber = async (number: string): Promise<boolean> => {
+    
+    // Caso 3: URL completa (extrair caminho local)
+    else if (imageUrl.startsWith('http')) {
       try {
-        const chatId = `${number}@s.whatsapp.net`;
-        const [result] = await wbot.onWhatsApp(chatId);
-        if (result.exists) {
-          console.log(`${number} exists on WhatsApp, as jid: ${result.jid}`)
-          return true;
+        const url = new URL(imageUrl);
+        const pathPart = url.pathname.replace(/^\/public\//, '');
+        imagePath = path.resolve(publicFolder, pathPart);
+        logger.info(`[IMAGE BUFFER] URL completa, extraindo caminho: ${imagePath}`);
+      } catch (urlError) {
+        logger.warn(`[IMAGE BUFFER] Erro ao processar URL: ${urlError.message}`);
+      }
+    }
+    
+    // Caso 4: Caminho absoluto direto
+    else if (imageUrl.startsWith('/') || imageUrl.includes(':\\')) {
+      imagePath = imageUrl;
+      logger.info(`[IMAGE BUFFER] Caminho absoluto direto: ${imagePath}`);
+    }
+    
+    // Caso 5: Buscar na estrutura da empresa
+    else {
+      // Tentar encontrar na estrutura company{id}/landingPages/
+      const possiblePaths = [
+        path.resolve(publicFolder, `company${companyId}`, 'landingPages', imageUrl),
+        path.resolve(publicFolder, `company${companyId}`, imageUrl),
+        path.resolve(publicFolder, imageUrl)
+      ];
+      
+      for (const possiblePath of possiblePaths) {
+        if (fs.existsSync(possiblePath)) {
+          imagePath = possiblePath;
+          logger.info(`[IMAGE BUFFER] Encontrado em: ${imagePath}`);
+          break;
         }
-      } catch (error) {
-        console.error(`Erro ao verificar número no WhatsApp: ${error}`);
-        return false;
-      }
-      return false;
-    };
-
-    // 1ª Tentativa: Testa o número exatamente como foi informado
-    if (await testWhatsAppNumber(processedNumber)) {
-      logger.info(`[PRIMEIRA] Número ${processedNumber} encontrado no WhatsApp`);
-      return processedNumber;
-    }
-
-    // 2ª Tentativa: Se o número não tem nono dígito, tenta adicionar um '9'
-    const ddd = processedNumber.substring(0, 4); // '55' + DDD (ex: 5516)
-    const numberPart = processedNumber.substring(4); // Restante do número
-
-    if (numberPart.length >= 8 && !numberPart.startsWith('9')) {
-      const numberWithNine = ddd + '9' + numberPart;
-      if (await testWhatsAppNumber(numberWithNine)) {
-        logger.info(`[SEGUNDA] Número ${numberWithNine} encontrado no WhatsApp`);
-        return numberWithNine;
       }
     }
 
-    // 3ª Tentativa: Se o número tem '9' extra, tenta remover um
-    if (numberPart.startsWith('9')) {
-      const numberWithoutNine = ddd + numberPart.substring(1);
-      if (await testWhatsAppNumber(numberWithoutNine)) {
-        logger.info(`[TERCEIRA] Número ${numberWithoutNine} encontrado no WhatsApp`);
-        return numberWithoutNine;
-      }
+    // Verificar se o arquivo existe
+    if (!imagePath || !fs.existsSync(imagePath)) {
+      logger.error(`[IMAGE BUFFER] Arquivo não encontrado: ${imagePath || imageUrl}`);
+      return null;
     }
 
-    // Se nenhuma tentativa funcionou, lança erro
-    throw new Error(`${context} ${processedNumber} não existe no WhatsApp`);
+    // Verificar se é um arquivo de imagem válido
+    const stats = fs.statSync(imagePath);
+    if (!stats.isFile()) {
+      logger.error(`[IMAGE BUFFER] Caminho não é um arquivo: ${imagePath}`);
+      return null;
+    }
+
+    // Verificar extensão
+    const ext = path.extname(imagePath).toLowerCase();
+    const validExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp'];
+    if (!validExtensions.includes(ext)) {
+      logger.error(`[IMAGE BUFFER] Extensão não suportada: ${ext}`);
+      return null;
+    }
+
+    // Ler o arquivo como buffer
+    logger.info(`[IMAGE BUFFER] Lendo arquivo: ${imagePath} (${stats.size} bytes)`);
+    const imageBuffer = fs.readFileSync(imagePath);
+    
+    logger.info(`[IMAGE BUFFER] Buffer criado com sucesso: ${imageBuffer.length} bytes`);
+    return imageBuffer;
+
+  } catch (error) {
+    logger.error(`[IMAGE BUFFER] Erro ao ler imagem: ${error.message}`);
+    return null;
+  }
+}
+
+/**
+ * Valida e normaliza número no WhatsApp
+ */
+async validateAndNormalizeWhatsAppNumber(
+  inputNumber: string,
+  wbot: Session,
+  context: string = 'número'
+): Promise<string> {
+  if (!inputNumber || typeof inputNumber !== 'string') {
+    throw new Error(`${context} não pode estar vazio ou deve ser uma string`);
   }
 
-  /**
-   * Normaliza número de telefone para o formato +DDIDDDNUMERO
-   * Remove espaços e caracteres especiais, garante formato correto
-   * 
-   * @param phoneNumber - Número de telefone de entrada
-   * @returns Número normalizado no formato +DDIDDDNUMERO
-   */
-  private normalizePhoneNumber(phoneNumber: string): string {
-    if (!phoneNumber || typeof phoneNumber !== 'string') {
-      throw new Error('Número de telefone inválido');
-    }
-
-    // Remove todos os caracteres não numéricos
-    const cleanNumber = phoneNumber.replace(/[\s\D]/g, "");
-
-
-    if (cleanNumber.length < 8) {
-      throw new Error('Número de telefone muito curto');
-    }
-
-    // Adiciona código do país (55) se não tiver
-    let processedNumber = cleanNumber.startsWith('55') ? cleanNumber : '55' + cleanNumber;
-
-    // Retorna no formato +DDIDDDNUMERO
-    return `+${processedNumber}`;
+  if (!wbot) {
+    throw new Error('Instância do WhatsApp não fornecida');
   }
 
-  /**
-   * Cria ou atualiza contato usando o serviço padrão
-   */
-  private async createOrUpdateContactConsistent(
-    contactData: {
-      name: string;
-      number: string;
-      email?: string;
-    },
-    formData: any,
-    companyId: number,
-    whatsappId: number,
-    wbot: Session
-  ): Promise<Contact> {
+  const cleanNumber = inputNumber.replace(/[\s\D]/g, "");
+  let processedNumber = cleanNumber.startsWith('55') ? cleanNumber : '55' + cleanNumber;
+
+  const testWhatsAppNumber = async (number: string): Promise<boolean> => {
     try {
-      // Normalizar número no formato +DDIDDDNUMERO
-      const normalizedNumber = this.normalizePhoneNumber(contactData.number);
-
-      logger.info(`Processando contato com número normalizado: ${normalizedNumber}`);
-
-      // Preparar campos extras do formulário
-      const extraInfo = this.prepareExtraInfo(formData);
-
-      // Usar o serviço padrão de criação/atualização de contato
-      const contact = await CreateOrUpdateContactService({
-        name: contactData.name.trim(),
-        number: normalizedNumber,
-        email: contactData.email?.trim() || "",
-        isGroup: false,
-        companyId,
-        whatsappId,
-        extraInfo: extraInfo as ExtraInfo[]
-      }, wbot);
-
-      logger.info(`Contato processado com sucesso ID: ${contact.id} para o número ${normalizedNumber}`);
-
-      return contact;
+      const chatId = `${number}@s.whatsapp.net`;
+      const [result] = await wbot.onWhatsApp(chatId);
+      if (result.exists) {
+        console.log (`${number} exists on WhatsApp, as jid: ${result.jid}`)
+        return true;
+      }
     } catch (error) {
-      logger.error(`Erro ao criar/atualizar contato: ${error.message}`);
-      throw new Error(`Erro ao processar contato: ${error.message}`);
+      console.error(`Erro ao verificar número no WhatsApp: ${error}`);
+      return false;
+    }
+    return false;
+  };
+
+  // 1ª Tentativa
+  if (await testWhatsAppNumber(processedNumber)) {
+    logger.info(`[PRIMEIRA] Número ${processedNumber} encontrado no WhatsApp`);
+    return processedNumber;
+  }
+
+  // 2ª Tentativa
+  const ddd = processedNumber.substring(0, 4);
+  const numberPart = processedNumber.substring(4);
+
+  if (numberPart.length >= 8 && !numberPart.startsWith('9')) {
+    const numberWithNine = ddd + '9' + numberPart;
+    if (await testWhatsAppNumber(numberWithNine)) {
+      logger.info(`[SEGUNDA] Número ${numberWithNine} encontrado no WhatsApp`);
+      return numberWithNine;
     }
   }
 
-  /**
-   * Prepara campos extras do formulário para o formato do serviço
-   */
-  private prepareExtraInfo(formData: any): Array<{ name: string, value: string }> {
-    // Campos padrão que não devem ser salvos como extra fields
-    const standardFields = ['name', 'email', 'number'];
-    const extraInfo: Array<{ name: string, value: string }> = [];
+  // 3ª Tentativa
+  if (numberPart.startsWith('9')) {
+    const numberWithoutNine = ddd + numberPart.substring(1);
+    if (await testWhatsAppNumber(numberWithoutNine)) {
+      logger.info(`[TERCEIRA] Número ${numberWithoutNine} encontrado no WhatsApp`);
+      return numberWithoutNine;
+    }
+  }
 
-    // Identificar campos extras
-    for (const [fieldName, fieldValue] of Object.entries(formData)) {
-      if (!standardFields.includes(fieldName) &&
-        fieldValue !== null &&
-        fieldValue !== undefined &&
+  throw new Error(`${context} ${processedNumber} não existe no WhatsApp`);
+}
+
+/**
+ * Normaliza número de telefone para o formato +DDIDDDNUMERO
+ */
+private normalizePhoneNumber(phoneNumber: string): string {
+  if (!phoneNumber || typeof phoneNumber !== 'string') {
+    throw new Error('Número de telefone inválido');
+  }
+
+  const cleanNumber = phoneNumber.replace(/[\s\D]/g, "");
+  
+  if (cleanNumber.length < 8) {
+    throw new Error('Número de telefone muito curto');
+  }
+
+  let processedNumber = cleanNumber.startsWith('55') ? cleanNumber : '55' + cleanNumber;
+  return `+${processedNumber}`;
+}
+
+/**
+ * Cria ou atualiza contato usando o serviço padrão
+ */
+private async createOrUpdateContactConsistent(
+  contactData: {
+    name: string;
+    number: string;
+    email?: string;
+  },
+  formData: any,
+  companyId: number,
+  whatsappId: number,
+  wbot: Session
+): Promise<Contact> {
+  try {
+    const normalizedNumber = this.normalizePhoneNumber(contactData.number);
+    logger.info(`Processando contato com número normalizado: ${normalizedNumber}`);
+
+    const extraInfo = this.prepareExtraInfo(formData);
+
+    const contact = await CreateOrUpdateContactService({
+      name: contactData.name.trim(),
+      number: normalizedNumber,
+      email: contactData.email?.trim() || "",
+      isGroup: false,
+      companyId,
+      whatsappId,
+      extraInfo: extraInfo as ExtraInfo[]
+    }, wbot);
+
+    logger.info(`Contato processado com sucesso ID: ${contact.id} para o número ${normalizedNumber}`);
+    return contact;
+  } catch (error) {
+    logger.error(`Erro ao criar/atualizar contato: ${error.message}`);
+    throw new Error(`Erro ao processar contato: ${error.message}`);
+  }
+}
+
+/**
+ * Prepara campos extras do formulário
+ */
+private prepareExtraInfo(formData: any): Array<{name: string, value: string}> {
+  const standardFields = ['name', 'email', 'number'];
+  const extraInfo: Array<{name: string, value: string}> = [];
+
+  for (const [fieldName, fieldValue] of Object.entries(formData)) {
+    if (!standardFields.includes(fieldName) && 
+        fieldValue !== null && 
+        fieldValue !== undefined && 
         String(fieldValue).trim() !== '') {
+      
+      let processedValue = String(fieldValue).trim();
+      
+      if (typeof fieldValue === 'object') {
+        processedValue = JSON.stringify(fieldValue);
+      }
 
-        let processedValue = String(fieldValue).trim();
+      extraInfo.push({
+        name: fieldName,
+        value: processedValue
+      });
+    }
+  }
 
-        // Se for objeto ou array, converter para JSON
-        if (typeof fieldValue === 'object') {
-          processedValue = JSON.stringify(fieldValue);
+  return extraInfo;
+}
+
+/**
+ * CORREÇÃO: Método para envio de mensagem de confirmação com buffer de imagem
+ */
+private async sendConfirmationMessage(
+  wbot: Session, 
+  ticket: Ticket, 
+  contact: Contact, 
+  confirmConfig: any,
+  formData: any,
+  landingPageTitle: string
+): Promise<boolean> {
+  try {
+    logger.info(`[CONFIRMAÇÃO] Enviando mensagem de confirmação para contato ID: ${contact.id}`);
+    
+    let messageText = confirmConfig.caption || 'Obrigado por se cadastrar!';
+    
+    // Substituir variáveis na mensagem
+    messageText = messageText.replace(/{landing_page}/g, landingPageTitle);
+    messageText = messageText.replace(/{nome}/g, contact.name);
+    messageText = messageText.replace(/{data}/g, new Date().toLocaleString('pt-BR'));
+
+    const messageId = uuidv4();
+    const contactJid = `${contact.number.replace('+', '')}@s.whatsapp.net`;
+
+    // Enviar presença para o contato antes da mensagem
+    await SendPresenceStatus(wbot, contactJid);
+
+    let sentMessage;
+    
+    // CORREÇÃO: Usar buffer da imagem em vez de URL
+    if (confirmConfig.imageUrl) {
+      logger.info(`[CONFIRMAÇÃO] Buscando buffer da imagem: ${confirmConfig.imageUrl}`);
+      
+      const imageBuffer = await this.getImageBuffer(confirmConfig.imageUrl, ticket.companyId);
+      
+      if (imageBuffer) {
+        logger.info(`[CONFIRMAÇÃO] Enviando mensagem com buffer de imagem: ${imageBuffer.length} bytes`);
+        
+        try {
+          // Usar buffer da imagem diretamente
+          sentMessage = await wbot.sendMessage(contactJid, {
+            image: imageBuffer,
+            caption: messageText
+          });
+          
+          logger.info(`[CONFIRMAÇÃO] Mensagem com imagem enviada com sucesso via buffer`);
+        } catch (imageError) {
+          logger.error(`[CONFIRMAÇÃO] Erro ao enviar imagem via buffer: ${imageError.message}`);
+          
+          // Fallback: enviar apenas texto
+          sentMessage = await wbot.sendMessage(contactJid, {
+            text: messageText
+          });
         }
-
-        extraInfo.push({
-          name: fieldName,
-          value: processedValue
+      } else {
+        logger.warn(`[CONFIRMAÇÃO] Buffer da imagem não disponível, enviando apenas texto`);
+        
+        // Enviar apenas texto
+        sentMessage = await wbot.sendMessage(contactJid, {
+          text: messageText
         });
       }
+    } else {
+      logger.info(`[CONFIRMAÇÃO] Enviando apenas mensagem de texto`);
+      
+      // Enviar apenas texto
+      sentMessage = await wbot.sendMessage(contactJid, {
+        text: messageText
+      });
     }
 
-    return extraInfo;
+    // Criar registro da mensagem no banco
+    const messageData = {
+      id: messageId,
+      ticketId: ticket.id,
+      body: messageText,
+      contactId: contact.id,
+      fromMe: true,
+      read: true,
+      mediaType: confirmConfig.imageUrl ? 'image' : 'chat',
+      mediaUrl: confirmConfig.imageUrl || null,
+      internalMessage: false
+    };
+
+    await CreateMessageService({
+      messageData,
+      ticket: ticket,
+      companyId: ticket.companyId
+    });
+
+    await SetTicketMessagesAsRead(ticket);
+    await verifyMessage(sentMessage, ticket, contact);
+
+    logger.info(`[CONFIRMAÇÃO] Mensagem de confirmação processada com sucesso para contato ID: ${contact.id}`);
+    return true;
+    
+  } catch (error) {
+    logger.error(`[CONFIRMAÇÃO] Erro ao enviar mensagem de confirmação: ${error.message}`);
+    logger.error(`[CONFIRMAÇÃO] Stack: ${error.stack}`);
+    return false;
   }
+}
+
+/**
+ * CORREÇÃO: Método para envio de convite para grupo com buffer de imagem
+ */
+private async sendGroupInvitation(
+  wbot: Session,
+  ticket: Ticket,
+  contact: Contact,
+  group: any,
+  groupConfig: any,
+  landingPageTitle: string
+): Promise<boolean> {
+  try {
+    logger.info(`[GRUPO] Enviando convite para grupo ID: ${group.id} para contato ID: ${contact.id}`);
+    
+    // Obter o link de convite do grupo
+    const inviteLink = await GetGroupInviteCodeService({
+      companyId: ticket.companyId,
+      groupId: group.id.toString()
+    });
+
+    if (!inviteLink) {
+      throw new Error('Não foi possível obter o link de convite para o grupo');
+    }
+
+    logger.info(`[GRUPO] Link de convite obtido: ${inviteLink}`);
+
+    // Preparar mensagem personalizada ou usar padrão
+    const isConfigEnabled = groupConfig?.enabled === true;
+    const hasCustomMessage = isConfigEnabled && groupConfig?.message;
+    const hasCustomImage = isConfigEnabled && groupConfig?.imageUrl;
+
+    let message = hasCustomMessage
+      ? groupConfig.message.replace(/{nome}/g, contact.name)
+      : `Olá! Obrigado por se cadastrar em ${landingPageTitle}. Você foi convidado para participar do nosso grupo no WhatsApp.`;
+
+    // Adicionar link no final da mensagem
+    const fullMessage = `${message}\n\nClique no link abaixo para entrar:\n${inviteLink}`;
+
+    const contactJid = `${contact.number.replace('+', '')}@s.whatsapp.net`;
+
+    // Enviar presença para o contato antes da mensagem
+    await SendPresenceStatus(wbot, contactJid);
+
+    let sentMessage;
+    
+    // CORREÇÃO: Usar buffer da imagem em vez de URL
+    if (hasCustomImage) {
+      logger.info(`[GRUPO] Buscando buffer da imagem: ${groupConfig.imageUrl}`);
+      
+      const imageBuffer = await this.getImageBuffer(groupConfig.imageUrl, ticket.companyId);
+      
+      if (imageBuffer) {
+        logger.info(`[GRUPO] Enviando convite com buffer de imagem: ${imageBuffer.length} bytes`);
+        
+        try {
+          // Usar buffer da imagem diretamente
+          sentMessage = await wbot.sendMessage(contactJid, {
+            image: imageBuffer,
+            caption: fullMessage
+          });
+          
+          logger.info(`[GRUPO] Convite com imagem enviado com sucesso via buffer`);
+        } catch (imageError) {
+          logger.error(`[GRUPO] Erro ao enviar imagem via buffer: ${imageError.message}`);
+          
+          // Fallback: enviar apenas texto
+          sentMessage = await wbot.sendMessage(contactJid, {
+            text: fullMessage
+          });
+        }
+      } else {
+        logger.warn(`[GRUPO] Buffer da imagem não disponível, enviando apenas texto`);
+        
+        // Enviar apenas texto
+        sentMessage = await wbot.sendMessage(contactJid, {
+          text: fullMessage
+        });
+      }
+    } else {
+      logger.info(`[GRUPO] Enviando convite apenas com texto`);
+      
+      // Enviar apenas texto
+      sentMessage = await wbot.sendMessage(contactJid, {
+        text: fullMessage
+      });
+    }
+
+    // Criar registro da mensagem no banco
+    const messageId = uuidv4();
+    const messageData = {
+      id: messageId,
+      ticketId: ticket.id,
+      body: fullMessage,
+      contactId: contact.id,
+      fromMe: true,
+      read: true,
+      mediaType: hasCustomImage ? 'image' : 'chat',
+      mediaUrl: hasCustomImage ? groupConfig.imageUrl : null,
+      internalMessage: false
+    };
+
+    await CreateMessageService({
+      messageData,
+      ticket: ticket,
+      companyId: ticket.companyId
+    });
+
+    await SetTicketMessagesAsRead(ticket);
+    await verifyMessage(sentMessage, ticket, contact);
+
+    logger.info(`[GRUPO] Convite para grupo enviado com sucesso para contato ID: ${contact.id}`);
+    return true;
+    
+  } catch (error) {
+    logger.error(`[GRUPO] Erro ao enviar convite para grupo: ${error.message}`);
+    logger.error(`[GRUPO] Stack: ${error.stack}`);
+    return false;
+  }
+}
 
   /**
    * Busca um formulário pelo ID
@@ -422,220 +715,6 @@ export class FormService {
         throw error;
       }
       throw new Error(`Erro ao processar submissão: ${error.message}`);
-    }
-  }
-
-  // CORREÇÃO: Método para envio de mensagem de confirmação ao contato
-  private async sendConfirmationMessage(
-    wbot: Session,
-    ticket: Ticket,
-    contact: Contact,
-    confirmConfig: any,
-    formData: any,
-    landingPageTitle: string
-  ): Promise<boolean> {
-    try {
-      logger.info(`[CONFIRMAÇÃO] Enviando mensagem de confirmação para contato ID: ${contact.id}`);
-
-      // Preparar dados da mensagem
-      const formattedData = Object.entries(formData)
-        .map(([key, value]) => `*${key}:* ${value}`)
-        .join('\n');
-
-      let messageText = confirmConfig.caption || 'Obrigado por se cadastrar!';
-
-      // Substituir variáveis na mensagem
-      messageText = messageText.replace(/{landing_page}/g, landingPageTitle);
-      messageText = messageText.replace(/{nome}/g, contact.name);
-      messageText = messageText.replace(/{data}/g, new Date().toLocaleString('pt-BR'));
-
-      const messageId = uuidv4();
-      const contactJid = `${contact.number.replace('+', '')}@s.whatsapp.net`;
-
-      // Enviar presença para o contato antes da mensagem
-      await SendPresenceStatus(wbot, contactJid);
-
-      let sentMessage;
-
-      // CORREÇÃO: Verificar se há imagem e enviá-la corretamente
-      if (confirmConfig.imageUrl) {
-        logger.info(`[CONFIRMAÇÃO] Enviando mensagem com imagem: ${confirmConfig.imageUrl}`);
-
-        try {
-          // Verificar se a URL da imagem está acessível
-          const imageUrlToUse = confirmConfig.imageUrl.startsWith('http')
-            ? confirmConfig.imageUrl
-            : `${process.env.BACKEND_URL || 'http://localhost:8080'}${confirmConfig.imageUrl}`;
-
-          logger.info(`[CONFIRMAÇÃO] URL da imagem a ser enviada: ${imageUrlToUse}`);
-
-          sentMessage = await wbot.sendMessage(contactJid, {
-            image: {
-              url: imageUrlToUse
-            },
-            caption: messageText
-          });
-
-          logger.info(`[CONFIRMAÇÃO] Mensagem com imagem enviada com sucesso`);
-        } catch (imageError) {
-          logger.error(`[CONFIRMAÇÃO] Erro ao enviar imagem, enviando apenas texto: ${imageError.message}`);
-
-          // Fallback: enviar apenas texto se a imagem falhar
-          sentMessage = await wbot.sendMessage(contactJid, {
-            text: messageText
-          });
-        }
-      } else {
-        logger.info(`[CONFIRMAÇÃO] Enviando apenas mensagem de texto`);
-
-        // Enviar apenas texto
-        sentMessage = await wbot.sendMessage(contactJid, {
-          text: messageText
-        });
-      }
-
-      // Criar registro da mensagem no banco
-      const messageData = {
-        id: messageId,
-        ticketId: ticket.id,
-        body: messageText,
-        contactId: contact.id,
-        fromMe: true,
-        read: true,
-        mediaType: confirmConfig.imageUrl ? 'image' : 'chat',
-        mediaUrl: confirmConfig.imageUrl || null,
-        internalMessage: false
-      };
-
-      await CreateMessageService({
-        messageData,
-        ticket: ticket,
-        companyId: ticket.companyId
-      });
-
-      await SetTicketMessagesAsRead(ticket);
-      await verifyMessage(sentMessage, ticket, contact);
-
-      logger.info(`[CONFIRMAÇÃO] Mensagem de confirmação processada com sucesso para contato ID: ${contact.id}`);
-      return true;
-
-    } catch (error) {
-      logger.error(`[CONFIRMAÇÃO] Erro ao enviar mensagem de confirmação: ${error.message}`);
-      logger.error(`[CONFIRMAÇÃO] Stack: ${error.stack}`);
-      return false;
-    }
-  }
-
-  // CORREÇÃO: Método para envio de convite para grupo com imagem
-  private async sendGroupInvitation(
-    wbot: Session,
-    ticket: Ticket,
-    contact: Contact,
-    group: any,
-    groupConfig: any,
-    landingPageTitle: string
-  ): Promise<boolean> {
-    try {
-      logger.info(`[GRUPO] Enviando convite para grupo ID: ${group.id} para contato ID: ${contact.id}`);
-
-      // Obter o link de convite do grupo
-      const inviteLink = await GetGroupInviteCodeService({
-        companyId: ticket.companyId,
-        groupId: group.id.toString()
-      });
-
-      if (!inviteLink) {
-        throw new Error('Não foi possível obter o link de convite para o grupo');
-      }
-
-      logger.info(`[GRUPO] Link de convite obtido: ${inviteLink}`);
-
-      // Preparar mensagem personalizada ou usar padrão
-      const isConfigEnabled = groupConfig?.enabled === true;
-      const hasCustomMessage = isConfigEnabled && groupConfig?.message;
-      const hasCustomImage = isConfigEnabled && groupConfig?.imageUrl;
-
-      let message = hasCustomMessage
-        ? groupConfig.message.replace(/{nome}/g, contact.name)
-        : `Olá! Obrigado por se cadastrar em ${landingPageTitle}. Você foi convidado para participar do nosso grupo no WhatsApp.`;
-
-      // Adicionar link no final da mensagem
-      const fullMessage = `${message}\n\nClique no link abaixo para entrar:\n${inviteLink}`;
-
-      const contactJid = `${contact.number.replace('+', '')}@s.whatsapp.net`;
-
-      // Enviar presença para o contato antes da mensagem
-      await SendPresenceStatus(wbot, contactJid);
-
-      let sentMessage;
-
-      // CORREÇÃO: Verificar se há imagem e enviá-la corretamente
-      if (hasCustomImage) {
-        logger.info(`[GRUPO] Enviando convite com imagem: ${groupConfig.imageUrl}`);
-
-        try {
-          // Verificar se a URL da imagem está acessível
-          const imageUrlToUse = groupConfig.imageUrl.startsWith('http')
-            ? groupConfig.imageUrl
-            : `${process.env.BACKEND_URL || 'http://localhost:8080'}${groupConfig.imageUrl}`;
-
-          logger.info(`[GRUPO] URL da imagem a ser enviada: ${imageUrlToUse}`);
-
-          sentMessage = await wbot.sendMessage(contactJid, {
-            image: {
-              url: imageUrlToUse
-            },
-            caption: fullMessage
-          });
-
-          logger.info(`[GRUPO] Convite com imagem enviado com sucesso`);
-        } catch (imageError) {
-          logger.error(`[GRUPO] Erro ao enviar imagem, enviando apenas texto: ${imageError.message}`);
-
-          // Fallback: enviar apenas texto se a imagem falhar
-          sentMessage = await wbot.sendMessage(contactJid, {
-            text: fullMessage
-          });
-        }
-      } else {
-        logger.info(`[GRUPO] Enviando convite apenas com texto`);
-
-        // Enviar apenas texto
-        sentMessage = await wbot.sendMessage(contactJid, {
-          text: fullMessage
-        });
-      }
-
-      // Criar registro da mensagem no banco
-      const messageId = uuidv4();
-      const messageData = {
-        id: messageId,
-        ticketId: ticket.id,
-        body: fullMessage,
-        contactId: contact.id,
-        fromMe: true,
-        read: true,
-        mediaType: hasCustomImage ? 'image' : 'chat',
-        mediaUrl: hasCustomImage ? groupConfig.imageUrl : null,
-        internalMessage: false
-      };
-
-      await CreateMessageService({
-        messageData,
-        ticket: ticket,
-        companyId: ticket.companyId
-      });
-
-      await SetTicketMessagesAsRead(ticket);
-      await verifyMessage(sentMessage, ticket, contact);
-
-      logger.info(`[GRUPO] Convite para grupo enviado com sucesso para contato ID: ${contact.id}`);
-      return true;
-
-    } catch (error) {
-      logger.error(`[GRUPO] Erro ao enviar convite para grupo: ${error.message}`);
-      logger.error(`[GRUPO] Stack: ${error.stack}`);
-      return false;
     }
   }
 
