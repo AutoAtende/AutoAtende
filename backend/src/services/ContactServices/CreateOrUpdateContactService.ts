@@ -8,7 +8,7 @@ import { isNil } from "../../utils/helpers";
 import { Session } from "../../libs/wbot";
 import GetProfilePicUrl from "../WbotServices/GetProfilePicUrl";
 
-interface ExtraInfo extends ContactCustomField {
+export interface ExtraInfo extends ContactCustomField {
   name: string;
   value: string;
 }

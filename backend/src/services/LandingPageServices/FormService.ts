@@ -9,7 +9,7 @@ import ContactCustomField from '../../models/ContactCustomField';
 import ContactTags from '../../models/ContactTags';
 import { getWbot, Session } from "../../libs/wbot";
 import { SendPresenceStatus } from "../../helpers/SendPresenceStatus";
-import CreateOrUpdateContactService from "../ContactServices/CreateOrUpdateContactService";
+import CreateOrUpdateContactService, { ExtraInfo } from "../ContactServices/CreateOrUpdateContactService";
 import GetGroupInviteCodeService from "../GroupServices/GetGroupInviteCodeService";
 import { verifyMessage } from "../WbotServices/MessageListener/Verifiers/VerifyMessage";
 import { logger } from "../../utils/logger";
@@ -22,8 +22,6 @@ import CreateMessageService from "../MessageServices/CreateMessageService";
 import { getIO } from "../../libs/socket";
 import { notifyUpdate } from "../TicketServices/UpdateTicketService";
 import { Mutex } from "async-mutex";
-import SendWhatsAppMediaImage from "../WbotServices/SendWhatsappMediaImage";
-import SendWhatsAppMessage from "../WbotServices/SendWhatsAppMessage";
 import SetTicketMessagesAsRead from '@helpers/SetTicketMessagesAsRead';
 
 // Mutex para sincronização de criação de tickets
@@ -134,8 +132,7 @@ private normalizePhoneNumber(phoneNumber: string): string {
 }
 
 /**
- * Cria ou atualiza contato de forma consistente
- * CORREÇÃO: Usar formato +DDIDDDNUMERO para salvar no banco
+ * Cria ou atualiza contato usando o serviço padrão
  */
 private async createOrUpdateContactConsistent(
   contactData: {
@@ -149,62 +146,27 @@ private async createOrUpdateContactConsistent(
   wbot: Session
 ): Promise<Contact> {
   try {
-    // CORREÇÃO: Normalizar número no formato +DDIDDDNUMERO
+    // Normalizar número no formato +DDIDDDNUMERO
     const normalizedNumber = this.normalizePhoneNumber(contactData.number);
     
     logger.info(`Processando contato com número normalizado: ${normalizedNumber}`);
 
-    // Buscar contato existente pelo número normalizado
-    let existingContact = await Contact.findOne({
-      where: {
-        number: normalizedNumber,
-        companyId
-      }
-    });
+    // Preparar campos extras do formulário
+    const extraInfo = this.prepareExtraInfo(formData);
 
-    let contact: Contact;
+    // Usar o serviço padrão de criação/atualização de contato
+    const contact = await CreateOrUpdateContactService({
+      name: contactData.name.trim(),
+      number: normalizedNumber,
+      email: contactData.email?.trim() || "",
+      isGroup: false,
+      companyId,
+      whatsappId,
+      extraInfo: extraInfo as ExtraInfo[]
+    }, wbot);
 
-    if (existingContact) {
-      // Contato existe - atualizar apenas nome e email se fornecidos
-      logger.info(`Contato existente encontrado ID: ${existingContact.id}, atualizando dados`);
-      
-      const updateData: any = {};
-      
-      if (contactData.name && contactData.name.trim() !== '') {
-        updateData.name = contactData.name.trim();
-      }
-      
-      if (contactData.email && contactData.email.trim() !== '') {
-        updateData.email = contactData.email.trim();
-      }
-
-      // Só atualizar se há dados para atualizar
-      if (Object.keys(updateData).length > 0) {
-        await existingContact.update(updateData);
-        logger.info(`Dados do contato atualizados: ${JSON.stringify(updateData)}`);
-      }
-
-      contact = existingContact;
-    } else {
-      // Contato não existe - criar novo
-      logger.info(`Criando novo contato com número: ${normalizedNumber}`);
-      
-      // CORREÇÃO: Usar número normalizado para criar contato
-      contact = await Contact.create({
-        name: contactData.name.trim(),
-        number: normalizedNumber, // Formato +DDIDDDNUMERO
-        email: contactData.email?.trim() || '',
-        isGroup: false,
-        companyId,
-        whatsappId
-      });
-      
-      logger.info(`Novo contato criado ID: ${contact.id} com número ${normalizedNumber}`);
-    }
-
-    // Processar campos extras do formulário
-    await this.processContactExtraFields(contact.id, formData, companyId);
-
+    logger.info(`Contato processado com sucesso ID: ${contact.id} para o número ${normalizedNumber}`);
+    
     return contact;
   } catch (error) {
     logger.error(`Erro ao criar/atualizar contato: ${error.message}`);
@@ -213,61 +175,35 @@ private async createOrUpdateContactConsistent(
 }
 
 /**
- * Processa campos extras do formulário como ContactCustomField
+ * Prepara campos extras do formulário para o formato do serviço
  */
-private async processContactExtraFields(contactId: number, formData: any, companyId: number): Promise<void> {
-  try {
-    // Campos padrão que não devem ser salvos como extra fields
-    const standardFields = ['name', 'email', 'number'];
-    const extraFields: Array<{contactId: number, name: string, value: string}> = [];
+private prepareExtraInfo(formData: any): Array<{name: string, value: string}> {
+  // Campos padrão que não devem ser salvos como extra fields
+  const standardFields = ['name', 'email', 'number'];
+  const extraInfo: Array<{name: string, value: string}> = [];
 
-    // Identificar campos extras
-    for (const [fieldName, fieldValue] of Object.entries(formData)) {
-      if (!standardFields.includes(fieldName) && 
-          fieldValue !== null && 
-          fieldValue !== undefined && 
-          String(fieldValue).trim() !== '') {
-        
-        let processedValue = String(fieldValue).trim();
-        
-        // Se for objeto ou array, converter para JSON
-        if (typeof fieldValue === 'object') {
-          processedValue = JSON.stringify(fieldValue);
-        }
-
-        extraFields.push({
-          contactId,
-          name: fieldName,
-          value: processedValue
-        });
+  // Identificar campos extras
+  for (const [fieldName, fieldValue] of Object.entries(formData)) {
+    if (!standardFields.includes(fieldName) && 
+        fieldValue !== null && 
+        fieldValue !== undefined && 
+        String(fieldValue).trim() !== '') {
+      
+      let processedValue = String(fieldValue).trim();
+      
+      // Se for objeto ou array, converter para JSON
+      if (typeof fieldValue === 'object') {
+        processedValue = JSON.stringify(fieldValue);
       }
+
+      extraInfo.push({
+        name: fieldName,
+        value: processedValue
+      });
     }
-
-    if (extraFields.length === 0) {
-      logger.info(`Nenhum campo extra encontrado para contato ID: ${contactId}`);
-      return;
-    }
-
-    logger.info(`Processando ${extraFields.length} campos extras para contato ID: ${contactId}`);
-
-    // Remover campos extras existentes para este contato (para evitar duplicatas)
-    const fieldNames = extraFields.map(field => field.name);
-    
-    await ContactCustomField.destroy({
-      where: {
-        contactId,
-        name: { [Op.in]: fieldNames }
-      }
-    });
-
-    // Inserir novos campos extras
-    await ContactCustomField.bulkCreate(extraFields);
-
-    logger.info(`${extraFields.length} campos extras processados com sucesso para contato ID: ${contactId}`);
-  } catch (error) {
-    logger.error(`Erro ao processar campos extras para contato ID: ${contactId}: ${error.message}`);
-    // Não propagar erro para não interromper o fluxo principal
   }
+
+  return extraInfo;
 }
 
   /**
@@ -570,7 +506,7 @@ private async processSubmissionAsync(submissionId: number, formData: any, landin
       throw new Error(`Número de WhatsApp inválido: ${numberError.message}`);
     }
 
-    // CORREÇÃO: Usar método consistente para criar/atualizar contato
+    // Usar método consistente para criar/atualizar contato
     let contact: Contact;
     try {
       contact = await this.createOrUpdateContactConsistent(
@@ -667,32 +603,32 @@ private async processSubmissionAsync(submissionId: number, formData: any, landin
           throw new Error('Contato não encontrado ou número inválido');
         }
 
-              // Preparar dados da mensagem
-      const formattedData = Object.entries(formData)
-      .map(([key, value]) => `*${key}:* ${value}`)
-      .join('\n');
+        // Preparar dados da mensagem
+        const formattedData = Object.entries(formData)
+          .map(([key, value]) => `*${key}:* ${value}`)
+          .join('\n');
 
-    const messageText = `*Nova submissão de formulário - ${fullLandingPage.title}*\n\n${formattedData}\n\n_Enviado via landing page_`;
-    const messageId = uuidv4();
+        const messageText = `*Nova submissão de formulário - ${fullLandingPage.title}*\n\n${formattedData}\n\n_Enviado via landing page_`;
+        const messageId = uuidv4();
 
-    // Criar mensagem associada ao ticket
-    const messageData = {
-      id: messageId,
-      ticketId: ticketCheck.id,
-      body: messageText,
-      contactId: contact.id,
-      fromMe: true,
-      read: true,
-      mediaType: 'chat',
-      internalMessage: true
-    };
+        // Criar mensagem associada ao ticket
+        const messageData = {
+          id: messageId,
+          ticketId: ticketCheck.id,
+          body: messageText,
+          contactId: contact.id,
+          fromMe: true,
+          read: true,
+          mediaType: 'chat',
+          internalMessage: true
+        };
 
-    await CreateMessageService({
-      messageData,
-      ticket: ticketCheck,
-      companyId,
-      internalMessage: true
-    });
+        await CreateMessageService({
+          messageData,
+          ticket: ticketCheck,
+          companyId,
+          internalMessage: true
+        });
 
         // Enviar presença para o contato antes da mensagem
         await SendPresenceStatus(
@@ -700,30 +636,30 @@ private async processSubmissionAsync(submissionId: number, formData: any, landin
           `${ticketCheck.contact.number.replace('+', '')}@s.whatsapp.net`
         );
 
-        let messageInfo;
+        let sentMessage;
         if (confirmConfig.imageUrl) {
           // Enviar mensagem com imagem
-          messageInfo = await SendWhatsAppMediaImage({
-            ticket: ticketCheck,
-            url: confirmConfig.imageUrl,
-            caption: confirmConfig.caption || 'Obrigado por se cadastrar!',
-            msdelay: 1000,
-            params: {
-              whatsappId: whatsapp.id
+          sentMessage = await wbot.sendMessage(
+            `${ticketCheck.contact.number.replace('+', '')}@${ticketCheck.isGroup ? "g.us" : "s.whatsapp.net"}`,
+            {
+              image: {
+                url: confirmConfig.imageUrl
+              },
+              caption: confirmConfig.caption || 'Obrigado por se cadastrar!'
             }
-          });
+          );
         } else {
           // Enviar apenas texto
-          messageInfo = await SendWhatsAppMessage({
-            body: confirmConfig.caption || 'Obrigado por se cadastrar!',
-            ticket: ticketCheck,
-            params: {
-              whatsappId: whatsapp.id
+          sentMessage = await wbot.sendMessage(
+            `${ticketCheck.contact.number.replace('+', '')}@${ticketCheck.isGroup ? "g.us" : "s.whatsapp.net"}`,
+            {
+              text: confirmConfig.caption || 'Obrigado por se cadastrar!'
             }
-          });
+          );
         }
+
         await SetTicketMessagesAsRead(ticketCheck);
-        await verifyMessage(messageInfo, ticketCheck, ticketCheck.contact);
+        await verifyMessage(sentMessage, ticketCheck, ticketCheck.contact);
 
         confirmationSent = true;
         internalMessageSent = true;
@@ -814,34 +750,30 @@ private async processSubmissionAsync(submissionId: number, formData: any, landin
             `${ticketCheck.contact.number.replace('+', '')}@s.whatsapp.net`
           );
 
-          let messageInfo;
+          let sentMessage;
           if (hasCustomImage) {
             // Enviar com imagem
-            messageInfo = await SendWhatsAppMediaImage({
-              ticket: ticketCheck,
-              url: fullLandingPage.advancedConfig.groupInviteMessage.imageUrl,
-              caption: fullMessage,
-              msdelay: 1000,
-              params: {
-                whatsappId: whatsapp.id
+            sentMessage = await wbot.sendMessage(
+              `${ticketCheck.contact.number.replace('+', '')}@${ticketCheck.isGroup ? "g.us" : "s.whatsapp.net"}`,
+              {
+                image: {
+                  url: fullLandingPage.advancedConfig.groupInviteMessage.imageUrl
+                },
+                caption: fullMessage
               }
-            });
+            );
           } else {
             // Enviar apenas texto
-            messageInfo = await SendWhatsAppMessage({
-              body: fullMessage,
-              ticket: ticketCheck,
-              quotedMsg: null,
-              vCard: null,
-              sendPresence: true,
-              params: {
-                whatsappId: whatsapp.id
+            sentMessage = await wbot.sendMessage(
+              `${ticketCheck.contact.number.replace('+', '')}@${ticketCheck.isGroup ? "g.us" : "s.whatsapp.net"}`,
+              {
+                text: fullMessage
               }
-            });
+            );
           }
+          
           await SetTicketMessagesAsRead(ticketCheck);
-
-          await verifyMessage(messageInfo, ticketCheck, ticketCheck.contact);
+          await verifyMessage(sentMessage, ticketCheck, ticketCheck.contact);
 
           groupInviteSent = true;
           logger.info(`Convite para grupo ID: ${fullLandingPage.advancedConfig.inviteGroupId} enviado com sucesso para contato ID: ${ticketCheck.contact.id}`);
@@ -884,20 +816,14 @@ private async processSubmissionAsync(submissionId: number, formData: any, landin
         
         let adminContact: Contact;
         try {
-          adminContact = await Contact.findOrCreate({
-            where: {
-              number: normalizedAdminNumber,
-              companyId
-            },
-            defaults: {
-              name: `Admin - ${fullLandingPage.title}`,
-              number: normalizedAdminNumber, // Formato +DDIDDDNUMERO
-              email: '',
-              isGroup: false,
-              companyId,
-              whatsappId: whatsapp.id
-            }
-          }).then(([contact]) => contact);
+          adminContact = await CreateOrUpdateContactService({
+            name: `Admin - ${fullLandingPage.title}`,
+            number: normalizedAdminNumber,
+            email: '',
+            isGroup: false,
+            companyId,
+            whatsappId: whatsapp.id
+          }, wbot);
 
           logger.debug(`Contato para administrador criado/atualizado com ID: ${adminContact.id}`);
         } catch (contactError) {
@@ -942,15 +868,15 @@ private async processSubmissionAsync(submissionId: number, formData: any, landin
         );
 
         // Enviar mensagem usando o ticket do administrador
-        const messageInfo = await SendWhatsAppMessage({
-          body: message,
-          ticket: adminTicket,
-          params: {
-            whatsappId: whatsapp.id
+        const sentMessage = await wbot.sendMessage(
+          `${adminContact.number.replace('+', '')}@${adminTicket.isGroup ? "g.us" : "s.whatsapp.net"}`,
+          {
+            text: message
           }
-        });
+        );
+        
         await SetTicketMessagesAsRead(adminTicket);
-        await verifyMessage(messageInfo, adminTicket, adminContact);
+        await verifyMessage(sentMessage, adminTicket, adminContact);
 
         notificationSent = true;
         logger.info(`Notificação enviada com sucesso para o responsável: ${processedNumber}`);
