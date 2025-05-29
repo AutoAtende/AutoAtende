@@ -146,46 +146,25 @@ async validateAndNormalizeWhatsAppNumber(
   const cleanNumber = inputNumber.replace(/[\s\D]/g, "");
   let processedNumber = cleanNumber.startsWith('55') ? cleanNumber : '55' + cleanNumber;
 
-  const testWhatsAppNumber = async (number: string): Promise<boolean> => {
+  const getWhatsAppJid = async (number: string): Promise<string | null> => {
     try {
       const chatId = `${number}@s.whatsapp.net`;
       const [result] = await wbot.onWhatsApp(chatId);
       if (result.exists) {
-        console.log (`${number} exists on WhatsApp, as jid: ${result.jid}`)
-        return true;
+        console.log(`[LOGLOGLOGLOG] ${number} exists on WhatsApp, as jid: ${result.jid}`);
+        // Remove o @s.whatsapp.net do jid antes de retornar
+        return result.jid.split('@')[0];
       }
     } catch (error) {
       console.error(`Erro ao verificar número no WhatsApp: ${error}`);
-      return false;
+      return null;
     }
-    return false;
+    return null;
   };
 
-  // 1ª Tentativa
-  if (await testWhatsAppNumber(processedNumber)) {
-    logger.info(`[PRIMEIRA] Número ${processedNumber} encontrado no WhatsApp`);
-    return processedNumber;
-  }
-
-  // 2ª Tentativa
-  const ddd = processedNumber.substring(0, 4);
-  const numberPart = processedNumber.substring(4);
-
-  if (numberPart.length >= 8 && !numberPart.startsWith('9')) {
-    const numberWithNine = ddd + '9' + numberPart;
-    if (await testWhatsAppNumber(numberWithNine)) {
-      logger.info(`[SEGUNDA] Número ${numberWithNine} encontrado no WhatsApp`);
-      return numberWithNine;
-    }
-  }
-
-  // 3ª Tentativa
-  if (numberPart.startsWith('9')) {
-    const numberWithoutNine = ddd + numberPart.substring(1);
-    if (await testWhatsAppNumber(numberWithoutNine)) {
-      logger.info(`[TERCEIRA] Número ${numberWithoutNine} encontrado no WhatsApp`);
-      return numberWithoutNine;
-    }
+  const jid = await getWhatsAppJid(processedNumber);
+  if (jid) {
+    return jid;
   }
 
   throw new Error(`${context} ${processedNumber} não existe no WhatsApp`);
