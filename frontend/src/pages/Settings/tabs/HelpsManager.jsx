@@ -16,8 +16,6 @@ import {
   Save as SaveIcon
 } from "@mui/icons-material";
 
-import StandardPageLayout from "../../../components/shared/StandardPageLayout";
-import StandardTabContent from "../../../components/shared/StandardTabContent";
 import StandardTable from "../../../components/shared/StandardTable";
 import StandardModal from "../../../components/shared/StandardModal";
 import StandardEmptyState from "../../../components/shared/StandardEmptyState";
@@ -224,25 +222,6 @@ const HelpsManager = () => {
     }
   ];
 
-  // Ações da página
-  const pageActions = [
-    {
-      label: 'Nova Ajuda',
-      icon: <AddIcon />,
-      onClick: () => handleOpenModal(),
-      variant: 'contained',
-      color: 'primary',
-      primary: true
-    },
-    ...(records.length > 0 ? [{
-      label: 'Limpar Todas',
-      icon: <DeleteSweepIcon />,
-      onClick: () => setDeleteAllModalOpen(true),
-      variant: 'outlined',
-      color: 'error'
-    }] : [])
-  ];
-
   // Modal de formulário
   const renderFormModal = () => (
     <StandardModal
@@ -366,49 +345,133 @@ const HelpsManager = () => {
   );
 
   return (
-    <StandardPageLayout
-      title="Gerenciamento de Ajudas"
-      subtitle="Configure os tutoriais e ajudas disponíveis no sistema"
-      actions={pageActions}
-      searchValue={searchValue}
-      onSearchChange={(e) => setSearchValue(e.target.value)}
-      searchPlaceholder="Pesquisar ajudas..."
-      loading={loading}
-      showEmptyState={filteredRecords.length === 0 && !loading}
-      emptyState={
-        searchValue ? (
-          <StandardEmptyState
-            type="search"
-            title="Nenhuma ajuda encontrada"
-            description={`Não foram encontradas ajudas que correspondam a "${searchValue}"`}
-            primaryAction={{
-              label: 'Limpar Pesquisa',
-              onClick: () => setSearchValue('')
+    <Box sx={{ 
+      display: 'flex', 
+      flexDirection: 'column', 
+      height: '100%',
+      width: '100%'
+    }}>
+      {/* Header com ações */}
+      <Box sx={{ 
+        display: 'flex', 
+        justifyContent: 'space-between', 
+        alignItems: 'center',
+        mb: 2,
+        flexWrap: 'wrap',
+        gap: 2
+      }}>
+        <Box>
+          <Typography variant="h6" sx={{ fontWeight: 600, mb: 0.5 }}>
+            Gerenciamento de Ajudas
+          </Typography>
+          <Typography variant="body2" color="text.secondary">
+            Configure os tutoriais e ajudas disponíveis no sistema
+          </Typography>
+        </Box>
+        
+        <Stack direction="row" spacing={1}>
+          <Box
+            component="button"
+            onClick={() => handleOpenModal()}
+            sx={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 1,
+              px: 2,
+              py: 1,
+              bgcolor: 'primary.main',
+              color: 'primary.contrastText',
+              border: 'none',
+              borderRadius: 2,
+              cursor: 'pointer',
+              fontSize: '0.875rem',
+              fontWeight: 600,
+              '&:hover': {
+                bgcolor: 'primary.dark'
+              }
             }}
-          />
-        ) : (
-          <StandardEmptyState
-            type="default"
-            title="Nenhuma ajuda cadastrada"
-            description="Crie tutoriais e ajudas para orientar os usuários do sistema"
-            primaryAction={{
-              label: 'Criar Primeira Ajuda',
-              onClick: () => handleOpenModal()
-            }}
-          />
-        )
-      }
-    >
-      <StandardTabContent variant="default">
-        <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-          {records.length > 0 && (
-            <Alert severity="info" sx={{ mb: 2 }}>
-              <Typography variant="body2">
-                Total de {records.length} ajuda{records.length !== 1 ? 's' : ''} cadastrada{records.length !== 1 ? 's' : ''} no sistema.
-              </Typography>
-            </Alert>
-          )}
+          >
+            <AddIcon fontSize="small" />
+            Nova Ajuda
+          </Box>
           
+          {records.length > 0 && (
+            <Box
+              component="button"
+              onClick={() => setDeleteAllModalOpen(true)}
+              sx={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 1,
+                px: 2,
+                py: 1,
+                bgcolor: 'transparent',
+                color: 'error.main',
+                border: 1,
+                borderColor: 'error.main',
+                borderRadius: 2,
+                cursor: 'pointer',
+                fontSize: '0.875rem',
+                fontWeight: 600,
+                '&:hover': {
+                  bgcolor: 'error.light',
+                  color: 'error.contrastText'
+                }
+              }}
+            >
+              <DeleteSweepIcon fontSize="small" />
+              Limpar Todas
+            </Box>
+          )}
+        </Stack>
+      </Box>
+
+      {/* Campo de busca */}
+      <Box sx={{ mb: 2 }}>
+        <TextField
+          fullWidth
+          size="small"
+          placeholder="Pesquisar ajudas..."
+          value={searchValue}
+          onChange={(e) => setSearchValue(e.target.value)}
+          variant="outlined"
+        />
+      </Box>
+
+      {/* Informação de contagem */}
+      {records.length > 0 && (
+        <Alert severity="info" sx={{ mb: 2 }}>
+          <Typography variant="body2">
+            Total de {records.length} ajuda{records.length !== 1 ? 's' : ''} cadastrada{records.length !== 1 ? 's' : ''} no sistema.
+          </Typography>
+        </Alert>
+      )}
+
+      {/* Tabela */}
+      <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+        {filteredRecords.length === 0 && !loading ? (
+          searchValue ? (
+            <StandardEmptyState
+              type="search"
+              title="Nenhuma ajuda encontrada"
+              description={`Não foram encontradas ajudas que correspondam a "${searchValue}"`}
+              primaryAction={{
+                label: 'Limpar Pesquisa',
+                onClick: () => setSearchValue('')
+              }}
+            />
+          ) : (
+            <StandardEmptyState
+              type="default"
+              title="Nenhuma ajuda cadastrada"
+              description="Crie tutoriais e ajudas para orientar os usuários do sistema"
+              primaryAction={{
+                label: 'Criar Primeira Ajuda',
+                onClick: () => handleOpenModal()
+              }}
+            />
+          )
+        ) : (
           <StandardTable
             columns={columns}
             data={filteredRecords}
@@ -428,13 +491,13 @@ const HelpsManager = () => {
               />
             }
           />
-        </Box>
-      </StandardTabContent>
+        )}
+      </Box>
 
       {renderFormModal()}
       {renderDeleteModal()}
       {renderDeleteAllModal()}
-    </StandardPageLayout>
+    </Box>
   );
 };
 

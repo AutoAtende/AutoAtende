@@ -31,7 +31,6 @@ import {
 } from '@mui/icons-material';
 
 import BaseButton from "../../../components/shared/BaseButton";
-import StandardModal from "../../../components/shared/StandardModal";
 import { toast } from "../../../helpers/toast";
 import { AuthContext } from "../../../context/Auth/AuthContext";
 import useSettings from "../../../hooks/useSettings";
@@ -39,12 +38,6 @@ import ColorModeContext from "../../../layout/themeContext";
 import api from "../../../services/api";
 import { useLoading } from "../../../hooks/useLoading";
 import { i18n } from "../../../translate/i18n";
-
-// Importações de imagens padrão
-import faviconImage from "../../../assets/images/Favicon.jpeg";
-import logotipoImage from "../../../assets/images/Logotipo.jpeg";
-import pwaImage from "../../../assets/images/PWA.jpeg";
-import login_signup from "../../../assets/images/login_signup.jpeg";
 
 // Configurações das cores do tema
 const themeColors = [
@@ -116,11 +109,21 @@ const imageLabels = {
   signupBackground: "Fundo da Tela de Cadastro",
 };
 
+// Imagens padrão - URLs de fallback
+const defaultImages = {
+  appLogoLight: "/assets/default-logo-light.png",
+  appLogoDark: "/assets/default-logo-dark.png",
+  appLogoFavicon: "/favicon.ico",
+  appLogoPWAIcon: "/assets/default-pwa-icon.png",
+  loginBackground: "/assets/default-login-bg.jpg",
+  signupBackground: "/assets/default-signup-bg.jpg",
+};
+
 function capitalizeFirstLetter(string) {
   return string?.charAt(0).toUpperCase() + string?.slice(1) || '';
 }
 
-const Whitelabel = ({ settings, hideLayout = false }) => {
+const Whitelabel = ({ settings = [], hideLayout = false }) => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const { colorMode } = useContext(ColorModeContext);
@@ -131,6 +134,7 @@ const Whitelabel = ({ settings, hideLayout = false }) => {
   // Estados consolidados
   const [activeSection, setActiveSection] = useState(0);
   const [loading, setLoading] = useState(false);
+  const [initialized, setInitialized] = useState(false);
   
   // Estados das configurações
   const [generalSettings, setGeneralSettings] = useState({
@@ -151,59 +155,74 @@ const Whitelabel = ({ settings, hideLayout = false }) => {
   // Estados de alterações
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
 
-  // Carregar configurações iniciais
+  // Carregar configurações iniciais - CORRIGIDO
   const loadSettings = useCallback(() => {
-    if (!Array.isArray(settings) || settings.length === 0) return;
+    if (!Array.isArray(settings)) {
+      console.warn('Settings is not an array:', settings);
+      setInitialized(true);
+      return;
+    }
 
-    const settingsMap = settings.reduce((acc, setting) => {
-      acc[setting.key] = setting.value;
-      return acc;
-    }, {});
-
-    // Configurações gerais
-    setGeneralSettings({
-      appName: settingsMap.appName || "",
-      copyright: settingsMap.copyright || "",
-      privacy: settingsMap.privacy || "",
-      terms: settingsMap.terms || ""
-    });
-
-    // Configurações de cores
-    const colors = {};
-    themeColors.forEach(colorKey => {
-      colors[colorKey] = settingsMap[colorKey] || "";
-    });
-    setColorSettings(colors);
-
-    // Configurações de imagens
-    const images = {};
-    imageFiles.forEach(imageKey => {
-      images[imageKey] = settingsMap[imageKey] || "";
-    });
-    setImageSettings(images);
-
-    // Aplicar cores ao tema
-    themeColors.forEach(colorKey => {
-      const colorValue = settingsMap[colorKey];
-      if (colorValue && colorMode) {
-        const setterFunction = colorMode[`set${capitalizeFirstLetter(colorKey)}`];
-        if (typeof setterFunction === 'function') {
-          setterFunction(colorValue);
+    try {
+      const settingsMap = settings.reduce((acc, setting) => {
+        if (setting && setting.key) {
+          acc[setting.key] = setting.value;
         }
-      }
-    });
+        return acc;
+      }, {});
 
-    // Aplicar imagens ao tema
-    imageFiles.forEach(imageKey => {
-      const imageValue = settingsMap[imageKey];
-      if (imageValue && colorMode) {
-        const setterFunction = colorMode[`set${capitalizeFirstLetter(imageKey)}`];
-        if (typeof setterFunction === 'function') {
-          const imagePath = getImagePath(imageKey, imageValue);
-          setterFunction(imagePath);
-        }
+      // Configurações gerais
+      setGeneralSettings({
+        appName: settingsMap.appName || "",
+        copyright: settingsMap.copyright || "",
+        privacy: settingsMap.privacy || "",
+        terms: settingsMap.terms || ""
+      });
+
+      // Configurações de cores
+      const colors = {};
+      themeColors.forEach(colorKey => {
+        colors[colorKey] = settingsMap[colorKey] || "";
+      });
+      setColorSettings(colors);
+
+      // Configurações de imagens
+      const images = {};
+      imageFiles.forEach(imageKey => {
+        images[imageKey] = settingsMap[imageKey] || "";
+      });
+      setImageSettings(images);
+
+      // Aplicar cores ao tema se disponível
+      if (colorMode) {
+        themeColors.forEach(colorKey => {
+          const colorValue = settingsMap[colorKey];
+          if (colorValue) {
+            const setterFunction = colorMode[`set${capitalizeFirstLetter(colorKey)}`];
+            if (typeof setterFunction === 'function') {
+              setterFunction(colorValue);
+            }
+          }
+        });
+
+        // Aplicar imagens ao tema se disponível
+        imageFiles.forEach(imageKey => {
+          const imageValue = settingsMap[imageKey];
+          if (imageValue) {
+            const setterFunction = colorMode[`set${capitalizeFirstLetter(imageKey)}`];
+            if (typeof setterFunction === 'function') {
+              const imagePath = getImagePath(imageKey, imageValue);
+              setterFunction(imagePath);
+            }
+          }
+        });
       }
-    });
+
+      setInitialized(true);
+    } catch (error) {
+      console.error('Erro ao carregar configurações:', error);
+      setInitialized(true);
+    }
   }, [settings, colorMode]);
 
   useEffect(() => {
@@ -214,11 +233,11 @@ const Whitelabel = ({ settings, hideLayout = false }) => {
   const saveSetting = useCallback(async (key, value) => {
     try {
       await update({ key, value });
-      toast.success(i18n.t("whiteLabel.updateSuccess"));
+      toast.success("Configuração atualizada com sucesso");
       return true;
     } catch (error) {
       console.error("Erro ao salvar configuração:", error);
-      toast.error(i18n.t("whiteLabel.updateError"));
+      toast.error("Erro ao salvar configuração");
       return false;
     }
   }, [update]);
@@ -238,20 +257,7 @@ const Whitelabel = ({ settings, hideLayout = false }) => {
 
   // Função para obter imagens padrão
   const getDefaultImage = useCallback((imageKey) => {
-    switch (imageKey) {
-      case "appLogoLight":
-      case "appLogoDark":
-        return logotipoImage;
-      case "appLogoFavicon":
-        return faviconImage;
-      case "appLogoPWAIcon":
-        return pwaImage;
-      case "loginBackground":
-      case "signupBackground":
-        return login_signup;
-      default:
-        return null;
-    }
+    return defaultImages[imageKey] || null;
   }, []);
 
   // Handlers para configurações gerais
@@ -300,9 +306,11 @@ const Whitelabel = ({ settings, hideLayout = false }) => {
       setColorSettings(prev => ({ ...prev, [selectedColorKey]: selectedColor }));
       
       // Aplicar ao tema
-      const setterFunction = colorMode[`set${capitalizeFirstLetter(selectedColorKey)}`];
-      if (typeof setterFunction === 'function') {
-        setterFunction(selectedColor);
+      if (colorMode) {
+        const setterFunction = colorMode[`set${capitalizeFirstLetter(selectedColorKey)}`];
+        if (typeof setterFunction === 'function') {
+          setterFunction(selectedColor);
+        }
       }
     }
     
@@ -336,12 +344,14 @@ const Whitelabel = ({ settings, hideLayout = false }) => {
       setColorSettings(defaultColors);
       
       // Aplicar ao tema
-      Object.entries(defaultColors).forEach(([key, value]) => {
-        const setterFunction = colorMode[`set${capitalizeFirstLetter(key)}`];
-        if (typeof setterFunction === 'function') {
-          setterFunction(value);
-        }
-      });
+      if (colorMode) {
+        Object.entries(defaultColors).forEach(([key, value]) => {
+          const setterFunction = colorMode[`set${capitalizeFirstLetter(key)}`];
+          if (typeof setterFunction === 'function') {
+            setterFunction(value);
+          }
+        });
+      }
       
       toast.success("Cores restauradas para o padrão");
     } catch (error) {
@@ -379,10 +389,12 @@ const Whitelabel = ({ settings, hideLayout = false }) => {
       setImageSettings(prev => ({ ...prev, [imageKey]: imageUrl }));
       
       // Aplicar ao tema
-      const setterFunction = colorMode[`set${capitalizeFirstLetter(imageKey)}`];
-      if (typeof setterFunction === 'function') {
-        const fullUrl = getImagePath(imageKey, imageUrl);
-        setterFunction(fullUrl);
+      if (colorMode) {
+        const setterFunction = colorMode[`set${capitalizeFirstLetter(imageKey)}`];
+        if (typeof setterFunction === 'function') {
+          const fullUrl = getImagePath(imageKey, imageUrl);
+          setterFunction(fullUrl);
+        }
       }
       
       toast.success("Imagem atualizada com sucesso");
@@ -401,9 +413,11 @@ const Whitelabel = ({ settings, hideLayout = false }) => {
       setImageSettings(prev => ({ ...prev, [imageKey]: "" }));
       
       // Aplicar imagem padrão ao tema
-      const setterFunction = colorMode[`set${capitalizeFirstLetter(imageKey)}`];
-      if (typeof setterFunction === 'function') {
-        setterFunction(getDefaultImage(imageKey));
+      if (colorMode) {
+        const setterFunction = colorMode[`set${capitalizeFirstLetter(imageKey)}`];
+        if (typeof setterFunction === 'function') {
+          setterFunction(getDefaultImage(imageKey));
+        }
       }
       
       toast.success("Imagem removida com sucesso");
@@ -702,57 +716,31 @@ const Whitelabel = ({ settings, hideLayout = false }) => {
     }
   };
 
-  // Se hideLayout for true, renderiza tudo em uma única tela com rolagem
-  if (hideLayout) {
+  // Loading inicial
+  if (!initialized) {
     return (
       <Box sx={{ 
-        height: '100%', 
-        overflow: 'auto',
-        p: 2,
-        '&::-webkit-scrollbar': {
-          width: 6
-        },
-        '&::-webkit-scrollbar-thumb': {
-          backgroundColor: 'divider',
-          borderRadius: 3
-        }
+        display: 'flex', 
+        alignItems: 'center', 
+        justifyContent: 'center', 
+        height: 300,
+        width: '100%'
       }}>
-        <Stack spacing={4}>
-          {renderGeneralSettings}
-          {renderColorSettings}
-          {renderImageSettings}
+        <Stack direction="row" spacing={2} alignItems="center">
+          <CircularProgress />
+          <Typography>Carregando configurações...</Typography>
         </Stack>
-
-        {/* Loading overlay */}
-        {loading && (
-          <Box
-            sx={{
-              position: 'fixed',
-              top: 0,
-              left: 0,
-              right: 0,
-              bottom: 0,
-              bgcolor: 'rgba(0,0,0,0.3)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              zIndex: 1300
-            }}
-          >
-            <Card sx={{ p: 3 }}>
-              <Stack direction="row" spacing={2} alignItems="center">
-                <CircularProgress size={24} />
-                <Typography>Processando...</Typography>
-              </Stack>
-            </Card>
-          </Box>
-        )}
       </Box>
     );
   }
 
   return (
-    <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+    <Box sx={{ 
+      display: 'flex', 
+      flexDirection: 'column', 
+      height: '100%',
+      width: '100%'
+    }}>
       {/* Navegação por seções */}
       <Paper sx={{ mb: 3, flexShrink: 0 }}>
         <Stack direction={isMobile ? "column" : "row"} spacing={0}>
@@ -777,16 +765,8 @@ const Whitelabel = ({ settings, hideLayout = false }) => {
 
       {/* Conteúdo da seção ativa */}
       <Box sx={{ 
-        flex: 1, 
-        overflow: 'auto',
-        p: 2,
-        '&::-webkit-scrollbar': {
-          width: 6
-        },
-        '&::-webkit-scrollbar-thumb': {
-          backgroundColor: 'divider',
-          borderRadius: 3
-        }
+        flex: 1,
+        width: '100%'
       }}>
         {renderContent()}
       </Box>

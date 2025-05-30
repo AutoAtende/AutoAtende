@@ -13,7 +13,8 @@ import {
   Stack,
   Chip,
   Card,
-  CardContent
+  CardContent,
+  Alert
 } from "@mui/material";
 import { 
   Add as AddIcon,
@@ -26,12 +27,9 @@ import {
   Clear as ClearIcon
 } from "@mui/icons-material";
 
-import StandardPageLayout from "../../../components/shared/StandardPageLayout";
-import StandardTabContent from "../../../components/shared/StandardTabContent";
 import StandardTable from "../../../components/shared/StandardTable";
 import StandardModal from "../../../components/shared/StandardModal";
 import StandardEmptyState from "../../../components/shared/StandardEmptyState";
-import BaseButton from "../../../components/shared/BaseButton";
 import { toast } from "../../../helpers/toast";
 import { AuthContext } from "../../../context/Auth/AuthContext";
 import usePlans from "../../../hooks/usePlans";
@@ -308,18 +306,6 @@ const PlansManager = () => {
     }
   ];
 
-  // Ações da página
-  const pageActions = [
-    {
-      label: 'Novo Plano',
-      icon: <AddIcon />,
-      onClick: () => handleOpenModal(),
-      variant: 'contained',
-      color: 'primary',
-      primary: true
-    }
-  ];
-
   // Modal de formulário
   const renderFormModal = () => (
     <StandardModal
@@ -501,41 +487,93 @@ const PlansManager = () => {
   );
 
   return (
-    <StandardPageLayout
-      title="Gerenciamento de Planos"
-      subtitle="Configure os planos disponíveis no sistema"
-      actions={pageActions}
-      searchValue={searchValue}
-      onSearchChange={(e) => setSearchValue(e.target.value)}
-      searchPlaceholder="Pesquisar planos..."
-      loading={loading}
-      showEmptyState={filteredRecords.length === 0 && !loading}
-      emptyState={
-        searchValue ? (
-          <StandardEmptyState
-            type="search"
-            title="Nenhum plano encontrado"
-            description={`Não foram encontrados planos que correspondam a "${searchValue}"`}
-            primaryAction={{
-              label: 'Limpar Pesquisa',
-              onClick: () => setSearchValue('')
-            }}
-          />
+    <Box sx={{ 
+      display: 'flex', 
+      flexDirection: 'column', 
+      height: '100%',
+      width: '100%'
+    }}>
+      {/* Header com ações */}
+      <Box sx={{ 
+        display: 'flex', 
+        justifyContent: 'space-between', 
+        alignItems: 'center',
+        mb: 2,
+        flexWrap: 'wrap',
+        gap: 2
+      }}>
+        <Box>
+          <Typography variant="h6" sx={{ fontWeight: 600, mb: 0.5 }}>
+            Gerenciamento de Planos
+          </Typography>
+          <Typography variant="body2" color="text.secondary">
+            Configure os planos disponíveis no sistema
+          </Typography>
+        </Box>
+        
+        <Box
+          component="button"
+          onClick={() => handleOpenModal()}
+          sx={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 1,
+            px: 2,
+            py: 1,
+            bgcolor: 'primary.main',
+            color: 'primary.contrastText',
+            border: 'none',
+            borderRadius: 2,
+            cursor: 'pointer',
+            fontSize: '0.875rem',
+            fontWeight: 600,
+            '&:hover': {
+              bgcolor: 'primary.dark'
+            }
+          }}
+        >
+          <AddIcon fontSize="small" />
+          Novo Plano
+        </Box>
+      </Box>
+
+      {/* Campo de busca */}
+      <Box sx={{ mb: 2 }}>
+        <TextField
+          fullWidth
+          size="small"
+          placeholder="Pesquisar planos..."
+          value={searchValue}
+          onChange={(e) => setSearchValue(e.target.value)}
+          variant="outlined"
+        />
+      </Box>
+
+      {/* Tabela */}
+      <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+        {filteredRecords.length === 0 && !loading ? (
+          searchValue ? (
+            <StandardEmptyState
+              type="search"
+              title="Nenhum plano encontrado"
+              description={`Não foram encontrados planos que correspondam a "${searchValue}"`}
+              primaryAction={{
+                label: 'Limpar Pesquisa',
+                onClick: () => setSearchValue('')
+              }}
+            />
+          ) : (
+            <StandardEmptyState
+              type="default"
+              title="Nenhum plano cadastrado"
+              description="Crie planos para definir recursos e limites para as empresas"
+              primaryAction={{
+                label: 'Criar Primeiro Plano',
+                onClick: () => handleOpenModal()
+              }}
+            />
+          )
         ) : (
-          <StandardEmptyState
-            type="default"
-            title="Nenhum plano cadastrado"
-            description="Crie planos para definir recursos e limites para as empresas"
-            primaryAction={{
-              label: 'Criar Primeiro Plano',
-              onClick: () => handleOpenModal()
-            }}
-          />
-        )
-      }
-    >
-      <StandardTabContent variant="default">
-        <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
           <StandardTable
             columns={columns}
             data={filteredRecords}
@@ -555,12 +593,12 @@ const PlansManager = () => {
               />
             }
           />
-        </Box>
-      </StandardTabContent>
+        )}
+      </Box>
 
       {renderFormModal()}
       {renderDeleteModal()}
-    </StandardPageLayout>
+    </Box>
   );
 };
 

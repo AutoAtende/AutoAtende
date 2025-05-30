@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useContext, useCallback, useMemo } from "react";
 import PropTypes from 'prop-types';
 import {
@@ -162,7 +161,7 @@ const StyledBadge = styled(Badge)(({ theme }) => ({
   },
 }));
 
-const Options = ({ settings, scheduleTypeChanged, enableReasonWhenCloseTicketChanged }) => {
+const Options = ({ settings, enableReasonWhenCloseTicketChanged }) => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const { user } = useContext(AuthContext);
@@ -214,21 +213,8 @@ const Options = ({ settings, scheduleTypeChanged, enableReasonWhenCloseTicketCha
   const [enableUPSixWebphone, setEnableUPSixWebphone] = useState("disabled");
   const [enableUPSixNotifications, setEnableUPSixNotifications] = useState("disabled");
   const [enableOfficialWhatsapp, setEnableOfficialWhatsapp] = useState("disabled");
-  const [enableOmieInChatbot, setEnableOmieInChatbot] = useState("disabled");
-  const [omieAppKey, setOmieAppKey] = useState('');
-  const [omieAppSecret, setOmieAppSecret] = useState('');
-  const [enableZabbix, setEnableZabbix] = useState("disabled");
-  const [zabbixAuth, setZabbixAuth] = useState("");
-  const [zabbixBaseUrl, setZabbixBaseUrl] = useState("");
-  const [enableGroupTool, setEnableGroupTool] = useState("disabled");
-  const [enableMessageRules, setEnableMessageRules] = useState("disabled");
   const [enableMetaPixel, setEnableMetaPixel] = useState("disabled");
   const [metaPixelId, setMetaPixelId] = useState('');
-
-  // GLPI
-  const [urlApiGlpi, setUrlApiGlpi] = useState('');
-  const [appTokenGlpi, setAppTokenGlpi] = useState('');
-  const [tokenMasterGlpi, setTokenMasterGlpi] = useState('');
 
   // SMTP
   const [smtpauthType, setUrlSmtpauthType] = useState("");
@@ -297,11 +283,7 @@ const Options = ({ settings, scheduleTypeChanged, enableReasonWhenCloseTicketCha
     const enableOfficialWhatsappSetting = settings.find((s) => s.key === "enableOfficialWhatsapp");
     if (enableOfficialWhatsappSetting) setEnableOfficialWhatsapp(enableOfficialWhatsappSetting?.value || "disabled");
 
-    const enableGroupTool = settings.find((s) => s.key === "enableGroupTool");
-    if (enableGroupTool) setEnableGroupTool(enableGroupTool?.value || "disabled");
 
-    const enableMessageRules = settings.find((s) => s.key === "enableMessageRules");
-    if (enableMessageRules) setEnableMessageRules(enableMessageRules?.value || "disabled");
 
     const enableUPSix = settings.find((s) => s.key === "enableUPSix");
     if (enableUPSix) setEnableUPSix(enableUPSix?.value || "disabled");
@@ -311,36 +293,6 @@ const Options = ({ settings, scheduleTypeChanged, enableReasonWhenCloseTicketCha
 
     const enableUPSixNotifications = settings.find((s) => s.key === "enableUPSixNotifications");
     if (enableUPSixNotifications) setEnableUPSixNotifications(enableUPSixNotifications?.value || "disabled");
-
-    const enableOmieInChatbot = settings.find((s) => s.key === 'enableOmieInChatbot');
-    if (enableOmieInChatbot) setEnableOmieInChatbot(enableOmieInChatbot.value);
-
-    const omieAppKey = settings.find((s) => s.key === 'omieAppKey');
-    if (omieAppKey) setOmieAppKey(omieAppKey.value);
-
-    const omieAppSecret = settings.find((s) => s.key === 'omieAppSecret');
-    if (omieAppSecret) setOmieAppSecret(omieAppSecret.value);
-
-    const enableGLPI = settings.find((s) => s.key === 'enableGLPI');
-    if (enableGLPI) setEnableGLPI(enableGLPI.value);
-
-    const urlApiGlpi = settings.find((s) => s.key === 'urlApiGlpi');
-    if (urlApiGlpi) setUrlApiGlpi(urlApiGlpi.value);
-
-    const appTokenGlpi = settings.find((s) => s.key === 'appTokenGlpi');
-    if (appTokenGlpi) setAppTokenGlpi(appTokenGlpi.value);
-
-    const tokenMasterGlpi = settings.find((s) => s.key === 'tokenMasterGlpi');
-    if (tokenMasterGlpi) setTokenMasterGlpi(tokenMasterGlpi.value);
-
-    const enableZabbix = settings.find((s) => s.key === "enableZabbix");
-    if (enableZabbix) setEnableZabbix(enableZabbix?.value || "disabled");
-
-    const zabbixAuth = settings.find((s) => s.key === "zabbixAuth");
-    if (zabbixAuth) setZabbixAuth(zabbixAuth?.value || "");
-
-    const zabbixBaseUrl = settings.find((s) => s.key === "zabbixBaseUrl");
-    if (zabbixBaseUrl) setZabbixBaseUrl(zabbixBaseUrl?.value || "");
 
     const enableSaveCommonContactsSetting = settings.find((s) => s.key === "enableSaveCommonContacts");
     if (enableSaveCommonContactsSetting) setEnableSaveCommonContacts(enableSaveCommonContactsSetting?.value || "disabled");
@@ -380,9 +332,6 @@ const Options = ({ settings, scheduleTypeChanged, enableReasonWhenCloseTicketCha
 
     const CheckMsgIsGroup = settings.find((s) => s.key === "CheckMsgIsGroup");
     if (CheckMsgIsGroup) setCheckMsgIsGroup(CheckMsgIsGroup?.value || "disabled");
-
-    const apiToken = settings.find((s) => s.key === "apiToken");
-    if (apiToken) setApiToken(apiToken?.value || "");
 
     const downloadLimit = settings.find((s) => s.key === "downloadLimit");
     if (downloadLimit) setDownloadLimit(downloadLimit?.value || "64");
@@ -433,26 +382,33 @@ const Options = ({ settings, scheduleTypeChanged, enableReasonWhenCloseTicketCha
     if (msgSuportType) setMsgSuportType(msgSuportType?.value || "");
   };
 
-  // Função genérica para atualizar configurações
+  // Função genérica para atualizar configurações - CORRIGIDA
   const updateSetting = async (key, value) => {
-    setHasChanges(true);
-    await update({ key, value });
-    toast.success(i18n.t("optionsPage.successMessage"));
-    setMakeRequestSettings(Math.random());
+    try {
+      setHasChanges(true);
+      await update({ key, value });
+      toast.success(i18n.t("optionsPage.successMessage"));
+      setMakeRequestSettings(Math.random());
+      return true;
+    } catch (error) {
+      console.error("Erro ao atualizar configuração:", error);
+      toast.error("Erro ao atualizar configuração");
+      return false;
+    }
   };
 
-  // Handlers para cada configuração
-  const handleEnableAudioTranscriptions = async (value) => {
+  // Handlers otimizados para evitar re-renders - CORRIGIDOS
+  const handleEnableAudioTranscriptions = useCallback(async (value) => {
     setEnableAudioTranscriptions(value);
     await updateSetting("enableAudioTranscriptions", value);
-  };
+  }, []);
 
-  const handleChangeOpenAiKey = async (value) => {
+  const handleChangeOpenAiKey = useCallback(async (value) => {
     setOpenAiKey(value);
     await updateSetting("openAiKey", value);
-  };
+  }, []);
 
-  const onHandleSaveOpenAiKey = async () => {
+  const onHandleSaveOpenAiKey = useCallback(async () => {
     try {
       Loading.turnOn();
       await handleChangeOpenAiKey(openAiKey);
@@ -462,7 +418,38 @@ const Options = ({ settings, scheduleTypeChanged, enableReasonWhenCloseTicketCha
     } finally {
       Loading.turnOff();
     }
-  };
+  }, [openAiKey, handleChangeOpenAiKey, Loading]);
+
+  // Handler para OpenAI Model - CORRIGIDO
+  const handleOpenAiModel = useCallback(async (value) => {
+    setOpenAiModel(value);
+    await updateSetting("openaiModel", value);
+  }, []);
+
+  // Handler para Trial Expiration - CORRIGIDO
+  const handleTrialExpiration = useCallback(async (value) => {
+    setTrialExpiration(value);
+    await updateSetting("trialExpiration", value);
+  }, []);
+
+  // Handler para Initial Page - CORRIGIDO
+  const handleInitialPage = useCallback(async (value) => {
+    setInitialPage(value);
+    await updateSetting("initialPage", value);
+  }, []);
+
+  // Handler para Quick Messages - CORRIGIDO
+  const handleQuickMessages = useCallback(async (value) => {
+    setQuickMessages(value);
+    await updateSetting("quickMessages", value);
+  }, []);
+
+
+  // Handler para Download Limit - CORRIGIDO
+  const handleDownloadLimit = useCallback(async (value) => {
+    setDownloadLimit(value);
+    await updateSetting("downloadLimit", value);
+  }, []);
 
   const handleDisplayProfileImages = async (value) => {
     setDisplayProfileImages(value);
@@ -547,19 +534,9 @@ const Options = ({ settings, scheduleTypeChanged, enableReasonWhenCloseTicketCha
   };
 
   // Demais handlers (mantendo todos os originais)
-  const handleQuickMessages = async (value) => {
-    setQuickMessages(value);
-    await updateSetting("quickMessages", value);
-  };
-
   const handleDisplayBusinessInfo = async (value) => {
     setDisplayBusinessInfo(value);
     await updateSetting("displayBusinessInfo", value);
-  };
-
-  const handleEnableGroupTool = async (value) => {
-    setEnableGroupTool(value);
-    await updateSetting("enableGroupTool", value);
   };
 
   const handleEnableMetaPixel = async (value) => {
@@ -584,11 +561,6 @@ const Options = ({ settings, scheduleTypeChanged, enableReasonWhenCloseTicketCha
     }
   };
 
-  const handleEnableMessageRules = async (value) => {
-    setEnableMessageRules(value);
-    await updateSetting("enableMessageRules", value);
-  };
-
   const handleEnableUPSix = async (value) => {
     setEnableUPSix(value);
     await updateSetting("enableUPSix", value);
@@ -604,37 +576,7 @@ const Options = ({ settings, scheduleTypeChanged, enableReasonWhenCloseTicketCha
     await updateSetting("enableUPSixNotifications", value);
   };
 
-  const handleEnableZabbix = async (value) => {
-    setEnableZabbix(value);
-    await updateSetting("enableZabbix", value);
-  };
-
-  const handleChangeZabbixAuth = async (value) => {
-    setZabbixAuth(value);
-    await updateSetting("zabbixAuth", value);
-  };
-
-  const handleChangeZabbixBaseUrl = async (value) => {
-    setZabbixBaseUrl(value);
-    await updateSetting("zabbixBaseUrl", value);
-  };
-
-  const onHandleSaveZabbixApi = async () => {
-    if (!zabbixAuth || !zabbixBaseUrl) {
-      toast.error("Preencha todos os campos do Zabbix");
-      return;
-    }
-    try {
-      Loading.turnOn();
-      await handleChangeZabbixAuth(zabbixAuth);
-      await handleChangeZabbixBaseUrl(zabbixBaseUrl);
-      toast.success("Configurações do Zabbix salvas com sucesso");
-    } catch (error) {
-      toast.error(error);
-    } finally {
-      Loading.turnOff();
-    }
-  };
+  
 
   const handleEnableOfficialWhatsapp = async (value) => {
     setEnableOfficialWhatsapp(value);
@@ -656,48 +598,14 @@ const Options = ({ settings, scheduleTypeChanged, enableReasonWhenCloseTicketCha
     await updateSetting("sendQueuePosition", value);
   };
 
-  const handleInitialPage = async (value) => {
-    setInitialPage(value);
-    await updateSetting("initialPage", value);
-  };
-
   const handleSettingsUserRandom = async (value) => {
     setSettingsUserRandom(value);
     await updateSetting("settingsUserRandom", value);
   };
 
-  const handleOpenAiModel = async (value) => {
-    setOpenAiModel(value);
-    await updateSetting("openaiModel", value);
-  };
-
-  const generateApiToken = async () => {
-    const newToken = generateSecureToken(32);
-    setApiToken(newToken);
-    await updateSetting("apiToken", newToken);
-  };
-
-  const deleteApiToken = async () => {
-    setApiToken("");
-    await updateSetting("apiToken", "");
-  };
-
-  const copyApiToken = () => {
-    copyToClipboard(apiToken);
-    toast.success("Token copiado para a área de transferência");
-  };
-
   const handleChangeUserRating = async (value) => {
     setUserRating(value);
     await updateSetting("userRating", value);
-  };
-
-  const handleScheduleType = async (value) => {
-    setScheduleType(value);
-    await updateSetting("scheduleType", value);
-    if (typeof scheduleTypeChanged === "function") {
-      scheduleTypeChanged(value);
-    }
   };
 
   const handleAllowSignup = async (value) => {
@@ -713,43 +621,6 @@ const Options = ({ settings, scheduleTypeChanged, enableReasonWhenCloseTicketCha
   const handleSendGreetingAccepted = async (value) => {
     setSendGreetingAccepted(value);
     await updateSetting("sendGreetingAccepted", value);
-  };
-
-  const handleEnableGLPI = async (value) => {
-    setEnableGLPI(value);
-    await updateSetting("enableGLPI", value);
-  };
-
-  const handleEnableOmieInChatbot = async (value) => {
-    setEnableOmieInChatbot(value);
-    await updateSetting("enableOmieInChatbot", value);
-  };
-
-  const handleChangeOmieAppKey = async (value) => {
-    setOmieAppKey(value);
-    await updateSetting("omieAppKey", value);
-  };
-
-  const handleChangeOmieAppSecret = async (value) => {
-    setOmieAppSecret(value);
-    await updateSetting("omieAppSecret", value);
-  };
-
-  const onHandleSaveApiOmie = async () => {
-    if (!omieAppKey || !omieAppSecret) {
-      toast.error("Preencha todos os campos do Omie");
-      return;
-    }
-    try {
-      Loading.turnOn();
-      await handleChangeOmieAppKey(omieAppKey);
-      await handleChangeOmieAppSecret(omieAppSecret);
-      toast.success("Configurações do Omie salvas com sucesso");
-    } catch (error) {
-      toast.error(error);
-    } finally {
-      Loading.turnOff();
-    }
   };
 
   const handleSettingsTransfTicket = async (value) => {
@@ -782,9 +653,9 @@ const Options = ({ settings, scheduleTypeChanged, enableReasonWhenCloseTicketCha
     await updateSetting("displayContactInfo", value);
   };
 
-  const handleTrialExpiration = async (value) => {
-    setTrialExpiration(value);
-    await updateSetting("trialExpiration", value);
+  const handleEnableTicketValueAndSku = async (value) => {
+    setEnableTicketValueAndSku(value);
+    await updateSetting("enableTicketValueAndSku", value);
   };
 
   const handleChangeUrlSmtpauth = async (value) => {
@@ -805,49 +676,6 @@ const Options = ({ settings, scheduleTypeChanged, enableReasonWhenCloseTicketCha
   const handleChangeSmtpPort = async (value) => {
     setSmtpPortType(value);
     await updateSetting("smtpport", value);
-  };
-
-  const handleDownloadLimit = async (value) => {
-    setDownloadLimit(value);
-    await updateSetting("downloadLimit", value);
-  };
-
-  const handleEnableTicketValueAndSku = async (value) => {
-    setEnableTicketValueAndSku(value);
-    await updateSetting("enableTicketValueAndSku", value);
-  };
-
-  const handleChangeUrlApiGlpi = async (value) => {
-    setUrlApiGlpi(value);
-    await updateSetting("urlApiGlpi", value);
-  };
-
-  const handleChangeAppTokenGlpi = async (value) => {
-    setAppTokenGlpi(value);
-    await updateSetting("appTokenGlpi", value);
-  };
-
-  const handleChangeTokenMasterGlpi = async (value) => {
-    setTokenMasterGlpi(value);
-    await updateSetting("tokenMasterGlpi", value);
-  };
-
-  const onHandleSaveApiGLPI = async () => {
-    if (!urlApiGlpi || !appTokenGlpi || !tokenMasterGlpi) {
-      toast.error("Preencha todos os campos do GLPI");
-      return;
-    }
-    try {
-      Loading.turnOn();
-      await handleChangeUrlApiGlpi(urlApiGlpi);
-      await handleChangeAppTokenGlpi(appTokenGlpi);
-      await handleChangeTokenMasterGlpi(tokenMasterGlpi);
-      toast.success("Configurações do GLPI salvas com sucesso");
-    } catch (error) {
-      toast.error(error);
-    } finally {
-      Loading.turnOff();
-    }
   };
 
   // Função para salvar todas as configurações
@@ -1088,7 +916,6 @@ const Options = ({ settings, scheduleTypeChanged, enableReasonWhenCloseTicketCha
           </FormHelperText>
         </Box>
       </StyledPaper>
-
       <StyledPaper elevation={3}>
         <Box sx={{ p: 1 }}>
           <FormGroup>
@@ -1377,41 +1204,6 @@ const Options = ({ settings, scheduleTypeChanged, enableReasonWhenCloseTicketCha
           </FormHelperText>
         </Box>
       </StyledPaper>
-
-      <StyledPaper elevation={3}>
-        <Box sx={{ p: 1 }}>
-          <Grid container spacing={2}>
-            <Grid item xs={12} sm={6} md={4}>
-              <FormControl fullWidth>
-                <TextField
-                  select
-                  fullWidth
-                  label={i18n.t("optionsPage.expedient")}
-                  value={scheduleType}
-                  size="small"
-                  onChange={(e) => handleScheduleType(e.target.value)}
-                  variant="outlined"
-                  margin="normal"
-                >
-                  <MenuItem value="disabled">
-                    {i18n.t("optionsPage.buttons.off")}
-                  </MenuItem>
-                  <MenuItem value="company">
-                    {i18n.t("optionsPage.buttons.partner")}
-                  </MenuItem>
-                  <MenuItem value="queue">
-                    {i18n.t("optionsPage.buttons.quee")}
-                  </MenuItem>
-                </TextField>
-                <FormHelperText>
-                  {i18n.t("optionsPage.expedientHelp")}
-                </FormHelperText>
-              </FormControl>
-            </Grid>
-          </Grid>
-        </Box>
-      </StyledPaper>
-
       <StyledPaper elevation={3}>
         <Box sx={{ p: 1 }}>
           <FormGroup>
@@ -1763,252 +1555,6 @@ const Options = ({ settings, scheduleTypeChanged, enableReasonWhenCloseTicketCha
         </Box>
       </StyledPaper>
 
-      <StyledPaper elevation={3}>
-        <Box sx={{ p: 1 }}>
-          <Typography variant="subtitle1" sx={{ mb: 2, fontWeight: 'medium', display: 'flex', alignItems: 'center' }}>
-            <Avatar sx={{ bgcolor: '#004a95', width: 28, height: 28 }}>
-              <span style={{ fontWeight: 'bold', fontSize: '14px' }}>G</span>
-            </Avatar>
-            <Box ml={1}>GLPI</Box>
-          </Typography>
-          <FormGroup>
-            <FormControlLabel
-              control={
-                <AnimatedSwitch
-                  style={switchAnimation}
-                  checked={enableGLPI === "enabled"}
-                  name="enableGLPI"
-                  color="primary"
-                  onChange={(e) => handleEnableGLPI(e.target.checked ? "enabled" : "disabled")}
-                />
-              }
-              label={i18n.t("optionsPage.enableGLPI")}
-            />
-          </FormGroup>
-          <FormHelperText>
-            {i18n.t("optionsPage.enableGLPIHelp")}
-          </FormHelperText>
-
-          {enableGLPI === "enabled" && (
-            <Box sx={{ mt: 2 }}>
-              <Typography variant="subtitle2" sx={{ mb: 1 }}>
-                {i18n.t("optionsPage.glpiApiSettings")}
-              </Typography>
-              <Grid container spacing={2}>
-                <Grid item xs={12}>
-                  <TextField
-                    id="urlApiGlpi"
-                    name="urlApiGlpi"
-                    margin="dense"
-                    label={i18n.t("optionsPage.glpiApiUrl")}
-                    variant="outlined"
-                    fullWidth
-                    value={urlApiGlpi}
-                    onChange={(e) => setUrlApiGlpi(e.target.value)}
-                    size="small"
-                  />
-                </Grid>
-                <Grid item xs={12}>
-                  <TextField
-                    id="appTokenGlpi"
-                    name="appTokenGlpi"
-                    margin="dense"
-                    label={i18n.t("optionsPage.glpiAppToken")}
-                    variant="outlined"
-                    fullWidth
-                    value={appTokenGlpi}
-                    onChange={(e) => setAppTokenGlpi(e.target.value)}
-                    size="small"
-                  />
-                </Grid>
-                <Grid item xs={12}>
-                  <TextField
-                    id="tokenMasterGlpi"
-                    name="tokenMasterGlpi"
-                    margin="dense"
-                    label={i18n.t("optionsPage.glpiMasterToken")}
-                    variant="outlined"
-                    fullWidth
-                    value={tokenMasterGlpi}
-                    onChange={(e) => setTokenMasterGlpi(e.target.value)}
-                    size="small"
-                  />
-                </Grid>
-              </Grid>
-              <FormHelperText sx={{ mt: 1, mb: 2 }}>
-                {i18n.t("optionsPage.glpiIntegrationHelp")}
-              </FormHelperText>
-              <Button
-                onClick={onHandleSaveApiGLPI}
-                startIcon={<SaveIcon />}
-                variant="contained"
-                size="small"
-                color="primary"
-              >
-                {i18n.t("optionsPage.saveGlpiSettings")}
-              </Button>
-            </Box>
-          )}
-        </Box>
-      </StyledPaper>
-
-      <StyledPaper elevation={3}>
-        <Box sx={{ p: 1 }}>
-          <Typography variant="subtitle1" sx={{ mb: 2, fontWeight: 'medium', display: 'flex', alignItems: 'center' }}>
-            <Avatar sx={{ bgcolor: '#f6891e', width: 28, height: 28 }}>
-              <span style={{ fontWeight: 'bold', fontSize: '14px' }}>O</span>
-            </Avatar>
-            <Box ml={1}>Omie</Box>
-          </Typography>
-          <FormGroup>
-            <FormControlLabel
-              control={
-                <AnimatedSwitch
-                  style={switchAnimation}
-                  checked={enableOmieInChatbot === "enabled"}
-                  name="enableOmieInChatbot"
-                  color="primary"
-                  onChange={(e) => handleEnableOmieInChatbot(e.target.checked ? "enabled" : "disabled")}
-                />
-              }
-              label={i18n.t("optionsPage.enableOmie")}
-            />
-          </FormGroup>
-          <FormHelperText>
-            {i18n.t("optionsPage.enableOmieHelp")}
-          </FormHelperText>
-
-          {enableOmieInChatbot === "enabled" && (
-            <Box sx={{ mt: 2 }}>
-              <Typography variant="subtitle2" sx={{ mb: 1 }}>
-                {i18n.t("optionsPage.omieApiSettings")}
-              </Typography>
-              <Grid container spacing={2}>
-                <Grid item xs={12}>
-                  <TextField
-                    id="omieAppKey"
-                    name="omieAppKey"
-                    margin="dense"
-                    label={i18n.t("optionsPage.omieAppKey")}
-                    variant="outlined"
-                    fullWidth
-                    value={omieAppKey}
-                    onChange={(e) => setOmieAppKey(e.target.value)}
-                    size="small"
-                  />
-                </Grid>
-                <Grid item xs={12}>
-                  <TextField
-                    id="omieAppSecret"
-                    name="omieAppSecret"
-                    margin="dense"
-                    label={i18n.t("optionsPage.omieAppSecret")}
-                    variant="outlined"
-                    fullWidth
-                    value={omieAppSecret}
-                    onChange={(e) => setOmieAppSecret(e.target.value)}
-                    size="small"
-                  />
-                </Grid>
-              </Grid>
-              <FormHelperText sx={{ mt: 1, mb: 2 }}>
-                {i18n.t("optionsPage.omieIntegrationHelp")}
-              </FormHelperText>
-              <Box sx={{ mt: 1 }}>
-                <Typography variant="body2" color="primary" fontWeight="medium">
-                  {i18n.t("optionsPage.omieRequiredSector")}
-                </Typography>
-              </Box>
-              <Button
-                onClick={onHandleSaveApiOmie}
-                startIcon={<SaveIcon />}
-                variant="contained"
-                size="small"
-                color="primary"
-                sx={{ mt: 2 }}
-              >
-                {i18n.t("optionsPage.saveOmieSettings")}
-              </Button>
-            </Box>
-          )}
-        </Box>
-      </StyledPaper>
-
-      <StyledPaper elevation={3}>
-        <Box sx={{ p: 1 }}>
-          <Typography variant="subtitle1" sx={{ mb: 2, fontWeight: 'medium', display: 'flex', alignItems: 'center' }}>
-            <Avatar sx={{ bgcolor: '#CC0000', width: 28, height: 28 }}>
-              <span style={{ fontWeight: 'bold', fontSize: '14px', color: 'white' }}>Z</span>
-            </Avatar>
-            <Box ml={1}>Zabbix</Box>
-          </Typography>
-          <FormGroup>
-            <FormControlLabel
-              control={
-                <AnimatedSwitch
-                  style={switchAnimation}
-                  checked={enableZabbix === "enabled"}
-                  name="enableZabbix"
-                  color="primary"
-                  onChange={(e) => handleEnableZabbix(e.target.checked ? "enabled" : "disabled")}
-                />
-              }
-              label={i18n.t("optionsPage.enableZabbix")}
-            />
-          </FormGroup>
-          <FormHelperText>
-            {i18n.t("optionsPage.enableZabbixHelp")}
-          </FormHelperText>
-
-          {enableZabbix === "enabled" && (
-            <Box sx={{ mt: 2 }}>
-              <Typography variant="subtitle2" sx={{ mb: 1 }}>
-                {i18n.t("optionsPage.zabbixApiSettings")}
-              </Typography>
-              <Grid container spacing={2}>
-                <Grid item xs={12}>
-                  <TextField
-                    id="zabbixAuth"
-                    name="zabbixAuth"
-                    margin="dense"
-                    label={i18n.t("optionsPage.zabbixAuthToken")}
-                    variant="outlined"
-                    fullWidth
-                    value={zabbixAuth}
-                    onChange={(e) => setZabbixAuth(e.target.value)}
-                    size="small"
-                  />
-                </Grid>
-                <Grid item xs={12}>
-                  <TextField
-                    id="zabbixBaseUrl"
-                    name="zabbixBaseUrl"
-                    margin="dense"
-                    label={i18n.t("optionsPage.zabbixBaseUrl")}
-                    variant="outlined"
-                    fullWidth
-                    value={zabbixBaseUrl}
-                    onChange={(e) => setZabbixBaseUrl(e.target.value)}
-                    size="small"
-                  />
-                </Grid>
-              </Grid>
-              <FormHelperText sx={{ mt: 1, mb: 2 }}>
-                {i18n.t("optionsPage.zabbixIntegrationHelp")}
-              </FormHelperText>
-              <Button
-                onClick={onHandleSaveZabbixApi}
-                startIcon={<SaveIcon />}
-                variant="contained"
-                size="small"
-                color="primary"
-              >
-                {i18n.t("optionsPage.saveZabbixSettings")}
-              </Button>
-            </Box>
-          )}
-        </Box>
-      </StyledPaper>
     </>
   );
 
@@ -2045,7 +1591,7 @@ const Options = ({ settings, scheduleTypeChanged, enableReasonWhenCloseTicketCha
                   <MenuItem value="512">512 MB</MenuItem>
                   <MenuItem value="1024">1 GB</MenuItem>
                   <MenuItem value="2048">2 GB</MenuItem>
-                </TextField>
+                  </TextField>
                 <FormHelperText>
                   {i18n.t("optionsPage.downloadLimitHelp")}
                 </FormHelperText>
@@ -2178,120 +1724,6 @@ const Options = ({ settings, scheduleTypeChanged, enableReasonWhenCloseTicketCha
       <StyledPaper elevation={3}>
         <Box sx={{ p: 1 }}>
           <Typography variant="subtitle1" sx={{ mb: 2, fontWeight: 'medium', display: 'flex', alignItems: 'center' }}>
-            <FontAwesomeIcon icon={faDatabase} style={{ marginRight: '8px', color: theme.palette.primary.main }} />
-            {i18n.t("optionsPage.developmentPanels")}
-          </Typography>
-          <OnlyForSuperUser
-            user={user}
-            yes={() => (
-              <>
-                <FormGroup>
-                  <FormControlLabel
-                    control={
-                      <AnimatedSwitch
-                        style={switchAnimation}
-                        checked={enableGroupTool === true || enableGroupTool === "enabled"}
-                        name="enableGroupTool"
-                        color="primary"
-                        onChange={(e) => handleEnableGroupTool(e.target.checked ? "enabled" : "disabled")}
-                      />
-                    }
-                    label={i18n.t("optionsPage.enableGroupTool")}
-                  />
-                </FormGroup>
-                <FormHelperText>
-                  {i18n.t("optionsPage.enableGroupToolHelp")}
-                </FormHelperText>
-
-                <FormGroup sx={{ mt: 2 }}>
-                  <FormControlLabel
-                    control={
-                      <AnimatedSwitch
-                        style={switchAnimation}
-                        checked={enableMessageRules === true || enableMessageRules === "enabled"}
-                        name="enableMessageRules"
-                        color="primary"
-                        onChange={(e) => handleEnableMessageRules(e.target.checked ? "enabled" : "disabled")}
-                      />
-                    }
-                    label={i18n.t("optionsPage.enableMessageRules")}
-                  />
-                </FormGroup>
-                <FormHelperText>
-                  {i18n.t("optionsPage.enableMessageRulesHelp")}
-                </FormHelperText>
-              </>
-            )}
-          />
-        </Box>
-      </StyledPaper>
-
-      <StyledPaper elevation={3}>
-        <Box sx={{ p: 1 }}>
-          <Typography variant="subtitle1" sx={{ mb: 2, fontWeight: 'medium', display: 'flex', alignItems: 'center' }}>
-            <AppSettingsIcon sx={{ mr: 1, color: theme.palette.primary.main }} />
-            API Token
-          </Typography>
-          <Grid container spacing={2} alignItems="center">
-            <Grid item xs={12} sm={6} md={6}>
-              <TextField
-                id="api-token-field"
-                label={i18n.t("optionsPage.apiToken")}
-                size="small"
-                value={apiToken}
-                InputProps={{
-                  endAdornment: (
-                    <Box>
-                      {apiToken && (
-                        <>
-                          <Tooltip title={i18n.t("optionsPage.copyToken")}>
-                            <IconButton
-                              size="small"
-                              color="primary"
-                              onClick={copyApiToken}
-                            >
-                              <FileCopyIcon />
-                            </IconButton>
-                          </Tooltip>
-                          <Tooltip title={i18n.t("optionsPage.deleteToken")}>
-                            <IconButton
-                              size="small"
-                              color="error"
-                              onClick={deleteApiToken}
-                            >
-                              <Delete />
-                            </IconButton>
-                          </Tooltip>
-                        </>
-                      )}
-                      {!apiToken && (
-                        <Tooltip title={i18n.t("optionsPage.generateToken")}>
-                          <IconButton
-                            size="small"
-                            color="primary"
-                            onClick={generateApiToken}
-                          >
-                            <FontAwesomeIcon icon={faGears} />
-                          </IconButton>
-                        </Tooltip>
-                      )}
-                    </Box>
-                  ),
-                }}
-                fullWidth
-                margin="normal"
-              />
-              <FormHelperText>
-                {i18n.t("optionsPage.apiTokenHelp")}
-              </FormHelperText>
-            </Grid>
-          </Grid>
-        </Box>
-      </StyledPaper>
-
-      <StyledPaper elevation={3}>
-        <Box sx={{ p: 1 }}>
-          <Typography variant="subtitle1" sx={{ mb: 2, fontWeight: 'medium', display: 'flex', alignItems: 'center' }}>
             <FontAwesomeIcon icon={faEnvelope} style={{ marginRight: '8px', color: theme.palette.primary.main }} />
             SMTP
           </Typography>
@@ -2303,7 +1735,8 @@ const Options = ({ settings, scheduleTypeChanged, enableReasonWhenCloseTicketCha
                 label={i18n.t("optionsPage.smtpServer")}
                 size="small"
                 value={smtpauthType}
-                onChange={(e) => handleChangeUrlSmtpauth(e.target.value)}
+                onChange={(e) => setUrlSmtpauthType(e.target.value)}
+                onBlur={() => handleChangeUrlSmtpauth(smtpauthType)}
                 fullWidth
                 margin="normal"
               />
@@ -2315,7 +1748,8 @@ const Options = ({ settings, scheduleTypeChanged, enableReasonWhenCloseTicketCha
                 label={i18n.t("optionsPage.smtpUser")}
                 size="small"
                 value={usersmtpauthType}
-                onChange={(e) => handleChangeUserSmptauth(e.target.value)}
+                onChange={(e) => setUserSmtpauthType(e.target.value)}
+                onBlur={() => handleChangeUserSmptauth(usersmtpauthType)}
                 fullWidth
                 margin="normal"
               />
@@ -2328,7 +1762,8 @@ const Options = ({ settings, scheduleTypeChanged, enableReasonWhenCloseTicketCha
                 size="small"
                 type="password"
                 value={clientsecretsmtpauthType}
-                onChange={(e) => handleChangeClientSecrectSmtpauth(e.target.value)}
+                onChange={(e) => setClientSecrectSmtpauthType(e.target.value)}
+                onBlur={() => handleChangeClientSecrectSmtpauth(clientsecretsmtpauthType)}
                 fullWidth
                 margin="normal"
               />
@@ -2340,7 +1775,8 @@ const Options = ({ settings, scheduleTypeChanged, enableReasonWhenCloseTicketCha
                 label={i18n.t("optionsPage.smtpPort")}
                 size="small"
                 value={smtpPortType}
-                onChange={(e) => handleChangeSmtpPort(e.target.value)}
+                onChange={(e) => setSmtpPortType(e.target.value)}
+                onBlur={() => handleChangeSmtpPort(smtpPortType)}
                 fullWidth
                 margin="normal"
               />
@@ -2411,13 +1847,11 @@ Options.propTypes = {
     key: PropTypes.string.isRequired,
     value: PropTypes.any
   })),
-  scheduleTypeChanged: PropTypes.func,
   enableReasonWhenCloseTicketChanged: PropTypes.func
 };
 
 Options.defaultProps = {
   settings: [],
-  scheduleTypeChanged: () => { },
   enableReasonWhenCloseTicketChanged: () => { }
 };
 

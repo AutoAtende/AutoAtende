@@ -146,7 +146,6 @@ routes.post("/companies/:id/send-invoice-whatsapp", celebrate({
   }
 }), isAuth, isSuper, CompanyController.sendInvoiceWhatsapp);
 
-// Em companyRoutes.ts
 routes.put("/companies/:id/schedules", celebrate({
   [Segments.PARAMS]: {
     id: Joi.number().required()
@@ -161,9 +160,36 @@ routes.put("/companies/:id/schedules", celebrate({
         startLunchTime: Joi.string().allow('', null),
         endLunchTime: Joi.string().allow('', null)
       })
-    ).required()
+    ).required(),
+    type: Joi.string().valid('company', 'queue').required(),
+    queueId: Joi.number().when('type', {
+      is: 'queue',
+      then: Joi.required(),
+      otherwise: Joi.optional()
+    })
   }
 }), isAuth, CompanyController.updateSchedules);
+
+// Adicionar novas rotas para gerenciamento de horários
+routes.get("/companies/:id/queues", celebrate({
+  [Segments.PARAMS]: {
+    id: Joi.number().required()
+  }
+}), isAuth, CompanyController.getCompanyQueues);
+
+routes.get("/companies/:id/schedules", celebrate({
+  [Segments.PARAMS]: {
+    id: Joi.number().required()
+  },
+  [Segments.QUERY]: {
+    type: Joi.string().valid('company', 'queue').default('company'),
+    queueId: Joi.number().when('type', {
+      is: 'queue',
+      then: Joi.required(),
+      otherwise: Joi.optional()
+    })
+  }
+}), isAuth, CompanyController.getSchedules);
 
 routes.get(
   "/companies/:companyId/users",

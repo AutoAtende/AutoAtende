@@ -33,6 +33,8 @@ import UpdateCompanySettingsService from "../services/CompanySettingsServices/Up
 import UnblockCompanyService from "services/CompanyService/UnblockCompanyService";
 import { exportCompanies as exportCompaniesService } from "services/CompanyService/ExportService";
 import GetDefaultWhatsApp from "../helpers/GetDefaultWhatsApp";
+import UpdateQueueService from "../services/QueueService/UpdateQueueService";
+
 //import CreateCompanyAssasService from "../services/CompanyService/CreateCompanyAssasService";
 import ShowPlanCompanyService from "../services/CompanyService/ShowPlanCompanyService";
 import ShowInvoicesFromCompanyService from "../services/CompanyService/ShowInvoicesFromCompanyService";
@@ -72,6 +74,21 @@ interface CompanyData {
   complemento?: string; // Novo campo
   diaVencimento?: string;
   urlPBX?: string;
+}
+
+interface UpdateSchedulesData {
+  schedules: Schedule[];
+  type: 'company' | 'queue';
+  queueId?: number;
+}
+
+interface Schedule {
+  weekday: string;
+  weekdayEn: string;
+  startTime: string;
+  endTime: string;
+  startLunchTime?: string;
+  endLunchTime?: string;
 }
 
 interface SettingsData {
@@ -218,24 +235,199 @@ export const total = async (req: Request, res: Response): Promise<Response> => {
 };
 
 export const updateSchedules = async (req: Request, res: Response): Promise<Response> => {
-  const { schedules } = req.body;
+  const { schedules, type, queueId }: UpdateSchedulesData = req.body;
   const { id } = req.params;
 
   // Debug dos dados recebidos
-  console.log('Schedules recebidos:', JSON.stringify(schedules, null, 2));
-  console.log('ID recebido:', id);
+  console.log('Dados recebidos para updateSchedules:', {
+    schedules: JSON.stringify(schedules, null, 2),
+    type,
+    queueId,
+    companyId: id
+  });
 
   const requestUser = await User.findByPk(req.user.id);
   if (!requestUser.super && Number(id) !== requestUser.companyId) {
     throw new AppError("Unauthorized access", 403);
   }
 
-  const company = await UpdateSchedulesService({
-    id,
-    schedules
-  });
+  // Validar tipo de configuração
+  if (!type || !['company', 'queue'].includes(type)) {
+    throw new AppError("Tipo de configuração inválido", 400);
+  }
 
-  return res.json(company);
+  // Se for por queue, validar se queueId foi fornecido
+  if (type === 'queue' && !queueId) {
+    throw new AppError("ID da fila é obrigatório quando tipo é 'queue'", 400);
+  }
+
+  // Validar se a queue pertence à empresa
+  if (type === 'queue') {
+    const queue = await Queue.findOne({
+      where: { 
+        id: queueId,
+        companyId: Number(id)
+      }
+    });
+
+    if (!queue) {
+      throw new AppError("Fila não encontrada ou não pertence a esta empresa", 404);
+    }
+  }
+
+  try {
+    let result;
+
+    if (type === 'company') {
+      // Atualizar horários da empresa
+      result = await UpdateSchedulesService({
+        id,
+        schedules
+      });
+    } else {
+      // Atualizar horários da queue
+      result = await UpdateQueueService(
+        queueId!,
+        { schedules },
+        Number(id)
+      );
+    }
+
+    const io = getIO();
+    
+    if (type === 'company') {
+      io.emit(`company-${id}`, {
+        action: "update-schedules",
+        schedules,
+        type
+      });
+    } else {
+      io.emit(`queue-${queueId}`, {
+        action: "update-schedules",
+        schedules,
+        type
+      });
+      
+      // Também emitir para a empresa
+      io.emit(`company-${id}`, {
+        action: "queue-schedules-updated",
+        queueId,
+        schedules
+      });
+    }
+
+    return res.json({
+      success: true,
+      type,
+      ...(type === 'queue' ? { queueId } : {}),
+      data: result
+    });
+
+  } catch (err) {
+    logger.error({
+      message: "Error updating schedules",
+      type,
+      companyId: id,
+      queueId,
+      error: err
+    });
+
+    if (err instanceof AppError) {
+      throw err;
+    }
+    
+    throw new AppError("Erro ao atualizar horários", 500);
+  }
+};
+
+// Adicionar nova função para buscar queues da empresa
+export const getCompanyQueues = async (req: Request, res: Response): Promise<Response> => {
+  const { id } = req.params;
+  const requestUser = await User.findByPk(req.user.id);
+
+  if (!requestUser.super && Number(id) !== requestUser.companyId) {
+    throw new AppError("Unauthorized access", 403);
+  }
+
+  try {
+    const queues = await Queue.findAll({
+      where: { companyId: Number(id) },
+      attributes: ['id', 'name', 'color', 'schedules'],
+      order: [['name', 'ASC']]
+    });
+
+    return res.json({ queues });
+  } catch (err) {
+    logger.error({
+      message: "Error fetching company queues",
+      companyId: id,
+      error: err
+    });
+    
+    throw new AppError("Erro ao buscar filas da empresa", 500);
+  }
+};
+
+// Adicionar nova função para buscar horários específicos (empresa ou queue)
+export const getSchedules = async (req: Request, res: Response): Promise<Response> => {
+  const { id } = req.params;
+  const { type, queueId } = req.query;
+  const requestUser = await User.findByPk(req.user.id);
+
+  if (!requestUser.super && Number(id) !== requestUser.companyId) {
+    throw new AppError("Unauthorized access", 403);
+  }
+
+  try {
+    let schedules = [];
+
+    if (type === 'queue' && queueId) {
+      const queue = await Queue.findOne({
+        where: { 
+          id: Number(queueId),
+          companyId: Number(id)
+        },
+        attributes: ['id', 'name', 'schedules']
+      });
+
+      if (!queue) {
+        throw new AppError("Fila não encontrada", 404);
+      }
+
+      schedules = queue.schedules || [];
+    } else {
+      const company = await Company.findByPk(id, {
+        attributes: ['id', 'name', 'schedules']
+      });
+
+      if (!company) {
+        throw new AppError("Empresa não encontrada", 404);
+      }
+
+      schedules = company.schedules || [];
+    }
+
+    return res.json({ 
+      schedules,
+      type: type || 'company',
+      ...(type === 'queue' ? { queueId: Number(queueId) } : {})
+    });
+
+  } catch (err) {
+    logger.error({
+      message: "Error fetching schedules",
+      companyId: id,
+      type,
+      queueId,
+      error: err
+    });
+
+    if (err instanceof AppError) {
+      throw err;
+    }
+    
+    throw new AppError("Erro ao buscar horários", 500);
+  }
 };
 
 export const listPlan = async (req: Request, res: Response): Promise<Response> => {

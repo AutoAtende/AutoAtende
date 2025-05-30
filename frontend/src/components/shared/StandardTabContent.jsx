@@ -28,7 +28,7 @@ const TabContainer = styled(Box)(({ theme }) => ({
   display: 'flex',
   flexDirection: 'column',
   width: '100%',
-  // Remove qualquer limitação de altura para permitir rolagem natural
+  // Remove qualquer limitação de altura para permitir crescimento natural
 }));
 
 const TabHeader = styled(Box)(({ theme }) => ({
@@ -330,12 +330,11 @@ const StandardTabContent = ({
 }) => {
   const theme = useTheme();
   const isXs = useMediaQuery(theme.breakpoints.only('xs'));
-  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
 
   return (
     <TabContainer>
-      {/* Cabeçalho da Aba */}
-      {(title || description || breadcrumbs.length > 0 || stats.length > 0) && (
+      {/* Cabeçalho da Aba - só exibe se tem conteúdo para mostrar */}
+      {(title || description || breadcrumbs.length > 0 || stats.length > 0 || actions) && (
         <TabHeader {...headerProps}>
           {/* Navegação (Breadcrumbs) */}
           <TabBreadcrumbs items={breadcrumbs} />
@@ -401,15 +400,15 @@ const StandardTabContent = ({
               sx={alert.sx}
             />
           ))}
-        </TabHeader>
-      )}
 
-      {/* Divisor */}
-      {(title || description || breadcrumbs.length > 0 || alerts.length > 0) && (
-        <Divider sx={{ 
-          mb: isXs ? 2 : 2.5,
-          mx: isXs ? -1 : 0
-        }} />
+          {/* Divisor */}
+          {(title || description || breadcrumbs.length > 0 || alerts.length > 0) && (
+            <Divider sx={{ 
+              mt: 1,
+              mx: isXs ? -1 : 0
+            }} />
+          )}
+        </TabHeader>
       )}
 
       {/* Área de Conteúdo */}
@@ -422,7 +421,8 @@ const StandardTabContent = ({
                 alignItems: 'center', 
                 justifyContent: 'center',
                 padding: theme.spacing(2),
-                minHeight: '200px'
+                minHeight: '200px',
+                width: '100%'
               }}>
                 {emptyState}
               </Box>

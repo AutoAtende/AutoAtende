@@ -22,6 +22,7 @@ const PageContainer = styled(Box)(({ theme }) => ({
   display: 'flex',
   flexDirection: 'column',
   height: '100vh',
+  width: '100%',
   overflow: 'hidden',
   padding: theme.spacing(1, 1.5),
   // Primeira regra: Mobile (xs)
@@ -126,9 +127,10 @@ const ContentArea = styled(Box)(({ theme }) => ({
   flex: 1,
   display: 'flex',
   flexDirection: 'column',
-  overflow: 'auto',
   minHeight: 0,
-  // Padding interno mobile-friendly
+  width: '100%',
+  overflow: 'auto',
+  // Scroll customizado
   '&::-webkit-scrollbar': {
     width: 6,
     [theme.breakpoints.up('sm')]: {
@@ -138,21 +140,6 @@ const ContentArea = styled(Box)(({ theme }) => ({
   '&::-webkit-scrollbar-thumb': {
     backgroundColor: theme.palette.divider,
     borderRadius: 4,
-  }
-}));
-
-const TabPanel = styled(Box)(({ theme }) => ({
-  flex: 1,
-  padding: theme.spacing(1),
-  display: 'flex',
-  flexDirection: 'column',
-  minHeight: 0,
-  // Mobile first padding
-  [theme.breakpoints.up('sm')]: {
-    padding: theme.spacing(1.5),
-  },
-  [theme.breakpoints.up('md')]: {
-    padding: theme.spacing(2),
   }
 }));
 
@@ -382,27 +369,27 @@ const StandardPageLayout = ({
       <ContentArea>
         {showEmptyState && emptyState ? (
           <Fade in timeout={500}>
-            <Box sx={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <Box sx={{ 
+              flex: 1, 
+              display: 'flex', 
+              alignItems: 'center', 
+              justifyContent: 'center',
+              width: '100%',
+              minHeight: 200
+            }}>
               {emptyState}
             </Box>
           </Fade>
         ) : (
-          <>
-            {tabs.length > 0 ? (
-              <TabPanel>
-                {children}
-              </TabPanel>
-            ) : (
-              <Box sx={{ 
-                flex: 1, 
-                display: 'flex', 
-                flexDirection: 'column',
-                minHeight: 0 
-              }}>
-                {children}
-              </Box>
-            )}
-          </>
+          <Box sx={{ 
+            flex: 1, 
+            display: 'flex', 
+            flexDirection: 'column',
+            width: '100%',
+            minHeight: 0
+          }}>
+            {children}
+          </Box>
         )}
       </ContentArea>
     </PageContainer>

@@ -812,7 +812,7 @@ export const handleMessage = async (
      * de atendimento. Isso garante que as mensagens recebidas fora do horário de funcionamento
      * sejam tratadas adequadamente.
      */
-    const currentSchedule = await VerifyCurrentSchedule(companyId);
+    const currentSchedule = await VerifyCurrentSchedule({companyId});
     const scheduleType = await Setting.findOne({
       where: {
         companyId,
