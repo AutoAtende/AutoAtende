@@ -327,42 +327,23 @@ private async sendConfirmationMessage(
     }
 
     // Criar registro da mensagem no banco
-    let messageData = {
+    const messageData = {
       id: messageId,
       ticketId: ticket.id,
       body: messageText,
       contactId: contact.id,
       fromMe: true,
       read: true,
-      mediaType: confirmConfig.imageUrl ? 'image' : 'chat',
-      mediaUrl: confirmConfig.imageUrl || null,
-      internalMessage: false
+      mediaType: 'chat',
+      mediaUrl: null,
+      internalMessage: true
     };
-
-    await CreateMessageService({
+    
+    const internalMessage = await CreateMessageService({
       messageData,
       ticket: ticket,
       companyId: ticket.companyId
     });
-
-        // Criar registro da mensagem no banco
-         messageData = {
-          id: messageId,
-          ticketId: ticket.id,
-          body: messageText,
-          contactId: contact.id,
-          fromMe: true,
-          read: true,
-          mediaType: 'chat',
-          mediaUrl: null,
-          internalMessage: true
-        };
-    
-        await CreateMessageService({
-          messageData,
-          ticket: ticket,
-          companyId: ticket.companyId
-        });
 
     await SetTicketMessagesAsRead(ticket);
     await verifyMessage(sentMessage, ticket, contact);
@@ -826,14 +807,18 @@ private async sendGroupInvitation(
         await createTicketMutex.runExclusive(async () => {
           logger.debug(`Mutex adquirido, criando novo ticket`);
 
-          ticket = await Ticket.create({
-            contactId: contact.id,
-            whatsappId: whatsapp.id,
+          ticket = await FindOrCreateTicketService(
+            contact,
+            whatsapp.id,
+            0,
             companyId,
-            status: 'open',
-            isGroup: false,
-          });
-
+            null,
+            null,
+            false,
+            true,
+            false
+          );
+            
           logger.info(`NOVO ticket ID: ${ticket.id} criado com sucesso para submissão de formulário`);
 
           // Criar tracking logo após o ticket
@@ -968,15 +953,19 @@ private async sendGroupInvitation(
             throw contactError;
           }
 
-          // Criar NOVO ticket para o responsável
           let adminTicket: Ticket;
           try {
-            adminTicket = await Ticket.create({
-              contactId: adminContact.id,
-              whatsappId: whatsapp.id,
+            adminTicket = await FindOrCreateTicketService(
+              adminContact,
+              whatsapp.id,
+              0,
               companyId,
-              status: 'open',
-            });
+              null,
+              null,
+              false,
+              true,
+              false
+            );
 
             logger.debug(`Novo ticket para administrador criado com ID: ${adminTicket.id}`);
           } catch (ticketError) {
