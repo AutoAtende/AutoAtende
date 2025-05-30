@@ -27,8 +27,6 @@ import { sendMessageNotificationToFrontend } from "../SocketEventMessageNotifica
 import Contact from "../../models/Contact";
 import { verifyMessage } from "../WbotServices/MessageListener/Verifiers/VerifyMessage";
 import ListUsersService from "../UserServices/ListUsersService";
-import Thread from "../../models/Thread";
-import { logger } from "../../utils/logger";
 
 export interface TicketData {
   status?: string;
@@ -79,32 +77,6 @@ interface Response {
 }
 
 let completionMessageControl: any[] = [];
-
-/**
- * Função para verificar se deve desabilitar integração de assistente
- */
-const shouldDisableAssistantIntegration = (
-  currentTicket: Ticket,
-  ticketData: TicketData
-): boolean => {
-  // Se está atribuindo um usuário a um ticket que estava com assistente
-  const wasUsingAssistant = currentTicket.useIntegration;
-  const willBeAssignedToUser = ticketData.userId && ticketData.userId !== currentTicket.userId;
-  const willChangeToOpen = ticketData.status === "open";
-
-  return wasUsingAssistant && (willBeAssignedToUser || willChangeToOpen);
-};
-
-/**
- * Função para desabilitar completamente a integração do assistente
- */
-const disableAssistantIntegration = (ticketData: TicketData): void => {
-  ticketData.useIntegration = false;
-  ticketData.integrationId = null;
-  ticketData.chatbot = false;
-  // Remover isBot se existir na interface (pode não estar tipado)
-  (ticketData as any).isBot = false;
-};
 
 /**
  * Obtém o ID do WhatsApp padrão da empresa.
@@ -302,43 +274,6 @@ const UpdateTicketService = async ({
     if (tokenData) {
       companyId = tokenData.companyId;
     }
-
-    // Buscar ticket atual para verificar estado
-    let ticket = await ShowTicketService(ticketId, companyId);
-    
-    // NOVA LÓGICA: Verificar se deve desabilitar integração do assistente
-    const shouldDisableAssistant = shouldDisableAssistantIntegration(ticket, ticketData);
-    
-    if (shouldDisableAssistant) {
-      logger.info({
-        ticketId: ticket.id,
-        companyId,
-        userCurrentId,
-        wasUsingAssistant: ticket.useIntegration,
-        newUserId: ticketData.userId
-      }, "Detectada transferência de assistente para humano - desabilitando integração");
-
-      // Desabilitar completamente a integração do assistente
-      disableAssistantIntegration(ticketData);
-      
-      // Se não foi especificado status, definir como open quando atribuir usuário
-      if (ticketData.userId && !ticketData.status) {
-        ticketData.status = "open";
-      }
-
-      // Log da thread para manter histórico
-      const thread = await Thread.findOne({
-        where: { ticketId: ticket.id }
-      });
-
-      if (thread) {
-        logger.info({
-          ticketId: ticket.id,
-          threadId: thread.threadId
-        }, "Thread encontrada - mantendo histórico de conversa com assistente");
-      }
-    }
-
     let { status } = ticketData;
 
     let {
@@ -388,6 +323,8 @@ const UpdateTicketService = async ({
         return;
       }
     }
+
+    let ticket = await ShowTicketService(ticketId, companyId);
 
     if (sendFarewellMessage == null) {
       sendFarewellMessage = true;
@@ -469,7 +406,7 @@ const UpdateTicketService = async ({
 
           await SendPresenceStatus(
             await getWbot(+whatsappId, companyId),
-            `${ticket.contact.number}@s.whatsapp.net`
+            `${ticket.contact.number}@${ticket.isGroup ? "g.us" : "s.whatsapp.net"}`
           );
           await SendWhatsAppMessage({ body: bodyRatingMessage, ticket });
 
@@ -708,8 +645,7 @@ const UpdateTicketService = async ({
 
     let whatsappIdN = Number(whatsappId);
 
-    // ATUALIZAÇÃO APRIMORADA: Incluir isBot na atualização
-    const updateData: any = {
+    ticket = await ticket.update({
       amountUsedBotQueues: ticketData.amountUsedBotQueues || 0,
       status,
       unreadMessages: ticketData.unreadMessages || 0,
@@ -719,33 +655,10 @@ const UpdateTicketService = async ({
       chatbot,
       queueOptionId,
       value: ticketData.value || 0,
-      sku: ticketData.sku || null,
-      useIntegration,
-      integrationId
-    };
-
-    // Adicionar isBot se foi fornecido nos dados
-    if ('isBot' in ticketData) {
-      updateData.isBot = (ticketData as any).isBot;
-    }
-
-    ticket = await ticket.update(updateData);
+      sku: ticketData.sku || null
+    });
 
     await ticket.reload();
-
-    // Log da atualização
-    logger.info({
-      ticketId: ticket.id,
-      companyId,
-      userCurrentId,
-      oldStatus,
-      newStatus: ticket.status,
-      oldUserId,
-      newUserId: ticket.userId,
-      useIntegration: ticket.useIntegration,
-      isBot: (ticket as any).isBot,
-      assistantTransfer: shouldDisableAssistant
-    }, "Ticket atualizado com sucesso");
 
     //Envia notificação quando moda de area e/ou fila.
     if (status == "pending" && queueId != oldQueueId) {
@@ -899,13 +812,6 @@ const UpdateTicketService = async ({
     return { ticket, oldStatus, oldUserId };
   } catch (err) {
     console.trace(err);
-    logger.error({
-      ticketId,
-      companyId,
-      userCurrentId,
-      error: err.message,
-      stack: err.stack
-    }, "Erro ao atualizar ticket");
   }
 };
 

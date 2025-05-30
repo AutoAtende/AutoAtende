@@ -74,58 +74,6 @@ interface ImageMessage {
 
 type MessageType = TextMessage | LocationMessage | DocumentMessage | VideoMessage | ContactMessage | AudioMessage | ImageMessage;
 
-// Função para verificar se o assistente deve processar a mensagem
-function shouldAssistantProcess(ticket: Ticket): boolean {
-  // Se ticket tem usuário humano atribuído, assistente NÃO deve processar
-  if (ticket.userId) {
-    logger.info({
-      ticketId: ticket.id,
-      userId: ticket.userId,
-      status: ticket.status
-    }, "Assistente não processará: ticket tem usuário humano atribuído");
-    return false;
-  }
-
-  // Se ticket está com status "open", significa que foi aceito por um humano
-  if (ticket.status === "open") {
-    logger.info({
-      ticketId: ticket.id,
-      status: ticket.status
-    }, "Assistente não processará: ticket está aberto para atendimento humano");
-    return false;
-  }
-
-  // Se ticket está fechado, assistente não deve processar
-  if (ticket.status === "closed") {
-    logger.info({
-      ticketId: ticket.id,
-      status: ticket.status
-    }, "Assistente não processará: ticket está fechado");
-    return false;
-  }
-
-  // Se não está usando integração, assistente não deve processar
-  if (!ticket.useIntegration) {
-    logger.info({
-      ticketId: ticket.id,
-      useIntegration: ticket.useIntegration
-    }, "Assistente não processará: integração desabilitada");
-    return false;
-  }
-
-  // Se ticket tem fila definida mas não está usando bot, assistente não deve processar
-  if (ticket.queueId && !ticket.chatbot) {
-    logger.info({
-      ticketId: ticket.id,
-      queueId: ticket.queueId,
-      chatbot: ticket.chatbot
-    }, "Assistente não processará: ticket em fila sem chatbot ativo");
-    return false;
-  }
-
-  return true;
-}
-
 // Função para baixar áudio de mensagens
 async function downloadAudio(msg: proto.IWebMessageInfo, companyId: number): Promise<string> {
   try {
@@ -499,22 +447,6 @@ export const handleAssistantChat = async (assistant: Assistant, msg: proto.IWebM
       return false;
     }
 
-    // VERIFICAÇÃO CRÍTICA: Recarregar ticket para garantir dados atualizados
-    await ticket.reload();
-
-    // NOVA VERIFICAÇÃO: Assistente deve processar esta mensagem?
-    if (!shouldAssistantProcess(ticket)) {
-      logger.info({
-        ticketId: ticket.id,
-        assistantId: assistant.id,
-        userId: ticket.userId,
-        status: ticket.status,
-        useIntegration: ticket.useIntegration,
-        chatbot: ticket.chatbot
-      }, "Assistente não processará mensagem - condições não atendidas");
-      return false;
-    }
-
     logger.info({
       ticketId: ticket.id,
       assistantId: assistant.id,
@@ -662,28 +594,6 @@ export const handleAssistantChat = async (assistant: Assistant, msg: proto.IWebM
     while (
       !["completed", "failed", "cancelled", "expired"].includes(runStatus.status)
     ) {
-      // VERIFICAÇÃO ADICIONAL: Verificar se o ticket ainda deve ser processado pelo assistente
-      await ticket.reload();
-      if (!shouldAssistantProcess(ticket)) {
-        logger.warn({
-          ticketId: ticket.id,
-          runId: run.id,
-          currentStatus: runStatus.status
-        }, "Ticket não deve mais ser processado pelo assistente - cancelando execução");
-        
-        try {
-          await openai.beta.threads.runs.cancel(thread.threadId, run.id);
-        } catch (cancelError) {
-          logger.error({
-            ticketId: ticket.id,
-            error: cancelError.message
-          }, "Erro ao cancelar run devido a mudança de status");
-        }
-        
-        await wbot.sendPresenceUpdate('paused', `${contact.number}@${ticket.isGroup ? "g.us" : "s.whatsapp.net"}`);
-        return false;
-      }
-
       // Verificar se precisa processar tool calls
       if (runStatus.status === "requires_action") {
         if (
@@ -771,17 +681,6 @@ export const handleAssistantChat = async (assistant: Assistant, msg: proto.IWebM
       return false;
     }
 
-    // VERIFICAÇÃO FINAL: Confirmar que o ticket ainda deve ser processado pelo assistente
-    await ticket.reload();
-    if (!shouldAssistantProcess(ticket)) {
-      logger.warn({
-        ticketId: ticket.id,
-        userId: ticket.userId,
-        status: ticket.status
-      }, "Ticket foi modificado durante execução - não enviando resposta do assistente");
-      return false;
-    }
-
     logger.info({
       ticketId: ticket.id,
       threadId: thread.threadId,
@@ -805,17 +704,6 @@ export const handleAssistantChat = async (assistant: Assistant, msg: proto.IWebM
       const debouncedSendMessage = debounce(
         async () => {
           try {
-            // VERIFICAÇÃO CRÍTICA FINAL: Verificar novamente antes de enviar
-            await ticket.reload();
-            if (!shouldAssistantProcess(ticket)) {
-              logger.warn({
-                ticketId: ticket.id,
-                userId: ticket.userId,
-                status: ticket.status
-              }, "Cancelando envio - ticket não deve mais ser processado pelo assistente");
-              return;
-            }
-
             logger.info({
               ticketId: ticket.id
             }, "Iniciando processamento da resposta do assistente");
@@ -945,14 +833,11 @@ export const handleAssistantChat = async (assistant: Assistant, msg: proto.IWebM
     
       debouncedSendMessage();
       
-      // Atualizar status do ticket SOMENTE se ainda deve ser processado pelo assistente
-      await ticket.reload();
-      if (shouldAssistantProcess(ticket)) {
-        await ticket.update({
-          useIntegration: true,
-          isBot: true
-        });
-      }
+      // Atualizar status do ticket
+      await ticket.update({
+        useIntegration: true,
+        isBot: true
+      });
       
       return true;
     }

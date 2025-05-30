@@ -49,7 +49,6 @@ interface TicketData {
   promptId: number;
   integrationId: number;
   sendFarewellMessage?: boolean;
-  chatbot?: boolean;
   value?: number;
   sku?: string;
   isTransfer?: boolean
@@ -620,68 +619,6 @@ export const update = async (
   const ticketData: TicketData = req.body;
   const { companyId, id } = req.user;
 
-  try {
-    // Log da requisição
-    logger.info({
-      ticketId: parseInt(ticketId),
-      companyId,
-      userCurrentId: parseInt(id),
-      requestData: ticketData
-    }, "Requisição de atualização de ticket recebida");
-
-    // Buscar ticket atual para verificar estado antes da atualização
-    const currentTicket = await ShowTicketService(ticketId, companyId);
-
-    if (!currentTicket) {
-      throw new AppError("Ticket não encontrado", 404);
-    }
-
-    // Verificar se é uma tentativa de aceitar ticket que estava com assistente
-    const isAcceptingFromAssistant = 
-      currentTicket.useIntegration && 
-      (currentTicket as any).isBot && 
-      !currentTicket.userId && 
-      ticketData.userId;
-
-    if (isAcceptingFromAssistant) {
-      logger.info({
-        ticketId: parseInt(ticketId),
-        companyId,
-        userCurrentId: parseInt(id),
-        newUserId: ticketData.userId
-      }, "Detectado aceite de ticket do assistente - preparando transferência");
-
-      // Garantir que as flags de integração sejam desabilitadas
-      ticketData.useIntegration = false;
-      ticketData.integrationId = null;
-      ticketData.chatbot = false;
-      // Adicionar isBot se não estiver na interface
-      (ticketData as any).isBot = false;
-      
-      // Se não foi especificado status, definir como open quando atribuir usuário
-      if (!ticketData.status) {
-        ticketData.status = "open";
-      }
-    }
-
-    // Verificar se está tentando transferir para assistente um ticket com usuário
-    const isTransferringToAssistant = 
-      currentTicket.userId && 
-      (ticketData.useIntegration === true || (ticketData as any).isBot === true);
-
-    if (isTransferringToAssistant) {
-      logger.info({
-        ticketId: parseInt(ticketId),
-        companyId,
-        userCurrentId: parseInt(id),
-        currentUserId: currentTicket.userId
-      }, "Detectada transferência para assistente - removendo usuário");
-
-      // Garantir que o usuário seja removido ao transferir para assistente
-      ticketData.userId = null;
-      ticketData.status = "pending";
-    }
-
     const mutex = new Mutex();
     const { ticket } = await mutex.runExclusive(async () => {
       const result = await UpdateTicketService({
@@ -693,40 +630,7 @@ export const update = async (
       });
       return result;
     });
-
-    // Log de sucesso
-    logger.info({
-      ticketId: ticket.id,
-      companyId,
-      userCurrentId: parseInt(id),
-      oldStatus: currentTicket.status,
-      newStatus: ticket.status,
-      oldUserId: currentTicket.userId,
-      newUserId: ticket.userId,
-      assistantTransfer: isAcceptingFromAssistant || isTransferringToAssistant
-    }, "Ticket atualizado com sucesso");
-
     return res.status(200).json(ticket);
-
-  } catch (error) {
-    logger.error({
-      ticketId: parseInt(ticketId),
-      companyId,
-      userCurrentId: parseInt(id),
-      error: error.message,
-      stack: error.stack
-    }, "Erro ao atualizar ticket");
-
-    if (error instanceof AppError) {
-      return res.status(error.statusCode).json({
-        error: error.message
-      });
-    }
-
-    return res.status(500).json({
-      error: "Erro interno do servidor"
-    });
-  }
 };
 
 export const remove = async (
