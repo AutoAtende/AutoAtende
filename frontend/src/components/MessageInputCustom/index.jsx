@@ -63,6 +63,7 @@ import AudioRecorderService from '../../services/arService';
 
 import { i18n } from "../../translate/i18n";
 import api from "../../services/api";
+import openApi from "../../services/api";
 import RecordingTimer from "./RecordingTimer";
 import { SocketContext } from "../../context/Socket/SocketContext";
 import { ReplyMessageContext } from "../../context/ReplyingMessage/ReplyingMessageContext";
@@ -1206,7 +1207,7 @@ const MessageInputCustom = (props) => {
   const handleQuickAnswersClick = async (dataMessage) => {
     if (dataMessage?.mediaPath && dataMessage?.mediaPath !== "null") {
       try {
-        const { data } = await api.get(dataMessage?.mediaPath, {
+        const { data } = await openApi.get(dataMessage?.mediaPath, {
           responseType: "blob",
         });
 
