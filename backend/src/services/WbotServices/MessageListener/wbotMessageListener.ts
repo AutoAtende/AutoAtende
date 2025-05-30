@@ -552,6 +552,48 @@ const messageContainsMedia = (msg: proto.IWebMessageInfo) => {
   );
 };
 
+
+// Função para verificar se o assistente deve processar mensagens
+function shouldProcessWithAssistant(ticket: Ticket): boolean {
+  // Se ticket tem usuário humano atribuído, assistente NÃO deve processar
+  if (ticket.userId) {
+    logger.info({
+      ticketId: ticket.id,
+      userId: ticket.userId
+    }, "Assistente não processará: ticket tem usuário humano");
+    return false;
+  }
+
+  // Se ticket está com status "open", significa que foi aceito por um humano
+  if (ticket.status === "open") {
+    logger.info({
+      ticketId: ticket.id,
+      status: ticket.status
+    }, "Assistente não processará: ticket aberto para humano");
+    return false;
+  }
+
+  // Se ticket está fechado, assistente não deve processar
+  if (ticket.status === "closed") {
+    logger.info({
+      ticketId: ticket.id,
+      status: ticket.status
+    }, "Assistente não processará: ticket fechado");
+    return false;
+  }
+
+  // Se não está usando integração, assistente não deve processar
+  if (!ticket.useIntegration) {
+    logger.info({
+      ticketId: ticket.id,
+      useIntegration: ticket.useIntegration
+    }, "Assistente não processará: integração desabilitada");
+    return false;
+  }
+
+  return true;
+}
+
 export const handleMessage = async (
   msg: proto.IWebMessageInfo,
   wbot: Session,
@@ -1127,22 +1169,20 @@ if (
       !ticket.isGroup &&
       ticket.useIntegration &&
       ticket.integrationId &&
-      !ticket.userId &&
-      !ticket.queueId &&
-      ticket.status !== "open" &&
       !importing &&
       !ticket.flowExecution &&
-      !ticket.flowExecutionId
+      !ticket.flowExecutionId &&
+      shouldProcessWithAssistant(ticket) // NOVA VERIFICAÇÃO
     ) {
       const integration = await ShowQueueIntegrationService(
         ticket.integrationId,
         companyId
       );
-
+    
       if (integration && integration.type === "assistant") {
         // Obter o ID do assistente
         const assistantId = integration.assistantId || integration.jsonContent;
-
+    
         if (assistantId) {
           // Buscar o assistente
           const assistant = await Assistant.findOne({
@@ -1152,12 +1192,12 @@ if (
               companyId: ticket.companyId
             }
           });
-
+    
           if (assistant) {
             // Processar continuação do diálogo com o assistente
             logger.info(`Continuando diálogo com assistente: ${assistant.name} (${assistant.id})`);
             const assistantProcessed = await handleAssistantChat(assistant, msg, wbot, ticket, contact);
-
+    
             if (assistantProcessed) {
               return; // Não processa mais nada se o assistente tratou a mensagem
             }
@@ -1165,7 +1205,6 @@ if (
         }
       }
     }
-
 
     let isOpenai = false;
 
@@ -1358,31 +1397,31 @@ if (
       }
     }
 
-    if (ticket.queue?.queueIntegrations?.type === "assistant") {
+    if (ticket.queue?.queueIntegrations?.type === "assistant" && shouldProcessWithAssistant(ticket)) {
       // Obter o ID do assistente da integração
       const assistantId = ticket.queue.queueIntegrations.assistantId ||
         ticket.queue.queueIntegrations.jsonContent; // Para compatibilidade
-
+    
       if (assistantId) {
         // Buscar o assistente pelo ID
         const assistant = await Assistant.findOne({
           where: { id: assistantId, active: true, companyId }
         });
-
+    
         if (assistant) {
           logger.info(
             `Processando mensagem com assistente de integração: ${ticket.queue.name}, assistantId: ${assistantId}`
           );
-
+    
           // Definir o assistente no ticket temporariamente para compatibilidade
           const originalQueueId = ticket.queueId;
-
+    
           // Chamar o handler existente
           const assistantProcessed = await handleAssistantChat(assistant, msg, wbot, ticket, contact);
-
+    
           // Restaurar o queueId original
           ticket.queueId = originalQueueId;
-
+    
           if (assistantProcessed) {
             await ticket.update({ isBot: true });
             return;
