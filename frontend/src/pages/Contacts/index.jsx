@@ -24,8 +24,8 @@ import {
 } from "@mui/icons-material";
 
 // Standard Components
-import StandardPageLayout from "../../components/StandardPageLayout";
-import StandardDataTable from "../../components/StandardDataTable";
+import StandardPageLayout from "../../components/shared/StandardPageLayout";
+import StandardDataTable from "../../components/shared/StandardDataTable";
 
 // Existing Components
 import ContactModal from "./components/ContactModal";
