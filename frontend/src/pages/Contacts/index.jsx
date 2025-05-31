@@ -84,6 +84,34 @@ const Contacts = () => {
     };
   }, []);
 
+  // Função auxiliar para validar e normalizar dados de contato
+  const normalizeContactData = (contact) => {
+    if (!contact || typeof contact !== 'object') {
+      return {
+        id: '',
+        name: 'N/A',
+        number: '',
+        email: '',
+        active: true,
+        tags: [],
+        profilePicUrl: '',
+        isGroup: false
+      };
+    }
+
+    return {
+      id: contact.id || '',
+      name: contact.name || 'N/A',
+      number: contact.number || '',
+      email: contact.email || '',
+      active: contact.active !== false, // Assume ativo por padrão
+      tags: Array.isArray(contact.tags) ? contact.tags : [],
+      profilePicUrl: contact.profilePicUrl || '',
+      isGroup: Boolean(contact.isGroup),
+      ...contact // Mantém outras propriedades
+    };
+  };
+
   const fetchContacts = useCallback(async () => {
     if (!isMounted.current) return;
     
@@ -93,19 +121,25 @@ const Contacts = () => {
         params: {
           searchParam,
           typeContact: "private",
-          tagIds: tagFilter.length > 0 ? tagFilter.join(',') : undefined,
+          tagIds: Array.isArray(tagFilter) && tagFilter.length > 0 ? tagFilter.join(',') : undefined,
         },
       });
       
       if (isMounted.current) {
+        // Normalizar dados antes de definir estado
+        const normalizedContacts = Array.isArray(data?.contacts) 
+          ? data.contacts.map(normalizeContactData)
+          : [];
+        
         setContactsTotal(data?.count || 0);
-        setContacts(data?.contacts || []);
+        setContacts(normalizedContacts);
       }
     } catch (err) {
       if (isMounted.current) {
         console.error("Erro ao buscar contatos:", err);
         toast.error("Erro ao carregar contatos");
         setContacts([]);
+        setContactsTotal(0);
       }
     } finally {
       if (isMounted.current) {
@@ -120,12 +154,15 @@ const Contacts = () => {
 
   // Handlers
   const handleSearchChange = useCallback((event) => {
-    setSearchParam(event.target.value.toLowerCase());
+    const value = event?.target?.value || '';
+    setSearchParam(value.toLowerCase());
     setSelectedContacts([]);
   }, []);
 
   const handleTagFilterChange = useCallback((selectedTagIds) => {
-    setTagFilter(selectedTagIds);
+    // Garantir que sempre seja um array
+    const normalizedTagIds = Array.isArray(selectedTagIds) ? selectedTagIds : [];
+    setTagFilter(normalizedTagIds);
   }, []);
 
   const handleOpenContactModal = useCallback(() => {
@@ -134,8 +171,10 @@ const Contacts = () => {
   }, []);
 
   const handleEditContact = useCallback((contact) => {
-    setSelectedContactId(contact.id);
-    setContactModalOpen(true);
+    if (contact && contact.id) {
+      setSelectedContactId(contact.id);
+      setContactModalOpen(true);
+    }
   }, []);
 
   const handleCloseContactModal = useCallback(() => {
@@ -145,17 +184,21 @@ const Contacts = () => {
   }, [setMakeRequest]);
 
   const handleStartChat = useCallback((contact) => {
-    setContactTicket(contact);
+    const normalizedContact = normalizeContactData(contact);
+    setContactTicket(normalizedContact);
     setNewTicketModalOpen(true);
   }, []);
 
   const handleDeleteContact = useCallback(async (contactId) => {
+    if (!contactId) return;
+    
     try {
       Loading.turnOn();
       await api.delete(`/contacts/${contactId}`);
       toast.success("Contato excluído com sucesso");
       setMakeRequest(Math.random());
     } catch (err) {
+      console.error("Erro ao excluir contato:", err);
       toast.error("Erro ao excluir contato");
     } finally {
       Loading.turnOff();
@@ -165,6 +208,8 @@ const Contacts = () => {
   }, [Loading, setMakeRequest]);
 
   const handleBlockUnblockContact = useCallback(async (contactId, active) => {
+    if (!contactId) return;
+    
     try {
       Loading.turnOn();
       const { data } = await api.put(`/contacts/toggle-block/${contactId}`, { active });
@@ -177,6 +222,7 @@ const Contacts = () => {
       
       toast.success(data.active ? "Contato desbloqueado" : "Contato bloqueado");
     } catch (err) {
+      console.error("Erro ao alterar status:", err);
       toast.error("Erro ao alterar status");
     } finally {
       Loading.turnOff();
@@ -191,29 +237,38 @@ const Contacts = () => {
   }, []);
 
   const executeBulkAction = useCallback(async () => {
-    if (selectedContacts.length === 0) return;
+    if (!Array.isArray(selectedContacts) || selectedContacts.length === 0) return;
 
     try {
       Loading.turnOn();
       
+      const contactIds = selectedContacts
+        .filter(contact => contact && contact.id)
+        .map(contact => contact.id);
+      
+      if (contactIds.length === 0) {
+        toast.error("Nenhum contato válido selecionado");
+        return;
+      }
+      
       switch (bulkActionType) {
         case 'block':
           await api.post("/contacts/bulk-block", {
-            contactIds: selectedContacts.map(contact => contact.id),
+            contactIds,
             active: false
           });
           toast.success("Contatos bloqueados em massa");
           break;
         case 'unblock':
           await api.post("/contacts/bulk-block", {
-            contactIds: selectedContacts.map(contact => contact.id),
+            contactIds,
             active: true
           });
           toast.success("Contatos desbloqueados em massa");
           break;
         case 'delete':
           await api.post("/contacts/bulk-delete", {
-            contactIds: selectedContacts.map(contact => contact.id)
+            contactIds
           });
           toast.success("Contatos excluídos em massa");
           break;
@@ -224,12 +279,81 @@ const Contacts = () => {
       setSelectedContacts([]);
       setMakeRequest(Math.random());
     } catch (err) {
+      console.error("Erro na ação em massa:", err);
       toast.error("Erro na ação em massa");
     } finally {
       Loading.turnOff();
       setConfirmBulkAction(false);
     }
   }, [selectedContacts, bulkActionType, Loading, setMakeRequest]);
+
+  // Função auxiliar para renderizar ID seguro
+  const renderContactId = (contact) => {
+    if (!contact || !contact.id) return 'N/A';
+    
+    const idString = String(contact.id);
+    return idString.length > 8 ? idString.substr(0, 8) + '...' : idString;
+  };
+
+  // Função auxiliar para renderizar número seguro
+  const renderContactNumber = (contact) => {
+    if (!contact || !contact.number) return "N/A";
+    
+    const number = String(contact.number);
+    
+    if (user?.isTricked === "enabled") {
+      return formatSerializedId(number);
+    } else {
+      return number.length > 4 ? number.slice(0, -4) + "****" : number;
+    }
+  };
+
+  // Função auxiliar para renderizar tags seguro
+  const renderContactTags = (contact) => {
+    if (!contact || !Array.isArray(contact.tags) || contact.tags.length === 0) {
+      return (
+        <Typography variant="caption" color="textSecondary">
+          Sem tags
+        </Typography>
+      );
+    }
+
+    const validTags = contact.tags.filter(tag => tag && tag.id && tag.name);
+    
+    if (validTags.length === 0) {
+      return (
+        <Typography variant="caption" color="textSecondary">
+          Sem tags
+        </Typography>
+      );
+    }
+
+    return (
+      <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
+        {validTags.slice(0, 2).map((tag) => (
+          <Chip
+            key={tag.id}
+            label={tag.name}
+            size="small"
+            style={{
+              backgroundColor: tag.color || '#666',
+              color: '#fff',
+              height: 20,
+              fontSize: '0.7rem'
+            }}
+          />
+        ))}
+        {validTags.length > 2 && (
+          <Chip
+            label={`+${validTags.length - 2}`}
+            size="small"
+            variant="outlined"
+            sx={{ height: 20, fontSize: '0.7rem' }}
+          />
+        )}
+      </Box>
+    );
+  };
 
   // Configuração das colunas
   const columns = [
@@ -238,99 +362,73 @@ const Contacts = () => {
       field: 'id',
       label: 'ID',
       width: 80,
-      render: (contact) => contact.id ? contact.id.toString().substr(0, 8) + '...' : 'N/A'
+      render: renderContactId
     },
     {
       id: 'name',
       field: 'name',
       label: 'Nome',
       minWidth: 200,
-      render: (contact) => (
-        <Box display="flex" alignItems="center" gap={1}>
-          <Avatar
-            sx={{
-              bgcolor: generateColor(contact?.number || ''),
-              width: 40,
-              height: 40
-            }}
-            src={contact.profilePicUrl || ''}
-          >
-            {getInitials(contact?.name || 'N/A')}
-          </Avatar>
-          <Box>
-            <Typography variant="subtitle2" fontWeight={600}>
-              {contact?.name || "N/A"}
-            </Typography>
-            <Typography variant="caption" color="textSecondary">
-              {user.isTricked === "enabled"
-                ? formatSerializedId(contact?.number || '')
-                : contact?.number
-                  ? contact.number.slice(0, -4) + "****"
-                  : "N/A"
-              }
-            </Typography>
+      render: (contact) => {
+        const normalizedContact = normalizeContactData(contact);
+        
+        return (
+          <Box display="flex" alignItems="center" gap={1}>
+            <Avatar
+              sx={{
+                bgcolor: generateColor(normalizedContact.number || normalizedContact.name),
+                width: 40,
+                height: 40
+              }}
+              src={normalizedContact.profilePicUrl || ''}
+            >
+              {getInitials(normalizedContact.name)}
+            </Avatar>
+            <Box>
+              <Typography variant="subtitle2" fontWeight={600}>
+                {normalizedContact.name}
+              </Typography>
+              <Typography variant="caption" color="textSecondary">
+                {renderContactNumber(normalizedContact)}
+              </Typography>
+            </Box>
           </Box>
-        </Box>
-      )
+        );
+      }
     },
     {
       id: 'tags',
       field: 'tags',
       label: 'Tags',
       width: 200,
-      render: (contact) => (
-        <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
-          {contact?.tags?.length > 0 ? (
-            contact.tags.slice(0, 2).map((tag) => (
-              <Chip
-                key={tag.id}
-                label={tag.name}
-                size="small"
-                style={{
-                  backgroundColor: tag.color || '#666',
-                  color: '#fff',
-                  height: 20,
-                  fontSize: '0.7rem'
-                }}
-              />
-            ))
-          ) : (
-            <Typography variant="caption" color="textSecondary">
-              Sem tags
-            </Typography>
-          )}
-          {contact?.tags?.length > 2 && (
-            <Chip
-              label={`+${contact.tags.length - 2}`}
-              size="small"
-              variant="outlined"
-              sx={{ height: 20, fontSize: '0.7rem' }}
-            />
-          )}
-        </Box>
-      )
+      render: renderContactTags
     },
     {
       id: 'status',
       field: 'active',
       label: 'Status',
       width: 120,
-      render: (contact) => (
-        <Chip
-          label={contact.active === false ? 'Bloqueado' : 'Ativo'}
-          size="small"
-          color={contact.active === false ? 'error' : 'success'}
-          variant="outlined"
-        />
-      )
+      render: (contact) => {
+        const normalizedContact = normalizeContactData(contact);
+        
+        return (
+          <Chip
+            label={normalizedContact.active ? 'Ativo' : 'Bloqueado'}
+            size="small"
+            color={normalizedContact.active ? 'success' : 'error'}
+            variant="outlined"
+          />
+        );
+      }
     }
   ];
 
   // Ações da tabela condicionais
   const getTableActions = (contact) => {
     const actions = [];
+    const normalizedContact = normalizeContactData(contact);
 
-    if (user.profile !== 'user' && !contact.isGroup) {
+    if (user?.profile !== 'user' && !normalizedContact.isGroup) {
       actions.push({
         label: "Iniciar Chat",
         icon: <WhatsAppIcon />,
@@ -346,15 +444,15 @@ const Contacts = () => {
       color: "primary"
     });
 
-    if (!contact.isGroup) {
+    if (!normalizedContact.isGroup) {
       actions.push({
-        label: contact.active === false ? "Desbloquear" : "Bloquear",
-        icon: contact.active === false ? <LockOpenIcon /> : <LockIcon />,
+        label: normalizedContact.active ? "Bloquear" : "Desbloquear",
+        icon: normalizedContact.active ? <LockIcon /> : <LockOpenIcon />,
         onClick: (contact) => {
-          setBlockingContact(contact);
+          setBlockingContact(normalizeContactData(contact));
           setConfirmBlockOpen(true);
         },
-        color: contact.active === false ? 'success' : 'error'
+        color: normalizedContact.active ? 'error' : 'success'
       });
     }
 
@@ -362,7 +460,7 @@ const Contacts = () => {
       label: "Excluir",
       icon: <DeleteIcon />,
       onClick: (contact) => {
-        setDeletingContact(contact);
+        setDeletingContact(normalizeContactData(contact));
         setConfirmOpen(true);
       },
       color: "error"
@@ -396,7 +494,7 @@ const Contacts = () => {
   ];
 
   // Ações em massa
-  const bulkActions = selectedContacts.length > 0 ? [
+  const bulkActions = Array.isArray(selectedContacts) && selectedContacts.length > 0 ? [
     {
       label: `Bloquear (${selectedContacts.length})`,
       icon: <LockIcon />,
@@ -421,9 +519,10 @@ const Contacts = () => {
   ] : [];
 
   const formattedCounter = () => {
+    const selectedCount = Array.isArray(selectedContacts) ? selectedContacts.length : 0;
     const baseText = `${contacts.length} de ${contactsTotal} contatos`;
-    return selectedContacts.length > 0 
-      ? `${baseText} (${selectedContacts.length} selecionados)`
+    return selectedCount > 0 
+      ? `${baseText} (${selectedCount} selecionados)`
       : baseText;
   };
 
@@ -491,9 +590,9 @@ const Contacts = () => {
         />
       )}
 
-      {confirmOpen && (
+      {confirmOpen && deletingContact && (
         <ConfirmationModal
-          title={`Excluir ${deletingContact?.name}?`}
+          title={`Excluir ${deletingContact.name}?`}
           open={confirmOpen}
           onClose={() => setConfirmOpen(false)}
           onConfirm={() => handleDeleteContact(deletingContact.id)}
@@ -505,9 +604,9 @@ const Contacts = () => {
       {confirmBlockOpen && blockingContact && (
         <ConfirmationModal
           title={
-            blockingContact.active === false
-              ? `Desbloquear ${blockingContact.name}?`
-              : `Bloquear ${blockingContact.name}?`
+            blockingContact.active
+              ? `Bloquear ${blockingContact.name}?`
+              : `Desbloquear ${blockingContact.name}?`
           }
           open={confirmBlockOpen}
           onClose={() => setConfirmBlockOpen(false)}
@@ -516,9 +615,9 @@ const Contacts = () => {
             !blockingContact.active
           )}
         >
-          {blockingContact.active === false
-            ? "O contato será desbloqueado e poderá enviar mensagens novamente."
-            : "O contato será bloqueado e não poderá enviar mensagens."}
+          {blockingContact.active
+            ? "O contato será bloqueado e não poderá enviar mensagens."
+            : "O contato será desbloqueado e poderá enviar mensagens novamente."}
         </ConfirmationModal>
       )}
 
@@ -529,7 +628,7 @@ const Contacts = () => {
           onClose={() => setConfirmBulkAction(false)}
           onConfirm={executeBulkAction}
         >
-          {`Deseja ${bulkActionType === 'block' ? 'bloquear' : bulkActionType === 'unblock' ? 'desbloquear' : 'excluir'} ${selectedContacts.length} contato(s) selecionado(s)?`}
+          {`Deseja ${bulkActionType === 'block' ? 'bloquear' : bulkActionType === 'unblock' ? 'desbloquear' : 'excluir'} ${Array.isArray(selectedContacts) ? selectedContacts.length : 0} contato(s) selecionado(s)?`}
         </ConfirmationModal>
       )}
 
