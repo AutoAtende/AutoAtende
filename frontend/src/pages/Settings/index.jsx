@@ -28,16 +28,14 @@ import { i18n } from "../../translate/i18n";
 import { toast } from "../../helpers/toast";
 
 // Componentes de configurações
-import Options from "../../components/Settings/Options";
-import SchedulesForm from "../../components/SchedulesForm";
-import PlansManager from "../../components/PlansManager";
-import HelpsManager from "../../components/HelpsManager";
-import Whitelabel from "../../components/Settings/Whitelabel";
-import PaymentGateway from "../../components/Settings/PaymentGateway";
-import Reason from "../../components/Reason";
+import Options from "./tabs/Options";
+import SchedulesForm from "./tabs/SchedulesForm";
+import PlansManager from "./tabs/PlansManager";
+import HelpsManager from "./tabs/HelpsManager";
+import Whitelabel from "./tabs/Whitelabel";
+import PaymentGateway from "./tabs/PaymentGateway";
+import Reason from "./tabs/Reason";
 
-// Componente para telas móveis
-import SpeedDialTabs from "../../components/SpeedDialTabs";
 
 const LoadingContainer = styled(Box)(({ theme }) => ({
   display: "flex",
