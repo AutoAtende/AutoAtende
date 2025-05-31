@@ -51,7 +51,7 @@ import { i18n } from "../../translate/i18n.jsx";
 import faviconImage from "../../assets/images/Favicon.jpeg";
 import logotipoImage from "../../assets/images/Logotipo.jpeg";
 import pwaImage from "../../assets/images/PWA.jpeg";
-import login_signup from "../../assets/images/login_signup.jpeg";
+import login_signup from "../../assets/backgrounds/default.jpeg";
 
 // Constantes
 const defaultBackgrounLogin = "";
