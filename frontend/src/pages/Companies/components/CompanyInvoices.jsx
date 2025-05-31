@@ -4,30 +4,15 @@ import {
   DialogTitle,
   DialogContent,
   IconButton,
-  Button,
   Box,
   Typography,
-  Grid,
   Chip,
-  Tooltip,
-  Card,
-  CardContent,
-  CircularProgress,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
-  TablePagination,
-  Paper,
-  Skeleton
+  CircularProgress
 } from '@mui/material';
 import {
   Close as CloseIcon,
   WhatsApp as WhatsAppIcon,
   Email as EmailIcon,
-  Receipt as ReceiptIcon,
   AttachMoney as MoneyIcon
 } from '@mui/icons-material';
 import { format } from 'date-fns';
@@ -36,13 +21,14 @@ import { toast } from '../../../helpers/toast';
 import { AuthContext } from '../../../context/Auth/AuthContext';
 import api from '../../../services/api';
 
+// Componentes
+import StandardDataTable from '../../../components/shared/StandardDataTable';
+
 const CompanyInvoices = ({ open, onClose, companyId }) => {
   const { user } = useContext(AuthContext);
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
   const [invoices, setInvoices] = useState([]);
-  const [page, setPage] = useState(0);
-  const [rowsPerPage, setRowsPerPage] = useState(5);
 
   const loadInvoices = async () => {
     if (!companyId || !user) return;
@@ -106,33 +92,61 @@ const CompanyInvoices = ({ open, onClose, companyId }) => {
     }
   };
 
-  // Manipuladores para paginação
-  const handleChangePage = (event, newPage) => {
-    setPage(newPage);
-  };
+  // Configuração das colunas
+  const columns = [
+    {
+      id: 'dueDate',
+      field: 'dueDate',
+      label: 'Vencimento',
+      width: 150,
+      render: (invoice) => (
+        format(new Date(invoice.dueDate), 'dd/MM/yyyy', { locale: ptBR })
+      )
+    },
+    {
+      id: 'value',
+      field: 'value',
+      label: 'Valor',
+      width: 120,
+      render: (invoice) => (
+        new Intl.NumberFormat('pt-BR', {
+          style: 'currency',
+          currency: 'BRL'
+        }).format(invoice.value)
+      )
+    },
+    {
+      id: 'status',
+      field: 'status',
+      label: 'Status',
+      width: 120,
+      render: (invoice) => (
+        <Chip
+          label={getStatusLabel(invoice.status)}
+          color={getStatusColor(invoice.status)}
+          size="small"
+        />
+      )
+    }
+  ];
 
-  const handleChangeRowsPerPage = (event) => {
-    setRowsPerPage(parseInt(event.target.value, 10));
-    setPage(0);
-  };
-
-  // Dados paginados para exibição
-  const paginatedInvoices = invoices.slice(
-    page * rowsPerPage,
-    page * rowsPerPage + rowsPerPage
-  );
-
-  // Renderização de linhas de skeleton durante carregamento
-  const renderSkeletonRows = () => {
-    return Array.from(new Array(5)).map((_, index) => (
-      <TableRow key={`skeleton-${index}`}>
-        <TableCell><Skeleton animation="wave" /></TableCell>
-        <TableCell><Skeleton animation="wave" /></TableCell>
-        <TableCell><Skeleton animation="wave" /></TableCell>
-        <TableCell><Skeleton animation="wave" width={100} /></TableCell>
-      </TableRow>
-    ));
-  };
+  // Ações da tabela
+  const tableActions = [
+    {
+      label: "Enviar por WhatsApp",
+      icon: <WhatsAppIcon />,
+      onClick: (invoice) => handleSendInvoice(invoice, 'whatsapp'),
+      color: "success",
+      disabled: sending
+    },
+    {
+      label: "Enviar por Email",
+      icon: <EmailIcon />,
+      onClick: (invoice) => handleSendInvoice(invoice, 'email'),
+      color: "primary",
+      disabled: sending
+    }
+  ];
 
   return (
     <Dialog
@@ -154,96 +168,20 @@ const CompanyInvoices = ({ open, onClose, companyId }) => {
       </DialogTitle>
 
       <DialogContent>
-        <TableContainer component={Paper} sx={{ mt: 2 }}>
-          <Table size="small" aria-label="tabela de faturas">
-            <TableHead>
-              <TableRow>
-                <TableCell sx={{ fontWeight: 'bold' }}>Vencimento</TableCell>
-                <TableCell sx={{ fontWeight: 'bold' }}>Valor</TableCell>
-                <TableCell sx={{ fontWeight: 'bold' }}>Status</TableCell>
-                <TableCell sx={{ fontWeight: 'bold' }}>Ações</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {loading ? (
-                renderSkeletonRows()
-              ) : paginatedInvoices.length > 0 ? (
-                paginatedInvoices.map((invoice) => (
-                  <TableRow 
-                    key={invoice.id}
-                    sx={{
-                      '&:hover': {
-                        backgroundColor: 'rgba(0, 0, 0, 0.04)',
-                      }
-                    }}
-                  >
-                    <TableCell>
-                      {format(new Date(invoice.dueDate), 'dd/MM/yyyy', { locale: ptBR })}
-                    </TableCell>
-                    <TableCell>
-                      {new Intl.NumberFormat('pt-BR', {
-                        style: 'currency',
-                        currency: 'BRL'
-                      }).format(invoice.value)}
-                    </TableCell>
-                    <TableCell>
-                      <Chip
-                        label={getStatusLabel(invoice.status)}
-                        color={getStatusColor(invoice.status)}
-                        size="small"
-                      />
-                    </TableCell>
-                    <TableCell>
-                      <Box display="flex" gap={1}>
-                        <Tooltip title="Enviar por WhatsApp">
-                          <IconButton
-                            size="small"
-                            disabled={sending}
-                            onClick={() => handleSendInvoice(invoice, 'whatsapp')}
-                          >
-                            <WhatsAppIcon />
-                          </IconButton>
-                        </Tooltip>
-
-                        <Tooltip title="Enviar por Email">
-                          <IconButton
-                            size="small"
-                            disabled={sending}
-                            onClick={() => handleSendInvoice(invoice, 'email')}
-                          >
-                            <EmailIcon />
-                          </IconButton>
-                        </Tooltip>
-                      </Box>
-                    </TableCell>
-                  </TableRow>
-                ))
-              ) : (
-                <TableRow>
-                  <TableCell colSpan={4} align="center" sx={{ py: 2 }}>
-                    <Typography variant="body2" color="textSecondary">
-                      Nenhuma fatura encontrada
-                    </Typography>
-                  </TableCell>
-                </TableRow>
-              )}
-            </TableBody>
-          </Table>
-        </TableContainer>
-        
-        {!loading && invoices.length > 0 && (
-          <TablePagination
-            component="div"
-            count={invoices.length}
-            page={page}
-            onPageChange={handleChangePage}
-            rowsPerPage={rowsPerPage}
-            onRowsPerPageChange={handleChangeRowsPerPage}
-            rowsPerPageOptions={[5, 10, 25]}
-            labelRowsPerPage="Linhas por página:"
-            labelDisplayedRows={({ from, to, count }) => `${from}-${to} de ${count}`}
-          />
-        )}
+        <StandardDataTable
+          data={invoices}
+          columns={columns}
+          loading={loading}
+          actions={tableActions}
+          stickyHeader={false}
+          size="small"
+          hover={true}
+          maxVisibleActions={2}
+          emptyIcon={<MoneyIcon />}
+          emptyTitle="Nenhuma fatura encontrada"
+          emptyDescription="Não há faturas cadastradas para esta empresa."
+          pagination={false} // Desabilitar paginação para modais
+        />
         
         {sending && (
           <Box display="flex" justifyContent="center" mt={2}>

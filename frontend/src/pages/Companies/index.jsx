@@ -4,14 +4,6 @@ import {
   Typography,
   useTheme,
   useMediaQuery,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
-  IconButton,
-  Tooltip,
   Chip,
   Button,
   Menu,
@@ -45,7 +37,8 @@ import { toast } from '../../helpers/toast';
 import api from '../../services/api';
 
 // Components
-import StandardPageLayout from '../../components/StandardPageLayout';
+import StandardPageLayout from '../../components/shared/StandardPageLayout';
+import StandardDataTable from '../../components/shared/StandardDataTable';
 import ConfirmationModal from '../../components/ConfirmationModal';
 import CompanyForm from './components/CompanyForm';
 import CompanyDetails from './components/CompanyDetails';
@@ -254,6 +247,155 @@ const Companies = () => {
     }
   }, []);
 
+  // Configuração das colunas da tabela
+  const columns = [
+    {
+      id: 'id',
+      field: 'id',
+      label: 'ID',
+      width: '80px',
+      align: 'center'
+    },
+    {
+      id: 'name',
+      field: 'name',
+      label: 'Nome',
+      minWidth: 200,
+      render: (company) => (
+        <Typography variant="body2" sx={{ fontWeight: 'medium' }}>
+          {company.name}
+        </Typography>
+      )
+    },
+    {
+      id: 'email',
+      field: 'email',
+      label: 'Email',
+      minWidth: 200,
+      render: (company) => (
+        <Typography variant="body2">
+          {company.email || 'N/A'}
+        </Typography>
+      )
+    },
+    {
+      id: 'phone',
+      field: 'phone',
+      label: 'Telefone',
+      width: 150,
+      render: (company) => (
+        <Typography variant="body2">
+          {company.phone || 'N/A'}
+        </Typography>
+      )
+    },
+    {
+      id: 'status',
+      field: 'status',
+      label: 'Status',
+      width: 120,
+      render: (company) => (
+        <Chip
+          label={company.status ? 'Ativa' : 'Inativa'}
+          color={company.status ? 'success' : 'default'}
+          size="small"
+          sx={{ borderRadius: 12, fontWeight: 600 }}
+        />
+      )
+    },
+    {
+      id: 'plan',
+      field: 'plan',
+      label: 'Plano',
+      width: 150,
+      render: (company) => (
+        <Typography variant="body2">
+          {company.plan?.name || 'N/A'}
+        </Typography>
+      )
+    }
+  ];
+
+  // Ações da tabela
+  const getTableActions = (company) => {
+    const actions = [
+      {
+        label: "Detalhes",
+        icon: <DetailsIcon />,
+        onClick: (company) => {
+          setSelectedCompany(company);
+          setShowDetailsModal(true);
+        },
+        color: "info"
+      },
+      {
+        label: "Usuários",
+        icon: <UsersIcon />,
+        onClick: (company) => {
+          setSelectedCompany(company);
+          setShowUsersModal(true);
+        },
+        color: "primary"
+      },
+      {
+        label: "Faturas",
+        icon: <InvoicesIcon />,
+        onClick: (company) => {
+          setSelectedCompany(company);
+          setShowInvoicesModal(true);
+        },
+        color: "secondary"
+      }
+    ];
+
+    // Adicionar ação de horários se habilitado
+    if (schedulesEnabled) {
+      actions.push({
+        label: "Horários",
+        icon: <ScheduleIcon />,
+        onClick: (company) => {
+          setSelectedCompany(company);
+          setScheduleModalOpen(true);
+        },
+        color: "warning"
+      });
+    }
+
+    // Ações de edição, bloqueio e exclusão
+    actions.push(
+      {
+        label: "Editar",
+        icon: <EditIcon />,
+        onClick: (company) => {
+          setSelectedCompany(company);
+          setShowCompanyModal(true);
+        },
+        color: "primary"
+      },
+      {
+        label: company.status ? "Bloquear" : "Desbloquear",
+        icon: <BlockIcon />,
+        onClick: (company) => {
+          setSelectedCompany(company);
+          setBlockAction(company.status ? 'block' : 'unblock');
+          setShowConfirmBlock(true);
+        },
+        color: company.status ? "warning" : "success"
+      },
+      {
+        label: "Excluir",
+        icon: <DeleteIcon />,
+        onClick: (company) => {
+          setSelectedCompany(company);
+          setShowConfirmDelete(true);
+        },
+        color: "error"
+      }
+    );
+
+    return actions;
+  };
+
   // Filtrar empresas baseado na aba ativa
   const getFilteredCompanies = () => {
     switch (activeTab) {
@@ -295,7 +437,8 @@ const Companies = () => {
       },
       variant: "contained",
       color: "primary",
-      tooltip: "Adicionar nova empresa"
+      tooltip: "Adicionar nova empresa",
+      primary: true
     }
   ];
 
@@ -319,236 +462,6 @@ const Companies = () => {
     setActiveTab(newValue);
   };
 
-  // Função para renderizar o conteúdo
-  const renderContent = () => {
-    if (loading && records.length === 0) {
-      return (
-        <Box display="flex" justifyContent="center" p={4}>
-          <CircularProgress />
-        </Box>
-      );
-    }
-
-    if (filteredCompanies.length === 0 && !loading) {
-      return (
-        <Box 
-          display="flex" 
-          flexDirection="column" 
-          alignItems="center" 
-          justifyContent="center" 
-          sx={{ height: '100%', p: 4 }}
-        >
-          <BusinessIcon sx={{ fontSize: 64, color: 'text.secondary', mb: 2 }} />
-          <Typography variant="h6" gutterBottom>
-            {activeTab === 0 
-              ? "Nenhuma empresa encontrada" 
-              : activeTab === 1 
-                ? "Nenhuma empresa ativa"
-                : "Nenhuma empresa inativa"
-            }
-          </Typography>
-          <Typography variant="body2" color="text.secondary" align="center" sx={{ mb: 3 }}>
-            {searchParam 
-              ? "Tente usar outros termos na busca"
-              : activeTab === 0
-                ? "Comece criando sua primeira empresa"
-                : "Não há empresas nesta categoria"
-            }
-          </Typography>
-          {activeTab === 0 && (
-            <Button
-              variant="contained"
-              startIcon={<AddIcon />}
-              onClick={() => {
-                setSelectedCompany(null);
-                setShowCompanyModal(true);
-              }}
-            >
-              Criar Empresa
-            </Button>
-          )}
-        </Box>
-      );
-    }
-
-    return (
-      <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-        <TableContainer 
-          sx={{ 
-            flex: 1, 
-            overflow: 'auto',
-            '&::-webkit-scrollbar': {
-              width: '8px',
-            },
-            '&::-webkit-scrollbar-track': {
-              background: '#f1f1f1',
-            },
-            '&::-webkit-scrollbar-thumb': {
-              background: '#888',
-              borderRadius: '4px',
-            },
-          }}
-          onScroll={(e) => {
-            const { scrollTop, scrollHeight, clientHeight } = e.target;
-            if (scrollHeight - scrollTop === clientHeight && hasMore && !loading) {
-              handleLoadMore();
-            }
-          }}
-        >
-          <Table stickyHeader size="small">
-            <TableHead>
-              <TableRow>
-                <TableCell>ID</TableCell>
-                <TableCell>Nome</TableCell>
-                <TableCell>Email</TableCell>
-                <TableCell>Telefone</TableCell>
-                <TableCell>Status</TableCell>
-                <TableCell>Plano</TableCell>
-                <TableCell align="center">Ações</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {filteredCompanies.map((company) => (
-                <TableRow key={company.id} hover>
-                  <TableCell>{company.id}</TableCell>
-                  <TableCell>
-                    <Typography variant="body2" sx={{ fontWeight: 'medium' }}>
-                      {company.name}
-                    </Typography>
-                  </TableCell>
-                  <TableCell>
-                    <Typography variant="body2">
-                      {company.email || 'N/A'}
-                    </Typography>
-                  </TableCell>
-                  <TableCell>
-                    <Typography variant="body2">
-                      {company.phone || 'N/A'}
-                    </Typography>
-                  </TableCell>
-                  <TableCell>
-                    <Chip
-                      label={company.status ? 'Ativa' : 'Inativa'}
-                      color={company.status ? 'success' : 'default'}
-                      size="small"
-                      sx={{ borderRadius: 12, fontWeight: 600 }}
-                    />
-                  </TableCell>
-                  <TableCell>
-                    <Typography variant="body2">
-                      {company.plan?.name || 'N/A'}
-                    </Typography>
-                  </TableCell>
-                  <TableCell align="center">
-                    <Box sx={{ display: 'flex', gap: 0.5, justifyContent: 'center' }}>
-                      <Tooltip title="Detalhes">
-                        <IconButton
-                          size="small"
-                          onClick={() => {
-                            setSelectedCompany(company);
-                            setShowDetailsModal(true);
-                          }}
-                          color="info"
-                        >
-                          <DetailsIcon fontSize="small" />
-                        </IconButton>
-                      </Tooltip>
-                      <Tooltip title="Usuários">
-                        <IconButton
-                          size="small"
-                          onClick={() => {
-                            setSelectedCompany(company);
-                            setShowUsersModal(true);
-                          }}
-                          color="primary"
-                        >
-                          <UsersIcon fontSize="small" />
-                        </IconButton>
-                      </Tooltip>
-                      <Tooltip title="Faturas">
-                        <IconButton
-                          size="small"
-                          onClick={() => {
-                            setSelectedCompany(company);
-                            setShowInvoicesModal(true);
-                          }}
-                          color="secondary"
-                        >
-                          <InvoicesIcon fontSize="small" />
-                        </IconButton>
-                      </Tooltip>
-                      {schedulesEnabled && (
-                        <Tooltip title="Horários">
-                          <IconButton
-                            size="small"
-                            onClick={() => {
-                              setSelectedCompany(company);
-                              setScheduleModalOpen(true);
-                            }}
-                            color="warning"
-                          >
-                            <ScheduleIcon fontSize="small" />
-                          </IconButton>
-                        </Tooltip>
-                      )}
-                      <Tooltip title="Editar">
-                        <IconButton
-                          size="small"
-                          onClick={() => {
-                            setSelectedCompany(company);
-                            setShowCompanyModal(true);
-                          }}
-                          color="primary"
-                        >
-                          <EditIcon fontSize="small" />
-                        </IconButton>
-                      </Tooltip>
-                      <Tooltip title={company.status ? "Bloquear" : "Desbloquear"}>
-                        <IconButton
-                          size="small"
-                          onClick={() => {
-                            setSelectedCompany(company);
-                            setBlockAction(company.status ? 'block' : 'unblock');
-                            setShowConfirmBlock(true);
-                          }}
-                          color={company.status ? "warning" : "success"}
-                        >
-                          <BlockIcon fontSize="small" />
-                        </IconButton>
-                      </Tooltip>
-                      <Tooltip title="Excluir">
-                        <IconButton
-                          size="small"
-                          onClick={() => {
-                            setSelectedCompany(company);
-                            setShowConfirmDelete(true);
-                          }}
-                          color="error"
-                        >
-                          <DeleteIcon fontSize="small" />
-                        </IconButton>
-                      </Tooltip>
-                    </Box>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-          
-          {/* Indicador de carregamento para scroll infinito */}
-          {loading && records.length > 0 && (
-            <Box display="flex" justifyContent="center" p={2}>
-              <CircularProgress size={24} />
-              <Typography variant="body2" sx={{ ml: 1 }}>
-                Carregando mais empresas...
-              </Typography>
-            </Box>
-          )}
-        </TableContainer>
-      </Box>
-    );
-  };
-
   return (
     <>
       <StandardPageLayout
@@ -563,7 +476,93 @@ const Companies = () => {
         onTabChange={handleTabChange}
         loading={loading && records.length === 0}
       >
-        {renderContent()}
+        <StandardDataTable
+          data={filteredCompanies}
+          columns={columns}
+          loading={loading && records.length === 0}
+          actions={filteredCompanies.length > 0 ? getTableActions(filteredCompanies[0]) : []}
+          onRowClick={(company) => {
+            setSelectedCompany(company);
+            setShowDetailsModal(true);
+          }}
+          stickyHeader={true}
+          size="small"
+          hover={true}
+          maxVisibleActions={4}
+          emptyIcon={<BusinessIcon />}
+          emptyTitle={
+            activeTab === 0 
+              ? "Nenhuma empresa encontrada" 
+              : activeTab === 1 
+                ? "Nenhuma empresa ativa"
+                : "Nenhuma empresa inativa"
+          }
+          emptyDescription={
+            searchParam 
+              ? "Tente usar outros termos na busca"
+              : activeTab === 0
+                ? "Comece criando sua primeira empresa"
+                : "Não há empresas nesta categoria"
+          }
+          emptyActionLabel={activeTab === 0 ? "Criar Empresa" : undefined}
+          onEmptyActionClick={activeTab === 0 ? () => {
+            setSelectedCompany(null);
+            setShowCompanyModal(true);
+          } : undefined}
+          // Renderização customizada para ações condicionais por linha
+          customRowRenderer={(company, index, columns) => (
+            <>
+              {columns.map((column, colIndex) => (
+                <TableCell
+                  key={column.id || colIndex}
+                  align={column.align || 'left'}
+                >
+                  {column.render 
+                    ? column.render(company, index)
+                    : company[column.field] || '-'
+                  }
+                </TableCell>
+              ))}
+              <TableCell align="center">
+                <Box sx={{ display: 'flex', gap: 0.5, justifyContent: 'center' }}>
+                  {getTableActions(company).slice(0, 4).map((action, actionIndex) => (
+                    <Tooltip key={actionIndex} title={action.label}>
+                      <IconButton
+                        size="small"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          action.onClick(company);
+                        }}
+                        disabled={action.disabled}
+                        color={action.color || 'default'}
+                        sx={{
+                          padding: '4px',
+                          '&:hover': {
+                            backgroundColor: action.color === 'error' 
+                              ? 'error.light' 
+                              : 'action.hover'
+                          }
+                        }}
+                      >
+                        {action.icon}
+                      </IconButton>
+                    </Tooltip>
+                  ))}
+                </Box>
+              </TableCell>
+            </>
+          )}
+        />
+
+        {/* Indicador de carregamento para scroll infinito */}
+        {loading && records.length > 0 && (
+          <Box display="flex" justifyContent="center" p={2}>
+            <CircularProgress size={24} />
+            <Typography variant="body2" sx={{ ml: 1 }}>
+              Carregando mais empresas...
+            </Typography>
+          </Box>
+        )}
       </StandardPageLayout>
 
       {/* Modais */}

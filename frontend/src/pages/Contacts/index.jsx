@@ -1,19 +1,16 @@
 import React, { useCallback, useContext, useEffect, useRef, useState } from "react";
 import { useHistory } from "react-router-dom";
-
-// MUI Components
 import {
   Box,
   Avatar,
   Chip,
   Typography,
-  TextField,
-  InputAdornment,
   CircularProgress,
-  useTheme
+  useTheme,
+  TableCell,
+  IconButton,
+  Tooltip
 } from "@mui/material";
-
-// MUI Icons
 import {
   Add as AddIcon,
   CloudUpload as ImportIcon,
@@ -23,13 +20,12 @@ import {
   WhatsApp as WhatsAppIcon,
   Lock as LockIcon,
   LockOpen as LockOpenIcon,
-  ContactPhone as ContactIcon,
-  Search as SearchIcon
+  ContactPhone as ContactIcon
 } from "@mui/icons-material";
 
 // Standard Components
-import StandardPageLayout from "../../components/shared/StandardPageLayout";
-import StandardDataTable from "../../components/shared/StandardDataTable";
+import StandardPageLayout from "../../components/StandardPageLayout";
+import StandardDataTable from "../../components/StandardDataTable";
 
 // Existing Components
 import ContactModal from "./components/ContactModal";
@@ -37,7 +33,6 @@ import NewTicketModal from "../../components/NewTicketModal";
 import ConfirmationModal from "../../components/ConfirmationModal";
 import TagFilterComponent from './components/TagFilterComponent';
 import ImportExportStepper from './components/ImportExportStepper';
-import { Can } from "../../components/Can";
 
 // Contexts
 import { AuthContext } from "../../context/Auth/AuthContext";
@@ -46,7 +41,6 @@ import { GlobalContext } from "../../context/GlobalContext";
 // Utils & Helpers
 import api from "../../services/api";
 import { toast } from "../../helpers/toast";
-import { i18n } from "../../translate/i18n";
 import { generateColor } from "../../helpers/colorGenerator";
 import { getInitials } from "../../helpers/getInitials";
 import formatSerializedId from "../../utils/formatSerializedId";
@@ -54,7 +48,6 @@ import { useLoading } from "../../hooks/useLoading";
 
 const Contacts = () => {
   const history = useHistory();
-  const theme = useTheme();
   const { user } = useContext(AuthContext);
   const { Loading } = useLoading();
   const { makeRequest, setMakeRequest } = useContext(GlobalContext);
@@ -64,12 +57,11 @@ const Contacts = () => {
 
   // States
   const [loading, setLoading] = useState(false);
-  const [loadingMore, setLoadingMore] = useState(false);
-  const [pageNumber, setPageNumber] = useState(1);
-  const [searchParam, setSearchParam] = useState("");
   const [contacts, setContacts] = useState([]);
-  const [contactsTotal, setContactsTotal] = useState('');
-  const [hasMore, setHasMore] = useState(false);
+  const [contactsTotal, setContactsTotal] = useState(0);
+  const [searchParam, setSearchParam] = useState("");
+  const [selectedContacts, setSelectedContacts] = useState([]);
+  const [tagFilter, setTagFilter] = useState([]);
   
   // Modal states
   const [selectedContactId, setSelectedContactId] = useState(null);
@@ -81,15 +73,9 @@ const Contacts = () => {
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [confirmBlockOpen, setConfirmBlockOpen] = useState(false);
   const [deletingContact, setDeletingContact] = useState(null);
-  const [deletingAllContact, setDeletingAllContact] = useState(null);
   const [blockingContact, setBlockingContact] = useState(null);
-
-  // Bulk selection states
-  const [selectedContacts, setSelectedContacts] = useState([]);
   const [confirmBulkAction, setConfirmBulkAction] = useState(false);
   const [bulkActionType, setBulkActionType] = useState('');
-
-  const [tagFilter, setTagFilter] = useState([]);
 
   // Cleanup no unmount
   useEffect(() => {
@@ -98,18 +84,48 @@ const Contacts = () => {
     };
   }, []);
 
-  const handleTagFilterChange = useCallback((selectedTagIds) => {
-    setTagFilter(selectedTagIds);
-    setPageNumber(1);
-    setContacts([]);
+  const fetchContacts = useCallback(async () => {
+    if (!isMounted.current) return;
+    
+    try {
+      setLoading(true);
+      const { data } = await api.get("/contacts/", {
+        params: {
+          searchParam,
+          typeContact: "private",
+          tagIds: tagFilter.length > 0 ? tagFilter.join(',') : undefined,
+        },
+      });
+      
+      if (isMounted.current) {
+        setContactsTotal(data?.count || 0);
+        setContacts(data?.contacts || []);
+      }
+    } catch (err) {
+      if (isMounted.current) {
+        console.error("Erro ao buscar contatos:", err);
+        toast.error("Erro ao carregar contatos");
+        setContacts([]);
+      }
+    } finally {
+      if (isMounted.current) {
+        setLoading(false);
+      }
+    }
+  }, [searchParam, tagFilter]);
+
+  useEffect(() => {
+    fetchContacts();
+  }, [fetchContacts, makeRequest]);
+
+  // Handlers
+  const handleSearchChange = useCallback((event) => {
+    setSearchParam(event.target.value.toLowerCase());
+    setSelectedContacts([]);
   }, []);
 
-  const handleSearchChange = useCallback((event) => {
-    const searchValue = event.target.value.toLowerCase();
-    setSearchParam(searchValue);
-    setPageNumber(1);
-    setContacts([]);
-    setSelectedContacts([]);
+  const handleTagFilterChange = useCallback((selectedTagIds) => {
+    setTagFilter(selectedTagIds);
   }, []);
 
   const handleOpenContactModal = useCallback(() => {
@@ -122,6 +138,17 @@ const Contacts = () => {
     setContactModalOpen(true);
   }, []);
 
+  const handleCloseContactModal = useCallback(() => {
+    setContactModalOpen(false);
+    setSelectedContactId(null);
+    setMakeRequest(Math.random());
+  }, [setMakeRequest]);
+
+  const handleStartChat = useCallback((contact) => {
+    setContactTicket(contact);
+    setNewTicketModalOpen(true);
+  }, []);
+
   const handleDeleteContact = useCallback(async (contactId) => {
     try {
       Loading.turnOn();
@@ -129,8 +156,7 @@ const Contacts = () => {
       toast.success("Contato excluído com sucesso");
       setMakeRequest(Math.random());
     } catch (err) {
-      console.error("Erro ao excluir contato:", err);
-      toast.error(err.response?.data?.error || err.message || "Erro ao excluir contato");
+      toast.error("Erro ao excluir contato");
     } finally {
       Loading.turnOff();
       setDeletingContact(null);
@@ -138,47 +164,20 @@ const Contacts = () => {
     }
   }, [Loading, setMakeRequest]);
 
-  const handleDeleteAllContact = useCallback(async () => {
-    try {
-      Loading.turnOn();
-      await api.delete("/contacts");
-      toast.success("Todos os contatos foram excluídos");
-      setMakeRequest(Math.random());
-    } catch (err) {
-      console.error("Erro ao excluir todos os contatos:", err);
-      toast.error(err.response?.data?.error || err.message || "Erro ao excluir contatos");
-    } finally {
-      Loading.turnOff();
-      setDeletingAllContact(null);
-      setConfirmOpen(false);
-    }
-  }, [Loading, setMakeRequest]);
-
   const handleBlockUnblockContact = useCallback(async (contactId, active) => {
     try {
       Loading.turnOn();
-      
-      const { data } = await api.put(`/contacts/toggle-block/${contactId}`, { 
-        active
-      });
+      const { data } = await api.put(`/contacts/toggle-block/${contactId}`, { active });
       
       setContacts(prevContacts => 
         prevContacts.map(contact => 
-          contact.id === contactId 
-            ? {...contact, active: data.active} 
-            : contact
+          contact.id === contactId ? {...contact, active: data.active} : contact
         )
       );
       
-      toast.success(
-        data.active 
-          ? "Contato desbloqueado"
-          : "Contato bloqueado"
-      );
-      
+      toast.success(data.active ? "Contato desbloqueado" : "Contato bloqueado");
     } catch (err) {
-      console.error("Erro ao alterar status do contato:", err);
-      toast.error(err.response?.data?.error || err.message || "Erro ao alterar status");
+      toast.error("Erro ao alterar status");
     } finally {
       Loading.turnOff();
       setBlockingContact(null);
@@ -186,66 +185,13 @@ const Contacts = () => {
     }
   }, [Loading]);
 
-  const fetchContacts = useCallback(async () => {
-    if (!isMounted.current) return;
-    
-    try {
-      if (pageNumber === 1) {
-        setLoading(true);
-      } else {
-        setLoadingMore(true);
-      }
-      
-      const { data } = await api.get("/contacts/", {
-        params: {
-          searchParam,
-          pageNumber,
-          typeContact: "private",
-          tagIds: tagFilter.length > 0 ? tagFilter.join(',') : undefined,
-        },
-      });
-      
-      if (isMounted.current) {
-        setContactsTotal(data?.count || 0);
-        if (pageNumber === 1) {
-          setContacts(data?.contacts || []);
-        } else {
-          setContacts(prev => [...prev, ...(data?.contacts || [])]);
-        }
-        setHasMore(data?.hasMore || false);
-      }
-    } catch (err) {
-      if (isMounted.current) {
-        console.error("Erro ao buscar contatos:", err);
-        toast.error(err.response?.data?.error || err.message || "Erro ao carregar contatos");
-        if (pageNumber === 1) {
-          setContacts([]);
-        }
-      }
-    } finally {
-      if (isMounted.current) {
-        setLoading(false);
-        setLoadingMore(false);
-      }
-    }
-  }, [searchParam, pageNumber, tagFilter]);
-
-  useEffect(() => {
-    if (isMounted.current) {
-      fetchContacts();
-    }
-  }, [fetchContacts, makeRequest]);
-
   const handleBulkAction = useCallback((actionType) => {
     setBulkActionType(actionType);
     setConfirmBulkAction(true);
   }, []);
 
   const executeBulkAction = useCallback(async () => {
-    if (selectedContacts.length === 0) {
-      toast.info("Nenhum contato selecionado");
-      return;
-    }
+    if (selectedContacts.length === 0) return;
 
     try {
       Loading.turnOn();
@@ -277,32 +223,21 @@ const Contacts = () => {
       
       setSelectedContacts([]);
       setMakeRequest(Math.random());
-      
     } catch (err) {
-      console.error(`Erro na ação em massa (${bulkActionType}):`, err);
-      toast.error(err.response?.data?.error || "Erro na ação em massa");
+      toast.error("Erro na ação em massa");
     } finally {
       Loading.turnOff();
       setConfirmBulkAction(false);
     }
   }, [selectedContacts, bulkActionType, Loading, setMakeRequest]);
 
-  const handleStartChat = useCallback((contact) => {
-    setContactTicket(contact);
-    setNewTicketModalOpen(true);
-  }, []);
-
-  const handleSelectionChange = useCallback((selectedItems) => {
-    setSelectedContacts(selectedItems);
-  }, []);
-
-  // Configuração das colunas da tabela
+  // Configuração das colunas
   const columns = [
     {
       id: 'id',
       field: 'id',
       label: 'ID',
-      width: '80px',
+      width: 80,
       render: (contact) => contact.id ? contact.id.toString().substr(0, 8) + '...' : 'N/A'
     },
     {
@@ -391,88 +326,52 @@ const Contacts = () => {
     }
   ];
 
-  // Ações da tabela
-  const tableActions = [
-    ...(user.profile !== 'user' ? [{
-      label: "Iniciar Chat",
-      icon: <WhatsAppIcon />,
-      onClick: (contact) => handleStartChat(contact),
-      color: "primary"
-    }] : []),
-    {
+  // Ações da tabela condicionais
+  const getTableActions = (contact) => {
+    const actions = [];
+
+    if (user.profile !== 'user' && !contact.isGroup) {
+      actions.push({
+        label: "Iniciar Chat",
+        icon: <WhatsAppIcon />,
+        onClick: (contact) => handleStartChat(contact),
+        color: "primary"
+      });
+    }
+
+    actions.push({
       label: "Editar",
       icon: <EditIcon />,
       onClick: (contact) => handleEditContact(contact),
       color: "primary"
-    },
-    {
-      label: contact => contact.active === false ? "Desbloquear" : "Bloquear",
-      icon: contact => contact.active === false ? <LockOpenIcon /> : <LockIcon />,
-      onClick: (contact) => {
-        setBlockingContact(contact);
-        setConfirmBlockOpen(true);
-      },
-      color: contact => contact.active === false ? 'success' : 'error'
-    },
-    {
+    });
+
+    if (!contact.isGroup) {
+      actions.push({
+        label: contact.active === false ? "Desbloquear" : "Bloquear",
+        icon: contact.active === false ? <LockOpenIcon /> : <LockIcon />,
+        onClick: (contact) => {
+          setBlockingContact(contact);
+          setConfirmBlockOpen(true);
+        },
+        color: contact.active === false ? 'success' : 'error'
+      });
+    }
+
+    actions.push({
       label: "Excluir",
       icon: <DeleteIcon />,
       onClick: (contact) => {
-        setConfirmOpen(true);
-        setDeletingAllContact(null);
         setDeletingContact(contact);
+        setConfirmOpen(true);
       },
       color: "error"
-    }
-  ];
+    });
 
-  const getBulkActionConfirmationText = () => {
-    switch (bulkActionType) {
-      case 'block':
-        return `Deseja bloquear ${selectedContacts.length} contato(s) selecionado(s)?`;
-      case 'unblock':
-        return `Deseja desbloquear ${selectedContacts.length} contato(s) selecionado(s)?`;
-      case 'delete':
-        return `Deseja excluir ${selectedContacts.length} contato(s) selecionado(s)? Esta ação não pode ser desfeita.`;
-      default:
-        return "Confirma esta ação em massa?";
-    }
+    return actions;
   };
 
-  const getBulkActionConfirmationTitle = () => {
-    switch (bulkActionType) {
-      case 'block':
-        return "Bloquear Contatos";
-      case 'unblock':
-        return "Desbloquear Contatos";
-      case 'delete':
-        return "Excluir Contatos";
-      default:
-        return "Confirmar Ação";
-    }
-  };
-
-  // Contador formatado com selecionados
-  const formattedCounter = () => {
-    const baseText = `${contacts.length} de ${contactsTotal} contatos`;
-    return selectedContacts.length > 0 
-      ? `${baseText} (${selectedContacts.length} selecionados)`
-      : baseText;
-  };
-
-  // Handler para fechar modal
-  const handleCloseContactModal = useCallback(() => {
-    setContactModalOpen(false);
-    setSelectedContactId(null);
-    setMakeRequest(Math.random());
-  }, [setMakeRequest]);
-
-  // Handler para salvar contato
-  const handleSaveContact = useCallback((savedContact) => {
-    setMakeRequest(Math.random());
-  }, [setMakeRequest]);
-
-  // Ações do header da página
+  // Ações do header
   const pageActions = [
     {
       label: "Adicionar",
@@ -486,26 +385,13 @@ const Contacts = () => {
       label: "Importar",
       icon: <ImportIcon />,
       onClick: () => setImportModalOpen(true),
-      variant: "outlined",
-      color: "primary"
+      variant: "outlined"
     },
     {
       label: "Exportar",
       icon: <ExportIcon />,
       onClick: () => setExportModalOpen(true),
-      variant: "outlined",
-      color: "primary"
-    },
-    {
-      label: "Excluir Todos",
-      icon: <DeleteIcon />,
-      onClick: () => {
-        setConfirmOpen(true);
-        setDeletingContact(null);
-        setDeletingAllContact(contacts);
-      },
-      variant: "outlined",
-      color: "error"
+      variant: "outlined"
     }
   ];
 
@@ -534,6 +420,13 @@ const Contacts = () => {
     }
   ] : [];
 
+  const formattedCounter = () => {
+    const baseText = `${contacts.length} de ${contactsTotal} contatos`;
+    return selectedContacts.length > 0 
+      ? `${baseText} (${selectedContacts.length} selecionados)`
+      : baseText;
+  };
+
   return (
     <>
       <StandardPageLayout
@@ -546,29 +439,13 @@ const Contacts = () => {
         actions={[...pageActions, ...bulkActions]}
         loading={loading}
       >
-        {/* Filtros */}
-        <Box sx={{ 
-          mb: 3,
-          display: 'flex',
-          gap: 2,
-          alignItems: 'stretch',
-          flexDirection: { xs: 'column', md: 'row' }
-        }}>
-          {/* Filtro de tags */}
-          <Box sx={{ 
-            flex: { md: '1 1 40%' },
-            width: { xs: '100%', md: 'auto' },
-            maxWidth: { md: '300px' },
-            '& .MuiOutlinedInput-root': {
-              height: 40
-            }
-          }}>
-            <TagFilterComponent 
-              onFilterChange={handleTagFilterChange} 
-              size="small"
-              placeholder="Filtrar por tags..."
-            />
-          </Box>
+        {/* Filtro de tags */}
+        <Box sx={{ mb: 3, maxWidth: 300 }}>
+          <TagFilterComponent 
+            onFilterChange={handleTagFilterChange} 
+            size="small"
+            placeholder="Filtrar por tags..."
+          />
         </Box>
 
         <StandardDataTable
@@ -577,8 +454,8 @@ const Contacts = () => {
           loading={loading}
           selectable={true}
           selectedItems={selectedContacts}
-          onSelectionChange={handleSelectionChange}
-          actions={tableActions}
+          onSelectionChange={setSelectedContacts}
+          actions={contacts.length > 0 ? getTableActions(contacts[0]) : []}
           onRowClick={(contact) => handleEditContact(contact)}
           stickyHeader={true}
           size="small"
@@ -586,26 +463,42 @@ const Contacts = () => {
           maxVisibleActions={3}
           emptyIcon={<ContactIcon />}
           emptyTitle="Nenhum contato encontrado"
-          emptyDescription="Não há contatos cadastrados para os filtros selecionados. Adicione um novo contato ou ajuste os critérios de busca."
+          emptyDescription="Não há contatos cadastrados para os filtros selecionados."
           emptyActionLabel="Adicionar Contato"
           onEmptyActionClick={handleOpenContactModal}
+          customRowRenderer={(contact, index, columns) => (
+            <>
+              {columns.map((column, colIndex) => (
+                <TableCell
+                  key={column.id || colIndex}
+                  align={column.align || 'left'}
+                  style={{ width: column.width, minWidth: column.minWidth }}
+                >
+                  {column.render ? column.render(contact, index) : contact[column.field] || '-'}
+                </TableCell>
+              ))}
+              <TableCell align="right">
+                <Box sx={{ display: 'flex', gap: 0.5, justifyContent: 'flex-end' }}>
+                  {getTableActions(contact).slice(0, 3).map((action, actionIndex) => (
+                    <Tooltip key={actionIndex} title={action.label}>
+                      <IconButton
+                        size="small"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          action.onClick(contact);
+                        }}
+                        color={action.color || 'default'}
+                        sx={{ padding: '4px' }}
+                      >
+                        {action.icon}
+                      </IconButton>
+                    </Tooltip>
+                  ))}
+                </Box>
+              </TableCell>
+            </>
+          )}
         />
-
-        {/* Indicador de carregamento para scroll infinito */}
-        {loadingMore && (
-          <Box sx={{ display: 'flex', justifyContent: 'center', py: 2 }}>
-            <CircularProgress size={24} />
-          </Box>
-        )}
-
-        {/* Indicador de fim da lista */}
-        {!hasMore && contacts.length > 0 && (
-          <Box sx={{ textAlign: 'center', py: 2 }}>
-            <Typography variant="body2" color="textSecondary">
-              Todos os contatos foram carregados
-            </Typography>
-          </Box>
-        )}
       </StandardPageLayout>
 
       {/* Modais */}
@@ -616,8 +509,7 @@ const Contacts = () => {
           onClose={(ticket) => {
             setNewTicketModalOpen(false);
             if (ticket && (ticket.uuid || ticket.id)) {
-              const ticketId = ticket.uuid || ticket.id;
-              history.push(`/tickets/${ticketId}`);
+              history.push(`/tickets/${ticket.uuid || ticket.id}`);
             }
           }}
         />
@@ -625,69 +517,52 @@ const Contacts = () => {
 
       {contactModalOpen && (
         <ContactModal
-          key={`contact-modal-${selectedContactId || 'new'}`}
           open={contactModalOpen}
           onClose={handleCloseContactModal}
           contactId={selectedContactId}
-          onSave={handleSaveContact}
+          onSave={() => setMakeRequest(Math.random())}
         />
       )}
 
       {confirmOpen && (
         <ConfirmationModal
-          title={
-            !contacts?.length 
-              ? "Nenhum contato cadastrado"
-              : deletingContact
-                ? `Excluir ${deletingContact.name}?`
-                : "Excluir todos os contatos?"
-          }
+          title={`Excluir ${deletingContact?.name}?`}
           open={confirmOpen}
           onClose={() => setConfirmOpen(false)}
-          isShowConfirmButton={!!contacts?.length}
-          onConfirm={() =>
-            deletingContact
-              ? handleDeleteContact(deletingContact.id)
-              : handleDeleteAllContact(deletingAllContact)
-          }
+          onConfirm={() => handleDeleteContact(deletingContact.id)}
         >
-          {!contacts?.length 
-            ? "Não há contatos cadastrados para excluir."
-            : deletingContact
-              ? "Esta ação não pode ser desfeita. Deseja continuar?"
-              : "Esta ação irá excluir TODOS os contatos e não pode ser desfeita. Deseja continuar?"
-          }
+          Esta ação não pode ser desfeita. Deseja continuar?
         </ConfirmationModal>
       )}
 
       {confirmBlockOpen && blockingContact && (
         <ConfirmationModal
           title={
-            blockingContact.active === true || blockingContact.active === undefined
-              ? `Bloquear ${blockingContact.name}?`
-              : `Desbloquear ${blockingContact.name}?`
+            blockingContact.active === false
+              ? `Desbloquear ${blockingContact.name}?`
+              : `Bloquear ${blockingContact.name}?`
           }
           open={confirmBlockOpen}
           onClose={() => setConfirmBlockOpen(false)}
           onConfirm={() => handleBlockUnblockContact(
             blockingContact.id, 
-            !(blockingContact.active === true || blockingContact.active === undefined)
+            !blockingContact.active
           )}
         >
-          {blockingContact.active === true || blockingContact.active === undefined
-            ? "O contato será bloqueado e não poderá enviar mensagens."
-            : "O contato será desbloqueado e poderá enviar mensagens novamente."}
+          {blockingContact.active === false
+            ? "O contato será desbloqueado e poderá enviar mensagens novamente."
+            : "O contato será bloqueado e não poderá enviar mensagens."}
         </ConfirmationModal>
       )}
 
       {confirmBulkAction && (
         <ConfirmationModal
-          title={getBulkActionConfirmationTitle()}
+          title={`${bulkActionType === 'block' ? 'Bloquear' : bulkActionType === 'unblock' ? 'Desbloquear' : 'Excluir'} Contatos`}
           open={confirmBulkAction}
           onClose={() => setConfirmBulkAction(false)}
           onConfirm={executeBulkAction}
         >
-          {getBulkActionConfirmationText()}
+          {`Deseja ${bulkActionType === 'block' ? 'bloquear' : bulkActionType === 'unblock' ? 'desbloquear' : 'excluir'} ${selectedContacts.length} contato(s) selecionado(s)?`}
         </ConfirmationModal>
       )}
 
