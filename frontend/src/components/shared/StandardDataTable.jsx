@@ -122,13 +122,15 @@ const TableEmptyState = ({
 // Menu de Ações - REMOVIDO (não será mais usado)
 
 // Componente de Ações Inline
-const InlineActions = ({ actions = [], item, maxVisibleActions = 3 }) => {
+const InlineActions = ({ actions = [], item, maxVisibleActions = 5 }) => {
+  // Garante que actions seja sempre um array
+  const safeActions = Array.isArray(actions) ? actions : [];
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   
   // Se for mobile ou muitas ações, limita a quantidade visível
-  const visibleActions = isMobile ? actions.slice(0, 2) : actions.slice(0, maxVisibleActions);
-  const hasMoreActions = actions.length > visibleActions.length;
+  const visibleActions = isMobile ? safeActions.slice(0, Math.min(2, safeActions.length)) : safeActions.slice(0, Math.min(maxVisibleActions, safeActions.length));
+  const hasMoreActions = safeActions.length > visibleActions.length;
 
   return (
     <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
