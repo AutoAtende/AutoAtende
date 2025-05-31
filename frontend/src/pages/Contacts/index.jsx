@@ -54,14 +54,19 @@ const Contacts = () => {
   
   // Refs
   const isMounted = useRef(true);
+  const observerRef = useRef();
+  const lastContactElementRef = useRef();
 
   // States
   const [loading, setLoading] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [contacts, setContacts] = useState([]);
   const [contactsTotal, setContactsTotal] = useState(0);
   const [searchParam, setSearchParam] = useState("");
   const [selectedContacts, setSelectedContacts] = useState([]);
   const [tagFilter, setTagFilter] = useState([]);
+  const [hasMore, setHasMore] = useState(true);
+  const [pageNumber, setPageNumber] = useState(1);
   
   // Modal states
   const [selectedContactId, setSelectedContactId] = useState(null);
@@ -104,65 +109,113 @@ const Contacts = () => {
       name: contact.name || 'N/A',
       number: contact.number || '',
       email: contact.email || '',
-      active: contact.active !== false, // Assume ativo por padrão
+      active: contact.active !== false,
       tags: Array.isArray(contact.tags) ? contact.tags : [],
       profilePicUrl: contact.profilePicUrl || '',
       isGroup: Boolean(contact.isGroup),
-      ...contact // Mantém outras propriedades
+      ...contact
     };
   };
 
-  const fetchContacts = useCallback(async () => {
-    if (!isMounted.current) return;
+  const fetchContacts = useCallback(async (page = 1, isNewSearch = false) => {
+    if (!isMounted.current || (loading && !loadingMore)) return;
     
     try {
-      setLoading(true);
+      if (page === 1) {
+        setLoading(true);
+      } else {
+        setLoadingMore(true);
+      }
+
       const { data } = await api.get("/contacts/", {
         params: {
           searchParam,
           typeContact: "private",
           tagIds: Array.isArray(tagFilter) && tagFilter.length > 0 ? tagFilter.join(',') : undefined,
+          page: page,
+          limit: 20
         },
       });
       
       if (isMounted.current) {
-        // Normalizar dados antes de definir estado
         const normalizedContacts = Array.isArray(data?.contacts) 
           ? data.contacts.map(normalizeContactData)
           : [];
         
+        if (page === 1 || isNewSearch) {
+          setContacts(normalizedContacts);
+        } else {
+          setContacts(prev => [...prev, ...normalizedContacts]);
+        }
+        
         setContactsTotal(data?.count || 0);
-        setContacts(normalizedContacts);
+        setHasMore(normalizedContacts.length === 20);
+        setPageNumber(page);
       }
     } catch (err) {
       if (isMounted.current) {
         console.error("Erro ao buscar contatos:", err);
         toast.error("Erro ao carregar contatos");
-        setContacts([]);
-        setContactsTotal(0);
+        if (page === 1) {
+          setContacts([]);
+          setContactsTotal(0);
+        }
       }
     } finally {
       if (isMounted.current) {
         setLoading(false);
+        setLoadingMore(false);
       }
     }
-  }, [searchParam, tagFilter]);
+  }, [searchParam, tagFilter, loading, loadingMore]);
 
+  // Effect para carregar contatos iniciais
   useEffect(() => {
-    fetchContacts();
-  }, [fetchContacts, makeRequest]);
+    setPageNumber(1);
+    setHasMore(true);
+    fetchContacts(1, true);
+  }, [searchParam, tagFilter, makeRequest]);
+
+  // Infinite scroll observer
+  useEffect(() => {
+    if (loading || loadingMore || !hasMore) return;
+
+    if (observerRef.current) observerRef.current.disconnect();
+
+    observerRef.current = new IntersectionObserver(
+      entries => {
+        if (entries[0].isIntersecting && hasMore && !loading && !loadingMore) {
+          fetchContacts(pageNumber + 1);
+        }
+      },
+      { threshold: 1.0 }
+    );
+
+    if (lastContactElementRef.current) {
+      observerRef.current.observe(lastContactElementRef.current);
+    }
+
+    return () => {
+      if (observerRef.current) {
+        observerRef.current.disconnect();
+      }
+    };
+  }, [contacts, hasMore, loading, loadingMore, pageNumber, fetchContacts]);
 
   // Handlers
   const handleSearchChange = useCallback((event) => {
     const value = event?.target?.value || '';
     setSearchParam(value.toLowerCase());
     setSelectedContacts([]);
+    setPageNumber(1);
+    setHasMore(true);
   }, []);
 
   const handleTagFilterChange = useCallback((selectedTagIds) => {
-    // Garantir que sempre seja um array
     const normalizedTagIds = Array.isArray(selectedTagIds) ? selectedTagIds : [];
     setTagFilter(normalizedTagIds);
+    setPageNumber(1);
+    setHasMore(true);
   }, []);
 
   const handleOpenContactModal = useCallback(() => {
@@ -327,7 +380,7 @@ const Contacts = () => {
 
       const validTags = contact.tags
         .filter(tag => tag && typeof tag === 'object' && tag.id && tag.name)
-        .slice(0, 3); // Limita a 3 tags para performance
+        .slice(0, 3);
       
       if (validTags.length === 0) {
         return (
@@ -451,8 +504,8 @@ const Contacts = () => {
     }
   ];
 
-  // Ações da tabela condicionais
-  const getTableActions = (contact) => {
+  // Ações da tabela - CORRIGIDO
+  const getTableActions = useCallback((contact) => {
     const actions = [];
     const normalizedContact = normalizeContactData(contact);
 
@@ -460,7 +513,7 @@ const Contacts = () => {
       actions.push({
         label: "Iniciar Chat",
         icon: <WhatsAppIcon />,
-        onClick: (contact) => handleStartChat(contact),
+        onClick: () => handleStartChat(normalizedContact),
         color: "primary"
       });
     }
@@ -468,7 +521,7 @@ const Contacts = () => {
     actions.push({
       label: "Editar",
       icon: <EditIcon />,
-      onClick: (contact) => handleEditContact(contact),
+      onClick: () => handleEditContact(normalizedContact),
       color: "primary"
     });
 
@@ -476,8 +529,8 @@ const Contacts = () => {
       actions.push({
         label: normalizedContact.active ? "Bloquear" : "Desbloquear",
         icon: normalizedContact.active ? <LockIcon /> : <LockOpenIcon />,
-        onClick: (contact) => {
-          setBlockingContact(normalizeContactData(contact));
+        onClick: () => {
+          setBlockingContact(normalizedContact);
           setConfirmBlockOpen(true);
         },
         color: normalizedContact.active ? 'error' : 'success'
@@ -487,15 +540,15 @@ const Contacts = () => {
     actions.push({
       label: "Excluir",
       icon: <DeleteIcon />,
-      onClick: (contact) => {
-        setDeletingContact(normalizeContactData(contact));
+      onClick: () => {
+        setDeletingContact(normalizedContact);
         setConfirmOpen(true);
       },
       color: "error"
     });
 
     return actions;
-  };
+  }, [user, handleStartChat, handleEditContact]);
 
   // Ações do header
   const pageActions = [
@@ -554,6 +607,19 @@ const Contacts = () => {
       : baseText;
   };
 
+  // Renderizar contatos com infinite scroll
+  const renderContacts = () => {
+    const contactsWithRef = contacts.map((contact, index) => {
+      const isLast = index === contacts.length - 1;
+      return {
+        ...contact,
+        ref: isLast ? lastContactElementRef : null
+      };
+    });
+
+    return contactsWithRef;
+  };
+
   return (
     <>
       <StandardPageLayout
@@ -576,7 +642,7 @@ const Contacts = () => {
         </Box>
 
         <StandardDataTable
-          data={contacts}
+          data={renderContacts()}
           columns={columns}
           loading={loading}
           selectable={true}
@@ -592,7 +658,40 @@ const Contacts = () => {
           emptyDescription="Não há contatos cadastrados para os filtros selecionados."
           emptyActionLabel="Adicionar Contato"
           onEmptyActionClick={handleOpenContactModal}
+          containerProps={{
+            sx: {
+              height: '100%',
+              maxHeight: 'calc(100vh - 300px)',
+              overflow: 'auto'
+            }
+          }}
+          customRowRenderer={(item, index, columns) => {
+            const isLast = index === contacts.length - 1;
+            return (
+              <>
+                {columns.map((column, colIndex) => (
+                  <TableCell
+                    key={column.id || colIndex}
+                    align={column.align || 'left'}
+                    ref={isLast && colIndex === 0 ? lastContactElementRef : null}
+                  >
+                    {column.render 
+                      ? column.render(item, index)
+                      : item[column.field] || '-'
+                    }
+                  </TableCell>
+                ))}
+              </>
+            );
+          }}
         />
+        
+        {/* Loading indicator para infinite scroll */}
+        {loadingMore && (
+          <Box sx={{ display: 'flex', justifyContent: 'center', p: 2 }}>
+            <CircularProgress size={24} />
+          </Box>
+        )}
       </StandardPageLayout>
 
       {/* Modais */}
