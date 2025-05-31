@@ -36,7 +36,7 @@ import {
   Info
 } from '@mui/icons-material';
 
-import StandardTabContent from "../../../components/Standard/StandardTabContent";
+import StandardTabContent from "../../../components/shared/StandardTabContent";
 import WhiteLabelHelp from "../../../components/WhitelabelHelp";
 import { toast } from "../../../helpers/toast";
 import { AuthContext } from "../../../context/Auth/AuthContext";

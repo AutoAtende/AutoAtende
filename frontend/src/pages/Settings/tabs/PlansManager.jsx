@@ -38,14 +38,14 @@ import {
     VisibilityOff as VisibilityOffIcon
 } from "@mui/icons-material";
 
-import StandardPageLayout from "../../components/Standard/StandardPageLayout";
-import StandardTabContent from "../../components/Standard/StandardTabContent";
-import StandardTable from "../../components/Standard/StandardTable";
-import StandardEmptyState from "../../components/Standard/StandardEmptyState";
-import StandardModal from "../../components/Standard/StandardModal";
-import { toast } from "../../helpers/toast";
-import usePlans from "../../hooks/usePlans";
-import { i18n } from "../../translate/i18n";
+import StandardPageLayout from "../../../components/shared/StandardPageLayout";
+import StandardTabContent from "../../../components/shared/StandardTabContent";
+import StandardTable from "../../../components/shared/StandardTable";
+import StandardEmptyState from "../../../components/shared/StandardEmptyState";
+import StandardModal from "../../../components/shared/StandardModal";
+import { toast } from "../../../helpers/toast";
+import usePlans from "../../../hooks/usePlans";
+import { i18n } from "../../../translate/i18n";
 
 // Styled Components
 const FormContainer = styled(Paper)(({ theme }) => ({

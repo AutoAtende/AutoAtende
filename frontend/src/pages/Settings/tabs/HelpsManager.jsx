@@ -25,13 +25,13 @@ import {
     PlayCircleOutline as PlayIcon
 } from "@mui/icons-material";
 
-import StandardPageLayout from "../../components/Standard/StandardPageLayout";
-import StandardTabContent from "../../components/Standard/StandardTabContent";
-import StandardTable from "../../components/Standard/StandardTable";
-import StandardEmptyState from "../../components/Standard/StandardEmptyState";
-import StandardModal from "../../components/Standard/StandardModal";
-import { toast } from "../../helpers/toast";
-import useHelps from "../../hooks/useHelps";
+import StandardPageLayout from "../../../components/shared/StandardPageLayout";
+import StandardTabContent from "../../../components/shared/StandardTabContent";
+import StandardTable from "../../../components/shared/StandardTable";
+import StandardEmptyState from "../../../components/shared/StandardEmptyState";
+import StandardModal from "../../../components/shared/StandardModal";
+import { toast } from "../../../helpers/toast";
+import useHelps from "../../../hooks/useHelps";
 
 // Styled Components
 const FormContainer = styled(Box)(({ theme }) => ({

@@ -18,9 +18,9 @@ import {
   AccountBalance as BankIcon
 } from '@mui/icons-material';
 
-import useSettings from "../../hooks/useSettings";
-import { toast } from "../../helpers/toast";
-import StandardTabContent from "../../components/Standard/StandardTabContent";
+import useSettings from "../../../hooks/useSettings";
+import { toast } from "../../../helpers/toast";
+import StandardTabContent from "../../../components/shared/StandardTabContent";
 import EfiSettings from "./components/EfiSettings";
 import StripeSettings from "./components/StripeSettings";
 

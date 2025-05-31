@@ -55,11 +55,11 @@ import {
   faBuilding,
   faDatabase
 } from "@fortawesome/free-solid-svg-icons";
-import { copyToClipboard } from "../../helpers/copyToClipboard";
-import { toast } from "../../helpers/toast";
-import OnlyForSuperUser from "../../components/OnlyForSuperUser";
-import { AuthContext } from "../../context/Auth/AuthContext";
-import StandardTabContent from "../../components/Standard/StandardTabContent";
+import { copyToClipboard } from "../../../helpers/copyToClipboard";
+import { toast } from "../../../helpers/toast";
+import OnlyForSuperUser from "../../../components/OnlyForSuperUser";
+import { AuthContext } from "../../../context/Auth/AuthContext";
+import StandardTabContent from "../../../components/shared/StandardTabContent";
 
 // Constantes
 const openAiModels = [
