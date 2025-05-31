@@ -1,22 +1,13 @@
 import React, { useState, useCallback, useContext, useEffect } from "react";
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableRow,
-  IconButton,
-  Checkbox,
-  Box,
-  CircularProgress,
+  Switch,
+  Chip,
+  Button,
   Menu,
   MenuItem,
   ListItemIcon,
   ListItemText,
-  Switch,
-  Chip,
-  Button,
-  TableContainer
+  IconButton
 } from "@mui/material";
 import {
   Edit as EditIcon,
@@ -33,76 +24,129 @@ import {
 } from "@mui/icons-material";
 
 // Componentes
-import StandardPageLayout from "../../components/StandardPageLayout";
+import StandardPageLayout from "../../components/shared/StandardPageLayout";
+import StandardDataTable from "../../components/shared/StandardDataTable";
 import api from "../../services/api";
 import { i18n } from "../../translate/i18n";
 import { toast } from "../../helpers/toast";
 import { AuthContext } from "../../context/Auth/AuthContext";
 import TagModal from "../../components/TagModal";
 import ConfirmationModal from "../../components/ConfirmationModal";
-import TableRowSkeleton from "../../components/TableRowSkeleton";
 import BulkTagModal from "./components/BulkTagModal";
 import { exportToExcel, exportToPDF, printTags } from './exportUtils';
 
 const Tags = () => {
   const { user } = useContext(AuthContext);
 
-  // Estado
+  // Estados principais
   const [tags, setTags] = useState([]);
   const [selectedTags, setSelectedTags] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [page, setPage] = useState(1);
-  const [rowsPerPage, setRowsPerPage] = useState(10);
   const [searchParam, setSearchParam] = useState("");
-  const [kanbanFilter, setKanbanFilter] = useState("all");
+  const [activeTab, setActiveTab] = useState(0);
+  
+  // Estados de modais
   const [tagModalOpen, setTagModalOpen] = useState(false);
   const [bulkModalOpen, setBulkModalOpen] = useState(false);
   const [selectedTag, setSelectedTag] = useState(null);
   const [confirmModalOpen, setConfirmModalOpen] = useState(false);
   const [confirmModalAction, setConfirmModalAction] = useState(null);
+  
+  // Estados de menus
   const [exportAnchorEl, setExportAnchorEl] = useState(null);
   const [bulkActionAnchorEl, setBulkActionAnchorEl] = useState(null);
-  const [totalCount, setTotalCount] = useState(0);
-  const [activeTab, setActiveTab] = useState(0);
 
   // Função para buscar tags do servidor
-  const fetchTags = useCallback(async (pageNumber = 1) => {
+  const fetchTags = useCallback(async () => {
     try {
       setLoading(true);
       const { data } = await api.get("/tags", {
         params: {
           searchParam,
-          pageNumber,
-          pageSize: rowsPerPage,
         },
       });
 
-      setTags(data.tags);
-      setTotalCount(data.count || 0);
+      setTags(data.tags || []);
     } catch (err) {
       console.error(err);
       toast.error(i18n.t("tags.toasts.loadError"));
     } finally {
       setLoading(false);
     }
-  }, [searchParam, rowsPerPage]);
+  }, [searchParam]);
 
   // Carregar tags na montagem e quando os filtros mudarem
   useEffect(() => {
-    fetchTags(1);
+    fetchTags();
   }, [fetchTags]);
+
+  // Configuração das colunas - MANTENDO EXATAMENTE O MESMO LAYOUT
+  const columns = [
+    {
+      id: 'id',
+      field: 'id',
+      label: 'ID',
+      width: '60px',
+      align: 'left'
+    },
+    {
+      id: 'name',
+      field: 'name',
+      label: i18n.t("tags.table.name"),
+      render: (item) => (
+        <Chip
+          label={item.name}
+          style={{
+            backgroundColor: item.color,
+            color: "white"
+          }}
+        />
+      )
+    },
+    {
+      id: 'ticketsCount',
+      field: 'ticketsCount',
+      label: i18n.t("tags.table.tickets"),
+      render: (item) => item.ticketsCount || 0
+    },
+    {
+      id: 'kanban',
+      field: 'kanban',
+      label: i18n.t("tags.table.kanban"),
+      render: (item) => (
+        <Switch
+          checked={item.kanban === 1}
+          onChange={() => handleUpdateKanban(item.kanban === 0, item.id)}
+          disabled={!user?.super}
+          color="primary"
+        />
+      )
+    }
+  ];
+
+  // Ações da tabela - MANTENDO AS MESMAS AÇÕES
+  const tableActions = [
+    {
+      label: "Editar",
+      icon: <EditIcon />,
+      onClick: (item) => handleOpenTagModal(item),
+      color: "primary"
+    },
+    {
+      label: "Excluir",
+      icon: <DeleteIcon />,
+      onClick: (item) => {
+        setConfirmModalAction(item.id);
+        setConfirmModalOpen(true);
+      },
+      color: "error"
+    }
+  ];
 
   // Manipuladores de eventos
   const handleSearch = (e) => {
     const value = e.target.value;
     setSearchParam(value);
-    setPage(1);
-    
-    const timeoutId = setTimeout(() => {
-      fetchTags(1);
-    }, 500);
-    
-    return () => clearTimeout(timeoutId);
   };
 
   const handleOpenTagModal = (tag = null) => {
@@ -113,24 +157,23 @@ const Tags = () => {
   const handleCloseTagModal = () => {
     setSelectedTag(null);
     setTagModalOpen(false);
-    fetchTags(page);
+    fetchTags();
   };
 
   const handleDeleteTag = async () => {
     try {
       if (confirmModalAction === "selected") {
         await api.post("/tags/bulk-delete", {
-          tagIds: selectedTags,
+          tagIds: selectedTags.map(tag => tag.id),
         });
-        setTags((prevTags) => prevTags.filter((tag) => !selectedTags.includes(tag.id)));
+        toast.success(`${selectedTags.length} tags excluídas com sucesso`);
         setSelectedTags([]);
       } else {
         await api.delete(`/tags/${confirmModalAction}`);
-        setTags((prevTags) => prevTags.filter((tag) => tag.id !== confirmModalAction));
+        toast.success(i18n.t("tags.toasts.deleted"));
       }
-      toast.success(i18n.t("tags.toasts.deleted"));
       setConfirmModalOpen(false);
-      fetchTags(page);
+      fetchTags();
     } catch (err) {
       console.error(err);
       toast.error(i18n.t("tags.toasts.deleteError"));
@@ -141,19 +184,12 @@ const Tags = () => {
     try {
       if (selectedTags.length > 0 && !tagId) {
         await api.post("/tags/bulk-update", {
-          tagIds: selectedTags,
+          tagIds: selectedTags.map(tag => tag.id),
           kanban: kanbanValue ? 1 : 0,
         });
         
-        setTags(prevTags => 
-          prevTags.map(tag => 
-            selectedTags.includes(tag.id) 
-              ? { ...tag, kanban: kanbanValue ? 1 : 0 } 
-              : tag
-          )
-        );
-        
-        toast.success(i18n.t("tags.toasts.updated"));
+        toast.success(`${selectedTags.length} tags atualizadas com sucesso`);
+        setSelectedTags([]);
       } else if (tagId) {
         const tag = tags.find(t => t.id === tagId);
         if (!tag) return;
@@ -164,12 +200,9 @@ const Tags = () => {
           kanban: kanbanValue ? 1 : 0
         });
         
-        setTags(prevTags =>
-          prevTags.map(t => (t.id === tagId ? { ...t, kanban: kanbanValue ? 1 : 0 } : t))
-        );
-        
         toast.success(i18n.t("tags.toasts.updated"));
       }
+      fetchTags();
     } catch (err) {
       console.error(err);
       toast.error(i18n.t("tags.toasts.updateError"));
@@ -194,13 +227,8 @@ const Tags = () => {
     }
   };
 
-  const handleToggleSelectAll = (checked) => {
-    if (checked) {
-      const ids = filteredTags.map(tag => tag.id);
-      setSelectedTags(ids);
-    } else {
-      setSelectedTags([]);
-    }
+  const handleSelectionChange = (selectedItems) => {
+    setSelectedTags(selectedItems);
   };
 
   // Filtrar tags com base na aba ativa
@@ -225,7 +253,8 @@ const Tags = () => {
       onClick: () => handleOpenTagModal(),
       variant: "contained",
       color: "primary",
-      tooltip: "Adicionar nova tag"
+      tooltip: "Adicionar nova tag",
+      primary: true
     },
     {
       label: "Ações em Massa",
@@ -263,6 +292,7 @@ const Tags = () => {
 
   const handleTabChange = (event, newValue) => {
     setActiveTab(newValue);
+    setSelectedTags([]); // Limpar seleção ao trocar de aba
   };
 
   return (
@@ -279,109 +309,24 @@ const Tags = () => {
         onTabChange={handleTabChange}
         loading={loading}
       >
-        {filteredTags.length === 0 && !loading ? (
-          <Box 
-            display="flex" 
-            flexDirection="column" 
-            alignItems="center" 
-            justifyContent="center" 
-            sx={{ height: '100%', p: 4 }}
-          >
-            <KanbanIcon sx={{ fontSize: 64, color: 'text.secondary', mb: 2 }} />
-            <Box sx={{ textAlign: 'center' }}>
-              <h3>Nenhuma tag encontrada</h3>
-              <p>Não há tags cadastradas para os filtros selecionados.</p>
-              <Button
-                variant="contained"
-                startIcon={<AddIcon />}
-                onClick={() => handleOpenTagModal()}
-              >
-                Adicionar Tag
-              </Button>
-            </Box>
-          </Box>
-        ) : (
-          <TableContainer sx={{ height: '100%', overflow: 'auto' }}>
-            <Table stickyHeader size="small">
-              <TableHead>
-                <TableRow>
-                  <TableCell padding="checkbox" sx={{ width: "48px" }}>
-                    <Checkbox
-                      checked={filteredTags.length > 0 && selectedTags.length === filteredTags.length}
-                      indeterminate={selectedTags.length > 0 && selectedTags.length < filteredTags.length}
-                      onChange={(e) => handleToggleSelectAll(e.target.checked)}
-                    />
-                  </TableCell>
-                  <TableCell sx={{ width: "60px" }}>ID</TableCell>
-                  <TableCell>{i18n.t("tags.table.name")}</TableCell>
-                  <TableCell>{i18n.t("tags.table.tickets")}</TableCell>
-                  <TableCell>{i18n.t("tags.table.kanban")}</TableCell>
-                  <TableCell align="right">{i18n.t("tags.table.actions")}</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {loading ? (
-                  <TableRowSkeleton columns={6} />
-                ) : (
-                  filteredTags.map((tag) => (
-                    <TableRow key={tag.id} hover>
-                      <TableCell padding="checkbox">
-                        <Checkbox
-                          checked={selectedTags.includes(tag.id)}
-                          onChange={(e) => {
-                            if (e.target.checked) {
-                              setSelectedTags([...selectedTags, tag.id]);
-                            } else {
-                              setSelectedTags(selectedTags.filter(id => id !== tag.id));
-                            }
-                          }}
-                        />
-                      </TableCell>
-                      <TableCell>{tag.id}</TableCell>
-                      <TableCell>
-                        <Chip
-                          label={tag.name}
-                          style={{
-                            backgroundColor: tag.color,
-                            color: "white"
-                          }}
-                        />
-                      </TableCell>
-                      <TableCell>{tag.ticketsCount || 0}</TableCell>
-                      <TableCell>
-                        <Switch
-                          checked={tag.kanban === 1}
-                          onChange={() => handleUpdateKanban(tag.kanban === 0, tag.id)}
-                          disabled={!user?.super}
-                          color="primary"
-                        />
-                      </TableCell>
-                      <TableCell align="right">
-                        <IconButton 
-                          size="small" 
-                          onClick={() => handleOpenTagModal(tag)}
-                          color="primary"
-                        >
-                          <EditIcon />
-                        </IconButton>
-                        <IconButton
-                          size="small"
-                          onClick={() => {
-                            setConfirmModalAction(tag.id);
-                            setConfirmModalOpen(true);
-                          }}
-                          color="error"
-                        >
-                          <DeleteIcon />
-                        </IconButton>
-                      </TableCell>
-                    </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
-          </TableContainer>
-        )}
+        <StandardDataTable
+          data={filteredTags}
+          columns={columns}
+          loading={loading}
+          selectable={true}
+          selectedItems={selectedTags}
+          onSelectionChange={handleSelectionChange}
+          actions={tableActions}
+          onRowClick={(item) => handleOpenTagModal(item)}
+          stickyHeader={true}
+          size="small"
+          hover={true}
+          emptyIcon={<KanbanIcon />}
+          emptyTitle="Nenhuma tag encontrada"
+          emptyDescription="Não há tags cadastradas para os filtros selecionados."
+          emptyActionLabel="Adicionar Tag"
+          onEmptyActionClick={() => handleOpenTagModal()}
+        />
       </StandardPageLayout>
 
       {/* Modais */}
@@ -389,19 +334,19 @@ const Tags = () => {
         open={tagModalOpen}
         onClose={handleCloseTagModal}
         tagData={selectedTag}
-        onSave={() => fetchTags(page)}
+        onSave={fetchTags}
       />
       
       <BulkTagModal
         open={bulkModalOpen}
         onClose={() => setBulkModalOpen(false)}
-        onSave={() => fetchTags(page)}
+        onSave={fetchTags}
       />
       
       <ConfirmationModal
         title={
           confirmModalAction === "selected"
-            ? i18n.t("tags.confirmationModal.deleteSelectedTitle")
+            ? `Excluir ${selectedTags.length} tags selecionadas?`
             : i18n.t("tags.confirmationModal.deleteTitle")
         }
         open={confirmModalOpen}
@@ -409,7 +354,7 @@ const Tags = () => {
         onConfirm={handleDeleteTag}
       >
         {confirmModalAction === "selected"
-          ? i18n.t("tags.confirmationModal.deleteSelectedMessage")
+          ? `Esta ação irá excluir permanentemente ${selectedTags.length} tags selecionadas. Esta ação não pode ser desfeita.`
           : i18n.t("tags.confirmationModal.deleteMessage")}
       </ConfirmationModal>
 
@@ -418,6 +363,8 @@ const Tags = () => {
         anchorEl={exportAnchorEl}
         open={Boolean(exportAnchorEl)}
         onClose={() => setExportAnchorEl(null)}
+        transformOrigin={{ horizontal: 'right', vertical: 'top' }}
+        anchorOrigin={{ horizontal: 'right', vertical: 'bottom' }}
       >
         <MenuItem
           onClick={() => {
@@ -458,6 +405,8 @@ const Tags = () => {
         anchorEl={bulkActionAnchorEl}
         open={Boolean(bulkActionAnchorEl)}
         onClose={() => setBulkActionAnchorEl(null)}
+        transformOrigin={{ horizontal: 'right', vertical: 'top' }}
+        anchorOrigin={{ horizontal: 'right', vertical: 'bottom' }}
       >
         {selectedTags.length > 0 ? (
           <>
