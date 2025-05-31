@@ -3,6 +3,7 @@ import { useHistory } from "react-router-dom";
 import { useSpring, animated } from 'react-spring';
 import { toast } from "../../helpers/toast";
 import { i18n } from "../../translate/i18n";
+import { format, parseISO } from "date-fns";
 
 // Material UI Components
 import {
@@ -13,7 +14,8 @@ import {
   Tooltip,
   CircularProgress,
   Alert,
-  Chip
+  Chip,
+  Avatar
 } from "@mui/material";
 
 // Material UI Icons
@@ -25,7 +27,11 @@ import {
   DeleteForever as DeleteForeverIcon,
   CloudSync as SyncIcon,
   AdminPanelSettings as AdminIcon,
-  People as ParticipantIcon
+  People as ParticipantIcon,
+  PeopleAlt as PeopleIcon,
+  PersonAdd as PersonAddIcon,
+  Info as InfoIcon,
+  GetApp as ExtractIcon
 } from "@mui/icons-material";
 
 // Context
@@ -33,9 +39,9 @@ import { AuthContext } from "../../context/Auth/AuthContext";
 import { SocketContext } from "../../context/Socket/SocketContext";
 
 // Components
-import StandardPageLayout from "../../components/StandardPageLayout";
+import StandardPageLayout from "../../components/shared/StandardPageLayout";
+import StandardDataTable from "../../components/shared/StandardDataTable";
 import BaseModal from "../../components/shared/BaseModal";
-import GroupsTable from "./components/GroupsTable";
 import CreateGroupModal from "./components/CreateGroupModal";
 import GroupInfoModal from "./components/GroupInfoModal";
 import JoinGroupModal from "./components/JoinGroupModal";
@@ -73,16 +79,6 @@ const Groups = () => {
   const [needsSync, setNeedsSync] = useState(false);
   const [whatsappConnections, setWhatsappConnections] = useState([]);
   const [openExtractModal, setOpenExtractModal] = useState(false);
-
-  const handleOpenExtractModal = (group) => {
-    setSelectedGroup(group);
-    setOpenExtractModal(true);
-  };
-
-  const handleCloseExtractModal = () => {
-    setSelectedGroup(null);
-    setOpenExtractModal(false);
-  };
 
   // Animation
   const fadeIn = useSpring({
@@ -189,6 +185,209 @@ const Groups = () => {
     }
   };
 
+  // Funções auxiliares
+  const getParticipantsCount = (group) => {
+    if (!group.participantsJson) return 0;
+    return Array.isArray(group.participantsJson) ? group.participantsJson.length : 0;
+  };
+
+  const getGroupInitials = (name) => {
+    if (!name) return "GP";
+    const words = name.split(" ");
+    if (words.length === 1) return name.substring(0, 2).toUpperCase();
+    return (words[0][0] + words[1][0]).toUpperCase();
+  };
+
+  const getUserRole = (group) => {
+    try {
+      if (group.userRole) {
+        return group.userRole;
+      }
+
+      if (!group.participantsJson || !Array.isArray(group.participantsJson)) {
+        return "unknown";
+      }
+
+      const hasAdmins = group.participantsJson.some(p => 
+        p.admin === 'admin' || p.admin === 'superadmin' || p.isAdmin === true
+      );
+
+      if (!hasAdmins) {
+        return "participant";
+      }
+
+      const adminParticipants = group.participantsJson.filter(p => 
+        p.admin === 'admin' || p.admin === 'superadmin' || p.isAdmin === true
+      );
+
+      const adminRatio = adminParticipants.length / group.participantsJson.length;
+      
+      if (adminRatio > 0.5) {
+        return "participant";
+      }
+
+      return group.userRole || "participant";
+    } catch (error) {
+      console.error("Erro ao verificar role do usuário:", error);
+      return "unknown";
+    }
+  };
+
+  // Configuração das colunas da tabela
+  const columns = [
+    {
+      id: 'name',
+      field: 'subject',
+      label: i18n.t("groups.table.name"),
+      render: (group) => (
+        <Box display="flex" alignItems="center">
+          <Avatar 
+            src={group.profilePic ? `${process.env.REACT_APP_BACKEND_URL}${group.profilePic}` : undefined}
+            sx={{ 
+              width: 40,
+              height: 40,
+              backgroundColor: typeof group.id === 'string' ? 
+                `hsl(${group.id.charCodeAt(0) * 10}, 70%, 50%)` : 
+                '#128C7E',
+              marginRight: 2,
+              border: '1px solid rgba(0, 0, 0, 0.12)'
+            }}
+          >
+            {getGroupInitials(group.subject)}
+          </Avatar>
+          <Box>
+            <Typography variant="body1" sx={{ fontWeight: 500 }}>
+              {group.subject || 'Grupo sem nome'}
+            </Typography>
+            <Typography variant="caption" color="textSecondary">
+              {group.jid ? group.jid.split('@')[0] : ''}
+            </Typography>
+          </Box>
+        </Box>
+      )
+    },
+    {
+      id: 'permission',
+      field: 'userRole',
+      label: 'Permissão',
+      render: (group) => {
+        const userRole = getUserRole(group);
+        
+        if (userRole === "admin") {
+          return (
+            <Chip
+              icon={<AdminIcon />}
+              label="Administrador"
+              size="small"
+              color="warning"
+              variant="outlined"
+            />
+          );
+        }
+        
+        if (userRole === "participant") {
+          return (
+            <Chip
+              icon={<ParticipantIcon />}
+              label="Participante"
+              size="small"
+              color="default"
+              variant="outlined"
+            />
+          );
+        }
+        
+        return (
+          <Chip
+            label="Desconhecido"
+            size="small"
+            color="error"
+            variant="outlined"
+          />
+        );
+      }
+    },
+    {
+      id: 'participants',
+      field: 'participantsJson',
+      label: i18n.t("groups.table.participants"),
+      render: (group) => (
+        <Box display="flex" alignItems="center">
+          <PeopleIcon 
+            fontSize="small" 
+            color="action" 
+            sx={{ mr: 0.5 }}
+          />
+          <Typography variant="body2">
+            {getParticipantsCount(group)}
+          </Typography>
+        </Box>
+      )
+    },
+    {
+      id: 'createdAt',
+      field: 'createdAt',
+      label: i18n.t("groups.table.createdAt"),
+      render: (group) => (
+        group.createdAt
+          ? format(parseISO(group.createdAt), "dd/MM/yyyy HH:mm")
+          : ""
+      )
+    }
+  ];
+
+  // Ações da tabela - condicionais baseadas no role do usuário
+  const getTableActions = (group) => {
+    const userRole = getUserRole(group);
+    const actions = [
+      {
+        label: "Visualizar/Editar",
+        icon: <InfoIcon />,
+        onClick: (group) => handleOpenInfoModal(group),
+        color: "primary"
+      },
+      {
+        label: "Extrair Contatos",
+        icon: <ExtractIcon />,
+        onClick: (group) => handleOpenExtractModal(group),
+        color: "primary"
+      }
+    ];
+
+    if (userRole === "admin") {
+      actions.push(
+        {
+          label: "Solicitações",
+          icon: <PersonAddIcon />,
+          onClick: (group) => handleOpenRequestsModal(group),
+          color: "primary"
+        },
+        {
+          label: "Sair do Grupo",
+          icon: <DeleteIcon />,
+          onClick: (group) => handleOpenDeleteConfirm(group),
+          color: "error"
+        },
+        {
+          label: "Remover do Sistema",
+          icon: <DeleteForeverIcon />,
+          onClick: (group) => handleOpenForceDeleteConfirm(group),
+          color: "error"
+        }
+      );
+    } else if (userRole === "participant") {
+      actions.push({
+        label: "Remover do Sistema",
+        icon: <DeleteForeverIcon />,
+        onClick: (group) => handleOpenForceDeleteConfirm(group),
+        color: "error"
+      });
+    }
+
+    return actions;
+  };
+
+  // Handlers dos modais e ações
   const handleRefresh = async () => {
     setRefreshing(true);
     await Promise.all([
@@ -215,6 +414,16 @@ const Groups = () => {
 
   const handleChangeTab = (event, newValue) => {
     setTab(newValue);
+  };
+
+  const handleOpenExtractModal = (group) => {
+    setSelectedGroup(group);
+    setOpenExtractModal(true);
+  };
+
+  const handleCloseExtractModal = () => {
+    setSelectedGroup(null);
+    setOpenExtractModal(false);
   };
 
   const handleOpenSyncModal = () => {
@@ -413,14 +622,62 @@ const Groups = () => {
           <Box>
             {renderSyncPrompt()}
             {renderWhatsAppStatus()}
-            <GroupsTable
-              groups={groups}
+            <StandardDataTable
+              data={groups}
+              columns={columns}
               loading={loading}
-              onEdit={handleOpenInfoModal}
-              onDelete={handleOpenDeleteConfirm}
-              onRequests={handleOpenRequestsModal}
-              onForceDelete={handleOpenForceDeleteConfirm}
-              onExtractContacts={handleOpenExtractModal}
+              actions={groups.length > 0 ? getTableActions(groups[0]) : []}
+              onRowClick={(group) => handleOpenInfoModal(group)}
+              stickyHeader={true}
+              size="medium"
+              hover={true}
+              maxVisibleActions={3}
+              emptyIcon={<PeopleIcon />}
+              emptyTitle={i18n.t("groups.noGroupsFound")}
+              emptyDescription="Sincronize seus grupos do WhatsApp para começar a gerenciá-los"
+              emptyActionLabel="Sincronizar Grupos"
+              onEmptyActionClick={whatsappConnections.length > 0 ? handleOpenSyncModal : undefined}
+              // Renderização customizada para ações condicionais por linha
+              customRowRenderer={(group, index, columns) => (
+                <>
+                  {columns.map((column, colIndex) => (
+                    <TableCell
+                      key={column.id || colIndex}
+                      align={column.align || 'left'}
+                    >
+                      {column.render 
+                        ? column.render(group, index)
+                        : group[column.field] || '-'
+                      }
+                    </TableCell>
+                  ))}
+                  <TableCell align="right">
+                    {getTableActions(group).slice(0, 3).map((action, actionIndex) => (
+                      <IconButton
+                        key={actionIndex}
+                        size="small"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          action.onClick(group);
+                        }}
+                        disabled={action.disabled}
+                        color={action.color || 'default'}
+                        title={action.label}
+                        sx={{
+                          padding: '4px',
+                          '&:hover': {
+                            backgroundColor: action.color === 'error' 
+                              ? 'error.light' 
+                              : 'action.hover'
+                          }
+                        }}
+                      >
+                        {action.icon}
+                      </IconButton>
+                    ))}
+                  </TableCell>
+                </>
+              )}
             />
           </Box>
         );
@@ -464,11 +721,11 @@ const Groups = () => {
 
   const getGroupStats = () => {
     const adminGroups = groups.filter(group => {
-      return group.userRole === "admin";
+      return getUserRole(group) === "admin";
     }).length;
 
     const participantGroups = groups.filter(group => {
-      return group.userRole === "participant";
+      return getUserRole(group) === "participant";
     }).length;
 
     return { adminGroups, participantGroups };
