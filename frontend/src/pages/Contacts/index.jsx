@@ -1,6 +1,5 @@
 import React, { useCallback, useContext, useEffect, useRef, useState } from "react";
 import { useHistory } from "react-router-dom";
-import PropTypes from 'prop-types';
 
 // MUI Components
 import {
@@ -8,16 +7,10 @@ import {
   Avatar,
   Chip,
   Typography,
-  Checkbox,
-  IconButton,
-  Stack,
   TextField,
   InputAdornment,
   CircularProgress,
-  Tooltip,
-  useTheme,
-  Paper,
-  Button
+  useTheme
 } from "@mui/material";
 
 // MUI Icons
@@ -35,8 +28,8 @@ import {
 } from "@mui/icons-material";
 
 // Standard Components
-import StandardPageLayout from "../../components/shared/StandardPageLayout";
-import StandardEmptyState from "../../components/shared/StandardEmptyState";
+import StandardPageLayout from "../../components/StandardPageLayout";
+import StandardDataTable from "../../components/StandardDataTable";
 
 // Existing Components
 import ContactModal from "./components/ContactModal";
@@ -59,290 +52,6 @@ import { getInitials } from "../../helpers/getInitials";
 import formatSerializedId from "../../utils/formatSerializedId";
 import { useLoading } from "../../hooks/useLoading";
 
-// Componente de Ações do Contato - Simplificado e Seguro
-const ContactActions = React.memo(({ contact, user, onStartChat, onBlock, onEdit, onDelete }) => {
-  const handleStartChat = useCallback((e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    console.log('Clicou em iniciar chat para:', contact.name);
-    if (onStartChat && typeof onStartChat === 'function') {
-      onStartChat(contact);
-    }
-  }, [contact, onStartChat]);
-
-  const handleBlock = useCallback((e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    console.log('Clicou em bloquear para:', contact.name);
-    if (onBlock && typeof onBlock === 'function') {
-      onBlock(contact);
-    }
-  }, [contact, onBlock]);
-
-  const handleEdit = useCallback((e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    console.log('Clicou em editar contato ID:', contact.id);
-    if (onEdit && typeof onEdit === 'function') {
-      onEdit(contact.id);
-    }
-  }, [contact.id, onEdit]);
-
-  const handleDelete = useCallback((e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    console.log('Clicou em excluir para:', contact.name);
-    if (onDelete && typeof onDelete === 'function') {
-      onDelete(contact);
-    }
-  }, [contact, onDelete]);
-
-  // Verificações de segurança
-  if (!contact || typeof contact !== 'object') {
-    console.error('ContactActions: contact inválido', contact);
-    return null;
-  }
-
-  if (!user || typeof user !== 'object') {
-    console.error('ContactActions: user inválido', user);
-    return null;
-  }
-
-  return (
-    <Stack direction="row" spacing={0.5}>
-      {user.profile !== 'user' && !contact.isGroup && (
-        <Tooltip title="Iniciar Chat" arrow>
-          <IconButton
-            size="small"
-            color="primary"
-            onClick={handleStartChat}
-            aria-label="Iniciar chat"
-          >
-            <WhatsAppIcon fontSize="small" />
-          </IconButton>
-        </Tooltip>
-      )}
-
-      {!contact.isGroup && (
-        <Tooltip 
-          title={contact.active === false ? "Desbloquear" : "Bloquear"} 
-          arrow
-        >
-          <IconButton
-            size="small"
-            color={contact.active === false ? 'success' : 'error'}
-            onClick={handleBlock}
-            aria-label={contact.active === false ? "Desbloquear" : "Bloquear"}
-          >
-            {contact.active === false 
-              ? <LockOpenIcon fontSize="small" /> 
-              : <LockIcon fontSize="small" />}
-          </IconButton>
-        </Tooltip>
-      )}
-
-      <Tooltip title="Editar" arrow>
-        <IconButton
-          size="small"
-          color="primary"
-          onClick={handleEdit}
-          aria-label="Editar contato"
-        >
-          <EditIcon fontSize="small" />
-        </IconButton>
-      </Tooltip>
-
-      <Tooltip title="Excluir" arrow>
-        <IconButton
-          size="small"
-          color="error"
-          onClick={handleDelete}
-          aria-label="Excluir contato"
-        >
-          <DeleteIcon fontSize="small" />
-        </IconButton>
-      </Tooltip>
-    </Stack>
-  );
-});
-
-ContactActions.displayName = 'ContactActions';
-
-ContactActions.propTypes = {
-  contact: PropTypes.object.isRequired,
-  user: PropTypes.object.isRequired,
-  onStartChat: PropTypes.func.isRequired,
-  onBlock: PropTypes.func.isRequired,
-  onEdit: PropTypes.func.isRequired,
-  onDelete: PropTypes.func.isRequired
-};
-
-// Componente de Item de Contato - Simplificado e Seguro
-const ContactItem = React.memo(({ 
-  contact, 
-  user, 
-  selected, 
-  onSelect, 
-  onStartChat, 
-  onBlock, 
-  onEdit, 
-  onDelete,
-  showCheckbox = false 
-}) => {
-  const theme = useTheme();
-
-  const handleRowClick = useCallback((e) => {
-    // Previne clique quando é em um botão de ação
-    const target = e.target;
-    if (target.closest('button') || target.closest('[role="button"]') || target.closest('.MuiIconButton-root')) {
-      return;
-    }
-    // Não faz nada no clique da linha por enquanto
-  }, []);
-
-  const handleCheckboxChange = useCallback((e) => {
-    e.stopPropagation();
-    if (onSelect && typeof onSelect === 'function') {
-      onSelect(contact, !selected);
-    }
-  }, [contact, selected, onSelect]);
-
-  // Verificações de segurança
-  if (!contact || typeof contact !== 'object') {
-    console.error('ContactItem: contact inválido', contact);
-    return null;
-  }
-
-  if (!user || typeof user !== 'object') {
-    console.error('ContactItem: user inválido', user);
-    return null;
-  }
-
-  return (
-    <Paper
-      elevation={1}
-      sx={{
-        p: 2,
-        mb: 1,
-        cursor: 'pointer',
-        transition: 'all 0.2s ease',
-        backgroundColor: selected ? 'action.selected' : 'background.paper',
-        '&:hover': {
-          backgroundColor: 'action.hover',
-          transform: 'translateY(-1px)',
-          boxShadow: 2
-        },
-        borderRadius: 2,
-        border: selected ? `2px solid ${theme.palette.primary.main}` : '1px solid transparent'
-      }}
-      onClick={handleRowClick}
-    >
-      <Box display="flex" alignItems="center" gap={2}>
-        {showCheckbox && (
-          <Checkbox
-            checked={Boolean(selected)}
-            onChange={handleCheckboxChange}
-            onClick={(e) => e.stopPropagation()}
-            color="primary"
-          />
-        )}
-
-        <Avatar
-          sx={{
-            bgcolor: generateColor(contact?.number || ''),
-            width: 40,
-            height: 40
-          }}
-          src={contact.profilePicUrl || ''}
-        >
-          {getInitials(contact?.name || 'N/A')}
-        </Avatar>
-
-        <Box flex={1} sx={{ minWidth: 0 }}>
-          <Typography variant="subtitle2" noWrap fontWeight={600}>
-            {contact?.name || "N/A"}
-          </Typography>
-          <Typography variant="body2" color="textSecondary" noWrap>
-            {user.isTricked === "enabled"
-              ? formatSerializedId(contact?.number || '')
-              : contact?.number
-                ? contact.number.slice(0, -4) + "****"
-                : "N/A"
-            }
-          </Typography>
-          <Typography variant="caption" color="textSecondary">
-            ID: {contact.id ? contact.id.toString().substr(0, 8) + '...' : 'N/A'}
-          </Typography>
-        </Box>
-
-        <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1 }}>
-          {/* Tags */}
-          <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap', justifyContent: 'center' }}>
-            {contact?.tags?.length > 0 ? (
-              contact.tags.slice(0, 2).map((tag) => (
-                <Chip
-                  key={tag.id}
-                  label={tag.name}
-                  size="small"
-                  style={{
-                    backgroundColor: tag.color || '#666',
-                    color: '#fff',
-                    height: 20,
-                    fontSize: '0.7rem'
-                  }}
-                />
-              ))
-            ) : (
-              <Typography variant="caption" color="textSecondary">
-                Sem tags
-              </Typography>
-            )}
-            {contact?.tags?.length > 2 && (
-              <Chip
-                label={`+${contact.tags.length - 2}`}
-                size="small"
-                variant="outlined"
-                sx={{ height: 20, fontSize: '0.7rem' }}
-              />
-            )}
-          </Box>
-
-          {/* Status */}
-          <Chip
-            label={contact.active === false ? 'Bloqueado' : 'Ativo'}
-            size="small"
-            color={contact.active === false ? 'error' : 'success'}
-            variant="outlined"
-          />
-        </Box>
-
-        <ContactActions
-          contact={contact}
-          user={user}
-          onStartChat={onStartChat}
-          onBlock={onBlock}
-          onEdit={onEdit}
-          onDelete={onDelete}
-        />
-      </Box>
-    </Paper>
-  );
-});
-
-ContactItem.displayName = 'ContactItem';
-
-ContactItem.propTypes = {
-  contact: PropTypes.object.isRequired,
-  user: PropTypes.object.isRequired,
-  selected: PropTypes.bool,
-  onSelect: PropTypes.func,
-  onStartChat: PropTypes.func.isRequired,
-  onBlock: PropTypes.func.isRequired,
-  onEdit: PropTypes.func.isRequired,
-  onDelete: PropTypes.func.isRequired,
-  showCheckbox: PropTypes.bool
-};
-
 const Contacts = () => {
   const history = useHistory();
   const theme = useTheme();
@@ -352,8 +61,6 @@ const Contacts = () => {
   
   // Refs
   const isMounted = useRef(true);
-  const observerRef = useRef(null);
-  const loadMoreRef = useRef(null);
 
   // States
   const [loading, setLoading] = useState(false);
@@ -384,40 +91,10 @@ const Contacts = () => {
 
   const [tagFilter, setTagFilter] = useState([]);
 
-  // Configurar Intersection Observer para scroll infinito
-  useEffect(() => {
-    if (!loadMoreRef.current) return;
-
-    const options = {
-      root: null,
-      rootMargin: '100px',
-      threshold: 0.1
-    };
-
-    const callback = (entries) => {
-      const [entry] = entries;
-      if (entry.isIntersecting && hasMore && !loadingMore && !loading && contacts.length > 0) {
-        setPageNumber(prev => prev + 1);
-      }
-    };
-
-    observerRef.current = new IntersectionObserver(callback, options);
-    observerRef.current.observe(loadMoreRef.current);
-
-    return () => {
-      if (observerRef.current) {
-        observerRef.current.disconnect();
-      }
-    };
-  }, [hasMore, loadingMore, loading, contacts.length]);
-
   // Cleanup no unmount
   useEffect(() => {
     return () => {
       isMounted.current = false;
-      if (observerRef.current) {
-        observerRef.current.disconnect();
-      }
     };
   }, []);
 
@@ -432,33 +109,17 @@ const Contacts = () => {
     setSearchParam(searchValue);
     setPageNumber(1);
     setContacts([]);
-    setSelectedContacts([]); // Limpar seleção ao filtrar
+    setSelectedContacts([]);
   }, []);
 
   const handleOpenContactModal = useCallback(() => {
-    console.log('Abrindo modal para novo contato');
     setSelectedContactId(null);
     setContactModalOpen(true);
   }, []);
 
-  const handleEditContact = useCallback((contactId) => {
-    console.log('handleEditContact chamado com ID:', contactId);
-    console.log('Tipo do contactId:', typeof contactId);
-    
-    if (!contactId) {
-      console.error('ID do contato é inválido:', contactId);
-      toast.error('ID do contato inválido');
-      return;
-    }
-
-    try {
-      setSelectedContactId(contactId);
-      setContactModalOpen(true);
-      console.log('Modal de edição configurado para abrir com ID:', contactId);
-    } catch (error) {
-      console.error('Erro ao configurar modal de edição:', error);
-      toast.error('Erro ao abrir modal de edição');
-    }
+  const handleEditContact = useCallback((contact) => {
+    setSelectedContactId(contact.id);
+    setContactModalOpen(true);
   }, []);
 
   const handleDeleteContact = useCallback(async (contactId) => {
@@ -631,23 +292,139 @@ const Contacts = () => {
     setNewTicketModalOpen(true);
   }, []);
 
-  const handleContactSelect = useCallback((contact, isSelected) => {
-    setSelectedContacts(prev => {
-      if (isSelected) {
-        return [...prev, contact];
-      } else {
-        return prev.filter(c => c.id !== contact.id);
-      }
-    });
+  const handleSelectionChange = useCallback((selectedItems) => {
+    setSelectedContacts(selectedItems);
   }, []);
 
-  const handleSelectAllContacts = useCallback((isSelected) => {
-    if (isSelected) {
-      setSelectedContacts([...contacts]);
-    } else {
-      setSelectedContacts([]);
+  // Configuração das colunas da tabela
+  const columns = [
+    {
+      id: 'id',
+      field: 'id',
+      label: 'ID',
+      width: '80px',
+      render: (contact) => contact.id ? contact.id.toString().substr(0, 8) + '...' : 'N/A'
+    },
+    {
+      id: 'name',
+      field: 'name',
+      label: 'Nome',
+      minWidth: 200,
+      render: (contact) => (
+        <Box display="flex" alignItems="center" gap={1}>
+          <Avatar
+            sx={{
+              bgcolor: generateColor(contact?.number || ''),
+              width: 40,
+              height: 40
+            }}
+            src={contact.profilePicUrl || ''}
+          >
+            {getInitials(contact?.name || 'N/A')}
+          </Avatar>
+          <Box>
+            <Typography variant="subtitle2" fontWeight={600}>
+              {contact?.name || "N/A"}
+            </Typography>
+            <Typography variant="caption" color="textSecondary">
+              {user.isTricked === "enabled"
+                ? formatSerializedId(contact?.number || '')
+                : contact?.number
+                  ? contact.number.slice(0, -4) + "****"
+                  : "N/A"
+              }
+            </Typography>
+          </Box>
+        </Box>
+      )
+    },
+    {
+      id: 'tags',
+      field: 'tags',
+      label: 'Tags',
+      width: 200,
+      render: (contact) => (
+        <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
+          {contact?.tags?.length > 0 ? (
+            contact.tags.slice(0, 2).map((tag) => (
+              <Chip
+                key={tag.id}
+                label={tag.name}
+                size="small"
+                style={{
+                  backgroundColor: tag.color || '#666',
+                  color: '#fff',
+                  height: 20,
+                  fontSize: '0.7rem'
+                }}
+              />
+            ))
+          ) : (
+            <Typography variant="caption" color="textSecondary">
+              Sem tags
+            </Typography>
+          )}
+          {contact?.tags?.length > 2 && (
+            <Chip
+              label={`+${contact.tags.length - 2}`}
+              size="small"
+              variant="outlined"
+              sx={{ height: 20, fontSize: '0.7rem' }}
+            />
+          )}
+        </Box>
+      )
+    },
+    {
+      id: 'status',
+      field: 'active',
+      label: 'Status',
+      width: 120,
+      render: (contact) => (
+        <Chip
+          label={contact.active === false ? 'Bloqueado' : 'Ativo'}
+          size="small"
+          color={contact.active === false ? 'error' : 'success'}
+          variant="outlined"
+        />
+      )
     }
-  }, [contacts]);
+  ];
+
+  // Ações da tabela
+  const tableActions = [
+    ...(user.profile !== 'user' ? [{
+      label: "Iniciar Chat",
+      icon: <WhatsAppIcon />,
+      onClick: (contact) => handleStartChat(contact),
+      color: "primary"
+    }] : []),
+    {
+      label: "Editar",
+      icon: <EditIcon />,
+      onClick: (contact) => handleEditContact(contact),
+      color: "primary"
+    },
+    {
+      label: contact => contact.active === false ? "Desbloquear" : "Bloquear",
+      icon: contact => contact.active === false ? <LockOpenIcon /> : <LockIcon />,
+      onClick: (contact) => {
+        setBlockingContact(contact);
+        setConfirmBlockOpen(true);
+      },
+      color: contact => contact.active === false ? 'success' : 'error'
+    },
+    {
+      label: "Excluir",
+      icon: <DeleteIcon />,
+      onClick: (contact) => {
+        setConfirmOpen(true);
+        setDeletingAllContact(null);
+        setDeletingContact(contact);
+      },
+      color: "error"
+    }
+  ];
 
   const getBulkActionConfirmationText = () => {
     switch (bulkActionType) {
@@ -683,17 +460,15 @@ const Contacts = () => {
       : baseText;
   };
 
-  // Handler para fechar modal com debug
+  // Handler para fechar modal
   const handleCloseContactModal = useCallback(() => {
-    console.log('Fechando modal de contato');
     setContactModalOpen(false);
     setSelectedContactId(null);
     setMakeRequest(Math.random());
   }, [setMakeRequest]);
 
-  // Handler para salvar contato com debug
+  // Handler para salvar contato
   const handleSaveContact = useCallback((savedContact) => {
-    console.log('Contato salvo:', savedContact);
     setMakeRequest(Math.random());
   }, [setMakeRequest]);
 
@@ -703,17 +478,23 @@ const Contacts = () => {
       label: "Adicionar",
       icon: <AddIcon />,
       onClick: handleOpenContactModal,
+      variant: "contained",
+      color: "primary",
       primary: true
     },
     {
       label: "Importar",
       icon: <ImportIcon />,
-      onClick: () => setImportModalOpen(true)
+      onClick: () => setImportModalOpen(true),
+      variant: "outlined",
+      color: "primary"
     },
     {
       label: "Exportar",
       icon: <ExportIcon />,
-      onClick: () => setExportModalOpen(true)
+      onClick: () => setExportModalOpen(true),
+      variant: "outlined",
+      color: "primary"
     },
     {
       label: "Excluir Todos",
@@ -723,7 +504,8 @@ const Contacts = () => {
         setDeletingContact(null);
         setDeletingAllContact(contacts);
       },
-      color: 'error'
+      variant: "outlined",
+      color: "error"
     }
   ];
 
@@ -733,38 +515,36 @@ const Contacts = () => {
       label: `Bloquear (${selectedContacts.length})`,
       icon: <LockIcon />,
       onClick: () => handleBulkAction('block'),
+      variant: "outlined",
       color: 'error'
     },
     {
       label: `Desbloquear (${selectedContacts.length})`,
       icon: <LockOpenIcon />,
       onClick: () => handleBulkAction('unblock'),
+      variant: "outlined",
       color: 'success'
     },
     {
       label: `Excluir (${selectedContacts.length})`,
       icon: <DeleteIcon />,
       onClick: () => handleBulkAction('delete'),
+      variant: "outlined",
       color: 'error'
     }
   ] : [];
 
-  // Debug dos states do modal
-  useEffect(() => {
-    console.log('Estados do modal:', {
-      contactModalOpen,
-      selectedContactId,
-      contactId: selectedContactId
-    });
-  }, [contactModalOpen, selectedContactId]);
-
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', height: '100vh', overflow: 'hidden' }}>
+    <>
       <StandardPageLayout
         title="Contatos"
         subtitle={formattedCounter()}
-        showSearch={false}
+        searchValue={searchParam}
+        onSearchChange={handleSearchChange}
+        searchPlaceholder="Buscar contatos..."
+        showSearch={true}
         actions={[...pageActions, ...bulkActions]}
+        loading={loading}
       >
         {/* Filtros */}
         <Box sx={{ 
@@ -774,37 +554,6 @@ const Contacts = () => {
           alignItems: 'stretch',
           flexDirection: { xs: 'column', md: 'row' }
         }}>
-          {/* Campo de busca */}
-          <Box sx={{ 
-            flex: { md: '1 1 60%' },
-            width: { xs: '100%', md: 'auto' }
-          }}>
-            <TextField
-              placeholder="Buscar contatos..."
-              value={searchParam}
-              onChange={handleSearchChange}
-              variant="outlined"
-              size="small"
-              fullWidth
-              InputProps={{
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <SearchIcon color="action" />
-                  </InputAdornment>
-                ),
-                sx: {
-                  height: 40
-                }
-              }}
-              sx={{
-                '& .MuiOutlinedInput-root': {
-                  borderRadius: { xs: 3, sm: 2 },
-                  height: 40
-                }
-              }}
-            />
-          </Box>
-          
           {/* Filtro de tags */}
           <Box sx={{ 
             flex: { md: '1 1 40%' },
@@ -822,198 +571,143 @@ const Contacts = () => {
           </Box>
         </Box>
 
-        {/* Controles de seleção */}
-        {contacts.length > 0 && (
-          <Box sx={{ mb: 2, display: 'flex', alignItems: 'center', gap: 2 }}>
-            <Checkbox
-              indeterminate={selectedContacts.length > 0 && selectedContacts.length < contacts.length}
-              checked={contacts.length > 0 && selectedContacts.length === contacts.length}
-              onChange={(e) => handleSelectAllContacts(e.target.checked)}
-            />
-            <Typography variant="body2">
-              {selectedContacts.length > 0 
-                ? `${selectedContacts.length} de ${contacts.length} selecionados`
-                : "Selecionar todos"
-              }
-            </Typography>
+        <StandardDataTable
+          data={contacts}
+          columns={columns}
+          loading={loading}
+          selectable={true}
+          selectedItems={selectedContacts}
+          onSelectionChange={handleSelectionChange}
+          actions={tableActions}
+          onRowClick={(contact) => handleEditContact(contact)}
+          stickyHeader={true}
+          size="small"
+          hover={true}
+          maxVisibleActions={3}
+          emptyIcon={<ContactIcon />}
+          emptyTitle="Nenhum contato encontrado"
+          emptyDescription="Não há contatos cadastrados para os filtros selecionados. Adicione um novo contato ou ajuste os critérios de busca."
+          emptyActionLabel="Adicionar Contato"
+          onEmptyActionClick={handleOpenContactModal}
+        />
+
+        {/* Indicador de carregamento para scroll infinito */}
+        {loadingMore && (
+          <Box sx={{ display: 'flex', justifyContent: 'center', py: 2 }}>
+            <CircularProgress size={24} />
           </Box>
         )}
 
-        {/* Debug info */}
-        <Box sx={{ mb: 1, p: 1, bgcolor: 'grey.100', borderRadius: 1, fontSize: '0.75rem' }}>
-          Debug: Modal Open: {contactModalOpen ? 'SIM' : 'NÃO'} | Selected ID: {selectedContactId || 'NENHUM'}
-        </Box>
-
-        {/* Lista de Contatos com scroll infinito */}
-        <Box sx={{ flex: 1, overflow: 'auto' }}>
-          {loading && contacts.length === 0 ? (
-            <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
-              <CircularProgress />
-            </Box>
-          ) : contacts.length === 0 ? (
-            <StandardEmptyState 
-              type="contatos"
-              primaryAction={{
-                label: "Adicionar Contato",
-                icon: <AddIcon />,
-                onClick: handleOpenContactModal
-              }}
-              secondaryAction={{
-                label: "Importar Contatos",
-                icon: <ImportIcon />,
-                onClick: () => setImportModalOpen(true)
-              }}
-            />
-          ) : (
-            <>
-              {contacts.map((contact, index) => (
-                <ContactItem
-                  key={`contact-${contact.id}-${index}`}
-                  contact={contact}
-                  user={user}
-                  selected={selectedContacts.some(c => c.id === contact.id)}
-                  onSelect={handleContactSelect}
-                  onStartChat={handleStartChat}
-                  onBlock={(contact) => {
-                    setBlockingContact(contact);
-                    setConfirmBlockOpen(true);
-                  }}
-                  onEdit={handleEditContact}
-                  onDelete={(contact) => {
-                    setConfirmOpen(true);
-                    setDeletingAllContact(null);
-                    setDeletingContact(contact);
-                  }}
-                  showCheckbox={true}
-                />
-              ))}
-
-              {/* Indicador de carregamento para scroll infinito */}
-              {loadingMore && (
-                <Box sx={{ display: 'flex', justifyContent: 'center', py: 2 }}>
-                  <CircularProgress size={24} />
-                </Box>
-              )}
-
-              {/* Elemento para ativar o scroll infinito */}
-              <div ref={loadMoreRef} style={{ height: 20, margin: '10px 0' }} />
-
-              {/* Indicador de fim da lista */}
-              {!hasMore && contacts.length > 0 && (
-                <Box sx={{ textAlign: 'center', py: 2 }}>
-                  <Typography variant="body2" color="textSecondary">
-                    Todos os contatos foram carregados
-                  </Typography>
-                </Box>
-              )}
-            </>
-          )}
-        </Box>
-
-        {/* Modais */}
-        {newTicketModalOpen && (
-          <NewTicketModal
-            modalOpen={newTicketModalOpen}
-            initialContact={contactTicket}
-            onClose={(ticket) => {
-              setNewTicketModalOpen(false);
-              if (ticket && (ticket.uuid || ticket.id)) {
-                const ticketId = ticket.uuid || ticket.id;
-                history.push(`/tickets/${ticketId}`);
-              }
-            }}
-          />
-        )}
-
-        {/* Modal de Contato com debugging */}
-        {contactModalOpen && (
-          <ContactModal
-            key={`contact-modal-${selectedContactId || 'new'}`}
-            open={contactModalOpen}
-            onClose={handleCloseContactModal}
-            contactId={selectedContactId}
-            onSave={handleSaveContact}
-          />
-        )}
-
-        {confirmOpen && (
-          <ConfirmationModal
-            title={
-              !contacts?.length 
-                ? "Nenhum contato cadastrado"
-                : deletingContact
-                  ? `Excluir ${deletingContact.name}?`
-                  : "Excluir todos os contatos?"
-            }
-            open={confirmOpen}
-            onClose={() => setConfirmOpen(false)}
-            isShowConfirmButton={!!contacts?.length}
-            onConfirm={() =>
-              deletingContact
-                ? handleDeleteContact(deletingContact.id)
-                : handleDeleteAllContact(deletingAllContact)
-            }
-          >
-            {!contacts?.length 
-              ? "Não há contatos cadastrados para excluir."
-              : deletingContact
-                ? "Esta ação não pode ser desfeita. Deseja continuar?"
-                : "Esta ação irá excluir TODOS os contatos e não pode ser desfeita. Deseja continuar?"
-            }
-          </ConfirmationModal>
-        )}
-
-        {confirmBlockOpen && blockingContact && (
-          <ConfirmationModal
-            title={
-              blockingContact.active === true || blockingContact.active === undefined
-                ? `Bloquear ${blockingContact.name}?`
-                : `Desbloquear ${blockingContact.name}?`
-            }
-            open={confirmBlockOpen}
-            onClose={() => setConfirmBlockOpen(false)}
-            onConfirm={() => handleBlockUnblockContact(
-              blockingContact.id, 
-              !(blockingContact.active === true || blockingContact.active === undefined)
-            )}
-          >
-            {blockingContact.active === true || blockingContact.active === undefined
-              ? "O contato será bloqueado e não poderá enviar mensagens."
-              : "O contato será desbloqueado e poderá enviar mensagens novamente."}
-          </ConfirmationModal>
-        )}
-
-        {confirmBulkAction && (
-          <ConfirmationModal
-            title={getBulkActionConfirmationTitle()}
-            open={confirmBulkAction}
-            onClose={() => setConfirmBulkAction(false)}
-            onConfirm={executeBulkAction}
-          >
-            {getBulkActionConfirmationText()}
-          </ConfirmationModal>
-        )}
-
-        {importModalOpen && (
-          <ImportExportStepper
-            open={importModalOpen}
-            onClose={() => setImportModalOpen(false)}
-            mode="import"
-          />
-        )}
-
-        {exportModalOpen && (
-          <ImportExportStepper
-            open={exportModalOpen}
-            onClose={() => setExportModalOpen(false)}
-            mode="export"
-          />
+        {/* Indicador de fim da lista */}
+        {!hasMore && contacts.length > 0 && (
+          <Box sx={{ textAlign: 'center', py: 2 }}>
+            <Typography variant="body2" color="textSecondary">
+              Todos os contatos foram carregados
+            </Typography>
+          </Box>
         )}
       </StandardPageLayout>
-    </Box>
+
+      {/* Modais */}
+      {newTicketModalOpen && (
+        <NewTicketModal
+          modalOpen={newTicketModalOpen}
+          initialContact={contactTicket}
+          onClose={(ticket) => {
+            setNewTicketModalOpen(false);
+            if (ticket && (ticket.uuid || ticket.id)) {
+              const ticketId = ticket.uuid || ticket.id;
+              history.push(`/tickets/${ticketId}`);
+            }
+          }}
+        />
+      )}
+
+      {contactModalOpen && (
+        <ContactModal
+          key={`contact-modal-${selectedContactId || 'new'}`}
+          open={contactModalOpen}
+          onClose={handleCloseContactModal}
+          contactId={selectedContactId}
+          onSave={handleSaveContact}
+        />
+      )}
+
+      {confirmOpen && (
+        <ConfirmationModal
+          title={
+            !contacts?.length 
+              ? "Nenhum contato cadastrado"
+              : deletingContact
+                ? `Excluir ${deletingContact.name}?`
+                : "Excluir todos os contatos?"
+          }
+          open={confirmOpen}
+          onClose={() => setConfirmOpen(false)}
+          isShowConfirmButton={!!contacts?.length}
+          onConfirm={() =>
+            deletingContact
+              ? handleDeleteContact(deletingContact.id)
+              : handleDeleteAllContact(deletingAllContact)
+          }
+        >
+          {!contacts?.length 
+            ? "Não há contatos cadastrados para excluir."
+            : deletingContact
+              ? "Esta ação não pode ser desfeita. Deseja continuar?"
+              : "Esta ação irá excluir TODOS os contatos e não pode ser desfeita. Deseja continuar?"
+          }
+        </ConfirmationModal>
+      )}
+
+      {confirmBlockOpen && blockingContact && (
+        <ConfirmationModal
+          title={
+            blockingContact.active === true || blockingContact.active === undefined
+              ? `Bloquear ${blockingContact.name}?`
+              : `Desbloquear ${blockingContact.name}?`
+          }
+          open={confirmBlockOpen}
+          onClose={() => setConfirmBlockOpen(false)}
+          onConfirm={() => handleBlockUnblockContact(
+            blockingContact.id, 
+            !(blockingContact.active === true || blockingContact.active === undefined)
+          )}
+        >
+          {blockingContact.active === true || blockingContact.active === undefined
+            ? "O contato será bloqueado e não poderá enviar mensagens."
+            : "O contato será desbloqueado e poderá enviar mensagens novamente."}
+        </ConfirmationModal>
+      )}
+
+      {confirmBulkAction && (
+        <ConfirmationModal
+          title={getBulkActionConfirmationTitle()}
+          open={confirmBulkAction}
+          onClose={() => setConfirmBulkAction(false)}
+          onConfirm={executeBulkAction}
+        >
+          {getBulkActionConfirmationText()}
+        </ConfirmationModal>
+      )}
+
+      {importModalOpen && (
+        <ImportExportStepper
+          open={importModalOpen}
+          onClose={() => setImportModalOpen(false)}
+          mode="import"
+        />
+      )}
+
+      {exportModalOpen && (
+        <ImportExportStepper
+          open={exportModalOpen}
+          onClose={() => setExportModalOpen(false)}
+          mode="export"
+        />
+      )}
+    </>
   );
 };
-
-Contacts.propTypes = {};
 
 export default Contacts;
