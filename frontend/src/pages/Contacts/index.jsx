@@ -455,8 +455,7 @@ const Contacts = () => {
           selectable={true}
           selectedItems={selectedContacts}
           onSelectionChange={setSelectedContacts}
-          actions={contacts.length > 0 ? getTableActions(contacts[0]) : []}
-          onRowClick={(contact) => handleEditContact(contact)}
+          actions={getTableActions}
           stickyHeader={true}
           size="small"
           hover={true}
@@ -466,38 +465,6 @@ const Contacts = () => {
           emptyDescription="Não há contatos cadastrados para os filtros selecionados."
           emptyActionLabel="Adicionar Contato"
           onEmptyActionClick={handleOpenContactModal}
-          customRowRenderer={(contact, index, columns) => (
-            <>
-              {columns.map((column, colIndex) => (
-                <TableCell
-                  key={column.id || colIndex}
-                  align={column.align || 'left'}
-                  style={{ width: column.width, minWidth: column.minWidth }}
-                >
-                  {column.render ? column.render(contact, index) : contact[column.field] || '-'}
-                </TableCell>
-              ))}
-              <TableCell align="right">
-                <Box sx={{ display: 'flex', gap: 0.5, justifyContent: 'flex-end' }}>
-                  {getTableActions(contact).slice(0, 3).map((action, actionIndex) => (
-                    <Tooltip key={actionIndex} title={action.label}>
-                      <IconButton
-                        size="small"
-                        onClick={(event) => {
-                          event.stopPropagation();
-                          action.onClick(contact);
-                        }}
-                        color={action.color || 'default'}
-                        sx={{ padding: '4px' }}
-                      >
-                        {action.icon}
-                      </IconButton>
-                    </Tooltip>
-                  ))}
-                </Box>
-              </TableCell>
-            </>
-          )}
         />
       </StandardPageLayout>
 
