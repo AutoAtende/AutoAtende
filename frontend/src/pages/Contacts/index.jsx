@@ -297,63 +297,91 @@ const Contacts = () => {
 
   // Função auxiliar para renderizar número seguro
   const renderContactNumber = (contact) => {
-    if (!contact || !contact.number) return "N/A";
-    
-    const number = String(contact.number);
-    
-    if (user?.isTricked === "enabled") {
-      return formatSerializedId(number);
-    } else {
-      return number.length > 4 ? number.slice(0, -4) + "****" : number;
+    try {
+      if (!contact || contact.number === undefined || contact.number === null) return "N/A";
+      
+      const number = String(contact.number).trim();
+      if (!number) return "N/A";
+      
+      if (user?.isTricked === "enabled") {
+        return formatSerializedId(number);
+      }
+      
+      return number.length > 4 ? `${number.slice(0, -4)}****` : number;
+    } catch (error) {
+      console.error("Erro ao formatar número do contato:", error);
+      return "N/A";
     }
   };
 
   // Função auxiliar para renderizar tags seguro
-  const renderContactTags = (contact) => {
-    if (!contact || !Array.isArray(contact.tags) || contact.tags.length === 0) {
+  const renderContactTags = useCallback((contact) => {
+    try {
+      if (!contact || !Array.isArray(contact?.tags) || contact.tags.length === 0) {
+        return (
+          <Typography variant="caption" color="textSecondary">
+            Sem tags
+          </Typography>
+        );
+      }
+
+      const validTags = contact.tags
+        .filter(tag => tag && typeof tag === 'object' && tag.id && tag.name)
+        .slice(0, 3); // Limita a 3 tags para performance
+      
+      if (validTags.length === 0) {
+        return (
+          <Typography variant="caption" color="textSecondary">
+            Sem tags
+          </Typography>
+        );
+      }
+
+      const visibleTags = validTags.slice(0, 2);
+      const hasMore = validTags.length > 2;
+
       return (
-        <Typography variant="caption" color="textSecondary">
-          Sem tags
+        <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
+          {visibleTags.map((tag) => (
+            <Chip
+              key={`${tag.id}-${tag.name}`}
+              label={String(tag.name).substring(0, 15)}
+              size="small"
+              style={{
+                backgroundColor: tag.color || '#666',
+                color: '#fff',
+                height: 20,
+                fontSize: '0.7rem',
+                maxWidth: '120px',
+                textOverflow: 'ellipsis',
+                overflow: 'hidden',
+                whiteSpace: 'nowrap'
+              }}
+            />
+          ))}
+          {hasMore && (
+            <Chip
+              label={`+${validTags.length - 2}`}
+              size="small"
+              variant="outlined"
+              sx={{ 
+                height: 20, 
+                fontSize: '0.7rem',
+                maxWidth: '50px'
+              }}
+            />
+          )}
+        </Box>
+      );
+    } catch (error) {
+      console.error('Erro ao renderizar tags:', error);
+      return (
+        <Typography variant="caption" color="error">
+          Erro ao carregar tags
         </Typography>
       );
     }
-
-    const validTags = contact.tags.filter(tag => tag && tag.id && tag.name);
-    
-    if (validTags.length === 0) {
-      return (
-        <Typography variant="caption" color="textSecondary">
-          Sem tags
-        </Typography>
-      );
-    }
-
-    return (
-      <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
-        {validTags.slice(0, 2).map((tag) => (
-          <Chip
-            key={tag.id}
-            label={tag.name}
-            size="small"
-            style={{
-              backgroundColor: tag.color || '#666',
-              color: '#fff',
-              height: 20,
-              fontSize: '0.7rem'
-            }}
-          />
-        ))}
-        {validTags.length > 2 && (
-          <Chip
-            label={`+${validTags.length - 2}`}
-            size="small"
-            variant="outlined"
-            sx={{ height: 20, fontSize: '0.7rem' }}
-          />
-        )}
-      </Box>
-    );
-  };
+  }, []);
 
   // Configuração das colunas
   const columns = [
