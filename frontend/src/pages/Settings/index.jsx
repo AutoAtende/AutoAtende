@@ -1,236 +1,502 @@
-import React, { useState, useEffect, useContext, useCallback } from "react";
-import { 
-  SettingsOutlined,
-  ScheduleOutlined,
-  AssignmentOutlined,
-  HelpOutlined,
-  LabelOutlined,
-  PaymentOutlined,
-  ReportProblemOutlined
-} from "@mui/icons-material";
+import React, { useState, useEffect, useCallback, useContext } from "react";
+import { styled } from '@mui/material/styles';
+import {
+  Box,
+  Alert,
+  CircularProgress,
+  Button,
+  Typography,
+  Snackbar
+} from "@mui/material";
+import SettingsIcon from '@mui/icons-material/Settings';
+import ScheduleIcon from '@mui/icons-material/Schedule';
+import AssignmentIcon from '@mui/icons-material/Assignment';
+import HelpIcon from '@mui/icons-material/Help';
+import LabelIcon from '@mui/icons-material/Label';
+import PaymentIcon from '@mui/icons-material/Payment';
+import ReportProblemIcon from '@mui/icons-material/ReportProblem';
+import SaveIcon from '@mui/icons-material/Save';
 
-import StandardPageLayout from "../../components/shared/StandardPageLayout";
-import StandardTabContent from "../../components/shared/StandardTabContent";
-import SchedulesForm from "./tabs/SchedulesForm";
-import PlansManager from "./tabs/PlansManager";
-import HelpsManager from "./tabs/HelpsManager";
-import Options from "./tabs/Options";
-import Whitelabel from "./tabs/Whitelabel";
-import PaymentGateway from "./tabs/PaymentGateway";
-import Reason from "./tabs/Reason";
-import StandardEmptyState from "../../components/shared/StandardEmptyState";
+import MainContainer from "../../components/MainContainer";
+import MainHeader from "../../components/MainHeader";
+import Title from "../../components/Title";
+import StandardPageLayout from "../../components/Standard/StandardPageLayout";
+import StandardTabContent from "../../components/Standard/StandardTabContent";
+import useAuth from "../../hooks/useAuth";
+import api from "../../services/api";
 import { i18n } from "../../translate/i18n";
 import { toast } from "../../helpers/toast";
-import { AuthContext } from "../../context/Auth/AuthContext";
-import useCompanies from "../../hooks/useCompanies";
-import useSettings from "../../hooks/useSettings";
-import OnlyForSuperUser from "../../components/OnlyForSuperUser";
-import usePlans from "../../hooks/usePlans";
-import { useLoading } from "../../hooks/useLoading";
+
+// Componentes de configurações
+import Options from "../../components/Settings/Options";
+import SchedulesForm from "../../components/SchedulesForm";
+import PlansManager from "../../components/PlansManager";
+import HelpsManager from "../../components/HelpsManager";
+import Whitelabel from "../../components/Settings/Whitelabel";
+import PaymentGateway from "../../components/Settings/PaymentGateway";
+import Reason from "../../components/Reason";
+
+// Componente para telas móveis
+import SpeedDialTabs from "../../components/SpeedDialTabs";
+
+const LoadingContainer = styled(Box)(({ theme }) => ({
+  display: "flex",
+  justifyContent: "center",
+  alignItems: "center",
+  padding: theme.spacing(4),
+}));
+
+const SaveAllButton = styled(Button)(({ theme }) => ({
+  position: 'fixed',
+  bottom: theme.spacing(3),
+  right: theme.spacing(3),
+  zIndex: 1100,
+  borderRadius: 12,
+  minHeight: 48,
+  fontWeight: 600,
+  textTransform: 'none',
+  boxShadow: theme.shadows[4],
+  '&:hover': {
+    boxShadow: theme.shadows[6]
+  }
+}));
 
 const Settings = () => {
-  const { user } = useContext(AuthContext);
-  const [activeTab, setActiveTab] = useState(0);
-  const [schedules, setSchedules] = useState([]);
-  const [loading, setLoading] = useState(false);
-  const [settings, setSettings] = useState([]);
+  // Estados
+  const { user } = useAuth();
+  const [tab, setTab] = useState("options");
+  const [loading, setLoading] = useState(true);
+  const [initialLoading, setInitialLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [isSaving, setIsSaving] = useState(false);
+  const [pendingChanges, setPendingChanges] = useState({});
+  const [data, setData] = useState({
+    currentUser: {},
+    company: null,
+    schedules: [],
+    settings: [],
+    planConfig: {}
+  });
   const [reasonEnabled, setReasonEnabled] = useState("disabled");
   const [showWhiteLabel, setShowWhiteLabel] = useState(false);
-  
-  const { find, updateSchedules } = useCompanies();
-  const { getAll: getAllSettings } = useSettings();
-  const { getPlanCompany } = usePlans();
-  const { Loading } = useLoading();
+  const [openSnackbar, setOpenSnackbar] = useState(false);
+  const [snackbarMessage, setSnackbarMessage] = useState("");
 
-  // Carregar dados
-  const loadData = useCallback(async () => {
-    if (loading) return;
-    
-    setLoading(true);
+  // Função principal para carregar todos os dados necessários
+  const loadAllData = useCallback(async () => {
     try {
-      Loading.turnOn();
-      const companyId = localStorage.getItem("companyId");
-      
-      const [company, settingList, planConfigs] = await Promise.all([
-        find(companyId),
-        getAllSettings(),
-        getPlanCompany(undefined, companyId)
-      ]);
+      setInitialLoading(true);
+      setError(null);
 
-      setSchedules(company.schedules || []);
-      setSettings(settingList || []);
-      setShowWhiteLabel(planConfigs?.plan?.whiteLabel || false);
+      const companyId = user.companyId || localStorage.getItem("companyId");
       
-      const reasonSetting = settingList.find(s => s.key === "enableReasonWhenCloseTicket");
+      // Única chamada para API que retorna todos os dados necessários
+      const { data } = await api.get(`/settings/full-configuration/${companyId}`);
+      
+      // Garantir que settings seja sempre um array
+      const safeSettings = Array.isArray(data.settings) ? data.settings : [];
+      
+      setData({
+        currentUser: data.user,
+        company: data.company,
+        schedules: data.company?.schedules || [],
+        settings: safeSettings,
+        planConfig: data.planConfig
+      });
+
+      // Configurar estados derivados
+      const reasonSetting = safeSettings.find(s => s.key === "enableReasonWhenCloseTicket");
+      
       setReasonEnabled(reasonSetting?.value || "disabled");
-      
-    } catch (error) {
-      console.error("Erro ao carregar configurações:", error);
+      setShowWhiteLabel(data.planConfig?.plan?.whiteLabel || false);
+
+      // Armazenar dados em cache local
+      storeDataInCache({
+        user: data.user,
+        company: data.company,
+        settings: safeSettings,
+        planConfig: data.planConfig
+      });
+
+    } catch (err) {
+      console.error("Erro ao carregar dados da configuração:", err);
+      setError(err?.message || "Ocorreu um erro ao carregar as configurações");
       toast.error("Erro ao carregar configurações");
     } finally {
+      setInitialLoading(false);
       setLoading(false);
-      Loading.turnOff();
     }
-  }, [find, getAllSettings, getPlanCompany, Loading, loading]);
+  }, [user.companyId]);
 
+  // Armazenar dados em cache local para otimização
+  const storeDataInCache = useCallback((dataToCache) => {
+    const now = new Date().getTime();
+    
+    if (dataToCache.user) {
+      localStorage.setItem('cached_user_data', JSON.stringify({
+        timestamp: now,
+        data: dataToCache.user
+      }));
+    }
+    
+    if (dataToCache.company) {
+      localStorage.setItem('cached_company_data', JSON.stringify({
+        timestamp: now,
+        data: dataToCache.company
+      }));
+    }
+    
+    if (dataToCache.planConfig) {
+      localStorage.setItem('cached_plan_data', JSON.stringify({
+        timestamp: now,
+        data: dataToCache.planConfig
+      }));
+    }
+  }, []);
+
+  // Carregar dados ao iniciar o componente
   useEffect(() => {
-    loadData();
-  }, [loadData]);
+    loadAllData();
+  }, [loadAllData]);
 
-  const handleSubmitSchedules = useCallback(async (data) => {
+  // Manipuladores
+  const handleTabChange = (event, newValue) => {
+    setTab(newValue);
+  };
+
+  const handleEnableReasonWhenCloseTicketChanged = (value) => {
+    setReasonEnabled(value || "disabled");
+    setPendingChanges({
+      ...pendingChanges,
+      enableReasonWhenCloseTicket: value
+    });
+  };
+
+  // Adicionar configuração às alterações pendentes
+  const handleSettingChange = useCallback((key, value) => {
+    setPendingChanges(prev => ({
+      ...prev,
+      [key]: value
+    }));
+    
+    // Mostra indicador visual de alterações pendentes
+    setSnackbarMessage("Alterações pendentes. Clique em Salvar para aplicar.");
+    setOpenSnackbar(true);
+  }, []);
+
+  // Salvar todas as alterações pendentes
+  const handleSaveAllChanges = useCallback(async () => {
+    if (Object.keys(pendingChanges).length === 0) {
+      toast.info("Não há alterações para salvar");
+      return;
+    }
+
+    try {
+      setIsSaving(true);
+      
+      // Agrupar todas as alterações para enviar em uma única requisição
+      const settingsToUpdate = Object.entries(pendingChanges).map(([key, value]) => ({
+        key,
+        value: value.toString()
+      }));
+      
+      await api.post("/settings/batch-update", {
+        settings: settingsToUpdate
+      });
+      
+      // Atualizar configurações locais
+      setData(prevData => ({
+        ...prevData,
+        settings: prevData.settings.map(setting => {
+          if (pendingChanges[setting.key] !== undefined) {
+            return {
+              ...setting, 
+              value: pendingChanges[setting.key].toString()
+            };
+          }
+          return setting;
+        })
+      }));
+      
+      // Limpar alterações pendentes
+      setPendingChanges({});
+      
+      toast.success(i18n.t("settings.saveSuccess"));
+      setOpenSnackbar(false);
+    } catch (err) {
+      console.error("Erro ao salvar configurações:", err);
+      toast.error(i18n.t("settings.saveError"));
+    } finally {
+      setIsSaving(false);
+    }
+  }, [pendingChanges]);
+
+  // Manipulador para envio de horários
+  const handleSubmitSchedules = async (data) => {
     setLoading(true);
     try {
-      const companyId = localStorage.getItem("companyId");
-      setSchedules(data);
-      await updateSchedules({ id: companyId, schedules: data });
+      const companyId = data?.company?.id || localStorage.getItem("companyId");
+      
+      await api.put(`/companies/${companyId}/schedules`, { 
+        schedules: data 
+      });
+      
+      setData(prevData => ({
+        ...prevData,
+        schedules: data
+      }));
+      
       toast.success("Horários atualizados com sucesso.");
-    } catch (error) {
-      console.error("Erro ao atualizar horários:", error);
-      toast.error("Erro ao atualizar horários");
+      
+      // Atualizar cache
+      const cachedCompanyData = localStorage.getItem('cached_company_data');
+      if (cachedCompanyData) {
+        const parsedCache = JSON.parse(cachedCompanyData);
+        parsedCache.data.schedules = data;
+        localStorage.setItem('cached_company_data', JSON.stringify(parsedCache));
+      }
+    } catch (e) {
+      toast.error(e?.message || "Erro ao atualizar horários");
     } finally {
       setLoading(false);
     }
-  }, [updateSchedules]);
+  };
 
-  const handleReasonChange = useCallback((value) => {
-    setReasonEnabled(value || "disabled");
-  }, []);
-
-  // Definir as abas disponíveis - HORÁRIOS SEMPRE VISÍVEL
+  // Preparar tabs
   const tabs = [
-    {
-      label: i18n.t("settings.tabs.params"),
-      icon: <SettingsOutlined />
-    },
-    {
-      label: i18n.t("settings.tabs.schedules"),
-      icon: <ScheduleOutlined />
-    },
-    ...(user.super ? [{
-      label: i18n.t("settings.tabs.plans"),
-      icon: <AssignmentOutlined />
-    }] : []),
-    ...(user.super ? [{
-      label: i18n.t("settings.tabs.helps"),
-      icon: <HelpOutlined />
-    }] : []),
-    ...(showWhiteLabel ? [{
-      label: "Whitelabel",
-      icon: <LabelOutlined />
-    }] : []),
-    ...(user.super ? [{
-      label: "Pagamentos",
-      icon: <PaymentOutlined />
-    }] : []),
-    ...(reasonEnabled === "enabled" ? [{
-      label: "Motivos de Encerramento",
-      icon: <ReportProblemOutlined />
-    }] : [])
+    { label: i18n.t("settings.tabs.params"), icon: <SettingsIcon /> },
+    ...[{ label: i18n.t("settings.tabs.schedules"), icon: <ScheduleIcon /> }],
+    ...(data.currentUser.super ? [{ label: i18n.t("settings.tabs.plans"), icon: <AssignmentIcon /> }] : []),
+    ...(data.currentUser.super ? [{ label: i18n.t("settings.tabs.helps"), icon: <HelpIcon /> }] : []),
+    ...(showWhiteLabel ? [{ label: "Whitelabel", icon: <LabelIcon /> }] : []),
+    ...(data.currentUser.super ? [{ label: "Pagamentos", icon: <PaymentIcon /> }] : []),
+    ...(reasonEnabled === "enabled" ? [{ label: "Motivos de Encerramento", icon: <ReportProblemIcon /> }] : []),
   ];
 
-  const renderTabContent = () => {
-    let currentIndex = 0;
-
-    // Aba Parâmetros
-    if (activeTab === currentIndex) {
-      return (
-        <Options 
-          settings={settings}
-          enableReasonWhenCloseTicketChanged={handleReasonChange}
-        />
-      );
-    }
-    currentIndex++;
-
-    // Aba Horários - SEMPRE DISPONÍVEL
-    if (activeTab === currentIndex) {
-      return (
-        <SchedulesForm
-          loading={loading}
-          onSubmit={handleSubmitSchedules}
-          initialValues={schedules}
-        />
-      );
-    }
-    currentIndex++;
-
-    // Aba Planos (Super User)
-    if (user.super && activeTab === currentIndex) {
-      return (
-        <OnlyForSuperUser 
-          user={user} 
-          yes={() => <PlansManager />} 
-        />
-      );
-    }
-    if (user.super) currentIndex++;
-
-    // Aba Ajudas (Super User)
-    if (user.super && activeTab === currentIndex) {
-      return (
-        <OnlyForSuperUser 
-          user={user} 
-          yes={() => <HelpsManager />} 
-        />
-      );
-    }
-    if (user.super) currentIndex++;
-
-    // Aba Whitelabel
-    if (showWhiteLabel && activeTab === currentIndex) {
-      return (
-        <Whitelabel settings={settings} hideLayout={true} />
-      );
-    }
-    if (showWhiteLabel) currentIndex++;
-
-    // Aba Pagamentos (Super User)
-    if (user.super && activeTab === currentIndex) {
-      return (
-        <OnlyForSuperUser 
-          user={user} 
-          yes={() => <PaymentGateway settings={settings} hideLayout={true} />} 
-        />
-      );
-    }
-    if (user.super) currentIndex++;
-
-    // Aba Motivos de Encerramento
-    if (reasonEnabled === "enabled" && activeTab === currentIndex) {
-      return (
-        <Reason />
-      );
-    }
-
-    // Estado vazio se nenhuma aba foi encontrada
-    return (
-      <StandardEmptyState
-        type="error"
-        title="Aba não encontrada"
-        description="A aba selecionada não está disponível."
-      />
-    );
+  // Mapear tab string para índice
+  const getTabIndex = (tabName) => {
+    const tabMap = {
+      options: 0,
+      schedules: 1,
+      plans: 2,
+      helps: 3,
+      whitelabel: 4,
+      paymentGateway: 5,
+      closureReasons: 6
+    };
+    return tabMap[tabName] !== -1 ? tabMap[tabName] : 0;
   };
+
+  const getTabName = (index) => {
+    const nameMap = [
+      'options',
+      'schedules',
+      'plans',
+      'helps',
+      'whitelabel',
+      'paymentGateway',
+      'closureReasons'
+    ];
+    return nameMap[index] || 'options';
+  };
+
+  const activeTabIndex = getTabIndex(tab);
+
+  const handleStandardTabChange = (event, newValue) => {
+    const newTabName = getTabName(newValue);
+    setTab(newTabName);
+  };
+
+  // Renderização condicional
+  const isShowingContent = !initialLoading && !error;
+  const hasPendingChanges = Object.keys(pendingChanges).length > 0;
+
+  // Se ainda está carregando ou tem erro, usar layout original
+  if (initialLoading || error) {
+    return (
+      <MainContainer>
+        <MainHeader>
+          <Title>{i18n.t("settings.title")}</Title>
+        </MainHeader>
+        
+        <Box sx={{ p: 2 }}>
+          {error && (
+            <Alert 
+              severity="error" 
+              variant="filled"
+              sx={{ m: 2 }}
+              action={
+                <Box 
+                  component="button" 
+                  onClick={loadAllData}
+                  sx={{ 
+                    background: 'none', 
+                    border: 'none', 
+                    color: 'white',
+                    textDecoration: 'underline',
+                    cursor: 'pointer',
+                    fontWeight: 'bold',
+                    p: 1
+                  }}
+                >
+                  Tentar novamente
+                </Box>
+              }
+            >
+              {error}
+            </Alert>
+          )}
+          
+          {initialLoading && (
+            <LoadingContainer>
+              <CircularProgress />
+            </LoadingContainer>
+          )}
+        </Box>
+      </MainContainer>
+    );
+  }
 
   return (
     <StandardPageLayout
       title={i18n.t("settings.title")}
-      subtitle="Configure os parâmetros e funcionalidades do sistema"
+      subtitle="Configure as opções do sistema, integrações e personalizações"
       tabs={tabs}
-      activeTab={activeTab}
-      onTabChange={(event, newValue) => setActiveTab(newValue)}
-      loading={loading}
-      showEmptyState={tabs.length === 0}
-      emptyState={
-        <StandardEmptyState
-          type="default"
-          title="Nenhuma configuração disponível"
-          description="Não há configurações disponíveis para o seu perfil de usuário."
-        />
-      }
+      activeTab={activeTabIndex}
+      onTabChange={handleStandardTabChange}
+      showSearch={false}
     >
-      {/* Conteúdo das abas renderizado diretamente sem wrappers */}
-      {renderTabContent()}
+      {/* Aba de Configurações Gerais */}
+      {tab === "options" && (
+        <StandardTabContent
+          title={i18n.t("settings.tabs.params")}
+          description="Configure as opções gerais do sistema"
+          icon={<SettingsIcon />}
+          variant="default"
+        >
+          <Options 
+            settings={data.settings}
+            scheduleTypeChanged={handleScheduleTypeChanged}
+            enableReasonWhenCloseTicketChanged={handleEnableReasonWhenCloseTicketChanged}
+            onSettingChange={handleSettingChange}
+            pendingChanges={pendingChanges}
+          />
+        </StandardTabContent>
+      )}
+
+      {/* Aba de Horários */}
+      {tab === "schedules" && (
+        <StandardTabContent
+          title={i18n.t("settings.tabs.schedules")}
+          description="Configure os horários de funcionamento da empresa"
+          icon={<ScheduleIcon />}
+          variant="paper"
+        >
+          <SchedulesForm
+            loading={loading}
+            onSubmit={handleSubmitSchedules}
+            initialValues={data.schedules}
+            companyId={data.company?.id}
+            labelSaveButton={i18n.t("settings.saveButton")}
+          />
+        </StandardTabContent>
+      )}
+
+      {/* Aba de Planos */}
+      {tab === "plans" && user.super && (
+        <StandardTabContent
+          title={i18n.t("settings.tabs.plans")}
+          description="Gerencie os planos de assinatura do sistema"
+          icon={<AssignmentIcon />}
+          variant="default"
+        >
+          <PlansManager />
+        </StandardTabContent>
+      )}
+
+      {/* Aba de Ajuda */}
+      {tab === "helps" && user.super && (
+        <StandardTabContent
+          title={i18n.t("settings.tabs.helps")}
+          description="Configure as mensagens de ajuda e documentação"
+          icon={<HelpIcon />}
+          variant="default"
+        >
+          <HelpsManager />
+        </StandardTabContent>
+      )}
+
+      {/* Aba de Whitelabel */}
+      {tab === "whitelabel" && showWhiteLabel && (
+        <StandardTabContent
+          title="Whitelabel"
+          description="Personalize a aparência e marca do sistema"
+          icon={<LabelIcon />}
+          variant="default"
+        >
+          <Whitelabel settings={data.settings} />
+        </StandardTabContent>
+      )}
+
+      {/* Aba de Gateway de Pagamento */}
+      {tab === "paymentGateway" && user.super && (
+        <StandardTabContent
+          title="Gateway de Pagamento"
+          description="Configure os métodos de pagamento disponíveis"
+          icon={<PaymentIcon />}
+          variant="paper"
+        >
+          <PaymentGateway settings={data.settings} />
+        </StandardTabContent>
+      )}
+
+      {/* Aba de Motivos de Encerramento */}
+      {tab === "closureReasons" && reasonEnabled === "enabled" && (
+        <StandardTabContent
+          title="Motivos de Encerramento"
+          description="Configure os motivos disponíveis para encerramento de tickets"
+          icon={<ReportProblemIcon />}
+          variant="paper"
+        >
+          <Reason />
+        </StandardTabContent>
+      )}
+
+      {/* Botão para salvar alterações pendentes */}
+      {hasPendingChanges && (
+        <SaveAllButton
+          variant="contained"
+          color="primary"
+          startIcon={isSaving ? <CircularProgress size={20} sx={{ color: 'white' }} /> : <SaveIcon />}
+          onClick={handleSaveAllChanges}
+          disabled={isSaving}
+        >
+          {i18n.t("settings.saveAll") || "Salvar Alterações"}
+        </SaveAllButton>
+      )}
+      
+      {/* Notificação de alterações pendentes */}
+      <Snackbar
+        open={openSnackbar && hasPendingChanges}
+        autoHideDuration={6000}
+        onClose={() => setOpenSnackbar(false)}
+        message={snackbarMessage}
+        action={
+          <Button 
+            color="secondary" 
+            size="small" 
+            onClick={handleSaveAllChanges}
+            disabled={isSaving}
+            sx={{
+              borderRadius: 2,
+              fontWeight: 600,
+              textTransform: 'none'
+            }}
+          >
+            Salvar
+          </Button>
+        }
+      />
     </StandardPageLayout>
   );
 };
