@@ -36,22 +36,22 @@ import {
   Info
 } from '@mui/icons-material';
 
-import StandardTabContent from "../../components/Standard/StandardTabContent";
-import WhiteLabelHelp from "../WhitelabelHelp";
-import { toast } from "../../helpers/toast";
-import { AuthContext } from "../../context/Auth/AuthContext";
-import useSettings from "../../hooks/useSettings";
-import ColorModeContext from "../../layout/themeContext";
-import api from "../../services/api";
-import { useLoading } from "../../hooks/useLoading/";
-import { removePathName } from "./functions/removePathName";
-import { i18n } from "../../translate/i18n.jsx";
+import StandardTabContent from "../../../components/Standard/StandardTabContent";
+import WhiteLabelHelp from "../../../components/WhitelabelHelp";
+import { toast } from "../../../helpers/toast";
+import { AuthContext } from "../../../context/Auth/AuthContext";
+import useSettings from "../../../hooks/useSettings";
+import ColorModeContext from "../../../layout/themeContext";
+import api from "../../../services/api";
+import { useLoading } from "../../../hooks/useLoading/";
+import { removePathName } from "../../../components/shared/removePathName";
+import { i18n } from "../../../translate/i18n.jsx";
 
 // Importações de imagens
-import faviconImage from "../../assets/images/Favicon.jpeg";
-import logotipoImage from "../../assets/images/Logotipo.jpeg";
-import pwaImage from "../../assets/images/PWA.jpeg";
-import login_signup from "../../assets/backgrounds/default.jpeg";
+import faviconImage from "../../../assets/images/Favicon.jpeg";
+import logotipoImage from "../../../assets/images/Logotipo.jpeg";
+import pwaImage from "../../../assets/images/PWA.jpeg";
+import login_signup from "../../../assets/backgrounds/default.jpeg";
 
 // Constantes
 const defaultBackgrounLogin = "";
