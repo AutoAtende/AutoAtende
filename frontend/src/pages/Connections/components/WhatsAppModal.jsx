@@ -62,7 +62,6 @@ import api from "../../../services/api";
 import { i18n } from "../../../translate/i18n";
 import QueueSelect from "../../../components/QueueSelect";
 import TabPanel from "../../../components/TabPanel";
-import SchedulesForm from "../../../components/SchedulesForm";
 import MessageVariablesPicker from "../../../components/MessageVariablesPicker";
 import ColorPickerField from "./ColorPickerField";
 import ActionButton from "./ActionButton";
@@ -809,17 +808,6 @@ const [whatsApp, setWhatsApp] = useState({
                                         aria-controls="tabpanel-nps"
                                         className={classes.tabIcon}
                                     />
-                                    {schedulesEnabled && (
-                                        <Tab
-                                            icon={<ScheduleIcon />}
-                                            iconPosition="start"
-                                            label={i18n.t("whatsappModal.tabs.schedules")}
-                                            value="schedules"
-                                            id="tab-schedules"
-                                            aria-controls="tabpanel-schedules"
-                                            className={classes.tabIcon}
-                                        />
-                                    )}
                                 </Tabs>
 
                                 <Box className={classes.content}>
@@ -1468,19 +1456,6 @@ const [whatsApp, setWhatsApp] = useState({
                                             </Grid>
                                         </Grid>
                                     </TabPanel>
-
-                                    {schedulesEnabled && (
-                                        <TabPanel value={tab} name="schedules">
-                                            <Paper sx={{ padding: 2 }}>
-                                                <SchedulesForm
-                                                    loading={false}
-                                                    onSubmit={handleSaveSchedules}
-                                                    initialValues={schedules}
-                                                    labelSaveButton={i18n.t("whatsappModal.buttons.okAdd")}
-                                                />
-                                            </Paper>
-                                        </TabPanel>
-                                    )}
                                 </Box>
                             </Paper>
 

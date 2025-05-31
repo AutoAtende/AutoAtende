@@ -33,7 +33,6 @@ import MessageVariablesPicker from "../MessageVariablesPicker";
 import { TagsFilter } from "./TagsFilter";
 import HelpModal from "./HelpModal";
 import { QueueOptions } from "../QueueOptions";
-import SchedulesForm from "../SchedulesForm";
 import ConfirmationModal from "../ConfirmationModal";
 import useSettings from "../../hooks/useSettings";
 import BaseModal from "../shared/BaseModal";
@@ -422,9 +421,6 @@ const QueueModal = ({ open, onClose, queueId }) => {
                 sx={{ mb: 2 }}
               >
                 <Tab label={i18n.t("queueModal.tabs.queue")} />
-                {schedulesEnabled && (
-                  <Tab label={i18n.t("queueModal.tabs.schedules")} />
-                )}
               </Tabs>
     
               {tab === 0 && (
@@ -766,15 +762,6 @@ const QueueModal = ({ open, onClose, queueId }) => {
                                 </Form>
                             )}
                         </Formik>
-               )}
-
-               {tab === 1 && (
-                 <SchedulesForm
-                   loading={loading}
-                   onSubmit={handleSaveSchedules}
-                   initialValues={schedules}
-                   labelSaveButton={i18n.t("queueModal.buttons.saveSchedules")}
-                 />
                )}
              </Box>
            </BaseModal>
