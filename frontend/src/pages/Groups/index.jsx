@@ -15,7 +15,8 @@ import {
   CircularProgress,
   Alert,
   Chip,
-  Avatar
+  Avatar,
+  TableCell
 } from "@mui/material";
 
 // Material UI Icons
