@@ -321,6 +321,7 @@ const Tags = () => {
           stickyHeader={true}
           size="small"
           hover={true}
+          maxVisibleActions={2} // Máximo de 2 ações visíveis por linha
           emptyIcon={<KanbanIcon />}
           emptyTitle="Nenhuma tag encontrada"
           emptyDescription="Não há tags cadastradas para os filtros selecionados."

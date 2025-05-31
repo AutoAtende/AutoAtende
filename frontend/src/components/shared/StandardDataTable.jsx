@@ -44,16 +44,15 @@ const StyledTable = styled(Table)(({ theme }) => ({
 
 const StyledTableHead = styled(TableHead)(({ theme }) => ({
   '& .MuiTableCell-head': {
-    // Mantém exatamente o mesmo estilo do cabeçalho da tabela Tags
-    backgroundColor: theme.palette.primary.main,
-    color: theme.palette.primary.contrastText,
+    // Cabeçalho sem cor de fundo definida
     fontWeight: 600,
     fontSize: '0.875rem',
     padding: theme.spacing(1.5, 2),
-    borderBottom: `2px solid ${theme.palette.primary.dark}`,
+    borderBottom: `1px solid ${theme.palette.divider}`,
     position: 'sticky',
     top: 0,
-    zIndex: 10
+    zIndex: 10,
+    backgroundColor: theme.palette.background.paper
   }
 }));
 
@@ -120,50 +119,54 @@ const TableEmptyState = ({
   );
 };
 
-// Menu de Ações
-const ActionsMenu = ({ 
-  anchorEl, 
-  open, 
-  onClose, 
-  actions = [], 
-  selectedItem 
-}) => {
+// Menu de Ações - REMOVIDO (não será mais usado)
+
+// Componente de Ações Inline
+const InlineActions = ({ actions = [], item, maxVisibleActions = 3 }) => {
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+  
+  // Se for mobile ou muitas ações, limita a quantidade visível
+  const visibleActions = isMobile ? actions.slice(0, 2) : actions.slice(0, maxVisibleActions);
+  const hasMoreActions = actions.length > visibleActions.length;
+
   return (
-    <Menu
-      anchorEl={anchorEl}
-      open={open}
-      onClose={onClose}
-      transformOrigin={{ horizontal: 'right', vertical: 'top' }}
-      anchorOrigin={{ horizontal: 'right', vertical: 'bottom' }}
-    >
-      {actions.map((action, index) => (
-        <React.Fragment key={index}>
-          {action.divider && <Divider />}
-          <MenuItem
-            onClick={() => {
-              action.onClick(selectedItem);
-              onClose();
-            }}
-            disabled={action.disabled}
-            sx={{
-              color: action.color || 'inherit',
-              '&:hover': {
-                backgroundColor: action.color === 'error' 
-                  ? 'error.light' 
-                  : 'action.hover'
-              }
-            }}
-          >
-            {action.icon && (
-              <ListItemIcon sx={{ color: 'inherit' }}>
-                {action.icon}
-              </ListItemIcon>
-            )}
-            <ListItemText primary={action.label} />
-          </MenuItem>
-        </React.Fragment>
+    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+      {visibleActions.map((action, index) => (
+        <IconButton
+          key={index}
+          size="small"
+          onClick={(event) => {
+            event.stopPropagation();
+            action.onClick(item);
+          }}
+          disabled={action.disabled}
+          color={action.color || 'default'}
+          title={action.label}
+          sx={{
+            padding: '4px',
+            '&:hover': {
+              backgroundColor: action.color === 'error' 
+                ? 'error.light' 
+                : 'action.hover'
+            }
+          }}
+        >
+          {action.icon}
+        </IconButton>
       ))}
-    </Menu>
+      
+      {hasMoreActions && (
+        <IconButton
+          size="small"
+          color="default"
+          title="Mais ações"
+          sx={{ padding: '4px' }}
+        >
+          <MoreVertIcon fontSize="small" />
+        </IconButton>
+      )}
+    </Box>
   );
 };
 
@@ -194,6 +197,9 @@ const StandardDataTable = ({
   size = "small",
   hover = true,
   
+  // Configurações de ações
+  maxVisibleActions = 3, // Máximo de ações visíveis por linha
+  
   // Props adicionais
   tableProps = {},
   containerProps = {},
@@ -205,7 +211,6 @@ const StandardDataTable = ({
   ...props
 }) => {
   const theme = useTheme();
-  const [actionMenuAnchor, setActionMenuAnchor] = useState(null);
   const [selectedItem, setSelectedItem] = useState(null);
 
   // Handlers
@@ -236,14 +241,11 @@ const StandardDataTable = ({
   };
 
   const handleOpenActionsMenu = (event, item) => {
-    event.stopPropagation();
-    setSelectedItem(item);
-    setActionMenuAnchor(event.currentTarget);
+    // Removido - não será mais usado
   };
 
   const handleCloseActionsMenu = () => {
-    setActionMenuAnchor(null);
-    setSelectedItem(null);
+    // Removido - não será mais usado
   };
 
   const handleRowClick = (item, index) => {
@@ -353,7 +355,9 @@ const StandardDataTable = ({
 
               {/* Coluna de ações */}
               {actions.length > 0 && (
-                <TableCell align="right">Ações</TableCell>
+                <TableCell align="right" sx={{ width: `${Math.min(actions.length * 40, maxVisibleActions * 40)}px` }}>
+                  Ações
+                </TableCell>
               )}
             </TableRow>
           </StyledTableHead>
@@ -405,16 +409,14 @@ const StandardDataTable = ({
                     ))
                   )}
 
-                  {/* Menu de ações */}
+                  {/* Ações inline */}
                   {actions.length > 0 && (
                     <TableCell align="right">
-                      <IconButton
-                        size="small"
-                        onClick={(event) => handleOpenActionsMenu(event, item)}
-                        color="primary"
-                      >
-                        <MoreVertIcon />
-                      </IconButton>
+                      <InlineActions 
+                        actions={actions} 
+                        item={item} 
+                        maxVisibleActions={maxVisibleActions}
+                      />
                     </TableCell>
                   )}
                 </StyledTableRow>
@@ -423,15 +425,6 @@ const StandardDataTable = ({
           </TableBody>
         </StyledTable>
       </StyledTableContainer>
-
-      {/* Menu de ações */}
-      <ActionsMenu
-        anchorEl={actionMenuAnchor}
-        open={Boolean(actionMenuAnchor)}
-        onClose={handleCloseActionsMenu}
-        actions={actions}
-        selectedItem={selectedItem}
-      />
     </>
   );
 };
@@ -481,6 +474,9 @@ StandardDataTable.propTypes = {
   stickyHeader: PropTypes.bool,
   size: PropTypes.oneOf(['small', 'medium']),
   hover: PropTypes.bool,
+  
+  // Configurações de ações
+  maxVisibleActions: PropTypes.number,
   
   // Props adicionais
   tableProps: PropTypes.object,
