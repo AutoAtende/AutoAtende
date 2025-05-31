@@ -38,7 +38,7 @@ const FinishAssistantService = async ({
     }
 
     // Verificar se o ticket realmente estava sendo processado por este assistente
-    if (ticket.integrationId !== assistantId || !ticket.useIntegration) {
+    if (ticket.integrationId !== Number(assistantId) || !ticket.useIntegration) {
       logger.warn({
         ticketId,
         currentIntegrationId: ticket.integrationId,
@@ -60,9 +60,6 @@ const FinishAssistantService = async ({
         chatbot: false,
         amountUsedBotQueues: 0,
         promptId: null,
-        isBot: false,
-        typebotStatus: false,
-        typebotSessionId: null
       },
       ticketId,
       companyId
@@ -93,9 +90,6 @@ const FinishAssistantService = async ({
           amountUsedBotQueues: 0,
           integrationId: null,
           appointmentMode: false,
-          isBot: false,
-          typebotStatus: false,
-          typebotSessionId: null
         },
         ticketId,
         companyId
