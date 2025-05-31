@@ -2,7 +2,6 @@ import React, { useState, useEffect, useCallback, useRef, useContext } from 'rea
 import { toast } from "../../helpers/toast";
 import { styled } from '@mui/material/styles';
 import { 
-  TextField,
   Box,
   CircularProgress,
   useTheme,
@@ -25,7 +24,7 @@ import {
   CloudUpload as CloudUploadIcon
 } from '@mui/icons-material';
 
-import StandardPageLayout from '../../components/StandardPageLayout';
+import StandardPageLayout from '../../components/shared/StandardPageLayout';
 import ConfirmationModal from '../../components/ConfirmationModal';
 import EmployerList from './components/EmployerList';
 import EmployerReport from './components/EmployerReport';
@@ -35,15 +34,7 @@ import { AuthContext } from '../../context/Auth/AuthContext';
 import { i18n } from "../../translate/i18n";
 import { format } from 'date-fns';
 
-// Styled component para o container de rolagem
-const ScrollableContainer = styled(Box)(({ theme }) => ({
-  flex: 1,
-  overflow: 'auto',
-  maxHeight: 'calc(100vh - 250px)',
-  display: 'flex',
-  flexDirection: 'column'
-}));
-
+// Styled Components
 const CustomFieldItem = styled(Box)(({ theme }) => ({
   padding: theme.spacing(1.5),
   marginBottom: theme.spacing(1.5),
@@ -52,207 +43,276 @@ const CustomFieldItem = styled(Box)(({ theme }) => ({
   backgroundColor: theme.palette.background.paper,
 }));
 
+const EmptyStateContainer = styled(Box)(({ theme }) => ({
+  display: 'flex',
+  flexDirection: 'column',
+  alignItems: 'center',
+  justifyContent: 'center',
+  padding: theme.spacing(5),
+  textAlign: 'center',
+  minHeight: 400
+}));
+
 const EmployerManagement = () => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const { user } = useContext(AuthContext);
-  
-  // Ref para o container de rolagem
-  const scrollRef = useRef(null);
+  const isMounted = useRef(true);
 
-  // Estados
+  // Estados principais
   const [employers, setEmployers] = useState([]);
+  const [selectedEmployers, setSelectedEmployers] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [selectedEmployer, setSelectedEmployer] = useState(null);
-  const [confirmModalOpen, setConfirmModalOpen] = useState(false);
-  const [page, setPage] = useState(0);
-  const [rowsPerPage, setRowsPerPage] = useState(10);
-  const [totalCount, setTotalCount] = useState(0);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [searchParam, setSearchParam] = useState('');
   const [uploading, setUploading] = useState(false);
   const [currentTab, setCurrentTab] = useState(0);
-  const [hasMore, setHasMore] = useState(false);
+  
+  // Estados de paginação e scroll infinito
+  const [hasMore, setHasMore] = useState(true);
+  const [pageNumber, setPageNumber] = useState(1);
+  const [totalCount, setTotalCount] = useState(0);
+  
+  // Estados de modais
+  const [selectedEmployer, setSelectedEmployer] = useState(null);
+  const [confirmModalOpen, setConfirmModalOpen] = useState(false);
   const [newEmployerModalOpen, setNewEmployerModalOpen] = useState(false);
   const [viewModalOpen, setViewModalOpen] = useState(false);
   const [detailedEmployer, setDetailedEmployer] = useState(null);
   const [loadingDetails, setLoadingDetails] = useState(false);
+  
+  // Estatísticas
   const [statistics, setStatistics] = useState({
     total: 0,
     active: 0,
     recentlyAdded: 0
   });
 
-  const fetchEmployers = useCallback(async () => {
+  // Cleanup no unmount
+  useEffect(() => {
+    return () => {
+      isMounted.current = false;
+    };
+  }, []);
+
+  // Função para normalizar dados do employer
+  const normalizeEmployerData = (employer) => {
+    if (!employer || typeof employer !== 'object') {
+      return {
+        id: '',
+        name: 'N/A',
+        positionsCount: 0,
+        createdAt: null,
+        isActive: true
+      };
+    }
+
+    return {
+      id: employer.id || '',
+      name: employer.name || 'N/A',
+      positionsCount: employer.positionsCount || 0,
+      createdAt: employer.createdAt || null,
+      isActive: employer.isActive !== false,
+      ...employer
+    };
+  };
+
+  // Fetch employers com paginação para scroll infinito
+  const fetchEmployers = useCallback(async (page = 1, isNewSearch = false) => {
+    if (!isMounted.current || (loading && !loadingMore)) return;
+    
     try {
-      setLoading(true);
-      const { data } = await api.get('/employers', {
-        params: { 
-          searchParam: searchTerm,
-          page,
-          limit: rowsPerPage,
-        }
-      });
-  
-      if (data.employers && Array.isArray(data.employers)) {
-        // Se for a primeira página, substitui os dados, senão, concatena
-        if (page === 0) {
-          setEmployers(data.employers);
-        } else {
-          setEmployers(prev => [...prev, ...data.employers]);
-        }
-        
-        setTotalCount(data.count);
-        
-        // Verifica se há mais dados para carregar
-        setHasMore(data.employers.length === rowsPerPage && (page + 1) * rowsPerPage < data.count);
+      if (page === 1) {
+        setLoading(true);
       } else {
-        if (page === 0) {
-          setEmployers([]);
-        }
-        setTotalCount(0);
-        setHasMore(false);
+        setLoadingMore(true);
       }
-  
-      try {
-        const statsResponse = await api.get('/employers/statistics');
-        setStatistics(statsResponse.data);
-      } catch (err) {
-        console.error('Error fetching statistics:', err);
-        setStatistics({
+
+      const { data } = await api.get('/employers', {
+        params: {
+          searchParam,
+          page: page,
+          limit: 20
+        },
+      });
+      
+      if (isMounted.current) {
+        const normalizedEmployers = Array.isArray(data?.employers) 
+          ? data.employers.map(normalizeEmployerData)
+          : [];
+        
+        if (page === 1 || isNewSearch) {
+          setEmployers(normalizedEmployers);
+        } else {
+          setEmployers(prev => [...prev, ...normalizedEmployers]);
+        }
+        
+        setTotalCount(data?.count || 0);
+        setHasMore(normalizedEmployers.length === 20);
+        setPageNumber(page);
+      }
+    } catch (err) {
+      if (isMounted.current) {
+        console.error("Erro ao buscar empresas:", err);
+        toast.error(i18n.t("employerManagement.errors.fetchEmployers") || "Erro ao carregar empresas");
+        if (page === 1) {
+          setEmployers([]);
+          setTotalCount(0);
+        }
+      }
+    } finally {
+      if (isMounted.current) {
+        setLoading(false);
+        setLoadingMore(false);
+      }
+    }
+  }, [searchParam, loading, loadingMore]);
+
+  // Buscar estatísticas separadamente
+  const fetchStatistics = useCallback(async () => {
+    try {
+      const { data } = await api.get('/employers/statistics');
+      if (isMounted.current) {
+        setStatistics(data || {
           total: 0,
           active: 0,
           recentlyAdded: 0
         });
       }
     } catch (err) {
-      console.error(err);
-      toast.error(i18n.t("employerManagement.errors.fetchEmployers"));
-      if (page === 0) {
-        setEmployers([]);
+      console.error("Erro ao buscar estatísticas:", err);
+      if (isMounted.current) {
+        setStatistics({
+          total: 0,
+          active: 0,
+          recentlyAdded: 0
+        });
       }
-      setTotalCount(0);
-      setHasMore(false);
-    } finally {
-      setLoading(false);
     }
-  }, [searchTerm, page, rowsPerPage]);
+  }, []);
 
+  // Effect para carregar dados iniciais
   useEffect(() => {
-    fetchEmployers();
-  }, [fetchEmployers]);
-
-  // Função para lidar com o scroll
-  const handleScroll = useCallback(() => {
-    if (!hasMore || loading) return;
-    
-    const container = scrollRef.current;
-    if (!container) return;
-    
-    const { scrollTop, scrollHeight, clientHeight } = container;
-    
-    // Carrega mais dados quando chegar a 80% do scroll
-    if (scrollHeight - scrollTop - clientHeight < clientHeight * 0.2) {
-      setPage(prevPage => prevPage + 1);
-    }
-  }, [hasMore, loading]);
-
-  // Adicionar event listener para o scroll
-  useEffect(() => {
-    const container = scrollRef.current;
-    if (container) {
-      container.addEventListener("scroll", handleScroll);
-      return () => {
-        container.removeEventListener("scroll", handleScroll);
-      };
-    }
-  }, [handleScroll]);
+    setPageNumber(1);
+    setHasMore(true);
+    fetchEmployers(1, true);
+    fetchStatistics();
+  }, [searchParam]);
 
   // Configurar o socket para atualizações em tempo real
   useEffect(() => {
-    const companyId = user.companyId;
+    const companyId = user?.companyId;
     const socket = window.socket;
 
-    if (socket) {
-      socket.on(`company-${companyId}-employer`, (data) => {
+    if (socket && companyId) {
+      const eventName = `company-${companyId}-employer`;
+      
+      const handleSocketUpdate = (data) => {
         if (data.action === 'create' || data.action === 'update' || data.action === 'delete' || data.action === 'import') {
           // Refresh data on any employer change
-          setPage(0);
-          fetchEmployers();
+          setPageNumber(1);
+          setHasMore(true);
+          fetchEmployers(1, true);
+          fetchStatistics();
         }
-      });
+      };
+
+      socket.on(eventName, handleSocketUpdate);
 
       return () => {
-        socket.off(`company-${companyId}-employer`);
+        socket.off(eventName, handleSocketUpdate);
       };
     }
-  }, [fetchEmployers, user]);
+  }, [fetchEmployers, fetchStatistics, user]);
 
-  const handleDelete = async (id) => {
+  // Handlers
+  const handleSearch = useCallback((value) => {
+    setSearchParam(value.toLowerCase());
+    setSelectedEmployers([]);
+    setPageNumber(1);
+    setHasMore(true);
+  }, []);
+
+  const handleRefresh = useCallback(() => {
+    setPageNumber(1);
+    setHasMore(true);
+    setSelectedEmployers([]);
+    fetchEmployers(1, true);
+    fetchStatistics();
+  }, [fetchEmployers, fetchStatistics]);
+
+  const handleLoadMore = useCallback(() => {
+    if (hasMore && !loading && !loadingMore) {
+      fetchEmployers(pageNumber + 1);
+    }
+  }, [hasMore, loading, loadingMore, pageNumber, fetchEmployers]);
+
+  const handleAdd = useCallback(() => {
+    setSelectedEmployer(null);
+    setNewEmployerModalOpen(true);
+  }, []);
+
+  const handleEdit = useCallback((employer) => {
+    setSelectedEmployer(normalizeEmployerData(employer));
+    setNewEmployerModalOpen(true);
+  }, []);
+
+  const handleDelete = useCallback(async (employerId) => {
+    if (!employerId) return;
+    
     try {
       setLoading(true);
-      await api.delete(`/employers/${id}`);
-      toast.success(i18n.t("employerManagement.success.delete"));
+      await api.delete(`/employers/${employerId}`);
+      toast.success(i18n.t("employerManagement.success.delete") || "Empresa excluída com sucesso");
       setConfirmModalOpen(false);
-      // Resetar para a primeira página ao excluir
-      setPage(0);
-      await fetchEmployers();
+      setSelectedEmployer(null);
+      handleRefresh();
     } catch (err) {
-      console.error('Error deleting:', err);
-      const errorMsg = err.response?.data?.error || i18n.t("employerManagement.errors.delete");
+      console.error('Erro ao excluir empresa:', err);
+      const errorMsg = err.response?.data?.error || i18n.t("employerManagement.errors.delete") || "Erro ao excluir empresa";
       toast.error(errorMsg);
     } finally {
       setLoading(false);
     }
-  };
+  }, [handleRefresh]);
 
-  const handleViewDetails = async (employer) => {
+  const handleConfirmDelete = useCallback((employer) => {
+    setSelectedEmployer(normalizeEmployerData(employer));
+    setConfirmModalOpen(true);
+  }, []);
+
+  const handleViewDetails = useCallback(async (employer) => {
     try {
       setLoadingDetails(true);
       const { data } = await api.get(`/employers/${employer.id}`);
       setDetailedEmployer(data);
       setViewModalOpen(true);
     } catch (err) {
-      console.error('Error fetching employer details:', err);
-      toast.error(i18n.t("employerManagement.errors.fetchDetails"));
+      console.error('Erro ao buscar detalhes da empresa:', err);
+      toast.error(i18n.t("employerManagement.errors.fetchDetails") || "Erro ao carregar detalhes");
     } finally {
       setLoadingDetails(false);
     }
-  };
+  }, []);
 
-  const handleOpenModal = (employer = null) => {
-    if (employer) {
-      setSelectedEmployer({
-        id: employer.id,
-        name: employer.name
-      });
-    } else {
-      setSelectedEmployer(null);
-    }
-    setNewEmployerModalOpen(true);
-  };
-
-  const handleCloseModal = () => {
+  const handleSaveEmployer = useCallback(() => {
     setNewEmployerModalOpen(false);
     setSelectedEmployer(null);
-  };
+    handleRefresh();
+  }, [handleRefresh]);
 
-  const handleSaveEmployer = (data) => {
-    setPage(0); // Resetar para a primeira página após salvar
-    fetchEmployers();
-  };
+  const handleCloseEmployerModal = useCallback(() => {
+    setNewEmployerModalOpen(false);
+    setSelectedEmployer(null);
+  }, []);
 
-  const handleConfirmDelete = (employer) => {
-    setSelectedEmployer(employer);
-    setConfirmModalOpen(true);
-  };
-
-  const handleFileImport = async (event) => {
+  const handleFileImport = useCallback(async (event) => {
     const file = event.target.files[0];
     if (!file) return;
 
     const extension = file.name.split('.').pop().toLowerCase();
     if (!['csv', 'xls', 'xlsx'].includes(extension)) {
-      toast.error(i18n.t("employerManagement.errors.invalidFileFormat"));
+      toast.error(i18n.t("employerManagement.errors.invalidFileFormat") || "Formato de arquivo inválido");
       return;
     }
 
@@ -266,126 +326,103 @@ const EmployerManagement = () => {
       });
 
       if (data.imported > 0) {
-        toast.success(i18n.t("employerManagement.success.import", { count: data.imported }));
+        toast.success(i18n.t("employerManagement.success.import", { count: data.imported }) || `${data.imported} empresas importadas com sucesso`);
       }
       if (data.duplicates > 0) {
-        toast.info(i18n.t("employerManagement.info.duplicates", { count: data.duplicates }));
+        toast.info(i18n.t("employerManagement.info.duplicates", { count: data.duplicates }) || `${data.duplicates} duplicatas encontradas`);
       }
-      if (data.errors.length > 0) {
+      if (data.errors && data.errors.length > 0) {
         console.error('Erros na importação:', data.errors);
-        toast.warning(i18n.t("employerManagement.warnings.importErrors"));
+        toast.warning(i18n.t("employerManagement.warnings.importErrors") || "Alguns erros ocorreram durante a importação");
       }
 
-      // Resetar para a primeira página após importar
-      setPage(0);
-      await fetchEmployers();
+      handleRefresh();
     } catch (error) {
       console.error(error);
-      toast.error(i18n.t("employerManagement.errors.import"));
+      toast.error(i18n.t("employerManagement.errors.import") || "Erro ao importar empresas");
     } finally {
       setUploading(false);
       event.target.value = '';
     }
-  };
+  }, [handleRefresh]);
 
-  const handleSearch = (event) => {
-    const value = event.target.value;
-    setSearchTerm(value);
-    setPage(0); // Resetar para a primeira página ao pesquisar
-  };
+  const handleImportClick = useCallback(() => {
+    document.getElementById('import-file-input').click();
+  }, []);
 
+  // Renderizar conteúdo baseado na aba ativa
   const renderContent = () => {
-    if (loading && page === 0) {
-      return (
-        <Box display="flex" justifyContent="center" alignItems="center" minHeight={400}>
-          <CircularProgress />
-        </Box>
-      );
-    }
-
     if (currentTab === 0) {
-      if (employers.length === 0 && !searchTerm) {
+      // Tab de listagem de empresas
+      if (employers.length === 0 && !searchParam && !loading) {
         return (
-          <Box display="flex" flexDirection="column" alignItems="center" justifyContent="center" p={5}>
-            <BusinessIcon sx={{ fontSize: 40, color: 'text.secondary', mb: 2 }} />
-            <Typography variant="h6" color="textSecondary" gutterBottom>
-              {i18n.t("employerManagement.emptyState.title")}
+          <EmptyStateContainer>
+            <BusinessIcon sx={{ fontSize: 64, color: 'text.secondary', mb: 2 }} />
+            <Typography variant="h5" color="textSecondary" gutterBottom fontWeight={600}>
+              {i18n.t("employerManagement.emptyState.title") || "Nenhuma empresa cadastrada"}
             </Typography>
-            <Typography variant="body2" color="textSecondary" paragraph>
-              {i18n.t("employerManagement.emptyState.message")}
+            <Typography variant="body1" color="textSecondary" paragraph sx={{ maxWidth: 400 }}>
+              {i18n.t("employerManagement.emptyState.message") || "Comece adicionando sua primeira empresa para organizar os contatos."}
             </Typography>
             <Button
               variant="contained"
               color="primary"
+              size="large"
               startIcon={<AddIcon />}
-              onClick={() => handleOpenModal()}
+              onClick={handleAdd}
+              sx={{ mt: 2 }}
             >
-              {i18n.t("employerManagement.buttons.add")}
+              {i18n.t("employerManagement.buttons.add") || "Adicionar Empresa"}
             </Button>
-          </Box>
+          </EmptyStateContainer>
         );
       }
 
       return (
-        <ScrollableContainer ref={scrollRef}>
-          <EmployerList
-            employers={employers}
-            loading={loading && page === 0}
-            statistics={statistics}
-            page={0}
-            rowsPerPage={rowsPerPage}
-            totalCount={totalCount}
-            onPageChange={() => {}}
-            onRowsPerPageChange={(e) => {
-              setRowsPerPage(parseInt(e.target.value, 10));
-              setPage(0);
-            }}
-            onSearch={(value) => {
-              setSearchTerm(value);
-              setPage(0);
-            }}
-            onRefresh={() => {
-              setPage(0);
-              fetchEmployers();
-            }}
-            onImport={handleFileImport}
-            onAdd={() => handleOpenModal()}
-            onEdit={handleOpenModal}
-            onDelete={handleConfirmDelete}
-            onViewDetails={handleViewDetails}
-            uploading={uploading}
-          />
-          
-          {/* Indicador de carregamento para rolagem infinita */}
-          {loading && page > 0 && (
-            <Box display="flex" justifyContent="center" p={2}>
-              <CircularProgress size={24} />
-            </Box>
-          )}
-        </ScrollableContainer>
+        <EmployerList
+          employers={employers}
+          loading={loading}
+          loadingMore={loadingMore}
+          statistics={statistics}
+          searchParam={searchParam}
+          totalCount={totalCount}
+          hasMore={hasMore}
+          selectedEmployers={selectedEmployers}
+          uploading={uploading}
+          onSearch={handleSearch}
+          onRefresh={handleRefresh}
+          onLoadMore={handleLoadMore}
+          onImport={handleFileImport}
+          onAdd={handleAdd}
+          onEdit={handleEdit}
+          onDelete={handleConfirmDelete}
+          onSelectionChange={setSelectedEmployers}
+        />
       );
     }
 
+    // Tab de relatórios
     return <EmployerReport employers={employers} />;
   };
 
   // Configuração das ações do cabeçalho
   const pageActions = [
     {
-      label: i18n.t("employerManagement.buttons.import"),
+      label: i18n.t("employerManagement.buttons.import") || "Importar",
       icon: uploading ? <CircularProgress size={20} /> : <CloudUploadIcon />,
-      onClick: () => document.getElementById('import-file-input').click(),
+      onClick: handleImportClick,
       variant: "outlined",
       color: "primary",
       disabled: uploading,
       tooltip: "Importar empresas via arquivo CSV/Excel"
     },
     {
-      label: i18n.t("employerManagement.buttons.add"),
+      label: i18n.t("employerManagement.buttons.add") || "Adicionar",
       icon: <AddIcon />,
-      onClick: () => handleOpenModal(),
+      onClick: handleAdd,
       variant: "contained",
       color: "primary",
+      primary: true,
       tooltip: "Adicionar nova empresa"
     }
   ];
@@ -393,31 +430,45 @@ const EmployerManagement = () => {
   // Configuração das abas
   const tabs = [
     {
-      label: i18n.t("employerManagement.tabs.employers"),
+      label: i18n.t("employerManagement.tabs.employers") || "Empresas",
       icon: <BusinessIcon />
     },
     {
-      label: i18n.t("employerManagement.tabs.report"),
+      label: i18n.t("employerManagement.tabs.report") || "Relatórios",
       icon: <AssignmentIcon />
     }
   ];
 
+  const formattedCounter = () => {
+    const selectedCount = Array.isArray(selectedEmployers) ? selectedEmployers.length : 0;
+    const baseText = `${employers.length} de ${totalCount} empresas`;
+    return selectedCount > 0 
+      ? `${baseText} (${selectedCount} selecionadas)`
+      : baseText;
+  };
+
   return (
     <>
       <StandardPageLayout
-        title={i18n.t("employerManagement.title")}
+        title={i18n.t("employerManagement.title") || "Gestão de Empresas"}
+        subtitle={currentTab === 0 ? formattedCounter() : "Relatórios e análises"}
         actions={pageActions}
-        searchValue={searchTerm}
-        onSearchChange={handleSearch}
-        searchPlaceholder="Pesquisar empresas..."
-        showSearch={true}
+        searchValue={searchParam}
+        onSearchChange={(e) => handleSearch(e.target.value)}
+        searchPlaceholder="Buscar empresas..."
+        showSearch={currentTab === 0}
         tabs={tabs}
         activeTab={currentTab}
         onTabChange={(e, newValue) => {
           setCurrentTab(newValue);
-          setPage(0);
+          if (newValue === 0) {
+            // Resetar dados ao voltar para a aba de empresas
+            setPageNumber(1);
+            setHasMore(true);
+            setSelectedEmployers([]);
+          }
         }}
-        loading={loading && page === 0}
+        loading={loading}
       >
         {renderContent()}
       </StandardPageLayout>
@@ -432,126 +483,133 @@ const EmployerManagement = () => {
       />
 
       {/* Modal de Criação/Edição */}
-      <NewEmployerModal
-        open={newEmployerModalOpen}
-        onClose={handleCloseModal}
-        onSave={handleSaveEmployer}
-        initialData={selectedEmployer}
-      />
+      {newEmployerModalOpen && (
+        <NewEmployerModal
+          open={newEmployerModalOpen}
+          onClose={handleCloseEmployerModal}
+          onSave={handleSaveEmployer}
+          initialData={selectedEmployer}
+        />
+      )}
 
       {/* Modal de Detalhes */}
-      <Dialog 
-        open={viewModalOpen} 
-        onClose={() => setViewModalOpen(false)}
-        maxWidth="md"
-        fullWidth
-        PaperProps={{
-          sx: {
-            borderRadius: 2,
-            boxShadow: '0 8px 24px rgba(0, 0, 0, 0.1)'
-          }
-        }}
-      >
-        <DialogTitle>
-          <Box display="flex" alignItems="center" justifyContent="space-between">
-            <Typography variant="h6" component="div">
-              <BusinessIcon sx={{ mr: 1, verticalAlign: 'middle' }} />
-              {i18n.t("employerManagement.viewDetails.title")}
-            </Typography>
-            <IconButton
-              edge="end"
-              color="inherit"
-              onClick={() => setViewModalOpen(false)}
-              aria-label="close"
-            >
-              <CloseIcon />
-            </IconButton>
-          </Box>
-        </DialogTitle>
-        <DialogContent dividers>
-          {loadingDetails ? (
-            <Box display="flex" justifyContent="center" p={4}>
-              <CircularProgress />
-            </Box>
-          ) : detailedEmployer ? (
-            <Box>
-              <Grid container spacing={3} mb={3}>
-                <Grid item xs={12} md={6}>
-                  <Typography variant="subtitle1" color="textSecondary">
-                    {i18n.t("employerManagement.viewDetails.name")}
-                  </Typography>
-                  <Typography variant="h6">
-                    {detailedEmployer.name}
-                  </Typography>
-                </Grid>
-                <Grid item xs={12} md={6}>
-                  <Typography variant="subtitle1" color="textSecondary">
-                    {i18n.t("employerManagement.viewDetails.createdAt")}
-                  </Typography>
-                  <Typography variant="h6">
-                    {detailedEmployer.createdAt ? format(new Date(detailedEmployer.createdAt), 'dd/MM/yyyy HH:mm') : '-'}
-                  </Typography>
-                </Grid>
-              </Grid>
-              
-              <Divider sx={{ my: 3 }} />
-              
-              <Typography variant="h6" gutterBottom>
-                {i18n.t("employerManagement.viewDetails.customFields")}
+      {viewModalOpen && (
+        <Dialog 
+          open={viewModalOpen} 
+          onClose={() => setViewModalOpen(false)}
+          maxWidth="md"
+          fullWidth
+          PaperProps={{
+            sx: {
+              borderRadius: 2,
+              boxShadow: '0 8px 24px rgba(0, 0, 0, 0.1)'
+            }
+          }}
+        >
+          <DialogTitle>
+            <Box display="flex" alignItems="center" justifyContent="space-between">
+              <Typography variant="h6" component="div">
+                <BusinessIcon sx={{ mr: 1, verticalAlign: 'middle' }} />
+                {i18n.t("employerManagement.viewDetails.title") || "Detalhes da Empresa"}
               </Typography>
-              
-              {detailedEmployer.extraInfo && detailedEmployer.extraInfo.length > 0 ? (
-                detailedEmployer.extraInfo.map((field, index) => (
-                  <CustomFieldItem key={index}>
-                    <Typography variant="subtitle2" color="textSecondary">
-                      {field.name}
-                    </Typography>
-                    <Typography variant="body1">
-                      {field.value}
-                    </Typography>
-                  </CustomFieldItem>
-                ))
-              ) : (
-                <Typography variant="body2" color="textSecondary">
-                  {i18n.t("employerManagement.viewDetails.noCustomFields")}
-                </Typography>
-              )}
-              
-              <Box display="flex" justifyContent="flex-end" mt={3}>
-                <Button 
-                  onClick={() => {
-                    setViewModalOpen(false);
-                    handleOpenModal(detailedEmployer);
-                  }}
-                  variant="contained" 
-                  color="primary"
-                  startIcon={<EditIcon />}
-                >
-                  {i18n.t("employerManagement.buttons.edit")}
-                </Button>
-              </Box>
+              <IconButton
+                edge="end"
+                color="inherit"
+                onClick={() => setViewModalOpen(false)}
+                aria-label="close"
+              >
+                <CloseIcon />
+              </IconButton>
             </Box>
-          ) : (
-            <Typography color="error">
-              {i18n.t("employerManagement.errors.noData")}
-            </Typography>
-          )}
-        </DialogContent>
-      </Dialog>
+          </DialogTitle>
+          <DialogContent dividers>
+            {loadingDetails ? (
+              <Box display="flex" justifyContent="center" p={4}>
+                <CircularProgress />
+              </Box>
+            ) : detailedEmployer ? (
+              <Box>
+                <Grid container spacing={3} mb={3}>
+                  <Grid item xs={12} md={6}>
+                    <Typography variant="subtitle1" color="textSecondary">
+                      {i18n.t("employerManagement.viewDetails.name") || "Nome"}
+                    </Typography>
+                    <Typography variant="h6">
+                      {detailedEmployer.name}
+                    </Typography>
+                  </Grid>
+                  <Grid item xs={12} md={6}>
+                    <Typography variant="subtitle1" color="textSecondary">
+                      {i18n.t("employerManagement.viewDetails.createdAt") || "Criada em"}
+                    </Typography>
+                    <Typography variant="h6">
+                      {detailedEmployer.createdAt ? format(new Date(detailedEmployer.createdAt), 'dd/MM/yyyy HH:mm') : '-'}
+                    </Typography>
+                  </Grid>
+                </Grid>
+                
+                <Divider sx={{ my: 3 }} />
+                
+                <Typography variant="h6" gutterBottom>
+                  {i18n.t("employerManagement.viewDetails.customFields") || "Campos Personalizados"}
+                </Typography>
+                
+                {detailedEmployer.extraInfo && detailedEmployer.extraInfo.length > 0 ? (
+                  detailedEmployer.extraInfo.map((field, index) => (
+                    <CustomFieldItem key={index}>
+                      <Typography variant="subtitle2" color="textSecondary">
+                        {field.name}
+                      </Typography>
+                      <Typography variant="body1">
+                        {field.value}
+                      </Typography>
+                    </CustomFieldItem>
+                  ))
+                ) : (
+                  <Typography variant="body2" color="textSecondary">
+                    {i18n.t("employerManagement.viewDetails.noCustomFields") || "Nenhum campo personalizado cadastrado"}
+                  </Typography>
+                )}
+                
+                <Box display="flex" justifyContent="flex-end" mt={3}>
+                  <Button 
+                    onClick={() => {
+                      setViewModalOpen(false);
+                      handleEdit(detailedEmployer);
+                    }}
+                    variant="contained" 
+                    color="primary"
+                    startIcon={<EditIcon />}
+                  >
+                    {i18n.t("employerManagement.buttons.edit") || "Editar"}
+                  </Button>
+                </Box>
+              </Box>
+            ) : (
+              <Typography color="error">
+                {i18n.t("employerManagement.errors.noData") || "Dados não encontrados"}
+              </Typography>
+            )}
+          </DialogContent>
+        </Dialog>
+      )}
 
       {/* Modal de Confirmação de Exclusão */}
-      {confirmModalOpen && (
+      {confirmModalOpen && selectedEmployer && (
         <ConfirmationModal
-          title={i18n.t("employerManagement.deleteConfirm.title")}
+          title={i18n.t("employerManagement.deleteConfirm.title") || "Confirmar Exclusão"}
           open={confirmModalOpen}
-          onClose={() => setConfirmModalOpen(false)}
-          onConfirm={() => handleDelete(selectedEmployer?.id)}
+          onClose={() => {
+            setConfirmModalOpen(false);
+            setSelectedEmployer(null);
+          }}
+          onConfirm={() => handleDelete(selectedEmployer.id)}
         >
           <Typography>
-            {i18n.t("employerManagement.deleteConfirm.message")}
+            {i18n.t("employerManagement.deleteConfirm.message") || "Esta ação não pode ser desfeita. Deseja continuar?"}
           </Typography>
           <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-            Empresa: {selectedEmployer?.name}
+            Empresa: <strong>{selectedEmployer.name}</strong>
           </Typography>
         </ConfirmationModal>
       )}

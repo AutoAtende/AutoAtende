@@ -1,292 +1,490 @@
-import React from 'react';
-import { debounce } from '../../../utils/helpers';
-import { toast } from '../../../helpers/toast';
-import { 
-  Paper,
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableRow,
-  IconButton,
-  Button,
+import React, { useState, useCallback, useRef, useEffect } from 'react';
+import PropTypes from 'prop-types';
+import {
   Box,
   Typography,
   Chip,
-  Tooltip,
   Card,
   CardContent,
   Grid,
   CircularProgress,
-  TextField
+  Button,
+  IconButton,
+  Tooltip,
+  useTheme
 } from '@mui/material';
-import { 
+import {
   Edit as EditIcon,
   Delete as DeleteIcon,
   Business as BusinessIcon,
-  Refresh as RefreshIcon,
-  Search as SearchIcon,
   Upload as UploadIcon,
-  Add as AddIcon
+  Add as AddIcon,
+  Refresh as RefreshIcon
 } from '@mui/icons-material';
 import { format } from 'date-fns';
-import { makeStyles } from '@mui/styles';
+import { styled } from '@mui/material/styles';
 
-const useStyles = makeStyles((theme) => ({
-  mainPaper: {
-    flex: 1,
-    padding: theme.spacing(2),
-    margin: theme.spacing(1),
-    display: 'flex',
-    flexDirection: 'column',
-  },
-  searchContainer: {
-    display: 'flex',
-    gap: theme.spacing(1),
-    padding: theme.spacing(2),
-    backgroundColor: theme.palette.background.default,
-    borderRadius: theme.shape.borderRadius,
-    marginBottom: theme.spacing(2),
-  },
-  searchField: {
-    width: '300px',
-  },
-  tableSection: {
-    flex: 1,
-    display: 'flex',
-    flexDirection: 'column',
-    minHeight: '400px', // Altura mínima para garantir espaço para a tabela
-  },
-  tableContainer: {
-    flex: 1,
-    display: 'flex',
-    flexDirection: 'column',
-    overflow: 'hidden', // Importante para controlar o overflow
-  },
-  tableWrapper: {
-    flex: 1,
-    overflowY: 'auto',
-    overflowX: 'auto',
-    minHeight: 0, // Importante para o scroll funcionar
-    '& .MuiTable-root': {
-      minWidth: 650, // Largura mínima da tabela
-    }
-  },
-  table: {
-    '& td': {
-      padding: theme.spacing(1),
-    }
-  },
-  actionButtons: {
-    '& > button': {
-      margin: theme.spacing(0, 0.5),
-    }
-  },
-  summaryCard: {
-    marginBottom: theme.spacing(2),
-  },
-  summaryValue: {
-    fontSize: '1.5rem',
-    fontWeight: 'bold',
-    color: theme.palette.primary.main,
-  },
-  headerActions: {
-    display: 'flex',
-    gap: theme.spacing(1),
-    alignItems: 'center',
-  },
-  refreshButton: {
-    marginLeft: 'auto',
-  },
+// Standard Components
+import StandardPageLayout from '../../../components/shared/StandardPageLayout';
+import StandardDataTable from '../../../components/shared/StandardDataTable';
+
+// Utils
+import { debounce } from '../../../utils/helpers';
+import { toast } from '../../../helpers/toast';
+
+// Styled Components seguindo padrão Standard
+const SummaryContainer = styled(Box)(({ theme }) => ({
+  marginBottom: theme.spacing(3),
+  display: 'flex',
+  flexDirection: 'column',
+  gap: theme.spacing(2)
+}));
+
+const SummaryCard = styled(Card)(({ theme }) => ({
+  height: '100%',
+  borderRadius: theme.breakpoints.down('sm') ? 12 : 8,
+  boxShadow: theme.palette.mode === 'dark' 
+    ? '0 2px 8px rgba(0, 0, 0, 0.3)' 
+    : '0 2px 8px rgba(0, 0, 0, 0.08)',
+  transition: 'all 0.2s ease-in-out',
+  '&:hover': {
+    transform: 'translateY(-2px)',
+    boxShadow: theme.palette.mode === 'dark' 
+      ? '0 4px 12px rgba(0, 0, 0, 0.4)' 
+      : '0 4px 12px rgba(0, 0, 0, 0.12)',
+  }
+}));
+
+const SummaryValue = styled(Typography)(({ theme }) => ({
+  fontSize: '2rem',
+  fontWeight: 700,
+  color: theme.palette.primary.main,
+  lineHeight: 1.2,
+  [theme.breakpoints.down('sm')]: {
+    fontSize: '1.75rem',
+  }
 }));
 
 const EmployerList = ({
-  employers,
-  loading,
-  statistics,
-  page,
-  rowsPerPage,
-  totalCount,
-  onPageChange,
-  onRowsPerPageChange,
+  employers = [],
+  loading = false,
+  loadingMore = false,
+  statistics = {},
+  searchParam = '',
   onSearch,
   onRefresh,
   onImport,
   onAdd,
   onEdit,
   onDelete,
-  uploading
+  uploading = false,
+  hasMore = true,
+  onLoadMore,
+  selectedEmployers = [],
+  onSelectionChange,
+  totalCount = 0
 }) => {
-  const classes = useStyles();
+  const theme = useTheme();
+  const observerRef = useRef();
+  const lastEmployerElementRef = useRef();
 
-  const handleSearchDebounced = debounce((value) => {
-    onSearch(value);
-  }, 500);
+  // Debounced search handler
+  const handleSearchDebounced = useCallback(
+    debounce((value) => {
+      onSearch(value);
+    }, 500),
+    [onSearch]
+  );
 
-  return (
-    <>
-      <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
-        <div className={classes.headerActions}>
-          <Button
-            variant="contained"
-            component="label"
-            startIcon={uploading ? <CircularProgress size={24} /> : <UploadIcon />}
-            disabled={uploading}
-          >
-            Importar Empresas
-            <input type="file" hidden accept=".csv,.xls,.xlsx" onChange={onImport} />
-          </Button>
-          <Button
-            variant="contained"
-            color="primary"
-            onClick={onAdd}
-            startIcon={<AddIcon />}
-          >
-            Adicionar Empresa
-          </Button>
-          <TextField
-            className={classes.searchField}
-            placeholder="Buscar empresas..."
-            variant="outlined"
+  const handleSearchChange = useCallback((event) => {
+    const value = event?.target?.value || '';
+    handleSearchDebounced(value);
+  }, [handleSearchDebounced]);
+
+  // Infinite scroll observer
+  useEffect(() => {
+    if (loading || loadingMore || !hasMore) return;
+
+    if (observerRef.current) observerRef.current.disconnect();
+
+    observerRef.current = new IntersectionObserver(
+      entries => {
+        if (entries[0].isIntersecting && hasMore && !loading && !loadingMore) {
+          onLoadMore?.();
+        }
+      },
+      { threshold: 1.0 }
+    );
+
+    if (lastEmployerElementRef.current) {
+      observerRef.current.observe(lastEmployerElementRef.current);
+    }
+
+    return () => {
+      if (observerRef.current) {
+        observerRef.current.disconnect();
+      }
+    };
+  }, [employers, hasMore, loading, loadingMore, onLoadMore]);
+
+  // Normalizar dados do employer
+  const normalizeEmployerData = (employer) => {
+    if (!employer || typeof employer !== 'object') {
+      return {
+        id: '',
+        name: 'N/A',
+        positionsCount: 0,
+        createdAt: null,
+        isActive: true
+      };
+    }
+
+    return {
+      id: employer.id || '',
+      name: employer.name || 'N/A',
+      positionsCount: employer.positionsCount || 0,
+      createdAt: employer.createdAt || null,
+      isActive: employer.isActive !== false,
+      ...employer
+    };
+  };
+
+  // Configuração das colunas da tabela
+  const columns = [
+    {
+      id: 'name',
+      field: 'name',
+      label: 'Empresa',
+      minWidth: 200,
+      render: (employer) => {
+        const normalizedEmployer = normalizeEmployerData(employer);
+        
+        return (
+          <Box display="flex" alignItems="center" gap={1}>
+            <BusinessIcon color="primary" sx={{ fontSize: '1.25rem' }} />
+            <Box>
+              <Typography variant="subtitle2" fontWeight={600}>
+                {normalizedEmployer.name}
+              </Typography>
+              <Typography variant="caption" color="textSecondary">
+                ID: {normalizedEmployer.id}
+              </Typography>
+            </Box>
+          </Box>
+        );
+      }
+    },
+    {
+      id: 'positions',
+      field: 'positionsCount',
+      label: 'Cargos',
+      width: 120,
+      align: 'center',
+      render: (employer) => {
+        const normalizedEmployer = normalizeEmployerData(employer);
+        
+        return (
+          <Chip 
+            label={`${normalizedEmployer.positionsCount} ${normalizedEmployer.positionsCount === 1 ? 'cargo' : 'cargos'}`}
             size="small"
-            onChange={(e) => handleSearchDebounced(e.target.value)}
-            InputProps={{
-              startAdornment: <SearchIcon color="action" />,
+            color="primary"
+            variant="outlined"
+            sx={{
+              fontWeight: 500,
+              minWidth: 80
             }}
-            sx={{ ml: 2, width: '300px' }}
           />
-          <Tooltip title="Atualizar lista">
-            <IconButton onClick={onRefresh} className={classes.refreshButton}>
-              <RefreshIcon />
-            </IconButton>
-          </Tooltip>
-        </div>
-      </Box>
+        );
+      }
+    },
+    {
+      id: 'createdAt',
+      field: 'createdAt',
+      label: 'Criada em',
+      width: 130,
+      align: 'center',
+      render: (employer) => {
+        const normalizedEmployer = normalizeEmployerData(employer);
+        
+        if (!normalizedEmployer.createdAt) {
+          return (
+            <Typography variant="body2" color="textSecondary">
+              -
+            </Typography>
+          );
+        }
 
-      <Grid container spacing={2} className={classes.summaryCard}>
-        <Grid item xs={12} md={4}>
-          <Card>
+        try {
+          return (
+            <Typography variant="body2">
+              {format(new Date(normalizedEmployer.createdAt), 'dd/MM/yyyy')}
+            </Typography>
+          );
+        } catch (error) {
+          return (
+            <Typography variant="body2" color="error">
+              Data inválida
+            </Typography>
+          );
+        }
+      }
+    },
+    {
+      id: 'status',
+      field: 'isActive',
+      label: 'Status',
+      width: 100,
+      align: 'center',
+      render: (employer) => {
+        const normalizedEmployer = normalizeEmployerData(employer);
+        
+        return (
+          <Chip
+            label={normalizedEmployer.isActive ? "Ativo" : "Inativo"}
+            color={normalizedEmployer.isActive ? "success" : "default"}
+            size="small"
+            variant="outlined"
+            sx={{
+              fontWeight: 500,
+              minWidth: 70
+            }}
+          />
+        );
+      }
+    }
+  ];
+
+  // Ações da tabela
+  const getTableActions = useCallback((employer) => {
+    const actions = [];
+
+    actions.push({
+      label: "Editar",
+      icon: <EditIcon />,
+      onClick: () => onEdit(normalizeEmployerData(employer)),
+      color: "primary"
+    });
+
+    actions.push({
+      label: "Excluir",
+      icon: <DeleteIcon />,
+      onClick: () => onDelete(normalizeEmployerData(employer)),
+      color: "error"
+    });
+
+    return actions;
+  }, [onEdit, onDelete]);
+
+  // Ações do header
+  const pageActions = [
+    {
+      label: "Adicionar",
+      icon: <AddIcon />,
+      onClick: onAdd,
+      variant: "contained",
+      color: "primary",
+      primary: true
+    },
+    {
+      label: uploading ? "Importando..." : "Importar",
+      icon: uploading ? <CircularProgress size={20} /> : <UploadIcon />,
+      onClick: onImport,
+      variant: "outlined",
+      disabled: uploading
+    },
+    {
+      label: "Atualizar",
+      icon: <RefreshIcon />,
+      onClick: onRefresh,
+      variant: "outlined",
+      tooltip: "Atualizar lista de empresas"
+    }
+  ];
+
+  // Counter formatado
+  const formattedCounter = () => {
+    const selectedCount = Array.isArray(selectedEmployers) ? selectedEmployers.length : 0;
+    const baseText = `${employers.length} de ${totalCount} empresas`;
+    return selectedCount > 0 
+      ? `${baseText} (${selectedCount} selecionadas)`
+      : baseText;
+  };
+
+  // Renderizar empresas com infinite scroll
+  const renderEmployers = () => {
+    const employersWithRef = employers.map((employer, index) => {
+      const isLast = index === employers.length - 1;
+      return {
+        ...normalizeEmployerData(employer),
+        ref: isLast ? lastEmployerElementRef : null
+      };
+    });
+
+    return employersWithRef;
+  };
+
+  // Componente de resumo/estatísticas
+  const SummarySection = () => (
+    <SummaryContainer>
+      <Grid container spacing={2}>
+        <Grid item xs={12} sm={6} md={4}>
+          <SummaryCard>
             <CardContent>
-              <Typography color="textSecondary" gutterBottom>
+              <Typography color="textSecondary" variant="subtitle2" gutterBottom>
                 Total de Empresas
               </Typography>
-              <Typography variant="h4" className={classes.summaryValue}>
-                {statistics?.total || 0}
-              </Typography>
+              <SummaryValue>
+                {statistics?.total || totalCount || 0}
+              </SummaryValue>
             </CardContent>
-          </Card>
+          </SummaryCard>
         </Grid>
-        <Grid item xs={12} md={4}>
-          <Card>
+        
+        <Grid item xs={12} sm={6} md={4}>
+          <SummaryCard>
             <CardContent>
-              <Typography color="textSecondary" gutterBottom>
+              <Typography color="textSecondary" variant="subtitle2" gutterBottom>
                 Empresas Ativas
               </Typography>
-              <Typography variant="h4" className={classes.summaryValue}>
+              <SummaryValue color="success.main">
                 {statistics?.active || 0}
-              </Typography>
+              </SummaryValue>
             </CardContent>
-          </Card>
+          </SummaryCard>
         </Grid>
-        <Grid item xs={12} md={4}>
-          <Card>
+        
+        <Grid item xs={12} sm={6} md={4}>
+          <SummaryCard>
             <CardContent>
-              <Typography color="textSecondary" gutterBottom>
+              <Typography color="textSecondary" variant="subtitle2" gutterBottom>
                 Adicionadas Recentemente
               </Typography>
-              <Typography variant="h4" className={classes.summaryValue}>
+              <SummaryValue color="info.main">
                 {statistics?.recentlyAdded || 0}
-              </Typography>
+              </SummaryValue>
             </CardContent>
-          </Card>
+          </SummaryCard>
         </Grid>
       </Grid>
-      
-      <Paper className={classes.mainPaper}>
-      <div className={classes.tableSection}>
-          <div className={classes.tableContainer}>
-            <div className={classes.tableWrapper}>
-              {loading ? (
-                <Box display="flex" justifyContent="center" p={4}>
-                  <CircularProgress />
-                </Box>
-              ) : employers.length > 0 ? (
-                <Table 
-                  className={classes.table} 
-                  stickyHeader 
-                  size="small"
-                >
-                  <TableHead>
-                    <TableRow>
-                      <TableCell>Nome</TableCell>
-                      <TableCell>Cargos</TableCell>
-                      <TableCell>Criada em</TableCell>
-                      <TableCell>Status</TableCell>
-                      <TableCell align="right">Ações</TableCell>
-                    </TableRow>
-                  </TableHead>
-                  <TableBody>
-                    {employers.map((employer) => (
-                      <TableRow key={employer.id} hover>
-                        <TableCell>
-                          <Box display="flex" alignItems="center">
-                            <BusinessIcon color="action" sx={{ mr: 1 }} />
-                            {employer.name}
-                          </Box>
-                        </TableCell>
-                        <TableCell>
-                          <Chip 
-                            label={`${employer.positionsCount} cargos`}
-                            size="small"
-                          />
-                        </TableCell>
-                        <TableCell>
-                          {employer.createdAt ? format(new Date(employer.createdAt), 'dd/MM/yyyy') : '-'}
-                        </TableCell>
-                        <TableCell>
-                          <Chip
-                            label={employer.isActive ? "Ativo" : "Inativo"}
-                            color={employer.isActive ? "success" : "default"}
-                            size="small"
-                          />
-                        </TableCell>
-                        <TableCell align="right" className={classes.actionButtons}>
-                          <Tooltip title="Editar">
-                            <IconButton
-                              size="small"
-                              onClick={() => onEdit(employer)}
-                              color="primary"
-                            >
-                              <EditIcon />
-                            </IconButton>
-                          </Tooltip>
-                          <Tooltip title="Excluir">
-                            <IconButton
-                              size="small"
-                              onClick={() => onDelete(employer)}
-                              color="error"
-                            >
-                              <DeleteIcon />
-                            </IconButton>
-                          </Tooltip>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              ) : (
-                <Box p={4} textAlign="center">
-                  <Typography color="textSecondary">
-                    Nenhuma empresa encontrada
-                  </Typography>
-                </Box>
-              )}
-            </div>
-          </div>
-        </div>
-      </Paper>
-    </>
+    </SummaryContainer>
   );
+
+  return (
+    <StandardPageLayout
+      title="Empresas"
+      subtitle={formattedCounter()}
+      searchValue={searchParam}
+      onSearchChange={handleSearchChange}
+      searchPlaceholder="Buscar empresas..."
+      showSearch={true}
+      actions={pageActions}
+      loading={loading}
+    >
+      {/* Seção de resumo/estatísticas */}
+      <SummarySection />
+
+      {/* Tabela de empresas */}
+      <StandardDataTable
+        data={renderEmployers()}
+        columns={columns}
+        loading={loading}
+        selectable={true}
+        selectedItems={selectedEmployers}
+        onSelectionChange={onSelectionChange}
+        actions={getTableActions}
+        stickyHeader={true}
+        size="small"
+        hover={true}
+        maxVisibleActions={2}
+        emptyIcon={<BusinessIcon />}
+        emptyTitle="Nenhuma empresa encontrada"
+        emptyDescription="Não há empresas cadastradas para os filtros selecionados."
+        emptyActionLabel="Adicionar Empresa"
+        onEmptyActionClick={onAdd}
+        containerProps={{
+          sx: {
+            height: '100%',
+            maxHeight: 'calc(100vh - 450px)',
+            overflow: 'auto'
+          }
+        }}
+        customRowRenderer={(item, index, columns) => {
+          const isLast = index === employers.length - 1;
+          return (
+            <>
+              {columns.map((column, colIndex) => (
+                <TableCell
+                  key={column.id || colIndex}
+                  align={column.align || 'left'}
+                  ref={isLast && colIndex === 0 ? lastEmployerElementRef : null}
+                >
+                  {column.render 
+                    ? column.render(item, index)
+                    : item[column.field] || '-'
+                  }
+                </TableCell>
+              ))}
+            </>
+          );
+        }}
+      />
+      
+      {/* Loading indicator para infinite scroll */}
+      {loadingMore && (
+        <Box sx={{ display: 'flex', justifyContent: 'center', p: 2 }}>
+          <CircularProgress size={24} />
+          <Typography variant="body2" color="textSecondary" sx={{ ml: 1 }}>
+            Carregando mais empresas...
+          </Typography>
+        </Box>
+      )}
+    </StandardPageLayout>
+  );
+};
+
+EmployerList.propTypes = {
+  // Dados
+  employers: PropTypes.array,
+  loading: PropTypes.bool,
+  loadingMore: PropTypes.bool,
+  statistics: PropTypes.shape({
+    total: PropTypes.number,
+    active: PropTypes.number,
+    recentlyAdded: PropTypes.number
+  }),
+  searchParam: PropTypes.string,
+  totalCount: PropTypes.number,
+  
+  // Scroll infinito
+  hasMore: PropTypes.bool,
+  onLoadMore: PropTypes.func,
+  
+  // Seleção
+  selectedEmployers: PropTypes.array,
+  onSelectionChange: PropTypes.func,
+  
+  // Callbacks
+  onSearch: PropTypes.func.isRequired,
+  onRefresh: PropTypes.func.isRequired,
+  onImport: PropTypes.func.isRequired,
+  onAdd: PropTypes.func.isRequired,
+  onEdit: PropTypes.func.isRequired,
+  onDelete: PropTypes.func.isRequired,
+  
+  // Estados
+  uploading: PropTypes.bool
+};
+
+EmployerList.defaultProps = {
+  employers: [],
+  loading: false,
+  loadingMore: false,
+  statistics: {},
+  searchParam: '',
+  totalCount: 0,
+  hasMore: true,
+  selectedEmployers: [],
+  uploading: false
 };
 
 export default EmployerList;

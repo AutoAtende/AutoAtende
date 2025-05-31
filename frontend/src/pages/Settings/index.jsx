@@ -375,7 +375,6 @@ const Settings = () => {
         >
           <Options 
             settings={data.settings}
-            scheduleTypeChanged={handleScheduleTypeChanged}
             enableReasonWhenCloseTicketChanged={handleEnableReasonWhenCloseTicketChanged}
             onSettingChange={handleSettingChange}
             pendingChanges={pendingChanges}

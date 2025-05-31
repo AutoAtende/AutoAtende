@@ -139,7 +139,6 @@ const StyledBadge = styled(Avatar)(({ theme }) => ({
 // Componente principal
 const Options = ({
   settings,
-  scheduleTypeChanged,
   enableReasonWhenCloseTicketChanged,
   onSettingChange,
   pendingChanges
@@ -288,10 +287,6 @@ const Options = ({
     }
 
     // Lidar com callbacks específicos
-    if (key === 'scheduleType' && typeof scheduleTypeChanged === 'function') {
-      scheduleTypeChanged(value);
-    }
-
     if (key === 'enableReasonWhenCloseTicket' && typeof enableReasonWhenCloseTicketChanged === 'function') {
       enableReasonWhenCloseTicketChanged(value);
     }
@@ -1449,7 +1444,6 @@ Options.propTypes = {
     key: PropTypes.string.isRequired,
     value: PropTypes.any
   })),
-  scheduleTypeChanged: PropTypes.func,
   enableReasonWhenCloseTicketChanged: PropTypes.func,
   onSettingChange: PropTypes.func.isRequired,
   pendingChanges: PropTypes.object
@@ -1457,7 +1451,6 @@ Options.propTypes = {
 
 Options.defaultProps = {
   settings: [],
-  scheduleTypeChanged: () => { },
   enableReasonWhenCloseTicketChanged: () => { },
   pendingChanges: {}
 };
