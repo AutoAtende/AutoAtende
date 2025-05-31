@@ -15,8 +15,7 @@ import {
   CircularProgress,
   Alert,
   Chip,
-  Avatar,
-  TableCell
+  Avatar
 } from "@mui/material";
 
 // Material UI Icons
@@ -627,8 +626,7 @@ const Groups = () => {
               data={groups}
               columns={columns}
               loading={loading}
-              actions={groups.length > 0 ? getTableActions(groups[0]) : []}
-              onRowClick={(group) => handleOpenInfoModal(group)}
+              actions={getTableActions}
               stickyHeader={true}
               size="medium"
               hover={true}
@@ -638,47 +636,6 @@ const Groups = () => {
               emptyDescription="Sincronize seus grupos do WhatsApp para começar a gerenciá-los"
               emptyActionLabel="Sincronizar Grupos"
               onEmptyActionClick={whatsappConnections.length > 0 ? handleOpenSyncModal : undefined}
-              // Renderização customizada para ações condicionais por linha
-              customRowRenderer={(group, index, columns) => (
-                <>
-                  {columns.map((column, colIndex) => (
-                    <TableCell
-                      key={column.id || colIndex}
-                      align={column.align || 'left'}
-                    >
-                      {column.render 
-                        ? column.render(group, index)
-                        : group[column.field] || '-'
-                      }
-                    </TableCell>
-                  ))}
-                  <TableCell align="right">
-                    {getTableActions(group).slice(0, 3).map((action, actionIndex) => (
-                      <IconButton
-                        key={actionIndex}
-                        size="small"
-                        onClick={(event) => {
-                          event.stopPropagation();
-                          action.onClick(group);
-                        }}
-                        disabled={action.disabled}
-                        color={action.color || 'default'}
-                        title={action.label}
-                        sx={{
-                          padding: '4px',
-                          '&:hover': {
-                            backgroundColor: action.color === 'error' 
-                              ? 'error.light' 
-                              : 'action.hover'
-                          }
-                        }}
-                      >
-                        {action.icon}
-                      </IconButton>
-                    ))}
-                  </TableCell>
-                </>
-              )}
             />
           </Box>
         );
