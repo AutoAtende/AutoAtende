@@ -1128,23 +1128,41 @@ if (
       ticket.useIntegration &&
       ticket.integrationId &&
       !ticket.userId &&
-      !ticket.queueId &&
       ticket.status !== "open" &&
+      ticket.status !== "closed" &&
       !importing &&
       !ticket.flowExecution &&
       !ticket.flowExecutionId
     ) {
+      // Verificar se a integração é do tipo assistant
       const integration = await ShowQueueIntegrationService(
         ticket.integrationId,
         companyId
       );
-
-      if (integration && integration.type === "assistant") {
-        // Obter o ID do assistente
+    
+      // Se não encontrar integração mas integrationId existe, pode ser assistente direto
+      if (!integration) {
+        // Verificar se é um assistente pelo ID
+        const assistant = await Assistant.findOne({
+          where: {
+            id: ticket.integrationId,
+            active: true,
+            companyId: ticket.companyId
+          }
+        });
+    
+        if (assistant) {
+          logger.info(`Continuando processamento com assistente direto: ${assistant.name} (${assistant.id})`);
+          const assistantProcessed = await handleAssistantChat(assistant, msg, wbot, ticket, contact);
+    
+          if (assistantProcessed) {
+            return;
+          }
+        }
+      } else if (integration && integration.type === "assistant") {
         const assistantId = integration.assistantId || integration.jsonContent;
-
+    
         if (assistantId) {
-          // Buscar o assistente
           const assistant = await Assistant.findOne({
             where: {
               id: assistantId,
@@ -1152,14 +1170,13 @@ if (
               companyId: ticket.companyId
             }
           });
-
+    
           if (assistant) {
-            // Processar continuação do diálogo com o assistente
-            logger.info(`Continuando diálogo com assistente: ${assistant.name} (${assistant.id})`);
+            logger.info(`Continuando processamento com assistente de integração: ${assistant.name} (${assistant.id})`);
             const assistantProcessed = await handleAssistantChat(assistant, msg, wbot, ticket, contact);
-
+    
             if (assistantProcessed) {
-              return; // Não processa mais nada se o assistente tratou a mensagem
+              return;
             }
           }
         }
@@ -1359,33 +1376,35 @@ if (
     }
 
     if (ticket.queue?.queueIntegrations?.type === "assistant") {
-      // Obter o ID do assistente da integração
       const assistantId = ticket.queue.queueIntegrations.assistantId ||
-        ticket.queue.queueIntegrations.jsonContent; // Para compatibilidade
-
+        ticket.queue.queueIntegrations.jsonContent;
+    
       if (assistantId) {
-        // Buscar o assistente pelo ID
         const assistant = await Assistant.findOne({
           where: { id: assistantId, active: true, companyId }
         });
-
+    
         if (assistant) {
-          logger.info(
-            `Processando mensagem com assistente de integração: ${ticket.queue.name}, assistantId: ${assistantId}`
-          );
-
-          // Definir o assistente no ticket temporariamente para compatibilidade
-          const originalQueueId = ticket.queueId;
-
-          // Chamar o handler existente
-          const assistantProcessed = await handleAssistantChat(assistant, msg, wbot, ticket, contact);
-
-          // Restaurar o queueId original
-          ticket.queueId = originalQueueId;
-
-          if (assistantProcessed) {
-            await ticket.update({ isBot: true });
-            return;
+          // VERIFICAÇÃO: Só processa se não tem usuário E não está em outra integração
+          if (!ticket.userId && !ticket.useIntegration && !msg.key.fromMe && 
+              ticket.status !== "open" && ticket.status !== "closed") {
+            logger.info(
+              `Iniciando processamento com assistente de fila: ${ticket.queue.name}, assistantId: ${assistantId}`
+            );
+    
+            const assistantProcessed = await handleAssistantChat(assistant, msg, wbot, ticket, contact);
+    
+            if (assistantProcessed) {
+              return;
+            }
+          } else {
+            logger.info({
+              ticketId: ticket.id,
+              userId: ticket.userId,
+              useIntegration: ticket.useIntegration,
+              status: ticket.status,
+              fromMe: msg.key.fromMe
+            }, "Não processando com assistente de fila - condições não atendidas");
           }
         } else {
           logger.warn(
@@ -1407,12 +1426,17 @@ if (
      * Isso permite que o chatbot interaja com o usuário de forma adequada, dependendo do estado do ticket e da configuração das filas.
      */
     if (whatsapp.queues.length == 1 && ticket.queue && !importing) {
-      if (ticket.chatbot && !msg.key.fromMe && !ticket.userId && !verifyRating(ticketTraking)) {
+      const hasAssistantIntegration = ticket.queue.queueIntegrations?.type === "assistant";
+      
+      if (ticket.chatbot && !msg.key.fromMe && !ticket.userId && !verifyRating(ticketTraking) && 
+          !hasAssistantIntegration && !ticket.useIntegration) {
         await handleChatbot(ticket, msg, wbot, whatsapp, dontReadTheFirstQuestion, greetingMessageControl, outOfHourMessageControl);
       }
     }
     if (whatsapp.queues.length > 1 && ticket.queue && !importing) {
-      if (ticket.chatbot && !msg.key.fromMe && !ticket.userId) {
+      const hasAssistantIntegration = ticket.queue.queueIntegrations?.type === "assistant";
+      
+      if (ticket.chatbot && !msg.key.fromMe && !ticket.userId && !hasAssistantIntegration && !ticket.useIntegration) {
         await handleChatbot(
           ticket,
           msg,
