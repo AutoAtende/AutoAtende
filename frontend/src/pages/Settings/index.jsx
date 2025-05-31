@@ -1,6 +1,4 @@
-import React, { useState, useEffect, useCallback, useContext } from "react";
-import PropTypes from "prop-types";
-import { styled } from '@mui/material/styles';
+import React, { useState, useEffect, useCallback } from "react";
 import {
   Box,
   Alert,
@@ -37,29 +35,6 @@ import Whitelabel from "./tabs/Whitelabel";
 import PaymentGateway from "./tabs/PaymentGateway";
 import Reason from "./tabs/Reason";
 
-
-const LoadingContainer = styled(Box)(({ theme }) => ({
-  display: "flex",
-  justifyContent: "center",
-  alignItems: "center",
-  padding: theme.spacing(4),
-}));
-
-const SaveAllButton = styled(Button)(({ theme }) => ({
-  position: 'fixed',
-  bottom: theme.spacing(3),
-  right: theme.spacing(3),
-  zIndex: 1100,
-  borderRadius: 12,
-  minHeight: 48,
-  fontWeight: 600,
-  textTransform: 'none',
-  boxShadow: theme.shadows[4],
-  '&:hover': {
-    boxShadow: theme.shadows[6]
-  }
-}));
-
 const Settings = () => {
   // Estados
   const { user } = useAuth();
@@ -87,34 +62,38 @@ const Settings = () => {
       setInitialLoading(true);
       setError(null);
 
-      const companyId = user.companyId || localStorage.getItem("companyId");
+      const companyId = user?.companyId || localStorage.getItem("companyId");
+      
+      if (!companyId) {
+        throw new Error("ID da empresa não encontrado");
+      }
       
       // Única chamada para API que retorna todos os dados necessários
-      const { data } = await api.get(`/settings/full-configuration/${companyId}`);
+      const { data: responseData } = await api.get(`/settings/full-configuration/${companyId}`);
       
       // Garantir que settings seja sempre um array
-      const safeSettings = Array.isArray(data.settings) ? data.settings : [];
+      const safeSettings = Array.isArray(responseData?.settings) ? responseData.settings : [];
       
       setData({
-        currentUser: data.user,
-        company: data.company,
-        schedules: data.company?.schedules || [],
+        currentUser: responseData?.user || {},
+        company: responseData?.company || null,
+        schedules: responseData?.company?.schedules || [],
         settings: safeSettings,
-        planConfig: data.planConfig
+        planConfig: responseData?.planConfig || {}
       });
 
       // Configurar estados derivados
-      const reasonSetting = safeSettings.find(s => s.key === "enableReasonWhenCloseTicket");
+      const reasonSetting = safeSettings.find(s => s?.key === "enableReasonWhenCloseTicket");
       
       setReasonEnabled(reasonSetting?.value || "disabled");
-      setShowWhiteLabel(data.planConfig?.plan?.whiteLabel || false);
+      setShowWhiteLabel(responseData?.planConfig?.plan?.whiteLabel || false);
 
       // Armazenar dados em cache local
       storeDataInCache({
-        user: data.user,
-        company: data.company,
+        user: responseData?.user,
+        company: responseData?.company,
         settings: safeSettings,
-        planConfig: data.planConfig
+        planConfig: responseData?.planConfig
       });
 
     } catch (err) {
@@ -125,38 +104,44 @@ const Settings = () => {
       setInitialLoading(false);
       setLoading(false);
     }
-  }, [user.companyId]);
+  }, [user?.companyId]);
 
   // Armazenar dados em cache local para otimização
   const storeDataInCache = useCallback((dataToCache) => {
-    const now = new Date().getTime();
-    
-    if (dataToCache.user) {
-      localStorage.setItem('cached_user_data', JSON.stringify({
-        timestamp: now,
-        data: dataToCache.user
-      }));
-    }
-    
-    if (dataToCache.company) {
-      localStorage.setItem('cached_company_data', JSON.stringify({
-        timestamp: now,
-        data: dataToCache.company
-      }));
-    }
-    
-    if (dataToCache.planConfig) {
-      localStorage.setItem('cached_plan_data', JSON.stringify({
-        timestamp: now,
-        data: dataToCache.planConfig
-      }));
+    try {
+      const now = new Date().getTime();
+      
+      if (dataToCache?.user) {
+        localStorage.setItem('cached_user_data', JSON.stringify({
+          timestamp: now,
+          data: dataToCache.user
+        }));
+      }
+      
+      if (dataToCache?.company) {
+        localStorage.setItem('cached_company_data', JSON.stringify({
+          timestamp: now,
+          data: dataToCache.company
+        }));
+      }
+      
+      if (dataToCache?.planConfig) {
+        localStorage.setItem('cached_plan_data', JSON.stringify({
+          timestamp: now,
+          data: dataToCache.planConfig
+        }));
+      }
+    } catch (error) {
+      console.error("Erro ao armazenar cache:", error);
     }
   }, []);
 
   // Carregar dados ao iniciar o componente
   useEffect(() => {
-    loadAllData();
-  }, [loadAllData]);
+    if (user?.companyId) {
+      loadAllData();
+    }
+  }, [loadAllData, user?.companyId]);
 
   // Manipuladores
   const handleTabChange = (event, newValue) => {
@@ -165,10 +150,10 @@ const Settings = () => {
 
   const handleEnableReasonWhenCloseTicketChanged = (value) => {
     setReasonEnabled(value || "disabled");
-    setPendingChanges({
-      ...pendingChanges,
+    setPendingChanges(prev => ({
+      ...prev,
       enableReasonWhenCloseTicket: value
-    });
+    }));
   };
 
   // Adicionar configuração às alterações pendentes
@@ -196,7 +181,7 @@ const Settings = () => {
       // Agrupar todas as alterações para enviar em uma única requisição
       const settingsToUpdate = Object.entries(pendingChanges).map(([key, value]) => ({
         key,
-        value: value.toString()
+        value: value?.toString() || ""
       }));
       
       await api.post("/settings/batch-update", {
@@ -210,7 +195,7 @@ const Settings = () => {
           if (pendingChanges[setting.key] !== undefined) {
             return {
               ...setting, 
-              value: pendingChanges[setting.key].toString()
+              value: pendingChanges[setting.key]?.toString() || ""
             };
           }
           return setting;
@@ -220,29 +205,33 @@ const Settings = () => {
       // Limpar alterações pendentes
       setPendingChanges({});
       
-      toast.success(i18n.t("settings.saveSuccess"));
+      toast.success(i18n.t("settings.saveSuccess") || "Configurações salvas com sucesso");
       setOpenSnackbar(false);
     } catch (err) {
       console.error("Erro ao salvar configurações:", err);
-      toast.error(i18n.t("settings.saveError"));
+      toast.error(i18n.t("settings.saveError") || "Erro ao salvar configurações");
     } finally {
       setIsSaving(false);
     }
   }, [pendingChanges]);
 
   // Manipulador para envio de horários
-  const handleSubmitSchedules = async (data) => {
+  const handleSubmitSchedules = async (scheduleData) => {
     setLoading(true);
     try {
-      const companyId = data?.company?.id || localStorage.getItem("companyId");
+      const companyId = data?.company?.id || user?.companyId || localStorage.getItem("companyId");
+      
+      if (!companyId) {
+        throw new Error("ID da empresa não encontrado");
+      }
       
       await api.put(`/companies/${companyId}/schedules`, { 
-        schedules: data 
+        schedules: scheduleData 
       });
       
       setData(prevData => ({
         ...prevData,
-        schedules: data
+        schedules: scheduleData || []
       }));
       
       toast.success("Horários atualizados com sucesso.");
@@ -250,54 +239,77 @@ const Settings = () => {
       // Atualizar cache
       const cachedCompanyData = localStorage.getItem('cached_company_data');
       if (cachedCompanyData) {
-        const parsedCache = JSON.parse(cachedCompanyData);
-        parsedCache.data.schedules = data;
-        localStorage.setItem('cached_company_data', JSON.stringify(parsedCache));
+        try {
+          const parsedCache = JSON.parse(cachedCompanyData);
+          parsedCache.data.schedules = scheduleData;
+          localStorage.setItem('cached_company_data', JSON.stringify(parsedCache));
+        } catch (error) {
+          console.error("Erro ao atualizar cache:", error);
+        }
       }
     } catch (e) {
+      console.error("Erro ao atualizar horários:", e);
       toast.error(e?.message || "Erro ao atualizar horários");
     } finally {
       setLoading(false);
     }
   };
 
-  // Preparar tabs
-  const tabs = [
-    { label: i18n.t("settings.tabs.params"), icon: <SettingsIcon /> },
-    ...[{ label: i18n.t("settings.tabs.schedules"), icon: <ScheduleIcon /> }],
-    ...(data.currentUser.super ? [{ label: i18n.t("settings.tabs.plans"), icon: <AssignmentIcon /> }] : []),
-    ...(data.currentUser.super ? [{ label: i18n.t("settings.tabs.helps"), icon: <HelpIcon /> }] : []),
-    ...(showWhiteLabel ? [{ label: "Whitelabel", icon: <LabelIcon /> }] : []),
-    ...(data.currentUser.super ? [{ label: "Pagamentos", icon: <PaymentIcon /> }] : []),
-    ...(reasonEnabled === "enabled" ? [{ label: "Motivos de Encerramento", icon: <ReportProblemIcon /> }] : []),
-  ];
+  // Preparar tabs baseado no usuário e configurações
+  const tabs = React.useMemo(() => {
+    const baseTabs = [
+      { label: i18n.t("settings.tabs.params") || "Configurações", icon: <SettingsIcon /> },
+      { label: i18n.t("settings.tabs.schedules") || "Horários", icon: <ScheduleIcon /> }
+    ];
+
+    // Adicionar tabs condicionalmente
+    if (data.currentUser?.super) {
+      baseTabs.push(
+        { label: i18n.t("settings.tabs.plans") || "Planos", icon: <AssignmentIcon /> },
+        { label: i18n.t("settings.tabs.helps") || "Ajuda", icon: <HelpIcon /> }
+      );
+    }
+
+    if (showWhiteLabel) {
+      baseTabs.push({ label: "Whitelabel", icon: <LabelIcon /> });
+    }
+
+    if (data.currentUser?.super) {
+      baseTabs.push({ label: "Pagamentos", icon: <PaymentIcon /> });
+    }
+
+    if (reasonEnabled === "enabled") {
+      baseTabs.push({ label: "Motivos de Encerramento", icon: <ReportProblemIcon /> });
+    }
+
+    return baseTabs;
+  }, [data.currentUser?.super, showWhiteLabel, reasonEnabled]);
 
   // Mapear tab string para índice
-  const getTabIndex = (tabName) => {
+  const getTabIndex = useCallback((tabName) => {
     const tabMap = {
       options: 0,
       schedules: 1,
-      plans: 2,
-      helps: 3,
-      whitelabel: 4,
-      paymentGateway: 5,
-      closureReasons: 6
+      plans: data.currentUser?.super ? 2 : -1,
+      helps: data.currentUser?.super ? 3 : -1,
+      whitelabel: showWhiteLabel ? (data.currentUser?.super ? 4 : 2) : -1,
+      paymentGateway: data.currentUser?.super ? (showWhiteLabel ? 5 : 4) : -1,
+      closureReasons: reasonEnabled === "enabled" ? tabs.length - 1 : -1
     };
-    return tabMap[tabName] !== -1 ? tabMap[tabName] : 0;
-  };
+    return tabMap[tabName] >= 0 ? tabMap[tabName] : 0;
+  }, [data.currentUser?.super, showWhiteLabel, reasonEnabled, tabs.length]);
 
-  const getTabName = (index) => {
+  const getTabName = useCallback((index) => {
     const nameMap = [
       'options',
       'schedules',
-      'plans',
-      'helps',
-      'whitelabel',
-      'paymentGateway',
-      'closureReasons'
+      ...(data.currentUser?.super ? ['plans', 'helps'] : []),
+      ...(showWhiteLabel ? ['whitelabel'] : []),
+      ...(data.currentUser?.super ? ['paymentGateway'] : []),
+      ...(reasonEnabled === "enabled" ? ['closureReasons'] : [])
     ];
     return nameMap[index] || 'options';
-  };
+  }, [data.currentUser?.super, showWhiteLabel, reasonEnabled]);
 
   const activeTabIndex = getTabIndex(tab);
 
@@ -315,7 +327,7 @@ const Settings = () => {
     return (
       <MainContainer>
         <MainHeader>
-          <Title>{i18n.t("settings.title")}</Title>
+          <Title>{i18n.t("settings.title") || "Configurações"}</Title>
         </MainHeader>
         
         <Box sx={{ p: 2 }}>
@@ -325,8 +337,7 @@ const Settings = () => {
               variant="filled"
               sx={{ m: 2 }}
               action={
-                <Box 
-                  component="button" 
+                <Button 
                   onClick={loadAllData}
                   sx={{ 
                     background: 'none', 
@@ -339,7 +350,7 @@ const Settings = () => {
                   }}
                 >
                   Tentar novamente
-                </Box>
+                </Button>
               }
             >
               {error}
@@ -347,9 +358,14 @@ const Settings = () => {
           )}
           
           {initialLoading && (
-            <LoadingContainer>
+            <Box sx={{ 
+              display: "flex", 
+              justifyContent: "center", 
+              alignItems: "center", 
+              p: 4 
+            }}>
               <CircularProgress />
-            </LoadingContainer>
+            </Box>
           )}
         </Box>
       </MainContainer>
@@ -358,7 +374,7 @@ const Settings = () => {
 
   return (
     <StandardPageLayout
-      title={i18n.t("settings.title")}
+      title={i18n.t("settings.title") || "Configurações"}
       subtitle="Configure as opções do sistema, integrações e personalizações"
       tabs={tabs}
       activeTab={activeTabIndex}
@@ -368,13 +384,13 @@ const Settings = () => {
       {/* Aba de Configurações Gerais */}
       {tab === "options" && (
         <StandardTabContent
-          title={i18n.t("settings.tabs.params")}
+          title={i18n.t("settings.tabs.params") || "Configurações"}
           description="Configure as opções gerais do sistema"
           icon={<SettingsIcon />}
           variant="default"
         >
           <Options 
-            settings={data.settings}
+            settings={data.settings || []}
             enableReasonWhenCloseTicketChanged={handleEnableReasonWhenCloseTicketChanged}
             onSettingChange={handleSettingChange}
             pendingChanges={pendingChanges}
@@ -385,7 +401,7 @@ const Settings = () => {
       {/* Aba de Horários */}
       {tab === "schedules" && (
         <StandardTabContent
-          title={i18n.t("settings.tabs.schedules")}
+          title={i18n.t("settings.tabs.schedules") || "Horários"}
           description="Configure os horários de funcionamento da empresa"
           icon={<ScheduleIcon />}
           variant="paper"
@@ -393,17 +409,17 @@ const Settings = () => {
           <SchedulesForm
             loading={loading}
             onSubmit={handleSubmitSchedules}
-            initialValues={data.schedules}
-            companyId={data.company?.id}
-            labelSaveButton={i18n.t("settings.saveButton")}
+            initialValues={data.schedules || []}
+            companyId={data.company?.id || user?.companyId}
+            labelSaveButton={i18n.t("settings.saveButton") || "Salvar"}
           />
         </StandardTabContent>
       )}
 
       {/* Aba de Planos */}
-      {tab === "plans" && user.super && (
+      {tab === "plans" && data.currentUser?.super && (
         <StandardTabContent
-          title={i18n.t("settings.tabs.plans")}
+          title={i18n.t("settings.tabs.plans") || "Planos"}
           description="Gerencie os planos de assinatura do sistema"
           icon={<AssignmentIcon />}
           variant="default"
@@ -413,9 +429,9 @@ const Settings = () => {
       )}
 
       {/* Aba de Ajuda */}
-      {tab === "helps" && user.super && (
+      {tab === "helps" && data.currentUser?.super && (
         <StandardTabContent
-          title={i18n.t("settings.tabs.helps")}
+          title={i18n.t("settings.tabs.helps") || "Ajuda"}
           description="Configure as mensagens de ajuda e documentação"
           icon={<HelpIcon />}
           variant="default"
@@ -432,19 +448,19 @@ const Settings = () => {
           icon={<LabelIcon />}
           variant="default"
         >
-          <Whitelabel settings={data.settings} />
+          <Whitelabel settings={data.settings || []} />
         </StandardTabContent>
       )}
 
       {/* Aba de Gateway de Pagamento */}
-      {tab === "paymentGateway" && user.super && (
+      {tab === "paymentGateway" && data.currentUser?.super && (
         <StandardTabContent
           title="Gateway de Pagamento"
           description="Configure os métodos de pagamento disponíveis"
           icon={<PaymentIcon />}
           variant="paper"
         >
-          <PaymentGateway settings={data.settings} />
+          <PaymentGateway settings={data.settings || []} />
         </StandardTabContent>
       )}
 
@@ -462,15 +478,29 @@ const Settings = () => {
 
       {/* Botão para salvar alterações pendentes */}
       {hasPendingChanges && (
-        <SaveAllButton
+        <Button
           variant="contained"
           color="primary"
           startIcon={isSaving ? <CircularProgress size={20} sx={{ color: 'white' }} /> : <SaveIcon />}
           onClick={handleSaveAllChanges}
           disabled={isSaving}
+          sx={{
+            position: 'fixed',
+            bottom: 24,
+            right: 24,
+            zIndex: 1100,
+            borderRadius: 3,
+            minHeight: 48,
+            fontWeight: 600,
+            textTransform: 'none',
+            boxShadow: 6,
+            '&:hover': {
+              boxShadow: 8
+            }
+          }}
         >
           {i18n.t("settings.saveAll") || "Salvar Alterações"}
-        </SaveAllButton>
+        </Button>
       )}
       
       {/* Notificação de alterações pendentes */}
