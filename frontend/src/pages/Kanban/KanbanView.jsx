@@ -341,7 +341,11 @@ const KanbanView = ({
   const handleLaneAddSubmit = async (laneData) => {
     try {
       setIsLoading(true);
-      await onLaneCreate(laneData);
+      // Add boardId to the lane data before submission
+      await onLaneCreate({
+        ...laneData,
+        boardId: board?.id
+      });
       setIsAddingLane(false);
       toast.success('Coluna criada com sucesso!');
     } catch (err) {
