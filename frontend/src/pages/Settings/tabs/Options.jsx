@@ -222,7 +222,7 @@ const Options = ({
 
       // Atualizar o estado com as configurações carregadas
       setConfigState(prevState => {
-        const newState = { ...prevState };
+        const newState = Object.assign({}, prevState);
 
         // Mapear todas as propriedades
         Object.keys(newState).forEach(key => {
@@ -260,10 +260,13 @@ const Options = ({
   // Atualizar configuração local e notificar alteração
   const handleConfigChange = (key, value, notifyBackend = true) => {
     // Atualizar estado local
-    setConfigState(prev => ({
-      ...prev,
-      [key]: value
-    }));
+    setConfigState(prev => {
+      const newState = {};
+      Object.keys(prev).forEach(k => {
+        newState[k] = k === key ? value : prev[k];
+      });
+      return newState;
+    });
 
     // Mapear para a chave correta do backend se necessário
     let backendKey = key;
@@ -313,15 +316,19 @@ const Options = ({
       // Se a opção tem exclusões
       if (exclusiveOptions[enabledKey]) {
         const optionsToDisable = exclusiveOptions[enabledKey];
+        let hasDisabled = false;
 
         // Desativar as outras opções
         optionsToDisable.forEach(key => {
           if (configState[key] === "enabled") {
+            hasDisabled = true;
             handleConfigChange(key, "disabled");
           }
         });
 
-        toast.info(i18n.t("optionsPage.onlyOneCloseOptionActive"));
+        if (hasDisabled) {
+          toast.info(i18n.t("optionsPage.onlyOneCloseOptionActive"));
+        }
       }
     }
 
