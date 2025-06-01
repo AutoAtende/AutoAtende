@@ -23,6 +23,25 @@ import {
 } from "../@types/Settings";
 import { logger } from "../utils/logger";
 
+// Interfaces for type safety
+interface Schedule {
+  id?: number;
+  companyId?: number;
+  weekday?: number;
+  startTime?: string;
+  endTime?: string;
+  userId?: number | null;
+  createdAt?: Date;
+  updatedAt?: Date;
+}
+
+// Extend the Company model to include the schedules association
+interface CompanyWithSchedules extends Company {
+  schedules: Schedule[];
+  getDataValue: <K extends keyof this>(key: K) => this[K];
+  toJSON: () => any;
+}
+
 export const index = async (req: Request, res: Response): Promise<Response> => {
   const userCompanyId = req.user.companyId;
   const companyId = parseInt(req.params.companyId);
@@ -30,14 +49,18 @@ export const index = async (req: Request, res: Response): Promise<Response> => {
   console.log("[SettingsController] userCompanyId: ", userCompanyId);
   console.log("[SettingsController] companyId: ", companyId);
 
-if(userCompanyId !== companyId){
-  throw new AppError("ERR_NO_PERMISSION", 403);
-}
+  if(userCompanyId !== companyId){
+    throw new AppError("ERR_NO_PERMISSION", 403);
+  }
 
   try {
     const settings = await ListSettingsService(companyId);
     console.log("[SettingsController] settings: ", settings);
-    return res.status(200).json(settings);
+    
+    // Garantir que sempre retornamos um array válido
+    const safeSettings = Array.isArray(settings) ? settings : [];
+    
+    return res.status(200).json(safeSettings);
   } catch (error) {
     logger.error({
       message: "Erro ao listar configurações",
@@ -221,7 +244,9 @@ export const getSettingRegister = async (req: Request, res: Response): Promise<R
   console.log("[getSettingRegister] companyId: ", companyId);
 
   try {
+    // ListSettingsService já retorna array de objetos simples
     const settings = await ListSettingsService(companyId);
+    
     return res.status(200).json(settings);
   } catch (error) {
     logger.error({
@@ -284,7 +309,11 @@ export const publicIndex = async (req: Request, res: Response): Promise<Response
   
   try {
     const settings = await GetAllPublicSettingsService(companyId);
-    return res.status(200).json(settings);
+    
+    // Garantir que sempre retornamos um array válido
+    const safeSettings = Array.isArray(settings) ? settings : [];
+    
+    return res.status(200).json(safeSettings);
   } catch (error) {
     logger.error({
       message: "Erro ao obter configurações públicas",
@@ -387,6 +416,8 @@ export const batchUpdateSettings = async (req: Request, res: Response): Promise<
   }
 };
 
+// Versão alternativa que lida com schedules de forma mais segura
+
 /**
  * Obtém todas as configurações necessárias para a página de Settings em uma única chamada
  * Reduz múltiplas chamadas separadas para cada tipo de configuração
@@ -396,6 +427,8 @@ export const getFullConfiguration = async (req: Request, res: Response): Promise
   const userId = req.user.id;
   
   try {
+    console.log('[getFullConfiguration] Carregando dados para companyId:', companyId, 'userId:', userId);
+    
     // Buscar todas as informações em paralelo para otimizar performance
     const [
       user,
@@ -406,7 +439,7 @@ export const getFullConfiguration = async (req: Request, res: Response): Promise
       Company.findByPk(companyId, {
         include: [{ model: Plan, as: "plan" }]
       }), // Dados da empresa e plano
-      Setting.findAll({ where: { companyId } }), // Todas as configurações
+      ListSettingsService(parseInt(companyId)), // Usar o service que já retorna objetos limpos
     ]);
 
     if (!user || !company) {
@@ -416,19 +449,72 @@ export const getFullConfiguration = async (req: Request, res: Response): Promise
       });
     }
 
+    // ListSettingsService já retorna um array válido de objetos simples
+    console.log('[getFullConfiguration] Settings recebidas do service:', {
+      total: settings.length,
+      isArray: Array.isArray(settings),
+      sample: settings.slice(0, 2)
+    });
+
+    // Converter company para objeto simples
+    const companyJson = company.toJSON ? company.toJSON() : company;
+    
+    // Lidar com schedules de forma segura usando verificação de propriedade
+    let schedules: any[] = [];
+    
+    // Verificar se company tem schedules (pode ser via associação Sequelize)
+    if ('schedules' in companyJson && Array.isArray(companyJson.schedules)) {
+      schedules = companyJson.schedules;
+    } else if (company.getDataValue && Array.isArray(company.getDataValue('schedules'))) {
+      schedules = company.getDataValue('schedules');
+    } else {
+      // Se não tem schedules incluídos, pode buscar separadamente se necessário
+      console.log('[getFullConfiguration] Schedules não encontrados na company, usando array vazio');
+      schedules = [];
+    }
+
     const planConfig = company.plan;
 
-    return res.status(200).json({
-      user,
-      company,
-      settings,
-      planConfig
+    const responseData = {
+      user: user.toJSON ? user.toJSON() : user,
+      company: {
+        ...companyJson,
+        schedules: schedules // Array garantido, usando a variável já tipada
+      },
+      settings, // Array já validado pelo ListSettingsService
+      planConfig: planConfig?.toJSON ? planConfig.toJSON() : planConfig
+    };
+
+    console.log('[getFullConfiguration] Resposta preparada:', {
+      hasUser: !!responseData.user,
+      hasCompany: !!responseData.company,
+      settingsCount: responseData.settings.length,
+      schedulesCount: schedules.length,
+      hasPlanConfig: !!responseData.planConfig
     });
+
+    return res.status(200).json(responseData);
+    
   } catch (error) {
     console.error("Erro ao obter configuração completa:", error);
+    
+    logger.error({
+      message: "Erro ao obter configuração completa",
+      companyId,
+      userId,
+      error
+    });
+    
+    // Em caso de erro, ainda garantir uma resposta com arrays vazios válidos
     return res.status(500).json({
       error: "Erro interno do servidor",
-      message: "Não foi possível carregar as configurações"
+      message: "Não foi possível carregar as configurações",
+      user: null,
+      company: {
+        schedules: [] // Array vazio como fallback
+      },
+      settings: [], // Array vazio como fallback
+      planConfig: null
     });
   }
 };
