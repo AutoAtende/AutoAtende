@@ -135,8 +135,8 @@ const calculateBoardMetrics = async (params: MetricsRequest): Promise<any> => {
     // 3. Produtividade por usuário
     const userProductivity = await KanbanCard.findAll({
       attributes: [
-        [Sequelize.literal('assignedUser.id'), 'userId'],
-        [Sequelize.literal('assignedUser.name'), 'userName'],
+        [Sequelize.literal('"assignedUser"."id"'), 'userId'],
+        [Sequelize.literal('"assignedUser"."name"'), 'userName'],
         [Sequelize.fn('COUNT', Sequelize.col('KanbanCard.id')), 'totalCards'],
         [Sequelize.fn('COUNT', Sequelize.literal('CASE WHEN "KanbanCard"."completedAt" IS NOT NULL THEN 1 END')), 'completedCards'],
         [Sequelize.fn('AVG', Sequelize.literal('EXTRACT(EPOCH FROM ("KanbanCard"."completedAt" - "KanbanCard"."startedAt")) / 3600')), 'avgCompletionTimeHours']
@@ -156,7 +156,8 @@ const calculateBoardMetrics = async (params: MetricsRequest): Promise<any> => {
         {
           model: User,
           as: 'assignedUser',
-          attributes: []
+          attributes: [],
+          required: true
         },
         {
           model: KanbanLane,
@@ -167,7 +168,8 @@ const calculateBoardMetrics = async (params: MetricsRequest): Promise<any> => {
               model: KanbanBoard,
               as: 'board',
               attributes: [],
-              where: boardWhere
+              where: boardWhere,
+              required: true
             }
           ]
         }
@@ -175,8 +177,7 @@ const calculateBoardMetrics = async (params: MetricsRequest): Promise<any> => {
       group: [
         'assignedUser.id',
         'assignedUser.name',
-        'KanbanCard.assignedUserId',
-        'KanbanCard.id'
+        'KanbanCard.assignedUserId'
       ],
       raw: true
     });
