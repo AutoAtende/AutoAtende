@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo, useContext, useCallback } from "react";
-import PropTypes from 'prop-types';
-import { styled, useTheme } from '@mui/material/styles';
+import PropTypes from "prop-types";
+import { styled, useTheme } from "@mui/material/styles";
 import {
   Grid,
   Paper,
@@ -19,10 +19,9 @@ import {
   useMediaQuery,
   Tooltip,
   Avatar,
-  Stack,
-  Chip
+  Chip,
 } from "@mui/material";
-import { i18n } from "../../../translate/i18n";
+import { i18n } from "../../translate/i18n";
 import {
   Settings as SettingsIcon,
   AssessmentOutlined,
@@ -38,9 +37,9 @@ import {
   FileCopy as FileCopyIcon,
   BusinessCenter as BusinessIcon,
   Tune as TuneIcon,
-  Build as BuildIcon
+  Build as BuildIcon,
 } from "@mui/icons-material";
-import WhatsAppIcon from '@mui/icons-material/WhatsApp';
+import WhatsAppIcon from "@mui/icons-material/WhatsApp";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
   faCopy,
@@ -53,14 +52,17 @@ import {
   faTicketAlt,
   faUsers,
   faBuilding,
-  faDatabase
+  faDatabase,
 } from "@fortawesome/free-solid-svg-icons";
 import { copyToClipboard } from "../../../helpers/copyToClipboard";
 import { toast } from "../../../helpers/toast";
 import OnlyForSuperUser from "../../../components/OnlyForSuperUser";
-import StandardTabContent from "../../../components/shared/StandardTabContent";
+import { AuthContext } from "../../../context/Auth/AuthContext";
 
-// Constantes
+// ----------------------------------------------------------------------------------
+// 1. CONSTANTES (ícones, modelos de OpenAI e componentes estilizados)
+// ----------------------------------------------------------------------------------
+
 const openAiModels = [
   { value: "o1-preview", label: "O1 Preview" },
   { value: "o1-mini", label: "O1 Mini" },
@@ -68,142 +70,954 @@ const openAiModels = [
   { value: "gpt-4o-mini", label: "GPT-4o Mini" },
   { value: "gpt-4-turbo", label: "GPT-4 Turbo" },
   { value: "gpt-4", label: "GPT-4" },
-  { value: "gpt-3.5-turbo", label: "GPT-3.5 Turbo" }
+  { value: "gpt-3.5-turbo", label: "GPT-3.5 Turbo" },
 ];
 
-// Componentes estilizados
 const StyledPaper = styled(Paper)(({ theme }) => ({
-  padding: theme.spacing(2.5),
+  padding: theme.spacing(2),
   margin: theme.spacing(1, 0),
-  transition: 'all 0.3s ease-in-out',
-  borderRadius: 12,
-  '&:hover': {
+  transition: "all 0.3s ease-in-out",
+  "&:hover": {
     boxShadow: theme.shadows[4],
-    transform: 'translateY(-1px)'
   },
-  [theme.breakpoints.down('sm')]: {
-    padding: theme.spacing(2),
-    borderRadius: 16
-  }
 }));
 
 const StyledTab = styled(Tab)(({ theme }) => ({
-  borderRadius: 8,
-  textTransform: 'none',
+  borderRadius: 4,
+  textTransform: "none",
   fontWeight: 500,
-  minHeight: 48,
-  '&.Mui-selected': {
-    fontWeight: 600
-  },
-  [theme.breakpoints.down('sm')]: {
-    minHeight: 56,
-    borderRadius: 12
-  }
 }));
 
 const SectionTitle = styled(Typography)(({ theme }) => ({
-  marginTop: theme.spacing(3),
-  marginBottom: theme.spacing(2),
+  marginTop: theme.spacing(2),
+  marginBottom: theme.spacing(1),
   fontWeight: 600,
   color: theme.palette.primary.main,
-  display: 'flex',
-  alignItems: 'center',
+  display: "flex",
+  alignItems: "center",
   gap: theme.spacing(1),
-  fontSize: '1.125rem',
-  [theme.breakpoints.down('sm')]: {
-    fontSize: '1rem',
-    marginTop: theme.spacing(2)
-  }
 }));
 
 const CategoryDivider = styled(Box)(({ theme }) => ({
   marginTop: theme.spacing(3),
   marginBottom: theme.spacing(2),
-  display: 'flex',
-  alignItems: 'center',
-  width: '100%',
+  display: "flex",
+  alignItems: "center",
+  width: "100%",
 }));
 
 const StyledBadge = styled(Avatar)(({ theme }) => ({
-  backgroundColor: theme.palette.primary.main,
-  width: 36,
-  height: 36,
-  '& .MuiBadge-badge': {
+  "& .MuiBadge-badge": {
     backgroundColor: theme.palette.success.main,
     color: theme.palette.success.main,
     boxShadow: `0 0 0 2px ${theme.palette.background.paper}`,
   },
 }));
 
-// Componente principal
+// ----------------------------------------------------------------------------------
+// 2. COMPONENTES GENÉRICOS REUTILIZÁVEIS
+// ----------------------------------------------------------------------------------
+
+/**
+ * OptionSwitch: rende um Switch em uma StyledPaper, com label, helper text e lógica de mudança.
+ * Props esperadas:
+ *   - id: string que identifica a chave no estado configState
+ *   - label: texto (pode ser JSX) a ser exibido ao lado do switch
+ *   - helpText: texto de ajuda
+ *   - checked: string ("enabled" ou "disabled")
+ *   - onChange: callback (id, newValue)
+ *   - disabled: boolean que desabilita o controle se true
+ *   - mutuallyExclusiveGroup: função (id, newValue) que lida com exclusão mútua (opcional)
+ */
+const OptionSwitch = React.memo(
+  ({
+    id,
+    label,
+    helpText,
+    checked,
+    onChange,
+    disabled = false,
+    mutuallyExclusiveGroup = null,
+  }) => {
+    const handleToggle = useCallback(
+      (event) => {
+        const novoValor = event.target.checked ? "enabled" : "disabled";
+        // Se for opção mutuamente exclusiva, usar a função passada
+        if (mutuallyExclusiveGroup) {
+          mutuallyExclusiveGroup(id, novoValor);
+        } else {
+          onChange(id, novoValor);
+        }
+      },
+      [id, onChange, mutuallyExclusiveGroup]
+    );
+
+    return (
+      <StyledPaper elevation={3}>
+        <Box sx={{ p: 1 }}>
+          <FormGroup>
+            <FormControlLabel
+              control={
+                <Switch
+                  checked={checked === "enabled"}
+                  name={id}
+                  color="primary"
+                  onChange={handleToggle}
+                  disabled={disabled}
+                />
+              }
+              label={<Box sx={{ display: "flex", alignItems: "center" }}>{label}</Box>}
+            />
+          </FormGroup>
+          {helpText && <FormHelperText>{helpText}</FormHelperText>}
+        </Box>
+      </StyledPaper>
+    );
+  }
+);
+
+OptionSwitch.propTypes = {
+  id: PropTypes.string.isRequired,
+  label: PropTypes.node.isRequired,
+  helpText: PropTypes.string,
+  checked: PropTypes.string.isRequired,
+  onChange: PropTypes.func.isRequired,
+  disabled: PropTypes.bool,
+  mutuallyExclusiveGroup: PropTypes.func,
+};
+
+/**
+ * OptionSelect: rende um campo Select (TextField com select) dentro de StyledPaper.
+ * Props esperadas:
+ *   - id: string que identifica a chave no estado configState
+ *   - label: string para o label do TextField
+ *   - value: valor atual (string)
+ *   - options: array de objetos { value, label } para popular o select
+ *   - helpText: texto de ajuda
+ *   - onChange: callback(id, newValue)
+ *   - disabled: boolean que desabilita o controle se true
+ *   - startAdornment: componente JSX a ser exibido antes do campo (ícone), opcional
+ */
+const OptionSelect = React.memo(
+  ({
+    id,
+    label,
+    value,
+    options,
+    helpText,
+    onChange,
+    disabled = false,
+    startAdornment = null,
+  }) => {
+    const handleSelectChange = useCallback(
+      (event) => {
+        onChange(id, event.target.value);
+      },
+      [id, onChange]
+    );
+
+    return (
+      <StyledPaper elevation={3}>
+        <Box sx={{ p: 1 }}>
+          <Grid container spacing={2}>
+            <Grid item xs={12} sm={6} md={4}>
+              <FormControl fullWidth>
+                <TextField
+                  select
+                  label={label}
+                  value={value}
+                  size="small"
+                  onChange={handleSelectChange}
+                  variant="outlined"
+                  margin="normal"
+                  disabled={disabled}
+                  InputProps={{
+                    startAdornment: startAdornment ? <Box mr={1}>{startAdornment}</Box> : null,
+                  }}
+                >
+                  {options.map((opt) => (
+                    <MenuItem key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </MenuItem>
+                  ))}
+                </TextField>
+                {helpText && <FormHelperText>{helpText}</FormHelperText>}
+              </FormControl>
+            </Grid>
+          </Grid>
+        </Box>
+      </StyledPaper>
+    );
+  }
+);
+
+OptionSelect.propTypes = {
+  id: PropTypes.string.isRequired,
+  label: PropTypes.string.isRequired,
+  value: PropTypes.string.isRequired,
+  options: PropTypes.arrayOf(
+    PropTypes.shape({ value: PropTypes.string.isRequired, label: PropTypes.string.isRequired })
+  ).isRequired,
+  helpText: PropTypes.string,
+  onChange: PropTypes.func.isRequired,
+  disabled: PropTypes.bool,
+  startAdornment: PropTypes.node,
+};
+
+/**
+ * OptionTextField: rende um TextField simples dentro de StyledPaper, útil para entradas de texto/palavra-chave ou JSON.
+ * Props esperadas:
+ *   - id: string que identifica a chave no estado configState
+ *   - label: label do TextField
+ *   - value: valor atual (string)
+ *   - helpText: texto de ajuda (opcional)
+ *   - onChange: callback(id, newValue)
+ *   - type: tipo do input ("text", "password", etc.)
+ *   - disabled: boolean (opcional)
+ *   - multiline: boolean se multiline true (opcional)
+ *   - rows: número de linhas quando multiline for true (opcional)
+ *   - inputProps: objeto adicional para InputProps (opcional)
+ */
+const OptionTextField = React.memo(
+  ({
+    id,
+    label,
+    value,
+    helpText,
+    onChange,
+    type = "text",
+    disabled = false,
+    multiline = false,
+    rows = 1,
+    inputProps = {},
+  }) => {
+    const handleTextChange = useCallback(
+      (event) => {
+        onChange(id, event.target.value);
+      },
+      [id, onChange]
+    );
+
+    return (
+      <StyledPaper elevation={3}>
+        <Box sx={{ p: 1 }}>
+          <Grid container spacing={2}>
+            <Grid item xs={12} sm={6} md={4}>
+              <TextField
+                id={id}
+                name={id}
+                label={label}
+                size="small"
+                fullWidth
+                margin="normal"
+                variant="outlined"
+                value={value}
+                onChange={handleTextChange}
+                type={type}
+                disabled={disabled}
+                multiline={multiline}
+                rows={rows}
+                InputProps={inputProps}
+              />
+            </Grid>
+          </Grid>
+          {helpText && <FormHelperText sx={{ mt: 1, mb: 2 }}>{helpText}</FormHelperText>}
+        </Box>
+      </StyledPaper>
+    );
+  }
+);
+
+OptionTextField.propTypes = {
+  id: PropTypes.string.isRequired,
+  label: PropTypes.string.isRequired,
+  value: PropTypes.string.isRequired,
+  helpText: PropTypes.string,
+  onChange: PropTypes.func.isRequired,
+  type: PropTypes.string,
+  disabled: PropTypes.bool,
+  multiline: PropTypes.bool,
+  rows: PropTypes.number,
+  inputProps: PropTypes.object,
+};
+
+// ----------------------------------------------------------------------------------
+// 3. DEFINIÇÃO DOS DADOS DE CONFIGURAÇÃO (ARRAYS DE OBJETOS POR SEÇÃO)
+// ----------------------------------------------------------------------------------
+
+/**
+ * Cada objeto de configuração possui:
+ *   - id: chave no estado configState
+ *   - label: rótulo (JSX ou string)
+ *   - helpText: string
+ *   - type: "switch" | "select" | "text"
+ *   - options: somente para selects (array {value, label})
+ *   - disabledIf: função(state) que retorna boolean (opcional)
+ *   - mutuallyExclusiveGroup: array de ids de exclusão mútua (opcional)
+ *   - startAdornment: componente JSX para TextField ou Select (opcional)
+ *   - extraFields: array de subcampos condicionais (opcional)
+ *   - multiline / rows: para campos de texto multilinha (opcional)
+ */
+
+const GENERAL_OPTIONS = (theme, configState) => [
+  // Seção IA / OpenAI — Mantém exemplo, pode ser movida para INTEGRATION_OPTIONS se preferir
+  {
+    id: "openAiModel",
+    label: i18n.t("optionsPage.openaiModel"),
+    type: "select",
+    options: openAiModels,
+    helpText: i18n.t("optionsPage.openaiModelHelp"),
+    disabledIf: () => false,
+    startAdornment: null,
+  },
+  {
+    id: "enableAudioTranscriptions",
+    label:
+      i18n.t("optionsPage.enableAudioTranscriptions") || "Ativar transcrição de áudio",
+    type: "switch",
+    helpText:
+      i18n.t("optionsPage.enableAudioTranscriptionsHelp") ||
+      "Ativa a transcrição de áudio utilizando o serviço da OpenAI",
+    disabledIf: () => false,
+  },
+  {
+    id: "openAiKey",
+    label: i18n.t("optionsPage.openAiKey") || "Chave da API OpenAI",
+    type: "text",
+    helpText:
+      i18n.t("optionsPage.openAiKeyHelp") ||
+      "Informe a chave da API OpenAI para realizar a transcrição de áudio",
+    disabledIf: (state) => state.enableAudioTranscriptions !== "enabled",
+    inputProps: {
+      type: "password",
+      endAdornment: (
+        <Box>
+          {configState.openAiKey && (
+            <Tooltip
+              title={i18n.t("optionsPage.copyApiKey") || "Copiar chave"}
+            >
+              <FileCopyIcon
+                sx={{ cursor: "pointer", ml: 1 }}
+                onClick={() => {
+                  copyToClipboard(configState.openAiKey);
+                  toast.success(
+                    i18n.t("optionsPage.apiKeyCopied") ||
+                      "Chave copiada com sucesso!"
+                  );
+                }}
+              />
+            </Tooltip>
+          )}
+        </Box>
+      ),
+    },
+  },
+
+  // ---------- Configurações Gerais (superusuário) ----------
+  {
+    id: "trialExpiration",
+    label: i18n.t("optionsPage.trialExpiration"),
+    type: "select",
+    options: [
+      { value: "3", label: `3 ${i18n.t("optionsPage.days")}` },
+      { value: "7", label: `7 ${i18n.t("optionsPage.days")}` },
+      { value: "9", label: `9 ${i18n.t("optionsPage.days")}` },
+      { value: "15", label: `15 ${i18n.t("optionsPage.days")}` },
+      { value: "30", label: `30 ${i18n.t("optionsPage.days")}` },
+    ],
+    helpText: i18n.t("optionsPage.trialExpirationHelp"),
+    disabledIf: () => false,
+    startAdornment: (
+      <FontAwesomeIcon
+        icon={faBuilding}
+        style={{ color: theme.palette.primary.main }}
+      />
+    ),
+    onlyForSuperUser: true,
+  },
+  {
+    id: "allowSignup",
+    label: (
+      <Box sx={{ display: "flex", alignItems: "center" }}>
+        <PersonIcon sx={{ mr: 1, color: theme.palette.primary.main }} />
+        {i18n.t("optionsPage.enableRegisterInSignup")}
+      </Box>
+    ),
+    type: "switch",
+    helpText: i18n.t("optionsPage.enableRegisterInSignupHelp"),
+    disabledIf: () => false,
+    onlyForSuperUser: true,
+  },
+  {
+    id: "sendEmailWhenRegister",
+    label: (
+      <Box sx={{ display: "flex", alignItems: "center" }}>
+        <EmailIcon sx={{ mr: 1, color: theme.palette.primary.main }} />
+        {i18n.t("optionsPage.sendEmailInRegister")}
+      </Box>
+    ),
+    type: "switch",
+    helpText: i18n.t("optionsPage.sendEmailInRegisterHelp"),
+    disabledIf: () => false,
+    onlyForSuperUser: true,
+  },
+  {
+    id: "sendMessageWhenRegister",
+    label: (
+      <Box sx={{ display: "flex", alignItems: "center" }}>
+        <MessageIcon sx={{ mr: 1, color: theme.palette.primary.main }} />
+        {i18n.t("optionsPage.sendMessageWhenRegiter")}
+      </Box>
+    ),
+    type: "switch",
+    helpText: i18n.t("optionsPage.sendMessageWhenRegiterHelp"),
+    disabledIf: () => false,
+    onlyForSuperUser: true,
+  },
+
+  {
+    id: "CheckMsgIsGroup",
+    label: i18n.t("optionsPage.ignore"),
+    type: "switch",
+    helpText: i18n.t("optionsPage.ignoreHelp"),
+    disabledIf: () => false,
+  },
+  {
+    id: "sendQueuePosition",
+    label: i18n.t("optionsPage.sendQueuePosition"),
+    type: "switch",
+    helpText: i18n.t("optionsPage.sendQueuePositionHelp"),
+    disabledIf: () => false,
+  },
+  {
+    id: "settingsUserRandom",
+    label: i18n.t("optionsPage.settingsUserRandom"),
+    type: "switch",
+    helpText: i18n.t("optionsPage.settingsUserRandomHelp"),
+    disabledIf: () => false,
+  },
+  {
+    id: "userRating",
+    label: i18n.t("optionsPage.calif"),
+    type: "switch",
+    helpText: i18n.t("optionsPage.califHelp"),
+    disabledIf: () => false,
+  },
+
+  // Opções de encerramento de ticket mutuamente exclusivas
+  {
+    id: "enableReasonWhenCloseTicket",
+    label: i18n.t("optionsPage.enableReasonWhenCloseTicket"),
+    type: "switch",
+    helpText: i18n.t("optionsPage.enableReasonWhenCloseTicketHelp"),
+    disabledIf: () => false,
+    mutuallyExclusiveGroup: [
+      "enableQueueWhenCloseTicket",
+      "enableTagsWhenCloseTicket",
+    ],
+  },
+  {
+    id: "enableQueueWhenCloseTicket",
+    label: i18n.t("optionsPage.enableQueueWhenCloseTicket"),
+    type: "switch",
+    helpText: i18n.t("optionsPage.enableQueueWhenCloseTicketHelp"),
+    disabledIf: () => false,
+    mutuallyExclusiveGroup: [
+      "enableReasonWhenCloseTicket",
+      "enableTagsWhenCloseTicket",
+    ],
+  },
+  {
+    id: "enableTagsWhenCloseTicket",
+    label: i18n.t("optionsPage.enableTagsWhenCloseTicket"),
+    type: "switch",
+    helpText: i18n.t("optionsPage.enableTagsWhenCloseTicketHelp"),
+    disabledIf: () => false,
+    mutuallyExclusiveGroup: [
+      "enableReasonWhenCloseTicket",
+      "enableQueueWhenCloseTicket",
+    ],
+  },
+
+  {
+    id: "displayProfileImages",
+    label: i18n.t("optionsPage.displayProfileImages"),
+    type: "switch",
+    helpText: i18n.t("optionsPage.displayProfileImagesHelp"),
+    disabledIf: () => false,
+  },
+  {
+    id: "enableTicketValueAndSku",
+    label: i18n.t("optionsPage.showSKU"),
+    type: "switch",
+    helpText: i18n.t("optionsPage.showSKUHelp"),
+    disabledIf: () => false,
+  },
+
+  {
+    id: "displayContactInfo",
+    label: i18n.t("optionsPage.displayContactInfo"),
+    type: "switch",
+    helpText: `${i18n.t("optionsPage.displayContactInfoHelp")}`,
+    disabledIf: (state) => state.displayBusinessInfo === "enabled",
+    extraDisplay: (state) =>
+      state.displayBusinessInfo === "enabled" ? (
+        <Typography color="error" variant="caption" display="block">
+          {i18n.t("optionsPage.displayContactInfoDisabled")}
+        </Typography>
+      ) : null,
+  },
+  {
+    id: "displayBusinessInfo",
+    label: i18n.t("optionsPage.displayBusinessInfo"),
+    type: "switch",
+    helpText: `${i18n.t("optionsPage.displayBusinessInfoHelp")}`,
+    disabledIf: (state) => state.displayContactInfo === "enabled",
+    extraDisplay: (state) =>
+      state.displayContactInfo === "enabled" ? (
+        <Typography color="error" variant="caption" display="block">
+          {i18n.t("optionsPage.displayBusinessInfoDisabled")}
+        </Typography>
+      ) : null,
+  },
+  {
+    id: "enableSaveCommonContacts",
+    label: i18n.t("optionsPage.enableSaveCommonContacts"),
+    type: "switch",
+    helpText: i18n.t("optionsPage.enableSaveCommonContactsHelp"),
+    disabledIf: () => false,
+  },
+  {
+    id: "scheduleType",
+    label: i18n.t("optionsPage.expedient"),
+    type: "select",
+    options: [
+      { value: "disabled", label: i18n.t("optionsPage.buttons.off") },
+      { value: "company", label: i18n.t("optionsPage.buttons.partner") },
+      { value: "queue", label: i18n.t("optionsPage.buttons.quee") },
+    ],
+    helpText: i18n.t("optionsPage.expedientHelp"),
+    disabledIf: () => false,
+  },
+  {
+    id: "SettingsTransfTicket",
+    label: i18n.t("optionsPage.sendagent"),
+    type: "switch",
+    helpText: i18n.t("optionsPage.sendagentHelp"),
+    disabledIf: () => false,
+  },
+  {
+    id: "sendGreetingMessageOneQueues",
+    label: i18n.t("optionsPage.greeatingOneQueue"),
+    type: "switch",
+    helpText: i18n.t("optionsPage.greeatingOneQueueHelp"),
+    disabledIf: () => false,
+  },
+  {
+    id: "quickMessages",
+    label: i18n.t("optionsPage.speedMessage"),
+    type: "select",
+    options: [
+      { value: "company", label: i18n.t("optionsPage.byCompany") },
+      { value: "individual", label: i18n.t("optionsPage.byUser") },
+    ],
+    helpText: i18n.t("optionsPage.speedMessageHelp"),
+    disabledIf: () => false,
+  },
+];
+
+/**
+ * INTEGRATION_OPTIONS: configuração de integrações (WhatsApp, Meta Pixel, UPSix, Kanban etc.)
+ */
+const INTEGRATION_OPTIONS = (theme, configState) => [
+  // Seção WhatsApp API Oficial
+  {
+    id: "enableOfficialWhatsapp",
+    label: i18n.t("optionsPage.enableOfficialWhatsapp"),
+    type: "switch",
+    helpText: i18n.t("optionsPage.enableOfficialWhatsappHelp"),
+    disabledIf: () => false,
+    sectionTitle: {
+      icon: <WhatsAppIcon sx={{ color: "#25D366", mr: 1 }} />,
+      text: "WhatsApp API Oficial",
+    },
+  },
+
+  // Seção Meta Pixel
+  {
+    id: "enableMetaPixel",
+    label: i18n.t("optionsPage.enableMetaPixel"),
+    type: "switch",
+    helpText: i18n.t("optionsPage.enableMetaPixelHelp"),
+    disabledIf: () => false,
+    sectionTitle: {
+      icon: (
+        <Avatar sx={{ bgcolor: "#1877F2", width: 28, height: 28 }}>
+          <span style={{ fontWeight: "bold", fontSize: "14px", color: "white" }}>
+            M
+          </span>
+        </Avatar>
+      ),
+      text: "Meta Pixel",
+    },
+    extraField: {
+      id: "metaPixelId",
+      label: i18n.t("optionsPage.metaPixelId"),
+      type: "text",
+      helpText: i18n.t("optionsPage.metaPixelIdHelp"),
+      disabledIf: (state) => state.enableMetaPixel !== "enabled",
+    },
+  },
+
+  // Seção OpenAI (mover para cá, se julgar mais coerente)
+  {
+    id: "openAiModel",
+    label: i18n.t("optionsPage.openaiModel"),
+    type: "select",
+    options: openAiModels,
+    helpText: i18n.t("optionsPage.openaiModelHelp"),
+    disabledIf: () => false,
+    sectionTitle: {
+      icon: (
+        <FontAwesomeIcon
+          icon={faRobot}
+          style={{ marginRight: "8px", color: theme.palette.primary.main }}
+        />
+      ),
+      text: "OpenAI",
+    },
+  },
+  {
+    id: "enableAudioTranscriptions",
+    label:
+      i18n.t("optionsPage.enableAudioTranscriptions") || "Ativar transcrição de áudio",
+    type: "switch",
+    helpText:
+      i18n.t("optionsPage.enableAudioTranscriptionsHelp") ||
+      "Ativa a transcrição de áudio utilizando o serviço da OpenAI",
+    disabledIf: () => false,
+  },
+  {
+    id: "openAiKey",
+    label: i18n.t("optionsPage.openAiKey") || "Chave da API OpenAI",
+    type: "text",
+    helpText:
+      i18n.t("optionsPage.openAiKeyHelp") ||
+      "Informe a chave da API OpenAI para realizar a transcrição de áudio",
+    disabledIf: (state) => state.enableAudioTranscriptions !== "enabled",
+    inputProps: {
+      type: "password",
+      endAdornment: (
+        <Box>
+          {configState.openAiKey && (
+            <Tooltip
+              title={i18n.t("optionsPage.copyApiKey") || "Copiar chave"}
+            >
+              <FileCopyIcon
+                sx={{ cursor: "pointer", ml: 1 }}
+                onClick={() => {
+                  copyToClipboard(configState.openAiKey);
+                  toast.success(
+                    i18n.t("optionsPage.apiKeyCopied") ||
+                      "Chave copiada com sucesso!"
+                  );
+                }}
+              />
+            </Tooltip>
+          )}
+        </Box>
+      ),
+    },
+  },
+
+  // Seção UPSix
+  {
+    id: "enableUPSix",
+    label: i18n.t("optionsPage.enableUPSix"),
+    type: "switch",
+    helpText: i18n.t("optionsPage.enableUPSixHelp"),
+    disabledIf: () => false,
+    sectionTitle: {
+      icon: <FontAwesomeIcon icon={faServer} size="xs" />,
+      text: "UPSix",
+    },
+    extraFields: [
+      {
+        id: "enableUPSixWebphone",
+        label: i18n.t("optionsPage.enableUPSixWebphone"),
+        type: "switch",
+        helpText: i18n.t("optionsPage.enableUPSixWebphoneHelp"),
+        disabledIf: (state) => state.enableUPSix !== "enabled",
+      },
+      {
+        id: "enableUPSixNotifications",
+        label: i18n.t("optionsPage.enableUPSixNotifications"),
+        type: "switch",
+        helpText: i18n.t("optionsPage.enableUPSixNotificationsHelp"),
+        disabledIf: (state) => state.enableUPSix !== "enabled",
+      },
+    ],
+  },
+
+  // ---------- NOVAS CONFIGURAÇÕES DE KANBAN ----------
+  {
+    id: "kanban_auto_create_cards",
+    label: "Criar cartões automaticamente no Kanban",
+    type: "switch",
+    helpText:
+      "Habilita a criação automática de cartões no Kanban ao criar tickets",
+    disabledIf: () => false,
+    sectionTitle: {
+      icon: (
+        <FontAwesomeIcon
+          icon={faList}
+          style={{ marginRight: "8px", color: theme.palette.primary.main }}
+        />
+      ),
+      text: "Kanban",
+    },
+  },
+  {
+    id: "kanban_auto_sync_status",
+    label: "Sincronizar status automaticamente com o Kanban",
+    type: "switch",
+    helpText:
+      "Sincroniza automaticamente o status dos tickets com o quadro Kanban",
+    disabledIf: () => false,
+  },
+  {
+    id: "kanban_default_board_id",
+    label: "ID padrão do quadro Kanban",
+    type: "text",
+    helpText:
+      "Informe o ID do quadro Kanban que será utilizado por padrão",
+    disabledIf: () => false,
+  },
+  {
+    id: "kanban_lane_status_mapping",
+    label: "Mapeamento de status para colunas do Kanban",
+    type: "text",
+    helpText:
+      "JSON de mapeamento de status de ticket para colunas do Kanban",
+    disabledIf: () => false,
+    multiline: true,
+    rows: 4,
+  },
+  {
+    id: "kanban_auto_archive_closed",
+    label: "Arquivar automaticamente tickets fechados no Kanban",
+    type: "switch",
+    helpText:
+      "Arquiva automaticamente os cartões quando o ticket for fechado",
+    disabledIf: () => false,
+  },
+];
+
+/**
+ * ADVANCED_OPTIONS: configurações avançadas (Download, Pesquisa de Satisfação, Suporte, SMTP, etc.)
+ */
+const ADVANCED_OPTIONS = (theme, configState) => [
+  {
+    id: "downloadLimit",
+    label: i18n.t("optionsPage.downloadLimit"),
+    type: "select",
+    options: [
+      { value: "32", label: "32 MB" },
+      { value: "64", label: "64 MB" },
+      { value: "128", label: "128 MB" },
+      { value: "256", label: "256 MB" },
+      { value: "512", label: "512 MB" },
+      { value: "1024", label: "1 GB" },
+      { value: "2048", label: "2 GB" },
+    ],
+    helpText: i18n.t("optionsPage.downloadLimitHelp"),
+    disabledIf: () => false,
+    sectionTitle: {
+      icon: <AssessmentOutlined sx={{ mr: 1, color: theme.palette.primary.main }} />,
+      text: i18n.t("optionsPage.satisfactionSurveyTitle"),
+    },
+  },
+  {
+    id: "enableSatisfactionSurvey",
+    label: i18n.t("optionsPage.enableSatisfactionSurvey"),
+    type: "switch",
+    helpText: i18n.t("optionsPage.enableSatisfactionSurveyHelp"),
+    disabledIf: () => false,
+  },
+  {
+    id: "callSuport",
+    label: (
+      <Box sx={{ display: "flex", alignItems: "center" }}>
+        <SupportIcon sx={{ mr: 1, color: theme.palette.primary.main }} />
+        {i18n.t("optionsPage.callSuport")}
+      </Box>
+    ),
+    type: "switch",
+    helpText: i18n.t("optionsPage.callSuportHelp"),
+    disabledIf: () => false,
+    extraFields: [
+      {
+        id: "waSuportType",
+        label: i18n.t("optionsPage.wasuport"),
+        type: "text",
+        helpText: null,
+        disabledIf: (state) => state.callSuport !== "enabled",
+        inputProps: {
+          startAdornment: (
+            <Box mr={1}>
+              <PhoneIcon fontSize="small" color="primary" />
+            </Box>
+          ),
+          inputProps: { pattern: "[0-9]*" },
+        },
+        onlyForSuperUser: true,
+      },
+      {
+        id: "msgSuportType",
+        label: i18n.t("optionsPage.msgsuport"),
+        type: "text",
+        helpText: null,
+        disabledIf: (state) => state.callSuport !== "enabled",
+        inputProps: {
+          startAdornment: (
+            <Box mr={1}>
+              <MessageIcon fontSize="small" color="primary" />
+            </Box>
+          ),
+        },
+        onlyForSuperUser: true,
+      },
+    ],
+  },
+  {
+    id: "smtpauthType",
+    label: i18n.t("optionsPage.smtpServer"),
+    type: "text",
+    helpText: null,
+    disabledIf: () => false,
+    onlyForSuperUser: true,
+  },
+  {
+    id: "usersmtpauthType",
+    label: i18n.t("optionsPage.smtpUser"),
+    type: "text",
+    helpText: null,
+    disabledIf: () => false,
+    onlyForSuperUser: true,
+  },
+  {
+    id: "clientsecretsmtpauthType",
+    label: i18n.t("optionsPage.smtpPassword"),
+    type: "text",
+    helpText: null,
+    disabledIf: () => false,
+    onlyForSuperUser: true,
+    inputProps: { type: "password" },
+  },
+  {
+    id: "smtpPortType",
+    label: i18n.t("optionsPage.smtpPort"),
+    type: "text",
+    helpText: i18n.t("optionsPage.smtpHelp"),
+    disabledIf: () => false,
+    onlyForSuperUser: true,
+  },
+];
+
+// ----------------------------------------------------------------------------------
+// 4. COMPONENTE PRINCIPAL: Options
+// ----------------------------------------------------------------------------------
+
 const Options = ({
   settings,
+  scheduleTypeChanged,
   enableReasonWhenCloseTicketChanged,
   onSettingChange,
-  pendingChanges
+  pendingChanges,
 }) => {
   const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+  const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
   const [currentTab, setCurrentTab] = useState(0);
+  const [user] = useContext(AuthContext);
 
-  // Estado inicial das configurações - COMPLETO
-  const getInitialConfigState = useCallback(() => {
-    return {
-      // Configurações gerais
-      openAiModel: "gpt-4",
-      enableAudioTranscriptions: "disabled",
-      openAiKey: "",
-      userRating: "disabled",
-      scheduleType: "disabled",
-      quickMessages: i18n.t("optionsPage.byCompany") || "company",
-      allowSignup: "disabled",
-      CheckMsgIsGroup: "disabled",
-      sendGreetingAccepted: "disabled",
-      settingsTransfTicket: "disabled",
-      sendGreetingMessageOneQueues: "enabled",
-      downloadLimit: "64",
-      sendEmailWhenRegister: "disabled",
-      sendMessageWhenRegister: "disabled",
-      enableReasonWhenCloseTicket: "disabled",
-      enableUseOneTicketPerConnection: "disabled",
-      callSuport: "enabled",
-      trialExpiration: "3",
-      displayContactInfo: "enabled",
-      enableTicketValueAndSku: "disabled",
-      sendQueuePosition: "disabled",
-      settingsUserRandom: "disabled",
-      displayBusinessInfo: "disabled",
-      enableSaveCommonContacts: "disabled",
-      displayProfileImages: "enabled",
-      enableQueueWhenCloseTicket: "disabled",
-      enableTagsWhenCloseTicket: "disabled",
-      enableSatisfactionSurvey: "disabled",
-      
-      // Integrações
-      enableUPSix: "disabled",
-      enableUPSixWebphone: "disabled",
-      enableUPSixNotifications: "disabled",
-      enableOfficialWhatsapp: "disabled",
-      enableMetaPixel: "disabled",
-      metaPixelId: '',
-      
-      // SMTP
-      smtpauthType: "",
-      usersmtpauthType: "",
-      clientsecretsmtpauthType: "",
-      smtpPortType: "",
-      
-      // Suporte
-      waSuportType: "",
-      msgSuportType: "",
+  // Estado local que armazena todos os valores de configuração
+  const [configState, setConfigState] = useState({
+    openAiModel: "gpt-4",
+    enableAudioTranscriptions: "disabled",
+    openAiKey: "",
 
-    };
-  }, []);
+    // Configurações gerais
+    userRating: "disabled",
+    scheduleType: "disabled",
+    quickMessages: i18n.t("optionsPage.byCompany"),
+    allowSignup: "disabled",
+    CheckMsgIsGroup: "disabled",
+    sendGreetingAccepted: "disabled",
+    settingsTransfTicket: "disabled",
+    sendGreetingMessageOneQueues: "enabled",
+    downloadLimit: "64",
+    sendEmailWhenRegister: "disabled",
+    sendMessageWhenRegister: "disabled",
+    enableReasonWhenCloseTicket: "disabled",
+    enableUseOneTicketPerConnection: "disabled",
+    callSuport: "enabled",
+    trialExpiration: "3",
+    displayContactInfo: "enabled",
+    enableTicketValueAndSku: "disabled",
+    sendQueuePosition: "disabled",
+    settingsUserRandom: "disabled",
+    displayBusinessInfo: "disabled",
+    enableSaveCommonContacts: "disabled",
+    displayProfileImages: "enabled",
+    enableQueueWhenCloseTicket: "disabled",
+    enableTagsWhenCloseTicket: "disabled",
+    enableSatisfactionSurvey: "disabled",
 
-  // Estado para armazenar configurações
-  const [configState, setConfigState] = useState(getInitialConfigState);
+    // Integrações
+    enableUPSix: "disabled",
+    enableUPSixWebphone: "disabled",
+    enableUPSixNotifications: "disabled",
+    enableOfficialWhatsapp: "disabled",
+    enableMetaPixel: "disabled",
+    metaPixelId: "",
 
-  // Carregar configurações iniciais
+    // NOVAS CONFIGURAÇÕES DE KANBAN
+    kanban_auto_create_cards: "disabled",
+    kanban_auto_sync_status: "enabled",
+    kanban_default_board_id: "",
+    kanban_lane_status_mapping: JSON.stringify(
+      {
+        Pendente: "pending",
+        Novo: "pending",
+        "Em Atendimento": "open",
+        "Em Progresso": "open",
+        Aberto: "open",
+        "Aguardando Cliente": "pending",
+        "Aguardando Resposta": "pending",
+        Resolvido: "closed",
+        Finalizado: "closed",
+        "Concluído": "closed",
+        Fechado: "closed",
+      },
+      null,
+      2
+    ),
+    kanban_auto_archive_closed: "enabled",
+
+    // SMTP
+    smtpauthType: "",
+    usersmtpauthType: "",
+    clientsecretsmtpauthType: "",
+    smtpPortType: "",
+
+    // Suporte
+    waSuportType: "",
+    msgSuportType: "",
+  });
+
+  // --------------------------------------------------------------------------------
+  // carregamento inicial de 'settings' vindas do backend
+  // --------------------------------------------------------------------------------
   useEffect(() => {
     if (!settings || !Array.isArray(settings) || settings.length === 0) {
       console.warn("Settings não é um array válido:", settings);
@@ -212,1118 +1026,317 @@ const Options = ({
 
     try {
       const settingsMap = {};
-      settings.forEach(setting => {
+      settings.forEach((setting) => {
         if (setting && setting.key) {
           settingsMap[setting.key] = setting.value;
         }
       });
 
-      // Usar Object.assign para atualizar o estado
-      setConfigState(prevState => {
-        const newState = Object.assign({}, prevState);
-
-        Object.keys(newState).forEach(key => {
+      setConfigState((prevState) => {
+        const newState = { ...prevState };
+        Object.keys(newState).forEach((key) => {
           let settingKey = key;
-
-          // Mapeamento de chaves
-          const keyMapping = {
-            'openAiModel': 'openaiModel',
-            'smtpauthType': 'smtpauth',
-            'usersmtpauthType': 'usersmtpauth',
-            'clientsecretsmtpauthType': 'clientsecretsmtpauth',
-            'smtpPortType': 'smtpport',
-            'waSuportType': 'wasuport',
-            'msgSuportType': 'msgsuport'
-          };
-
-          if (keyMapping[key]) {
-            settingKey = keyMapping[key];
-          }
+          if (key === "openAiModel") settingKey = "openaiModel";
+          else if (key === "smtpauthType") settingKey = "smtpauth";
+          else if (key === "usersmtpauthType") settingKey = "usersmtpauth";
+          else if (key === "clientsecretsmtpauthType")
+            settingKey = "clientsecretsmtpauth";
+          else if (key === "smtpPortType") settingKey = "smtpport";
+          else if (key === "waSuportType") settingKey = "wasuport";
+          else if (key === "msgSuportType") settingKey = "msgsuport";
 
           if (settingsMap[settingKey] !== undefined) {
             newState[key] = String(settingsMap[settingKey] || newState[key] || "");
           }
         });
-
         return newState;
       });
     } catch (error) {
       console.error("Erro ao processar configurações:", error);
     }
-  }, [settings, getInitialConfigState]);
+  }, [settings]);
 
-  // Atualizar configuração local e notificar alteração
-  const handleConfigChange = useCallback((key, value, notifyBackend = true) => {
-    setConfigState(prev => {
-      const newState = Object.assign({}, prev);
-      newState[key] = value;
-      return newState;
-    });
+  // --------------------------------------------------------------------------------
+  // função helper para notificar backend sobre mudanças, mapeando chaves especiais
+  // --------------------------------------------------------------------------------
+  const notifyBackend = useCallback(
+    (key, value) => {
+      let backendKey = key;
+      if (key === "openAiModel") backendKey = "openaiModel";
+      else if (key === "smtpauthType") backendKey = "smtpauth";
+      else if (key === "usersmtpauthType") backendKey = "usersmtpauth";
+      else if (key === "clientsecretsmtpauthType")
+        backendKey = "clientsecretsmtpauth";
+      else if (key === "smtpPortType") backendKey = "smtpport";
+      else if (key === "waSuportType") backendKey = "wasuport";
+      else if (key === "msgSuportType") backendKey = "msgsuport";
 
-    // Mapeamento de chaves para o backend
-    const keyMapping = {
-      'openAiModel': 'openaiModel',
-      'smtpauthType': 'smtpauth',
-      'usersmtpauthType': 'usersmtpauth',
-      'clientsecretsmtpauthType': 'clientsecretsmtpauth',
-      'smtpPortType': 'smtpport',
-      'waSuportType': 'wasuport',
-      'msgSuportType': 'msgsuport'
-    };
-
-    const backendKey = keyMapping[key] || key;
-
-    if (notifyBackend) {
       onSettingChange(backendKey, value);
-    }
 
-    if (key === 'enableReasonWhenCloseTicket' && typeof enableReasonWhenCloseTicketChanged === 'function') {
-      enableReasonWhenCloseTicketChanged(value);
-    }
-  }, [onSettingChange, enableReasonWhenCloseTicketChanged]);
+      if (
+        key === "scheduleType" &&
+        typeof scheduleTypeChanged === "function"
+      ) {
+        scheduleTypeChanged(value);
+      }
+      if (
+        key === "enableReasonWhenCloseTicket" &&
+        typeof enableReasonWhenCloseTicketChanged === "function"
+      ) {
+        enableReasonWhenCloseTicketChanged(value);
+      }
+    },
+    [onSettingChange, scheduleTypeChanged, enableReasonWhenCloseTicketChanged]
+  );
 
-  const handleSwitchChange = useCallback((key, checked) => {
-    const value = checked ? "enabled" : "disabled";
-    handleConfigChange(key, value);
-  }, [handleConfigChange]);
+  // --------------------------------------------------------------------------------
+  // handleConfigChange: atualiza estado local e notifica backend
+  // --------------------------------------------------------------------------------
+  const handleConfigChange = useCallback(
+    (id, newValue) => {
+      setConfigState((prev) => ({ ...prev, [id]: newValue }));
+      notifyBackend(id, newValue);
+    },
+    [notifyBackend]
+  );
 
-  const handleMutuallyExclusiveOption = useCallback(async (enabledKey, value) => {
-    if (value === "enabled") {
-      const exclusiveOptions = {
-        enableQueueWhenCloseTicket: ["enableTagsWhenCloseTicket", "enableReasonWhenCloseTicket"],
-        enableTagsWhenCloseTicket: ["enableQueueWhenCloseTicket", "enableReasonWhenCloseTicket"],
-        enableReasonWhenCloseTicket: ["enableQueueWhenCloseTicket", "enableTagsWhenCloseTicket"]
-      };
-
-      if (exclusiveOptions[enabledKey]) {
-        const optionsToDisable = exclusiveOptions[enabledKey];
-
-        optionsToDisable.forEach(key => {
-          if (configState[key] === "enabled") {
-            handleConfigChange(key, "disabled");
+  // --------------------------------------------------------------------------------
+  // handleMutuallyExclusive: garante que apenas uma opção mutualmente exclusiva esteja habilitada
+  // --------------------------------------------------------------------------------
+  const handleMutuallyExclusive = useCallback(
+    (id, newValue, exclusiveList) => {
+      if (newValue === "enabled" && Array.isArray(exclusiveList)) {
+        exclusiveList.forEach((otherId) => {
+          if (configState[otherId] === "enabled") {
+            handleConfigChange(otherId, "disabled");
           }
         });
-
-        toast.info(i18n.t("optionsPage.onlyOneCloseOptionActive") || "Apenas uma opção de encerramento pode estar ativa");
+        toast.info(i18n.t("optionsPage.onlyOneCloseOptionActive"));
       }
-    }
+      handleConfigChange(id, newValue);
+    },
+    [configState, handleConfigChange]
+  );
 
-    handleConfigChange(enabledKey, value);
-  }, [configState, handleConfigChange]);
+  // --------------------------------------------------------------------------------
+  // renderiza cada seção dinamicamente, baseado no array de configuração
+  // --------------------------------------------------------------------------------
+  const renderOptions = useCallback(
+    (optionsArray) => {
+      return optionsArray.map((opt) => {
+        // Se o campo for apenas para superusuário, verificar antes de renderizar
+        if (opt.onlyForSuperUser && !user.isSuperUser) return null;
 
+        const disabled = typeof opt.disabledIf === "function" ? opt.disabledIf(configState) : false;
+        const commonProps = {
+          id: opt.id,
+          label: opt.label,
+          helpText: opt.helpText || "",
+          checked: configState[opt.id],
+          value: configState[opt.id],
+          onChange: handleConfigChange,
+          disabled,
+        };
+
+        // Se tiver sectionTitle, renderizamos um divisor com ícone e texto
+        const hasSectionTitle = !!opt.sectionTitle;
+        const SectionHeader = hasSectionTitle ? (
+          <CategoryDivider key={`divider-${opt.id}`}>
+            {opt.sectionTitle.icon}
+            <Typography variant="subtitle1" sx={{ fontWeight: 500 }}>
+              {opt.sectionTitle.text}
+            </Typography>
+          </CategoryDivider>
+        ) : null;
+
+        // Caso haja campos extras (ex: subcampos dentro de uma seção expandida)
+        if (opt.extraFields && Array.isArray(opt.extraFields)) {
+          return (
+            <Box key={opt.id}>
+              {SectionHeader}
+              {/* Renderiza o campo principal */}
+              {opt.type === "switch" && (
+                <OptionSwitch
+                  {...commonProps}
+                  mutuallyExclusiveGroup={
+                    opt.mutuallyExclusiveGroup
+                      ? (id, val) => handleMutuallyExclusive(id, val, opt.mutuallyExclusiveGroup)
+                      : null
+                  }
+                />
+              )}
+              {opt.type === "select" && (
+                <OptionSelect
+                  {...commonProps}
+                  options={opt.options}
+                  startAdornment={opt.startAdornment || null}
+                />
+              )}
+              {/* Subcampos internos, somente se o principal estiver habilitado */}
+              {opt.extraFields
+                .filter((sub) =>
+                  typeof sub.disabledIf === "function" ? !sub.disabledIf(configState) : true
+                )
+                .map((sub) => {
+                  const subDisabled =
+                    typeof sub.disabledIf === "function" ? sub.disabledIf(configState) : false;
+                  const subProps = {
+                    id: sub.id,
+                    label: sub.label,
+                    helpText: sub.helpText || "",
+                    checked: configState[sub.id],
+                    value: configState[sub.id],
+                    onChange: handleConfigChange,
+                    disabled: subDisabled,
+                  };
+                  if (sub.type === "switch") {
+                    return <OptionSwitch key={sub.id} {...subProps} />;
+                  }
+                  if (sub.type === "text") {
+                    return (
+                      <OptionTextField
+                        key={sub.id}
+                        {...subProps}
+                        type={sub.inputProps?.type || "text"}
+                        multiline={sub.multiline || false}
+                        rows={sub.rows || 1}
+                        inputProps={sub.inputProps || {}}
+                      />
+                    );
+                  }
+                  // outros tipos de subcampos podem ser adicionados aqui
+                  return null;
+                })}
+            </Box>
+          );
+        }
+
+        // Se houver campo extra independente (ex: metaPixelId, openAiKey)
+        if (opt.extraField) {
+          return (
+            <Box key={opt.id}>
+              {SectionHeader}
+              {opt.type === "switch" && (
+                <OptionSwitch
+                  {...commonProps}
+                  mutuallyExclusiveGroup={
+                    opt.mutuallyExclusiveGroup
+                      ? (id, val) => handleMutuallyExclusive(id, val, opt.mutuallyExclusiveGroup)
+                      : null
+                  }
+                />
+              )}
+              {opt.type === "select" && (
+                <OptionSelect
+                  {...commonProps}
+                  options={opt.options}
+                  startAdornment={opt.startAdornment || null}
+                />
+              )}
+              {/* Renderiza o campo extra, somente se habilitado */}
+              {opt.id === "enableMetaPixel" && configState.enableMetaPixel === "enabled" && (
+                <OptionTextField
+                  id={opt.extraField.id}
+                  label={opt.extraField.label}
+                  value={configState[opt.extraField.id] || ""}
+                  onChange={handleConfigChange}
+                  helpText={opt.extraField.helpText}
+                  disabled={false}
+                />
+              )}
+            </Box>
+          );
+        }
+
+        // Campo simples (sem extras, sem subcampos)
+        return (
+          <Box key={opt.id}>
+            {SectionHeader}
+            {opt.type === "switch" && (
+              <OptionSwitch
+                {...commonProps}
+                mutuallyExclusiveGroup={
+                  opt.mutuallyExclusiveGroup
+                    ? (id, val) => handleMutuallyExclusive(id, val, opt.mutuallyExclusiveGroup)
+                    : null
+                }
+              />
+            )}
+            {opt.type === "select" && (
+              <OptionSelect
+                {...commonProps}
+                options={opt.options}
+                startAdornment={opt.startAdornment || null}
+              />
+            )}
+            {opt.type === "text" && (
+              <OptionTextField
+                {...commonProps}
+                type={opt.inputProps?.type || "text"}
+                multiline={opt.multiline || false}
+                rows={opt.rows || 1}
+                inputProps={opt.inputProps || {}}
+              />
+            )}
+          </Box>
+        );
+      });
+    },
+    [configState, handleConfigChange, handleMutuallyExclusive, user.isSuperUser]
+  );
+
+  // --------------------------------------------------------------------------------
+  // renderização das abas (tabs) com as seções correspondentes
+  // --------------------------------------------------------------------------------
+  const GeneralConfigSection = useMemo(() => {
+    return () => (
+      <>
+        <SectionTitle variant="h6">
+          <BusinessIcon color="primary" />
+          {i18n.t("optionsPage.general_params")}
+        </SectionTitle>
+        {renderOptions(GENERAL_OPTIONS(theme, configState))}
+      </>
+    );
+  }, [renderOptions, theme, configState]);
+
+  const IntegrationsSection = useMemo(() => {
+    return () => (
+      <>
+        <SectionTitle variant="h6">
+          <FontAwesomeIcon
+            icon={faServer}
+            style={{ marginRight: "8px", color: theme.palette.primary.main }}
+          />
+          {i18n.t("optionsPage.integrations")}
+        </SectionTitle>
+        {renderOptions(INTEGRATION_OPTIONS(theme, configState))}
+      </>
+    );
+  }, [renderOptions, theme, configState]);
+
+  const AdvancedSection = useMemo(() => {
+    return () => (
+      <>
+        <SectionTitle variant="h6">
+          <BuildIcon color="primary" />
+          {i18n.t("optionsPage.advanced")}
+        </SectionTitle>
+        {renderOptions(ADVANCED_OPTIONS(theme, configState))}
+      </>
+    );
+  }, [renderOptions, theme, configState]);
+
+  // --------------------------------------------------------------------------------
+  // mudança de aba
+  // --------------------------------------------------------------------------------
   const handleTabChange = useCallback((event, newValue) => {
     setCurrentTab(newValue);
   }, []);
 
-  // Preparar tabs
-  const tabs = useMemo(() => [
-    { label: i18n.t("optionsPage.general") || "Configurações Gerais", icon: React.createElement(SettingsIcon) },
-    { label: i18n.t("optionsPage.integrations") || "Integrações", icon: React.createElement(FontAwesomeIcon, { icon: faServer }) },
-    { label: i18n.t("optionsPage.advanced") || "Avançado", icon: React.createElement(BuildIcon) },
-    { label: "Recursos", icon: React.createElement(TuneIcon) },
-    { label: "Segurança", icon: React.createElement(FontAwesomeIcon, { icon: faDatabase }) }
-  ], []);
-
-  // Componente de configurações gerais - COMPLETO
-  const GeneralConfigSection = useMemo(() => {
-    const GeneralConfigComponent = () => (
-      <Box>
-        <SectionTitle variant="h6">
-          <BusinessIcon color="primary" />
-          {i18n.t("optionsPage.general_params") || "Parâmetros Gerais"}
-        </SectionTitle>
-
-        <OnlyForSuperUser
-          yes={() => (
-            <React.Fragment>
-              <StyledPaper elevation={2}>
-                <Box sx={{ p: 1 }}>
-                  <Grid container spacing={2}>
-                    <Grid item xs={12} sm={6} md={4}>
-                      <FormControl fullWidth>
-                        <TextField
-                          select
-                          label={i18n.t("optionsPage.trialExpiration") || "Expiração do Trial"}
-                          value={configState.trialExpiration || "3"}
-                          size="small"
-                          onChange={(e) => handleConfigChange("trialExpiration", e.target.value)}
-                          variant="outlined"
-                          margin="normal"
-                          InputProps={{
-                            startAdornment: (
-                              <Box mr={1}>
-                                <FontAwesomeIcon icon={faBuilding} style={{ color: theme.palette.primary.main }} />
-                              </Box>
-                            ),
-                          }}
-                        >
-                          <MenuItem value="3">3 {i18n.t("optionsPage.days") || "dias"}</MenuItem>
-                          <MenuItem value="7">7 {i18n.t("optionsPage.days") || "dias"}</MenuItem>
-                          <MenuItem value="9">9 {i18n.t("optionsPage.days") || "dias"}</MenuItem>
-                          <MenuItem value="15">15 {i18n.t("optionsPage.days") || "dias"}</MenuItem>
-                          <MenuItem value="30">30 {i18n.t("optionsPage.days") || "dias"}</MenuItem>
-                        </TextField>
-                        <FormHelperText>
-                          {i18n.t("optionsPage.trialExpirationHelp") || "Tempo de duração do período de teste"}
-                        </FormHelperText>
-                      </FormControl>
-                    </Grid>
-                    <Grid item xs={12} sm={6} md={4}>
-                      <FormControl fullWidth>
-                        <TextField
-                          select
-                          label="Máximo de Conexões"
-                          value={configState.maxConnections || "5"}
-                          size="small"
-                          onChange={(e) => handleConfigChange("maxConnections", e.target.value)}
-                          variant="outlined"
-                          margin="normal"
-                        >
-                          <MenuItem value="1">1 conexão</MenuItem>
-                          <MenuItem value="3">3 conexões</MenuItem>
-                          <MenuItem value="5">5 conexões</MenuItem>
-                          <MenuItem value="10">10 conexões</MenuItem>
-                          <MenuItem value="20">20 conexões</MenuItem>
-                          <MenuItem value="50">50 conexões</MenuItem>
-                        </TextField>
-                        <FormHelperText>
-                          Número máximo de conexões WhatsApp por empresa
-                        </FormHelperText>
-                      </FormControl>
-                    </Grid>
-                    <Grid item xs={12} sm={6} md={4}>
-                      <FormControl fullWidth>
-                        <TextField
-                          select
-                          label="Máximo de Filas"
-                          value={configState.maxQueues || "10"}
-                          size="small"
-                          onChange={(e) => handleConfigChange("maxQueues", e.target.value)}
-                          variant="outlined"
-                          margin="normal"
-                        >
-                          <MenuItem value="5">5 filas</MenuItem>
-                          <MenuItem value="10">10 filas</MenuItem>
-                          <MenuItem value="20">20 filas</MenuItem>
-                          <MenuItem value="50">50 filas</MenuItem>
-                          <MenuItem value="100">100 filas</MenuItem>
-                        </TextField>
-                        <FormHelperText>
-                          Número máximo de filas de atendimento
-                        </FormHelperText>
-                      </FormControl>
-                    </Grid>
-                  </Grid>
-                </Box>
-              </StyledPaper>
-
-              <StyledPaper elevation={2}>
-                <Box sx={{ p: 1 }}>
-                  <FormGroup>
-                    <FormControlLabel
-                      control={
-                        <Switch
-                          checked={configState.allowSignup === "enabled"}
-                          name="allowSignup"
-                          color="primary"
-                          onChange={(e) => handleSwitchChange("allowSignup", e.target.checked)}
-                        />
-                      }
-                      label={
-                        <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                          <PersonIcon sx={{ mr: 1, color: theme.palette.primary.main }} />
-                          {i18n.t("optionsPage.enableRegisterInSignup") || "Permitir registro público"}
-                        </Box>
-                      }
-                    />
-                  </FormGroup>
-                  <FormHelperText>
-                    {i18n.t("optionsPage.enableRegisterInSignupHelp") || "Permite que novos usuários se cadastrem publicamente"}
-                  </FormHelperText>
-                </Box>
-              </StyledPaper>
-
-              <StyledPaper elevation={2}>
-                <Box sx={{ p: 1 }}>
-                  <FormGroup>
-                    <FormControlLabel
-                      control={
-                        <Switch
-                          checked={configState.sendEmailWhenRegister === "enabled"}
-                          name="sendEmailWhenRegister"
-                          color="primary"
-                          onChange={(e) => handleSwitchChange("sendEmailWhenRegister", e.target.checked)}
-                        />
-                      }
-                      label={
-                        <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                          <EmailIcon sx={{ mr: 1, color: theme.palette.primary.main }} />
-                          {i18n.t("optionsPage.sendEmailInRegister") || "Enviar email no registro"}
-                        </Box>
-                      }
-                    />
-                  </FormGroup>
-                  <FormHelperText>
-                    {i18n.t("optionsPage.sendEmailInRegisterHelp") || "Envia email de confirmação quando novo usuário se registra"}
-                  </FormHelperText>
-                </Box>
-              </StyledPaper>
-
-              <StyledPaper elevation={2}>
-                <Box sx={{ p: 1 }}>
-                  <FormGroup>
-                    <FormControlLabel
-                      control={
-                        <Switch
-                          checked={configState.sendMessageWhenRegister === "enabled"}
-                          name="sendMessageWhenRegister"
-                          color="primary"
-                          onChange={(e) => handleSwitchChange("sendMessageWhenRegister", e.target.checked)}
-                        />
-                      }
-                      label={
-                        <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                          <MessageIcon sx={{ mr: 1, color: theme.palette.primary.main }} />
-                          {i18n.t("optionsPage.sendMessageWhenRegiter") || "Enviar mensagem no registro"}
-                        </Box>
-                      }
-                    />
-                  </FormGroup>
-                  <FormHelperText>
-                    {i18n.t("optionsPage.sendMessageWhenRegiterHelp") || "Envia mensagem de boas-vindas quando novo usuário se registra"}
-                  </FormHelperText>
-                </Box>
-              </StyledPaper>
-            </React.Fragment>
-          )}
-        />
-
-        <CategoryDivider>
-          <Chip
-            icon={<FontAwesomeIcon icon={faTicketAlt} />}
-            label={i18n.t("optionsPage.ticketSettings") || "Configurações de Tickets"}
-            color="primary"
-            variant="outlined"
-            sx={{ fontWeight: 'bold', px: 2 }}
-          />
-          <Divider sx={{ flexGrow: 1, ml: 2 }} />
-        </CategoryDivider>
-
-        <StyledPaper elevation={2}>
-          <Box sx={{ p: 1 }}>
-            <FormGroup>
-              <FormControlLabel
-                control={
-                  <Switch
-                    checked={configState.enableTagsWhenCloseTicket === "enabled"}
-                    name="enableTagsWhenCloseTicket"
-                    color="primary"
-                    onChange={(e) => handleMutuallyExclusiveOption("enableTagsWhenCloseTicket", e.target.checked ? "enabled" : "disabled")}
-                  />
-                }
-                label={i18n.t("optionsPage.enableTagsWhenCloseTicket") || "Definir etiquetas ao encerrar ticket"}
-              />
-            </FormGroup>
-            <FormHelperText>
-              {i18n.t("optionsPage.enableTagsWhenCloseTicketHelp") || "Permite adicionar etiquetas ao encerrar o ticket"}
-            </FormHelperText>
-          </Box>
-        </StyledPaper>
-
-        <StyledPaper elevation={2}>
-          <Box sx={{ p: 1 }}>
-            <FormGroup>
-              <FormControlLabel
-                control={
-                  <Switch
-                    checked={configState.displayProfileImages === "enabled"}
-                    name="displayProfileImages"
-                    color="primary"
-                    onChange={(e) => handleSwitchChange("displayProfileImages", e.target.checked)}
-                  />
-                }
-                label={i18n.t("optionsPage.displayProfileImages") || "Exibir imagens de perfil"}
-              />
-            </FormGroup>
-            <FormHelperText>
-              {i18n.t("optionsPage.displayProfileImagesHelp") || "Mostra as fotos de perfil dos contatos nas conversas"}
-            </FormHelperText>
-          </Box>
-        </StyledPaper>
-
-        <StyledPaper elevation={2}>
-          <Box sx={{ p: 1 }}>
-            <FormGroup>
-              <FormControlLabel
-                control={
-                  <Switch
-                    checked={configState.enableTicketValueAndSku === "enabled"}
-                    name="enableTicketValueAndSku"
-                    color="primary"
-                    onChange={(e) => handleSwitchChange("enableTicketValueAndSku", e.target.checked)}
-                  />
-                }
-                label={i18n.t("optionsPage.showSKU") || "Exibir valor e SKU do ticket"}
-              />
-            </FormGroup>
-            <FormHelperText>
-              {i18n.t("optionsPage.showSKUHelp") || "Mostra campos de valor e SKU nos tickets"}
-            </FormHelperText>
-          </Box>
-        </StyledPaper>
-
-        <CategoryDivider>
-          <Chip
-            icon={<FontAwesomeIcon icon={faUsers} />}
-            label={i18n.t("optionsPage.contactSettings") || "Configurações de Contatos"}
-            color="primary"
-            variant="outlined"
-            sx={{ fontWeight: 'bold', px: 2 }}
-          />
-          <Divider sx={{ flexGrow: 1, ml: 2 }} />
-        </CategoryDivider>
-
-        <StyledPaper elevation={2}>
-          <Box sx={{ p: 1 }}>
-            <FormGroup>
-              <FormControlLabel
-                control={
-                  <Switch
-                    checked={configState.displayContactInfo === "enabled"}
-                    name="displayContactInfo"
-                    color="primary"
-                    onChange={(e) => handleSwitchChange("displayContactInfo", e.target.checked)}
-                    disabled={configState.displayBusinessInfo === "enabled"}
-                  />
-                }
-                label={i18n.t("optionsPage.displayContactInfo") || "Exibir informações de contato"}
-              />
-            </FormGroup>
-            <FormHelperText>
-              {i18n.t("optionsPage.displayContactInfoHelp") || "Mostra informações detalhadas do contato"}
-              {configState.displayBusinessInfo === "enabled" && (
-                <Typography color="error" variant="caption" display="block">
-                  {i18n.t("optionsPage.displayContactInfoDisabled") || "Desabilitado pois informações comerciais estão ativas"}
-                </Typography>
-              )}
-            </FormHelperText>
-          </Box>
-        </StyledPaper>
-
-        <StyledPaper elevation={2}>
-          <Box sx={{ p: 1 }}>
-            <FormGroup>
-              <FormControlLabel
-                control={
-                  <Switch
-                    checked={configState.displayBusinessInfo === "enabled"}
-                    name="displayBusinessInfo"
-                    color="primary"
-                    onChange={(e) => handleSwitchChange("displayBusinessInfo", e.target.checked)}
-                    disabled={configState.displayContactInfo === "enabled"}
-                  />
-                }
-                label={i18n.t("optionsPage.displayBusinessInfo") || "Exibir informações comerciais"}
-              />
-            </FormGroup>
-            <FormHelperText>
-              {i18n.t("optionsPage.displayBusinessInfoHelp") || "Mostra informações comerciais do contato"}
-              {configState.displayContactInfo === "enabled" && (
-                <Typography color="error" variant="caption" display="block">
-                  {i18n.t("optionsPage.displayBusinessInfoDisabled") || "Desabilitado pois informações de contato estão ativas"}
-                </Typography>
-              )}
-            </FormHelperText>
-          </Box>
-        </StyledPaper>
-
-        <StyledPaper elevation={2}>
-          <Box sx={{ p: 1 }}>
-            <FormGroup>
-              <FormControlLabel
-                control={
-                  <Switch
-                    checked={configState.enableSaveCommonContacts === "enabled"}
-                    name="enableSaveCommonContacts"
-                    color="primary"
-                    onChange={(e) => handleSwitchChange("enableSaveCommonContacts", e.target.checked)}
-                  />
-                }
-                label={i18n.t("optionsPage.enableSaveCommonContacts") || "Salvar contatos frequentes"}
-              />
-            </FormGroup>
-            <FormHelperText>
-              {i18n.t("optionsPage.enableSaveCommonContactsHelp") || "Salva automaticamente contatos que interagem frequentemente"}
-            </FormHelperText>
-          </Box>
-        </StyledPaper>
-
-
-        <StyledPaper elevation={2}>
-          <Box sx={{ p: 1 }}>
-            <FormGroup>
-              <FormControlLabel
-                control={
-                  <Switch
-                    checked={configState.settingsTransfTicket === "enabled"}
-                    name="settingsTransfTicket"
-                    color="primary"
-                    onChange={(e) => handleSwitchChange("settingsTransfTicket", e.target.checked)}
-                  />
-                }
-                label={i18n.t("optionsPage.sendagent") || "Notificar transferência de ticket"}
-              />
-            </FormGroup>
-            <FormHelperText>
-              {i18n.t("optionsPage.sendagentHelp") || "Envia notificação quando ticket é transferido para outro agente"}
-            </FormHelperText>
-          </Box>
-        </StyledPaper>
-
-        <StyledPaper elevation={2}>
-          <Box sx={{ p: 1 }}>
-            <FormGroup>
-              <FormControlLabel
-                control={
-                  <Switch
-                    checked={configState.sendGreetingMessageOneQueues === "enabled"}
-                    name="sendGreetingMessageOneQueues"
-                    color="primary"
-                    onChange={(e) => handleSwitchChange("sendGreetingMessageOneQueues", e.target.checked)}
-                  />
-                }
-                label={i18n.t("optionsPage.greeatingOneQueue") || "Saudação única por fila"}
-              />
-            </FormGroup>
-            <FormHelperText>
-              {i18n.t("optionsPage.greeatingOneQueueHelp") || "Envia apenas uma mensagem de saudação por fila"}
-            </FormHelperText>
-          </Box>
-        </StyledPaper>
-
-        <StyledPaper elevation={2}>
-          <Box sx={{ p: 1 }}>
-            <Grid container spacing={2}>
-              <Grid item xs={12} sm={6} md={4}>
-                <FormControl fullWidth>
-                  <TextField
-                    select
-                    fullWidth
-                    label={i18n.t("optionsPage.speedMessage") || "Mensagens rápidas"}
-                    value={configState.quickMessages || "company"}
-                    size="small"
-                    onChange={(e) => handleConfigChange("quickMessages", e.target.value)}
-                    variant="outlined"
-                    margin="normal"
-                  >
-                    <MenuItem value="company">{i18n.t("optionsPage.byCompany") || "Por empresa"}</MenuItem>
-                    <MenuItem value="individual">{i18n.t("optionsPage.byUser") || "Por usuário"}</MenuItem>
-                  </TextField>
-                  <FormHelperText>
-                    {i18n.t("optionsPage.speedMessageHelp") || "Define o escopo das mensagens rápidas"}
-                  </FormHelperText>
-                </FormControl>
-              </Grid>
-            </Grid>
-          </Box>
-        </StyledPaper>
-      </Box>
-    );
-    return GeneralConfigComponent;
-  }, [
-    configState,
-    theme,
-    handleSwitchChange,
-    handleConfigChange,
-    handleMutuallyExclusiveOption
-  ]);
-
-  // Componente de configurações de integrações - COMPLETO
-  const IntegrationsSection = useMemo(() => {
-    const IntegrationsComponent = () => (
-      <Box>
-        <SectionTitle variant="h6">
-          <FontAwesomeIcon icon={faServer} style={{ marginRight: '8px', color: theme.palette.primary.main }} />
-          {i18n.t("optionsPage.integrations") || "Integrações"}
-        </SectionTitle>
-
-        <StyledPaper elevation={2}>
-          <Box sx={{ p: 1 }}>
-            <Typography variant="subtitle1" sx={{ mb: 2, fontWeight: 'medium', display: 'flex', alignItems: 'center' }}>
-              <WhatsAppIcon sx={{ color: '#25D366', mr: 1 }} />
-              <Box ml={1}>WhatsApp API Oficial</Box>
-            </Typography>
-            <FormGroup>
-              <FormControlLabel
-                control={
-                  <Switch
-                    checked={configState.enableOfficialWhatsapp === "enabled"}
-                    name="enableOfficialWhatsapp"
-                    color="primary"
-                    onChange={(e) => handleSwitchChange("enableOfficialWhatsapp", e.target.checked)}
-                  />
-                }
-                label={i18n.t("optionsPage.enableOfficialWhatsapp") || "Habilitar WhatsApp Oficial"}
-              />
-            </FormGroup>
-            <FormHelperText>
-              {i18n.t("optionsPage.enableOfficialWhatsappHelp") || "Ativa o uso da API oficial do WhatsApp Business"}
-            </FormHelperText>
-          </Box>
-        </StyledPaper>
-
-        <StyledPaper elevation={2}>
-          <Box sx={{ p: 1 }}>
-            <Typography variant="subtitle1" sx={{ mb: 2, fontWeight: 'medium', display: 'flex', alignItems: 'center' }}>
-              <Avatar sx={{ bgcolor: '#1877F2', width: 28, height: 28 }}>
-                <span style={{ fontWeight: 'bold', fontSize: '14px', color: 'white' }}>M</span>
-              </Avatar>
-              <Box ml={1}>Meta Pixel</Box>
-            </Typography>
-            <FormGroup>
-              <FormControlLabel
-                control={
-                  <Switch
-                    checked={configState.enableMetaPixel === "enabled"}
-                    name="enableMetaPixel"
-                    color="primary"
-                    onChange={(e) => handleSwitchChange("enableMetaPixel", e.target.checked)}
-                  />
-                }
-                label={i18n.t("optionsPage.enableMetaPixel") || "Habilitar Meta Pixel"}
-              />
-            </FormGroup>
-            <FormHelperText>
-              {i18n.t("optionsPage.enableMetaPixelHelp") || "Ativa o rastreamento do Meta Pixel para análise de conversões"}
-            </FormHelperText>
-
-            {configState.enableMetaPixel === "enabled" && (
-              <Box sx={{ mt: 2 }}>
-                <Typography variant="subtitle2" sx={{ mb: 1 }}>
-                  {i18n.t("optionsPage.metaPixelSettings") || "Configurações do Meta Pixel"}
-                </Typography>
-                <Grid container spacing={2}>
-                  <Grid item xs={12}>
-                    <TextField
-                      id="metaPixelId"
-                      name="metaPixelId"
-                      margin="dense"
-                      label={i18n.t("optionsPage.metaPixelId") || "ID do Meta Pixel"}
-                      variant="outlined"
-                      fullWidth
-                      value={configState.metaPixelId || ""}
-                      onChange={(e) => handleConfigChange("metaPixelId", e.target.value, false)}
-                      size="small"
-                    />
-                  </Grid>
-                </Grid>
-                <FormHelperText sx={{ mt: 1, mb: 2 }}>
-                  {i18n.t("optionsPage.metaPixelIdHelp") || "Informe o ID do seu Meta Pixel"}
-                </FormHelperText>
-              </Box>
-            )}
-          </Box>
-        </StyledPaper>
-
-        <StyledPaper elevation={2}>
-          <Box sx={{ p: 1 }}>
-            <Typography variant="subtitle1" sx={{ mb: 2, fontWeight: 'medium', display: 'flex', alignItems: 'center' }}>
-              <FontAwesomeIcon icon={faRobot} style={{ marginRight: '8px', color: theme.palette.primary.main }} />
-              OpenAI
-            </Typography>
-            <Grid container spacing={2}>
-              <Grid item xs={12} sm={6} md={4}>
-                <FormControl fullWidth>
-                  <TextField
-                    select
-                    fullWidth
-                    label={i18n.t("optionsPage.openaiModel") || "Modelo OpenAI"}
-                    value={configState.openAiModel || "gpt-4"}
-                    onChange={(e) => handleConfigChange("openAiModel", e.target.value)}
-                    variant="outlined"
-                    size="small"
-                    margin="normal"
-                  >
-                    {openAiModels.map((model) => (
-                      <MenuItem key={model.value} value={model.value}>
-                        {model.label}
-                      </MenuItem>
-                    ))}
-                  </TextField>
-                  <FormHelperText>
-                    {i18n.t("optionsPage.openaiModelHelp") || "Selecione o modelo da OpenAI para usar"}
-                  </FormHelperText>
-                </FormControl>
-              </Grid>
-            </Grid>
-
-            <Box sx={{ mt: 2 }}>
-              <FormGroup>
-                <FormControlLabel
-                  control={
-                    <Switch
-                      checked={configState.enableAudioTranscriptions === "enabled"}
-                      name="enableAudioTranscriptions"
-                      color="primary"
-                      onChange={(e) => handleSwitchChange("enableAudioTranscriptions", e.target.checked)}
-                    />
-                  }
-                  label={i18n.t("optionsPage.enableAudioTranscriptions") || "Ativar transcrição de áudio"}
-                />
-              </FormGroup>
-              <FormHelperText>
-                {i18n.t("optionsPage.enableAudioTranscriptionsHelp") || "Ativa a transcrição de áudio utilizando o serviço da OpenAI"}
-              </FormHelperText>
-            </Box>
-
-            {configState.enableAudioTranscriptions === "enabled" && (
-              <Box sx={{ mt: 2, pl: 2 }}>
-                <Grid container spacing={2}>
-                  <Grid item xs={12}>
-                    <TextField
-                      id="openAiKey"
-                      name="openAiKey"
-                      margin="dense"
-                      label={i18n.t("optionsPage.openAiKey") || "Chave da API OpenAI"}
-                      variant="outlined"
-                      fullWidth
-                      value={configState.openAiKey || ""}
-                      onChange={(e) => handleConfigChange("openAiKey", e.target.value, false)}
-                      size="small"
-                      type="password"
-                      InputProps={{
-                        endAdornment: (
-                          <Box>
-                            {configState.openAiKey && (
-                              <Tooltip title={i18n.t("optionsPage.copyApiKey") || "Copiar chave"}>
-                                <FileCopyIcon
-                                  sx={{ cursor: 'pointer', ml: 1 }}
-                                  onClick={() => {
-                                    copyToClipboard(configState.openAiKey);
-                                    toast.success(i18n.t("optionsPage.apiKeyCopied") || "Chave copiada com sucesso!");
-                                  }}
-                                />
-                              </Tooltip>
-                            )}
-                          </Box>
-                        ),
-                      }}
-                    />
-                  </Grid>
-                </Grid>
-                <FormHelperText sx={{ mt: 1, mb: 2 }}>
-                  {i18n.t("optionsPage.openAiKeyHelp") || "Informe a chave da API OpenAI para realizar a transcrição de áudio"}
-                </FormHelperText>
-              </Box>
-            )}
-          </Box>
-        </StyledPaper>
-
-        <StyledPaper elevation={2}>
-          <Box sx={{ p: 1 }}>
-            <FormGroup>
-              <FormControlLabel
-                control={
-                  <Switch
-                    checked={configState.enableUseOneTicketPerConnection === "enabled"}
-                    name="enableUseOneTicketPerConnection"
-                    color="primary"
-                    onChange={(e) => handleSwitchChange("enableUseOneTicketPerConnection", e.target.checked)}
-                  />
-                }
-                label="Um ticket por conexão"
-              />
-            </FormGroup>
-            <FormHelperText>
-              Permite apenas um ticket ativo por conexão por vez
-            </FormHelperText>
-          </Box>
-        </StyledPaper>
-
-        <StyledPaper elevation={2}>
-          <Box sx={{ p: 1 }}>
-            <FormGroup>
-              <FormControlLabel
-                control={
-                  <Switch
-                    checked={configState.sendGreetingAccepted === "enabled"}
-                    name="sendGreetingAccepted"
-                    color="primary"
-                    onChange={(e) => handleSwitchChange("sendGreetingAccepted", e.target.checked)}
-                  />
-                }
-                label={i18n.t("optionsPage.sendanun") || "Enviar saudação quando aceitar ticket"}
-              />
-            </FormGroup>
-            <FormHelperText>
-              {i18n.t("optionsPage.sendanunHelp") || "Envia mensagem de saudação automaticamente quando agente aceita um ticket"}
-            </FormHelperText>
-          </Box>
-        </StyledPaper>
-
-        <StyledPaper elevation={2}>
-          <Box sx={{ p: 1 }}>
-            <FormGroup>
-              <FormControlLabel
-                control={
-                  <Switch
-                    checked={configState.sendQueuePosition === "enabled"}
-                    name="sendQueuePosition"
-                    color="primary"                    onChange={(e) => handleSwitchChange("sendQueuePosition", e.target.checked)}
-                  />
-                }
-                label={i18n.t("optionsPage.sendQueuePosition") || "Enviar posição na fila"}
-              />
-            </FormGroup>
-            <FormHelperText>
-              {i18n.t("optionsPage.sendQueuePositionHelp") || "Informa ao cliente sua posição na fila de atendimento"}
-            </FormHelperText>
-          </Box>
-        </StyledPaper>
-
-        <StyledPaper elevation={2}>
-          <Box sx={{ p: 1 }}>
-            <FormGroup>
-              <FormControlLabel
-                control={
-                  <Switch
-                    checked={configState.settingsUserRandom === "enabled"}
-                    name="settingsUserRandom"
-                    color="primary"
-                    onChange={(e) => handleSwitchChange("settingsUserRandom", e.target.checked)}
-                  />
-                }
-                label={i18n.t("optionsPage.settingsUserRandom") || "Distribuição aleatória de usuários"}
-              />
-            </FormGroup>
-            <FormHelperText>
-              {i18n.t("optionsPage.settingsUserRandomHelp") || "Distribui tickets aleatoriamente entre agentes disponíveis"}
-            </FormHelperText>
-          </Box>
-        </StyledPaper>
-
-        <StyledPaper elevation={2}>
-          <Box sx={{ p: 1 }}>
-            <FormGroup>
-              <FormControlLabel
-                control={
-                  <Switch
-                    checked={configState.userRating === "enabled"}
-                    name="userRating"
-                    color="primary"
-                    onChange={(e) => handleSwitchChange("userRating", e.target.checked)}
-                  />
-                }
-                label={i18n.t("optionsPage.calif") || "Habilitar avaliação de atendimento"}
-              />
-            </FormGroup>
-            <FormHelperText>
-              {i18n.t("optionsPage.califHelp") || "Permite que clientes avaliem o atendimento recebido"}
-            </FormHelperText>
-          </Box>
-        </StyledPaper>
-
-        <StyledPaper elevation={2}>
-          <Box sx={{ p: 1 }}>
-            <FormGroup>
-              <FormControlLabel
-                control={
-                  <Switch
-                    checked={configState.enableReasonWhenCloseTicket === "enabled"}
-                    name="enableReasonWhenCloseTicket"
-                    color="primary"
-                    onChange={(e) => handleMutuallyExclusiveOption("enableReasonWhenCloseTicket", e.target.checked ? "enabled" : "disabled")}
-                  />
-                }
-                label={i18n.t("optionsPage.enableReasonWhenCloseTicket") || "Exigir motivo ao encerrar ticket"}
-              />
-            </FormGroup>
-            <FormHelperText>
-              {i18n.t("optionsPage.enableReasonWhenCloseTicketHelp") || "Obriga o agente a informar um motivo ao encerrar o ticket"}
-            </FormHelperText>
-          </Box>
-        </StyledPaper>
-
-        <StyledPaper elevation={2}>
-          <Box sx={{ p: 1 }}>
-            <FormGroup>
-              <FormControlLabel
-                control={
-                  <Switch
-                    checked={configState.enableQueueWhenCloseTicket === "enabled"}
-                    name="enableQueueWhenCloseTicket"
-                    color="primary"
-                    onChange={(e) => handleMutuallyExclusiveOption("enableQueueWhenCloseTicket", e.target.checked ? "enabled" : "disabled")}
-                  />
-                }
-                label={i18n.t("optionsPage.enableQueueWhenCloseTicket") || "Definir fila ao encerrar ticket"}
-              />
-            </FormGroup>
-            <FormHelperText>
-              {i18n.t("optionsPage.enableQueueWhenCloseTicketHelp") || "Permite definir uma fila específica ao encerrar o ticket"}
-            </FormHelperText>
-          </Box>
-        </StyledPaper>
-      </Box>
-    );
-    return IntegrationsComponent;
-  }, [
-    configState,
-    theme,
-    handleSwitchChange,
-    handleConfigChange
-  ]);
-
-  // Componente de configurações avançadas - COMPLETO
-  const AdvancedSection = useMemo(() => {
-    const AdvancedComponent = () => (
-      <Box>
-        <SectionTitle variant="h6">
-          <BuildIcon color="primary" />
-          {i18n.t("optionsPage.advanced") || "Configurações Avançadas"}
-        </SectionTitle>
-
-        <StyledPaper elevation={2}>
-          <Box sx={{ p: 1 }}>
-            <Typography variant="subtitle1" sx={{ mb: 2, fontWeight: 'medium', display: 'flex', alignItems: 'center' }}>
-              <FontAwesomeIcon icon={faFileExport} style={{ marginRight: '8px', color: theme.palette.primary.main }} />
-              {i18n.t("optionsPage.downloadSettings") || "Configurações de Download"}
-            </Typography>
-            <Grid container spacing={2}>
-              <Grid item xs={12} sm={6} md={4}>
-                <FormControl fullWidth>
-                  <TextField
-                    select
-                    label={i18n.t("optionsPage.downloadLimit") || "Limite de Download"}
-                    value={configState.downloadLimit || "64"}
-                    onChange={(e) => handleConfigChange("downloadLimit", e.target.value)}
-                    variant="outlined"
-                    size="small"
-                    margin="normal"
-                  >
-                    <MenuItem value="32">32 MB</MenuItem>
-                    <MenuItem value="64">64 MB</MenuItem>
-                    <MenuItem value="128">128 MB</MenuItem>
-                    <MenuItem value="256">256 MB</MenuItem>
-                    <MenuItem value="512">512 MB</MenuItem>
-                    <MenuItem value="1024">1 GB</MenuItem>
-                    <MenuItem value="2048">2 GB</MenuItem>
-                  </TextField>
-                  <FormHelperText>
-                    {i18n.t("optionsPage.downloadLimitHelp") || "Tamanho máximo para download de arquivos"}
-                  </FormHelperText>
-                </FormControl>
-              </Grid>
-              <Grid item xs={12} sm={6} md={4}>
-                <FormControl fullWidth>
-                  <TextField
-                    select
-                    label="Tamanho máximo de arquivo"
-                    value={configState.maxFileSize || "10"}
-                    onChange={(e) => handleConfigChange("maxFileSize", e.target.value)}
-                    variant="outlined"
-                    size="small"
-                    margin="normal"
-                  >
-                    <MenuItem value="5">5 MB</MenuItem>
-                    <MenuItem value="10">10 MB</MenuItem>
-                    <MenuItem value="20">20 MB</MenuItem>
-                    <MenuItem value="50">50 MB</MenuItem>
-                    <MenuItem value="100">100 MB</MenuItem>
-                    <MenuItem value="200">200 MB</MenuItem>
-                  </TextField>
-                  <FormHelperText>
-                    Tamanho máximo para upload de arquivos
-                  </FormHelperText>
-                </FormControl>
-              </Grid>
-            </Grid>
-          </Box>
-        </StyledPaper>
-
-        <StyledPaper elevation={2}>
-          <Box sx={{ p: 1 }}>
-            <Typography variant="subtitle1" sx={{ mb: 2, fontWeight: 'medium', display: 'flex', alignItems: 'center' }}>
-              <AssessmentOutlined sx={{ mr: 1, color: theme.palette.primary.main }} />
-              {i18n.t("optionsPage.satisfactionSurveyTitle") || "Pesquisa de Satisfação"}
-            </Typography>
-            <FormGroup>
-              <FormControlLabel
-                control={
-                  <Switch
-                    checked={configState.enableSatisfactionSurvey === "enabled"}
-                    name="enableSatisfactionSurvey"
-                    color="primary"
-                    onChange={(e) => handleSwitchChange("enableSatisfactionSurvey", e.target.checked)}
-                  />
-                }
-                label={i18n.t("optionsPage.enableSatisfactionSurvey") || "Habilitar pesquisa de satisfação"}
-              />
-            </FormGroup>
-            <FormHelperText>
-              {i18n.t("optionsPage.enableSatisfactionSurveyHelp") || "Envia pesquisa de satisfação após encerramento do ticket"}
-            </FormHelperText>
-          </Box>
-        </StyledPaper>
-
-        <StyledPaper elevation={2}>
-          <Box sx={{ p: 1 }}>
-            <FormGroup>
-              <FormControlLabel
-                control={
-                  <Switch
-                    checked={configState.callSuport === "enabled"}
-                    name="callSuport"
-                    color="primary"
-                    onChange={(e) => handleSwitchChange("callSuport", e.target.checked)}
-                  />
-                }
-                label={
-                  <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                    <SupportIcon sx={{ mr: 1, color: theme.palette.primary.main }} />
-                    {i18n.t("optionsPage.callSuport") || "Habilitar suporte"}
-                  </Box>
-                }
-              />
-            </FormGroup>
-            <FormHelperText>
-              {i18n.t("optionsPage.callSuportHelp") || "Ativa opções de contato com suporte técnico"}
-            </FormHelperText>
-          </Box>
-        </StyledPaper>
-
-        {configState.callSuport === "enabled" && (
-          <OnlyForSuperUser
-            yes={() => (
-              <StyledPaper elevation={2}>
-                <Box sx={{ p: 1 }}>
-                  <Typography variant="subtitle1" sx={{ mb: 2, fontWeight: 'medium', display: 'flex', alignItems: 'center' }}>
-                    <SupportIcon sx={{ mr: 1, color: theme.palette.primary.main }} />
-                    {i18n.t("optionsPage.support") || "Configurações de Suporte"}
-                  </Typography>
-                  <Grid container spacing={2}>
-                    <Grid item xs={12} sm={6} md={4}>
-                      <TextField
-                        id="wasuport"
-                        name="wasuport"
-                        label={i18n.t("optionsPage.wasuport") || "WhatsApp Suporte"}
-                        size="small"
-                        value={configState.waSuportType || ""}
-                        onChange={(e) => {
-                          if (e.target.value === "" || /^[0-9\b]+$/.test(e.target.value)) {
-                            handleConfigChange("waSuportType", e.target.value, true);
-                          }
-                        }}
-                        fullWidth
-                        margin="normal"
-                        InputProps={{
-                          startAdornment: (
-                            <Box mr={1}>
-                              <PhoneIcon fontSize="small" color="primary" />
-                            </Box>
-                          ),
-                        }}
-                      />
-                    </Grid>
-                    <Grid item xs={12} sm={6} md={8}>
-                      <TextField
-                        id="msgsuporte"
-                        name="msgsuporte"
-                        label={i18n.t("optionsPage.msgsuport") || "Mensagem de Suporte"}
-                        size="small"
-                        value={configState.msgSuportType || ""}
-                        onChange={(e) => handleConfigChange("msgSuportType", e.target.value, true)}
-                        fullWidth
-                        margin="normal"
-                        InputProps={{
-                          startAdornment: (
-                            <Box mr={1}>
-                              <MessageIcon fontSize="small" color="primary" />
-                            </Box>
-                          ),
-                        }}
-                      />
-                    </Grid>
-                  </Grid>
-                </Box>
-              </StyledPaper>
-            )}
-          />
-        )}
-
-        <StyledPaper elevation={2}>
-          <Box sx={{ p: 1 }}>
-            <Typography variant="subtitle1" sx={{ mb: 2, fontWeight: 'medium', display: 'flex', alignItems: 'center' }}>
-              <FontAwesomeIcon icon={faEnvelope} style={{ marginRight: '8px', color: theme.palette.primary.main }} />
-              SMTP
-            </Typography>
-            <Grid container spacing={2}>
-              <Grid item xs={12} sm={6} md={3}>
-                <TextField
-                  id="smtpauth"
-                  name="smtpauth"
-                  label={i18n.t("optionsPage.smtpServer") || "Servidor SMTP"}
-                  size="small"
-                  value={configState.smtpauthType || ""}
-                  onChange={(e) => handleConfigChange("smtpauthType", e.target.value, true)}
-                  fullWidth
-                  margin="normal"
-                />
-              </Grid>
-              <Grid item xs={12} sm={6} md={3}>
-                <TextField
-                  id="usersmtpauth"
-                  name="usersmtpauth"
-                  label={i18n.t("optionsPage.smtpUser") || "Usuário SMTP"}
-                  size="small"
-                  value={configState.usersmtpauthType || ""}
-                  onChange={(e) => handleConfigChange("usersmtpauthType", e.target.value, true)}
-                  fullWidth
-                  margin="normal"
-                />
-              </Grid>
-              <Grid item xs={12} sm={6} md={3}>
-                <TextField
-                  id="clientsecretsmtpauth"
-                  name="clientsecretsmtpauth"
-                  label={i18n.t("optionsPage.smtpPassword") || "Senha SMTP"}
-                  size="small"
-                  type="password"
-                  value={configState.clientsecretsmtpauthType || ""}
-                  onChange={(e) => handleConfigChange("clientsecretsmtpauthType", e.target.value, true)}
-                  fullWidth
-                  margin="normal"
-                />
-              </Grid>
-              <Grid item xs={12} sm={6} md={3}>
-                <TextField
-                  id="smtpport"
-                  name="smtpport"
-                  label={i18n.t("optionsPage.smtpPort") || "Porta SMTP"}
-                  size="small"
-                  value={configState.smtpPortType || ""}
-                  onChange={(e) => handleConfigChange("smtpPortType", e.target.value, true)}
-                  fullWidth
-                  margin="normal"
-                />
-              </Grid>
-            </Grid>
-            <FormHelperText>
-              {i18n.t("optionsPage.smtpHelp") || "Configure o servidor SMTP para envio de emails"}
-            </FormHelperText>
-          </Box>
-        </StyledPaper>
-      </Box>
-    );
-    return AdvancedComponent;
-  }, [  
-    configState,
-  ]);
-
-
   return (
-    <Box sx={{ width: '100%' }}>
-      <Paper elevation={2} sx={{ mb: 3, borderRadius: isMobile ? 3 : 1 }}>
+    <Box sx={{ p: 1 }}>
+      <Paper elevation={3} sx={{ mb: 3 }}>
         <Tabs
           value={currentTab}
           onChange={handleTabChange}
@@ -1331,85 +1344,53 @@ const Options = ({
           textColor="primary"
           variant={isMobile ? "scrollable" : "fullWidth"}
           scrollButtons="auto"
-          allowScrollButtonsMobile
-          sx={{
-            background: theme.palette.background.default,
-            borderRadius: isMobile ? 3 : 1,
-            '& .MuiTabs-indicator': {
-              height: 3,
-              borderRadius: '3px 3px 0 0'
-            }
-          }}
+          sx={{ background: theme.palette.background.default, borderRadius: 1 }}
         >
-          {tabs.map((tab, index) => (
-            <StyledTab
-              key={index}
-              icon={!isMobile ? tab.icon : null}
-              label={tab.label}
-              iconPosition="start"
-              sx={{
-                '& .MuiTab-iconWrapper': {
-                  marginRight: theme.spacing(1),
-                  marginBottom: 0,
-                }
-              }}
-            />
-          ))}
+          <StyledTab
+            icon={<SettingsIcon />}
+            label={i18n.t("optionsPage.general")}
+            iconPosition="start"
+          />
+          <StyledTab
+            icon={<FontAwesomeIcon icon={faServer} />}
+            label={i18n.t("optionsPage.integrations")}
+            iconPosition="start"
+          />
+          <StyledTab
+            icon={<BuildIcon />}
+            label={i18n.t("optionsPage.advanced")}
+            iconPosition="start"
+          />
         </Tabs>
       </Paper>
 
       <Box sx={{ mt: 2 }}>
-        {currentTab === 0 && (
-          <StandardTabContent
-            title={i18n.t("optionsPage.general") || "Configurações Gerais"}
-            description="Configure as opções básicas de funcionamento do sistema"
-            icon={React.createElement(SettingsIcon)}
-            variant="default"
-          >
-            <GeneralConfigSection />
-          </StandardTabContent>
-        )}
-
-        {currentTab === 1 && (
-          <StandardTabContent
-            title={i18n.t("optionsPage.integrations") || "Integrações"}
-            description="Configure as integrações com serviços externos"
-            icon={React.createElement(FontAwesomeIcon, { icon: faServer })}
-            variant="default"
-          >
-            <IntegrationsSection />
-          </StandardTabContent>
-        )}
-
-        {currentTab === 2 && (
-          <StandardTabContent
-            title={i18n.t("optionsPage.advanced") || "Configurações Avançadas"}
-            description="Configure opções avançadas e específicas do sistema"
-            icon={React.createElement(BuildIcon)}
-            variant="default"
-          >
-            <AdvancedSection />
-          </StandardTabContent>
-        )}
+        {currentTab === 0 && <GeneralConfigSection />}
+        {currentTab === 1 && <IntegrationsSection />}
+        {currentTab === 2 && <AdvancedSection />}
       </Box>
     </Box>
   );
 };
 
 Options.propTypes = {
-  settings: PropTypes.arrayOf(PropTypes.shape({
-    key: PropTypes.string.isRequired,
-    value: PropTypes.any
-  })),
+  settings: PropTypes.arrayOf(
+    PropTypes.shape({
+      key: PropTypes.string.isRequired,
+      value: PropTypes.any,
+    })
+  ),
+  scheduleTypeChanged: PropTypes.func,
   enableReasonWhenCloseTicketChanged: PropTypes.func,
   onSettingChange: PropTypes.func.isRequired,
-  pendingChanges: PropTypes.object
+  pendingChanges: PropTypes.object,
 };
 
 Options.defaultProps = {
   settings: [],
-  enableReasonWhenCloseTicketChanged: () => { },
-  pendingChanges: {}
+  scheduleTypeChanged: () => {},
+  enableReasonWhenCloseTicketChanged: () => {},
+  pendingChanges: {},
 };
 
 export default React.memo(Options);
