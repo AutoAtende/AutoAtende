@@ -1,4 +1,4 @@
-import { Op } from 'sequelize';
+import { Op, Sequelize } from 'sequelize';
 import Ticket from '../../models/Ticket';
 import KanbanCard from '../../models/KanbanCard';
 import KanbanBoard from '../../models/KanbanBoard';
@@ -267,7 +267,7 @@ class KanbanTicketIntegrationService {
           }
         ],
         // Subquery para excluir tickets que já têm cartão
-        having: Ticket.sequelize.literal(`
+        having: Sequelize.literal(`
           NOT EXISTS (
             SELECT 1 FROM "KanbanCards" 
             WHERE "KanbanCards"."ticketId" = "Ticket"."id" 
