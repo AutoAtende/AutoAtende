@@ -58,7 +58,7 @@ import {
 import { copyToClipboard } from "../../../helpers/copyToClipboard";
 import { toast } from "../../../helpers/toast";
 
-import AuthContext from "../../../context/Auth/AuthContext";
+import { AuthContext } from "../../../context/Auth/AuthContext";
 import OnlyForSuperUser from "../../../components/OnlyForSuperUser";
 import StandardTabContent from "../../../components/shared/StandardTabContent";
 
