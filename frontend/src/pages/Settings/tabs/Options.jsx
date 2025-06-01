@@ -56,8 +56,7 @@ import {
 } from "@fortawesome/free-solid-svg-icons";
 import { copyToClipboard } from "../../../helpers/copyToClipboard";
 import { toast } from "../../../helpers/toast";
-import OnlyForSuperUser from "../../../components/OnlyForSuperUser";
-import { AuthContext } from "../../../context/Auth/AuthContext";
+import useAuth from "../../../hooks/useAuth";
 
 // ----------------------------------------------------------------------------------
 // 1. CONSTANTES (ícones, modelos de OpenAI e componentes estilizados)
@@ -936,9 +935,9 @@ const Options = ({
   pendingChanges,
 }) => {
   const theme = useTheme();
+  const { user } = useAuth();
   const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
   const [currentTab, setCurrentTab] = useState(0);
-  const [user] = useContext(AuthContext);
 
   // Estado local que armazena todos os valores de configuração
   const [configState, setConfigState] = useState({
@@ -1125,7 +1124,7 @@ const Options = ({
     (optionsArray) => {
       return optionsArray.map((opt) => {
         // Se o campo for apenas para superusuário, verificar antes de renderizar
-        if (opt.onlyForSuperUser && !user.isSuperUser) return null;
+        if (opt.onlyForSuperUser && !user.super) return null;
 
         const disabled = typeof opt.disabledIf === "function" ? opt.disabledIf(configState) : false;
         const commonProps = {
@@ -1282,7 +1281,7 @@ const Options = ({
         );
       });
     },
-    [configState, handleConfigChange, handleMutuallyExclusive, user.isSuperUser]
+    [configState, handleConfigChange, handleMutuallyExclusive, user.super]
   );
 
   // --------------------------------------------------------------------------------
