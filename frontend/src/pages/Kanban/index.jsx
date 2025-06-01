@@ -20,7 +20,9 @@ import {
   CalendarToday as CalendarViewIcon,
   Refresh as RefreshIcon,
   Settings as SettingsIcon,
-  Dashboard as DashboardIcon
+  Delete as DeleteIcon,
+  Dashboard as DashboardIcon,
+  ArrowBack as ArrowBackIcon,
 } from '@mui/icons-material';
 import { toast } from "../../helpers/toast";
 import api from "../../services/api";
