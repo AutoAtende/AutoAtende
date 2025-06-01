@@ -1,4 +1,5 @@
 import { useState, useEffect, useReducer, useContext } from "react";
+import PropTypes from 'prop-types';
 import { toast } from "../../helpers/toast";
 
 import api from "../../services/api";
@@ -104,5 +105,76 @@ const useWhatsApps = () => {
 
   return { whatsApps, loading };
 };
+
+/**
+ * @typedef {Object} WhatsApp
+ * @property {number} id - ID do WhatsApp
+ * @property {string} name - Nome da conexão
+ * @property {string} status - Status da conexão
+ * @property {string} [session] - ID da sessão
+ * @property {string} [qrcode] - Código QR para autenticação
+ * @property {number} [retries] - Número de tentativas de reconexão
+ * @property {string} [updatedAt] - Data da última atualização
+ * @property {number} [companyId] - ID da empresa dona da conexão
+ */
+
+/**
+ * Hook personalizado para gerenciar conexões WhatsApp
+ * @returns {Object} - Retorna estado e funções para manipulação de conexões WhatsApp
+ * @property {Array<WhatsApp>} whatsApps - Lista de conexões WhatsApp
+ * @property {boolean} loading - Estado de carregamento
+ */
+useWhatsApps.propTypes = {
+  /**
+   * Lista de conexões WhatsApp
+   * @type {Array<WhatsApp>}
+   */
+  whatsApps: PropTypes.arrayOf(
+    PropTypes.shape({
+      id: PropTypes.number.isRequired,
+      name: PropTypes.string.isRequired,
+      status: PropTypes.string.isRequired,
+      session: PropTypes.string,
+      qrcode: PropTypes.string,
+      retries: PropTypes.number,
+      updatedAt: PropTypes.string,
+      companyId: PropTypes.number,
+    })
+  ).isRequired,
+  
+  /**
+   * Estado de carregamento
+   * @type {boolean}
+   */
+  loading: PropTypes.bool.isRequired,
+};
+
+/**
+ * Reducer para gerenciar o estado das conexões WhatsApp
+ * @param {Array<WhatsApp>} state - Estado atual
+ * @param {Object} action - Ação a ser executada
+ * @param {string} action.type - Tipo da ação
+ * @param {any} action.payload - Dados da ação
+ * @returns {Array<WhatsApp>} Novo estado
+ */
+const whatsAppReducer = reducer;
+
+// Documentando os eventos do WebSocket
+/**
+ * @event company-{companyId}-whatsapp
+ * @description Disparado quando há atualizações nas conexões WhatsApp
+ * @property {Object} data - Dados do evento
+ * @property {string} data.action - Ação realizada ('update' ou 'delete')
+ * @property {Object} [data.whatsapp] - Dados da conexão (para ação 'update')
+ * @property {number} [data.whatsappId] - ID da conexão (para ação 'delete')
+ */
+
+/**
+ * @event company-{companyId}-whatsappSession
+ * @description Disparado quando há atualizações na sessão do WhatsApp
+ * @property {Object} data - Dados do evento
+ * @property {string} data.action - Ação realizada ('update')
+ * @property {Object} data.session - Dados da sessão atualizada
+ */
 
 export default useWhatsApps;

@@ -248,7 +248,6 @@ return (
   </SettingsContext.Provider>
 );
 };
-
 const useSettings = () => {
 const context = useContext(SettingsContext);
 if (!context) {

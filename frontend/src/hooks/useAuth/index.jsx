@@ -1,4 +1,5 @@
 import { useState, useEffect, useContext } from "react";
+import PropTypes from "prop-types";
 import { useHistory } from "react-router-dom";
 import { toast } from "../../helpers/toast";
 import { i18n } from "../../translate/i18n";
@@ -10,6 +11,16 @@ import moment from "moment";
 
 let refreshTokenPromise = null;
 
+/**
+ * Hook personalizado para gerenciar autenticação
+ * @returns {Object} - Retorna o estado e funções de autenticação
+ * @property {boolean} isAuth - Indica se o usuário está autenticado
+ * @property {Object} user - Dados do usuário autenticado
+ * @property {boolean} loading - Estado de carregamento
+ * @property {Function} handleLogin - Função para realizar login
+ * @property {Function} handleLogout - Função para realizar logout
+ * @property {Function} getCurrentUserInfo - Função para obter informações do usuário atual
+ */
 const useAuth = () => {
   const history = useHistory();
   const [isAuth, setIsAuth] = useState(false);
@@ -438,6 +449,33 @@ const useAuth = () => {
     handleLogout,
     getCurrentUserInfo,
   };
+};
+
+useAuth.propTypes = {
+  /**
+   * Objeto de configuração para o hook useAuth
+   * @type {Object}
+   * @property {boolean} [enableFacebookPixel=false] - Ativa/desativa o Facebook Pixel
+   * @property {Object} facebookPixelConfig - Configurações do Facebook Pixel
+   * @property {string} [facebookPixelConfig.pixelId] - ID do Pixel do Facebook
+   * @property {boolean} [facebookPixelConfig.debug=false] - Modo de depuração do Pixel
+   */
+  config: PropTypes.shape({
+    enableFacebookPixel: PropTypes.bool,
+    facebookPixelConfig: PropTypes.shape({
+      pixelId: PropTypes.string,
+      debug: PropTypes.bool,
+    })
+  })
+};
+
+useAuth.defaultProps = {
+  config: {
+    enableFacebookPixel: false,
+    facebookPixelConfig: {
+      debug: false
+    }
+  }
 };
 
 export default useAuth;
