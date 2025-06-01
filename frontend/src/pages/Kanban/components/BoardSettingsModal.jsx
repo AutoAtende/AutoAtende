@@ -1,9 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import {
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
   TextField,
   Button,
   FormControlLabel,
@@ -15,7 +11,8 @@ import {
   Grid,
   Typography,
   Box,
-  Divider
+  Divider,
+  CircularProgress
 } from '@mui/material';
 import { alpha, useTheme } from "@mui/material/styles";
 
@@ -47,7 +44,7 @@ const ColorSelector = ({ value, onChange }) => {
   );
 };
 
-const BoardSettingsModal = ({ board, open, onClose, onSave, onDelete }) => {
+const BoardSettingsModal = ({ board, onSave, onDelete, loading = false }) => {
   const theme = useTheme();
   const [formData, setFormData] = useState({
     name: '',
@@ -69,27 +66,39 @@ const BoardSettingsModal = ({ board, open, onClose, onSave, onDelete }) => {
         defaultView: board.defaultView || 'kanban',
         active: board.active !== undefined ? board.active : true
       });
+    } else {
+      // Reset form for new board
+      setFormData({
+        name: '',
+        description: '',
+        color: theme.palette.primary.main,
+        isDefault: false,
+        defaultView: 'kanban',
+        active: true
+      });
     }
   }, [board, theme.palette.primary.main]);
 
   const handleChange = (e) => {
     const { name, value, checked } = e.target;
-    setFormData({
-      ...formData,
+    setFormData(prevData => ({
+      ...prevData,
       [name]: e.target.type === 'checkbox' ? checked : value
-    });
+    }));
   };
 
   const handleColorChange = (color) => {
-    setFormData({
-      ...formData,
+    setFormData(prevData => ({
+      ...prevData,
       color
-    });
+    }));
   };
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    onSave(formData);
+    if (onSave) {
+      onSave(formData);
+    }
   };
 
   const handleDeleteClick = () => {
@@ -98,7 +107,9 @@ const BoardSettingsModal = ({ board, open, onClose, onSave, onDelete }) => {
       return;
     }
     
-    onDelete();
+    if (onDelete) {
+      onDelete();
+    }
     setConfirmDelete(false);
   };
 
@@ -107,147 +118,147 @@ const BoardSettingsModal = ({ board, open, onClose, onSave, onDelete }) => {
   };
 
   return (
-    <Dialog 
-      open={open} 
-      onClose={onClose}
-      maxWidth="md"
-      fullWidth
-    >
-      <DialogTitle>
-        {board ? `Editar Quadro: ${board.name}` : 'Criar Novo Quadro'}
-      </DialogTitle>
-      <DialogContent>
-        <form onSubmit={handleSubmit}>
-          <Grid container spacing={3}>
-            <Grid item xs={12} md={6}>
-              <TextField
-                name="name"
-                label="Nome do Quadro"
-                fullWidth
-                required
-                value={formData.name}
-                onChange={handleChange}
-                margin="normal"
-              />
-              
-              <TextField
-                name="description"
-                label="Descrição"
-                fullWidth
-                multiline
-                rows={3}
-                value={formData.description}
-                onChange={handleChange}
-                margin="normal"
-              />
-              
-              <FormControl fullWidth margin="normal">
-                <InputLabel>Visualização Padrão</InputLabel>
-                <Select
-                  name="defaultView"
-                  value={formData.defaultView}
-                  onChange={handleChange}
-                  label="Visualização Padrão"
-                >
-                  <MenuItem value="kanban">Kanban</MenuItem>
-                  <MenuItem value="list">Lista</MenuItem>
-                  <MenuItem value="calendar">Calendário</MenuItem>
-                </Select>
-              </FormControl>
-            </Grid>
+    <Box>
+      <form onSubmit={handleSubmit}>
+        <Grid container spacing={3}>
+          <Grid item xs={12} md={6}>
+            <TextField
+              name="name"
+              label="Nome do Quadro"
+              fullWidth
+              required
+              value={formData.name}
+              onChange={handleChange}
+              margin="normal"
+              disabled={loading}
+            />
             
-            <Grid item xs={12} md={6}>
-              <Box sx={{ mb: 2 }}>
-                <Typography variant="subtitle1" gutterBottom>
-                  Cor do Quadro
-                </Typography>
-                <ColorSelector
-                  value={formData.color}
-                  onChange={handleColorChange}
+            <TextField
+              name="description"
+              label="Descrição"
+              fullWidth
+              multiline
+              rows={3}
+              value={formData.description}
+              onChange={handleChange}
+              margin="normal"
+              disabled={loading}
+            />
+            
+            <FormControl fullWidth margin="normal" disabled={loading}>
+              <InputLabel>Visualização Padrão</InputLabel>
+              <Select
+                name="defaultView"
+                value={formData.defaultView}
+                onChange={handleChange}
+                label="Visualização Padrão"
+              >
+                <MenuItem value="kanban">Kanban</MenuItem>
+                <MenuItem value="list">Lista</MenuItem>
+                <MenuItem value="calendar">Calendário</MenuItem>
+              </Select>
+            </FormControl>
+          </Grid>
+          
+          <Grid item xs={12} md={6}>
+            <Box sx={{ mb: 2 }}>
+              <Typography variant="subtitle1" gutterBottom>
+                Cor do Quadro
+              </Typography>
+              <ColorSelector
+                value={formData.color}
+                onChange={handleColorChange}
+              />
+            </Box>
+            
+            <FormControlLabel
+              control={
+                <Switch
+                  name="isDefault"
+                  checked={formData.isDefault}
+                  onChange={handleChange}
+                  disabled={loading}
                 />
-              </Box>
-              
+              }
+              label="Definir como quadro padrão"
+              sx={{ mt: 2, display: 'block' }}
+            />
+            
+            {board && (
               <FormControlLabel
                 control={
                   <Switch
-                    name="isDefault"
-                    checked={formData.isDefault}
+                    name="active"
+                    checked={formData.active}
                     onChange={handleChange}
+                    disabled={loading}
                   />
                 }
-                label="Definir como quadro padrão"
-                sx={{ mt: 2, display: 'block' }}
+                label="Ativo"
+                sx={{ mt: 1, display: 'block' }}
               />
-              
-              {board && (
-                <FormControlLabel
-                  control={
-                    <Switch
-                      name="active"
-                      checked={formData.active}
-                      onChange={handleChange}
-                    />
-                  }
-                  label="Ativo"
-                  sx={{ mt: 1, display: 'block' }}
-                />
-              )}
-            </Grid>
+            )}
           </Grid>
-        </form>
+        </Grid>
         
-        {board && (
-          <>
-            <Divider sx={{ my: 3 }} />
+        <Box sx={{ mt: 3, display: 'flex', justifyContent: 'flex-end' }}>
+          <Button
+            type="submit"
+            variant="contained"
+            color="primary"
+            disabled={loading || !formData.name.trim()}
+            startIcon={loading ? <CircularProgress size={16} /> : null}
+          >
+            {loading ? 'Salvando...' : (board && board.id ? 'Atualizar' : 'Criar')}
+          </Button>
+        </Box>
+      </form>
+      
+      {board && onDelete && (
+        <>
+          <Divider sx={{ my: 3 }} />
+          
+          <Box sx={{ mt: 2 }}>
+            <Typography variant="subtitle1" color="error">
+              Zona de Perigo
+            </Typography>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+              A exclusão do quadro removerá todas as colunas e cartões associados. Esta ação não pode ser desfeita.
+            </Typography>
             
-            <Box sx={{ mt: 2 }}>
-              <Typography variant="subtitle1" color="error">
-                Zona de Perigo
-              </Typography>
-              <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                A exclusão do quadro removerá todas as colunas e cartões associados. Esta ação não pode ser desfeita.
-              </Typography>
-              
-              {!confirmDelete ? (
+            {!confirmDelete ? (
+              <Button
+                variant="outlined"
+                color="error"
+                onClick={handleDeleteClick}
+                disabled={loading}
+              >
+                Excluir Quadro
+              </Button>
+            ) : (
+              <Box sx={{ display: 'flex', gap: 2 }}>
                 <Button
-                  variant="outlined"
+                  variant="contained"
                   color="error"
                   onClick={handleDeleteClick}
+                  disabled={loading}
+                  startIcon={loading ? <CircularProgress size={16} /> : null}
                 >
-                  Excluir Quadro
+                  {loading ? 'Excluindo...' : 'Confirmar Exclusão'}
                 </Button>
-              ) : (
-                <Box sx={{ display: 'flex', gap: 2 }}>
-                  <Button
-                    variant="contained"
-                    color="error"
-                    onClick={handleDeleteClick}
-                  >
-                    Confirmar Exclusão
-                  </Button>
-                  <Button
-                    variant="outlined"
-                    onClick={handleCancelDelete}
-                  >
-                    Cancelar
-                  </Button>
-                </Box>
-              )}
-            </Box>
-          </>
-        )}
-      </DialogContent>
-      <DialogActions>
-        <Button onClick={onClose}>Cancelar</Button>
-        <Button 
-          variant="contained" 
-          color="primary" 
-          onClick={handleSubmit}
-        >
-          Salvar
-        </Button>
-      </DialogActions>
-    </Dialog>
+                <Button
+                  variant="outlined"
+                  onClick={handleCancelDelete}
+                  disabled={loading}
+                >
+                  Cancelar
+                </Button>
+              </Box>
+            )}
+          </Box>
+        </>
+      )}
+    </Box>
   );
 };
 

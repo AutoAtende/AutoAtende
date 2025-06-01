@@ -80,7 +80,6 @@ const CardForm = ({ card, onSubmit, loading, companyId }) => {
         blockReason: card.blockReason || ''
       });
       
-      // Se tiver contactId ou ticketId, buscar os dados relacionados
       if (card.contactId) {
         fetchContact(card.contactId);
       }
@@ -201,10 +200,10 @@ const CardForm = ({ card, onSubmit, loading, companyId }) => {
 
   const handleChange = (e) => {
     const { name, value, checked } = e.target;
-    setFormData({
-      ...formData,
+    setFormData(prevData => ({
+      ...prevData,
       [name]: e.target.type === 'checkbox' ? checked : value
-    });
+    }));
   };
 
   const handleContactSearchChange = (e, value) => {
@@ -236,296 +235,316 @@ const CardForm = ({ card, onSubmit, loading, companyId }) => {
   };
 
   const handleDueDateChange = (date) => {
-    setFormData({
-      ...formData,
+    setFormData(prevData => ({
+      ...prevData,
       dueDate: date
-    });
+    }));
   };
 
   const handleTagsChange = (event, newValue) => {
-    setFormData({
-      ...formData,
+    setFormData(prevData => ({
+      ...prevData,
       tags: newValue
-    });
+    }));
+  };
+
+  const handleContactChange = (e, value) => {
+    setFormData(prevData => ({
+      ...prevData,
+      contactId: value ? value.id : ''
+    }));
+  };
+
+  const handleTicketChange = (e, value) => {
+    setFormData(prevData => ({
+      ...prevData,
+      ticketId: value ? value.id : '',
+      contactId: value && value.contact ? value.contact.id : prevData.contactId
+    }));
+    
+    if (value && value.contact) {
+      setContacts([value.contact]);
+    }
   };
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    onSubmit(formData);
+    if (onSubmit) {
+      onSubmit(formData);
+    }
   };
 
   return (
-    <form onSubmit={handleSubmit}>
-      <Grid container spacing={3}>
-        <Grid item xs={12} md={8}>
-          <TextField
-            name="title"
-            label="Título"
-            fullWidth
-            value={formData.title}
-            onChange={handleChange}
-            margin="normal"
-          />
-          
-          <TextField
-            name="description"
-            label="Descrição"
-            fullWidth
-            multiline
-            rows={3}
-            value={formData.description}
-            onChange={handleChange}
-            margin="normal"
-          />
-          
-          <Grid container spacing={2} sx={{ mt: 1 }}>
-            <Grid item xs={12} sm={6}>
-              <FormControl fullWidth margin="normal">
-                <InputLabel>Prioridade</InputLabel>
-                <Select
-                  name="priority"
-                  value={formData.priority}
-                  onChange={handleChange}
-                  label="Prioridade"
-                  startAdornment={<PriorityIcon sx={{ mr: 1 }} />}
-                >
-                  <MenuItem value={0}>Normal</MenuItem>
-                  <MenuItem value={1}>Alta</MenuItem>
-                  <MenuItem value={2}>Urgente</MenuItem>
-                </Select>
-              </FormControl>
-            </Grid>
-            <Grid item xs={12} sm={6}>
-              <Box sx={{ mt: 2 }}>
-                <DateTimePicker
-                  label="Data de Vencimento"
-                  value={formData.dueDate}
-                  onChange={handleDueDateChange}
-                  sx={{ width: '100%' }}
-                  slotProps={{
-                    textField: {
-                      variant: 'outlined',
-                      fullWidth: true
-                    }
-                  }}
-                />
-              </Box>
-            </Grid>
-          </Grid>
-          
-          <Divider sx={{ my: 2 }} />
-          
-          <Autocomplete
-            options={tags}
-            multiple
-            value={formData.tags}
-            onChange={handleTagsChange}
-            getOptionLabel={(option) => option.name}
-            isOptionEqualToValue={(option, value) => option.id === value.id}
-            renderInput={(params) => (
-              <TextField
-                {...params}
-                label="Tags"
-                fullWidth
-                margin="normal"
-                InputProps={{
-                  ...params.InputProps,
-                  startAdornment: (
-                    <>
-                      <TagIcon sx={{ mr: 1 }} />
-                      {params.InputProps.startAdornment}
-                    </>
-                  )
-                }}
-              />
-            )}
-            renderTags={(value, getTagProps) =>
-              value.map((option, index) => (
-                <Chip
-                  key={option.id}
-                  label={option.name}
-                  {...getTagProps({ index })}
-                  style={{
-                    backgroundColor: option.color || undefined,
-                    color: option.color ? '#fff' : undefined
-                  }}
-                  size="small"
-                />
-              ))
-            }
-            loading={loadingData.tags}
-          />
-          
-          <Box sx={{ mt: 2 }}>
-            <FormControlLabel
-              control={
-                <Switch
-                  name="isBlocked"
-                  checked={formData.isBlocked}
-                  onChange={handleChange}
-                />
-              }
-              label={
-                <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                  <LockIcon sx={{ mr: 1, color: 'error.main' }} />
-                  <Typography>Bloquear Cartão</Typography>
-                </Box>
-              }
+    <Box>
+      <form onSubmit={handleSubmit}>
+        <Grid container spacing={3}>
+          <Grid item xs={12} md={8}>
+            <TextField
+              name="title"
+              label="Título"
+              fullWidth
+              value={formData.title}
+              onChange={handleChange}
+              margin="normal"
+              disabled={loading}
             />
             
-            {formData.isBlocked && (
-              <TextField
-                name="blockReason"
-                label="Motivo do Bloqueio"
-                fullWidth
-                value={formData.blockReason}
-                onChange={handleChange}
-                margin="normal"
-                required={formData.isBlocked}
+            <TextField
+              name="description"
+              label="Descrição"
+              fullWidth
+              multiline
+              rows={3}
+              value={formData.description}
+              onChange={handleChange}
+              margin="normal"
+              disabled={loading}
+            />
+            
+            <Grid container spacing={2} sx={{ mt: 1 }}>
+              <Grid item xs={12} sm={6}>
+                <FormControl fullWidth margin="normal" disabled={loading}>
+                  <InputLabel>Prioridade</InputLabel>
+                  <Select
+                    name="priority"
+                    value={formData.priority}
+                    onChange={handleChange}
+                    label="Prioridade"
+                    startAdornment={<PriorityIcon sx={{ mr: 1 }} />}
+                  >
+                    <MenuItem value={0}>Normal</MenuItem>
+                    <MenuItem value={1}>Alta</MenuItem>
+                    <MenuItem value={2}>Urgente</MenuItem>
+                  </Select>
+                </FormControl>
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <Box sx={{ mt: 2 }}>
+                  <DateTimePicker
+                    label="Data de Vencimento"
+                    value={formData.dueDate}
+                    onChange={handleDueDateChange}
+                    disabled={loading}
+                    sx={{ width: '100%' }}
+                    slotProps={{
+                      textField: {
+                        variant: 'outlined',
+                        fullWidth: true
+                      }
+                    }}
+                  />
+                </Box>
+              </Grid>
+            </Grid>
+            
+            <Divider sx={{ my: 2 }} />
+            
+            <Autocomplete
+              options={tags}
+              multiple
+              value={formData.tags}
+              onChange={handleTagsChange}
+              getOptionLabel={(option) => option.name}
+              isOptionEqualToValue={(option, value) => option.id === value.id}
+              disabled={loading}
+              renderInput={(params) => (
+                <TextField
+                  {...params}
+                  label="Tags"
+                  fullWidth
+                  margin="normal"
+                  InputProps={{
+                    ...params.InputProps,
+                    startAdornment: (
+                      <>
+                        <TagIcon sx={{ mr: 1 }} />
+                        {params.InputProps.startAdornment}
+                      </>
+                    )
+                  }}
+                />
+              )}
+              renderTags={(value, getTagProps) =>
+                value.map((option, index) => {
+                  const tagProps = getTagProps({ index });
+                  return (
+                    <Chip
+                      key={option.id}
+                      label={option.name}
+                      {...tagProps}
+                      style={{
+                        backgroundColor: option.color || undefined,
+                        color: option.color ? '#fff' : undefined
+                      }}
+                      size="small"
+                    />
+                  );
+                })
+              }
+              loading={loadingData.tags}
+            />
+            
+            <Box sx={{ mt: 2 }}>
+              <FormControlLabel
+                control={
+                  <Switch
+                    name="isBlocked"
+                    checked={formData.isBlocked}
+                    onChange={handleChange}
+                    disabled={loading}
+                  />
+                }
+                label={
+                  <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                    <LockIcon sx={{ mr: 1, color: 'error.main' }} />
+                    <Typography>Bloquear Cartão</Typography>
+                  </Box>
+                }
               />
-            )}
-          </Box>
+              
+              {formData.isBlocked && (
+                <TextField
+                  name="blockReason"
+                  label="Motivo do Bloqueio"
+                  fullWidth
+                  value={formData.blockReason}
+                  onChange={handleChange}
+                  margin="normal"
+                  required={formData.isBlocked}
+                  disabled={loading}
+                />
+              )}
+            </Box>
+          </Grid>
+          
+          <Grid item xs={12} md={4}>
+            <FormControl fullWidth margin="normal" disabled={loading}>
+              <InputLabel>Responsável</InputLabel>
+              <Select
+                name="assignedUserId"
+                value={formData.assignedUserId}
+                onChange={handleChange}
+                label="Responsável"
+                startAdornment={<PersonIcon sx={{ mr: 1 }} />}
+              >
+                <MenuItem value="">Nenhum</MenuItem>
+                {users.map((user) => (
+                  <MenuItem key={user.id} value={user.id}>
+                    {user.name}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+            
+            <Autocomplete
+              options={contacts}
+              value={contacts.find(c => c.id === formData.contactId) || null}
+              onChange={handleContactChange}
+              getOptionLabel={(option) => `${option.name} (${option.number})`}
+              isOptionEqualToValue={(option, value) => option.id === value.id}
+              disabled={loading}
+              renderInput={(params) => (
+                <TextField
+                  {...params}
+                  label="Contato"
+                  fullWidth
+                  margin="normal"
+                  onChange={(e) => handleContactSearchChange(e, e.target.value)}
+                  value={contactSearchTerm}
+                  InputProps={{
+                    ...params.InputProps,
+                    startAdornment: (
+                      <>
+                        <ContactIcon sx={{ mr: 1 }} />
+                        {params.InputProps.startAdornment}
+                      </>
+                    ),
+                    endAdornment: (
+                      <>
+                        {loadingData.contacts ? <CircularProgress size={20} /> : null}
+                        {params.InputProps.endAdornment}
+                      </>
+                    )
+                  }}
+                />
+              )}
+            />
+            
+            <Autocomplete
+              options={tickets}
+              value={tickets.find(t => t.id === formData.ticketId) || null}
+              onChange={handleTicketChange}
+              getOptionLabel={(option) => `Ticket #${option.id}`}
+              isOptionEqualToValue={(option, value) => option.id === value.id}
+              disabled={loading}
+              renderInput={(params) => (
+                <TextField
+                  {...params}
+                  label="Ticket"
+                  fullWidth
+                  margin="normal"
+                  onChange={(e) => handleTicketSearchChange(e, e.target.value)}
+                  value={ticketSearchTerm}
+                  InputProps={{
+                    ...params.InputProps,
+                    startAdornment: (
+                      <>
+                        <MessageIcon sx={{ mr: 1 }} />
+                        {params.InputProps.startAdornment}
+                      </>
+                    ),
+                    endAdornment: (
+                      <>
+                        {loadingData.tickets ? <CircularProgress size={20} /> : null}
+                        {params.InputProps.endAdornment}
+                      </>
+                    )
+                  }}
+                />
+              )}
+            />
+            
+            <Divider sx={{ my: 2 }} />
+            
+            <TextField
+              name="value"
+              label="Valor"
+              type="number"
+              fullWidth
+              value={formData.value}
+              onChange={handleChange}
+              margin="normal"
+              disabled={loading}
+              InputProps={{
+                startAdornment: <Typography sx={{ mr: 1 }}>R$</Typography>
+              }}
+            />
+            
+            <TextField
+              name="sku"
+              label="SKU/Referência"
+              fullWidth
+              value={formData.sku}
+              onChange={handleChange}
+              margin="normal"
+              disabled={loading}
+            />
+          </Grid>
         </Grid>
         
-        <Grid item xs={12} md={4}>
-          <FormControl fullWidth margin="normal">
-            <InputLabel>Responsável</InputLabel>
-            <Select
-              name="assignedUserId"
-              value={formData.assignedUserId}
-              onChange={handleChange}
-              label="Responsável"
-              startAdornment={<PersonIcon sx={{ mr: 1 }} />}
-            >
-              <MenuItem value="">Nenhum</MenuItem>
-              {users.map((user) => (
-                <MenuItem key={user.id} value={user.id}>
-                  {user.name}
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
-          
-          <Autocomplete
-            options={contacts}
-            value={contacts.find(c => c.id === formData.contactId) || null}
-            onChange={(e, value) => {
-              setFormData({
-                ...formData,
-                contactId: value ? value.id : ''
-              });
-            }}
-            getOptionLabel={(option) => `${option.name} (${option.number})`}
-            isOptionEqualToValue={(option, value) => option.id === value.id}
-            renderInput={(params) => (
-              <TextField
-                {...params}
-                label="Contato"
-                fullWidth
-                margin="normal"
-                onChange={(e) => handleContactSearchChange(e, e.target.value)}
-                value={contactSearchTerm}
-                InputProps={{
-                  ...params.InputProps,
-                  startAdornment: (
-                    <>
-                      <ContactIcon sx={{ mr: 1 }} />
-                      {params.InputProps.startAdornment}
-                    </>
-                  ),
-                  endAdornment: (
-                    <>
-                      {loadingData.contacts ? <CircularProgress size={20} /> : null}
-                      {params.InputProps.endAdornment}
-                    </>
-                  )
-                }}
-              />
-            )}
-          />
-          
-          <Autocomplete
-            options={tickets}
-            value={tickets.find(t => t.id === formData.ticketId) || null}
-            onChange={(e, value) => {
-              setFormData({
-                ...formData,
-                ticketId: value ? value.id : '',
-                // Se selecionar um ticket, atualiza também o contato
-                contactId: value && value.contact ? value.contact.id : formData.contactId
-              });
-              
-              // Se selecionar um ticket, busca o contato associado
-              if (value && value.contact) {
-                setContacts([value.contact]);
-              }
-            }}
-            getOptionLabel={(option) => `Ticket #${option.id}`}
-            isOptionEqualToValue={(option, value) => option.id === value.id}
-            renderInput={(params) => (
-              <TextField
-                {...params}
-                label="Ticket"
-                fullWidth
-                margin="normal"
-                onChange={(e) => handleTicketSearchChange(e, e.target.value)}
-                value={ticketSearchTerm}
-                InputProps={{
-                  ...params.InputProps,
-                  startAdornment: (
-                    <>
-                      <MessageIcon sx={{ mr: 1 }} />
-                      {params.InputProps.startAdornment}
-                    </>
-                  ),
-                  endAdornment: (
-                    <>
-                      {loadingData.tickets ? <CircularProgress size={20} /> : null}
-                      {params.InputProps.endAdornment}
-                    </>
-                  )
-                }}
-              />
-            )}
-          />
-          
-          <Divider sx={{ my: 2 }} />
-          
-          <TextField
-            name="value"
-            label="Valor"
-            type="number"
-            fullWidth
-            value={formData.value}
-            onChange={handleChange}
-            margin="normal"
-            InputProps={{
-              startAdornment: <Typography sx={{ mr: 1 }}>R$</Typography>
-            }}
-          />
-          
-          <TextField
-            name="sku"
-            label="SKU/Referência"
-            fullWidth
-            value={formData.sku}
-            onChange={handleChange}
-            margin="normal"
-          />
-        </Grid>
-      </Grid>
-      
-      <Box sx={{ mt: 3, display: 'flex', justifyContent: 'flex-end' }}>
-        <Button
-          type="submit"
-          variant="contained"
-          color="primary"
-          disabled={loading}
-        >
-          {loading ? <CircularProgress size={24} /> : (card && card.id ? 'Atualizar' : 'Adicionar')}
-        </Button>
-      </Box>
-    </form>
+        <Box sx={{ mt: 3, display: 'flex', justifyContent: 'flex-end' }}>
+          <Button
+            type="submit"
+            variant="contained"
+            color="primary"
+            disabled={loading || !formData.title.trim()}
+            startIcon={loading ? <CircularProgress size={16} /> : null}
+          >
+            {loading ? 'Salvando...' : (card && card.id ? 'Atualizar' : 'Adicionar')}
+          </Button>
+        </Box>
+      </form>
+    </Box>
   );
 };
 

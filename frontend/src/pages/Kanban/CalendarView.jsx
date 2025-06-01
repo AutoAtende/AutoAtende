@@ -7,10 +7,6 @@ import {
   IconButton,
   Tooltip,
   Button,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
   Card,
   CardContent,
   Chip
@@ -28,7 +24,7 @@ import { format, addMonths, subMonths, startOfMonth, endOfMonth, eachDayOfInterv
 import { ptBR } from 'date-fns/locale';
 import { toast } from "../../helpers/toast";
 import useAuth from "../../hooks/useAuth";
-import { useModal } from "../../hooks/useModal";
+import StandardModal from "../../components/shared/StandardModal";
 import CardForm from './components/CardForm';
 import CardDetailsModal from './components/CardDetailsModal';
 import CardAssigneeAvatar from './components/CardAssigneeAvatar';
@@ -193,10 +189,11 @@ const CalendarView = ({
 }) => {
   const theme = useTheme();
   const { user } = useAuth();
-  const { showMessage, closeModal } = useModal();
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [selectedCard, setSelectedCard] = useState(null);
   const [showCardDetails, setShowCardDetails] = useState(false);
+  const [showAddCardModal, setShowAddCardModal] = useState(false);
+  const [newCardDate, setNewCardDate] = useState(null);
   
   // Navegar pelo calendário
   const nextMonth = () => setCurrentMonth(addMonths(currentMonth, 1));
@@ -251,29 +248,54 @@ const CalendarView = ({
       return;
     }
     
-    showMessage({
-      title: 'Adicionar Cartão',
-      content: (
-        <CardForm
-          card={{ 
-            laneId: defaultLaneId,
-            dueDate: day
-          }}
-          onSubmit={async (cardData) => {
-            try {
-              await onCardCreate(cardData);
-              toast.success('Cartão criado com sucesso!');
-              closeModal();
-            } catch (err) {
-              console.error("Erro ao criar cartão:", err);
-              toast.error(err.message || 'Erro ao criar cartão');
-            }
-          }}
-          companyId={companyId}
-        />
-      ),
-      maxWidth: 'md'
-    });
+    setNewCardDate(day);
+    setShowAddCardModal(true);
+  };
+
+  const handleAddCardSubmit = async (cardData) => {
+    try {
+      await onCardCreate(cardData);
+      toast.success('Cartão criado com sucesso!');
+      setShowAddCardModal(false);
+      setNewCardDate(null);
+    } catch (err) {
+      console.error("Erro ao criar cartão:", err);
+      toast.error(err.message || 'Erro ao criar cartão');
+    }
+  };
+
+  const handleCloseAddCard = () => {
+    setShowAddCardModal(false);
+    setNewCardDate(null);
+  };
+
+  const handleCardUpdate = async (cardId, cardData) => {
+    try {
+      await onCardUpdate(cardId, cardData);
+      toast.success('Cartão atualizado com sucesso!');
+      setShowCardDetails(false);
+      setSelectedCard(null);
+    } catch (err) {
+      console.error("Erro ao atualizar cartão:", err);
+      toast.error(err.message || 'Erro ao atualizar cartão');
+    }
+  };
+
+  const handleCardDelete = async (cardId) => {
+    try {
+      // Mock implementation since onCardDelete prop wasn't provided
+      toast.success('Cartão excluído com sucesso!');
+      setShowCardDetails(false);
+      setSelectedCard(null);
+    } catch (err) {
+      console.error("Erro ao excluir cartão:", err);
+      toast.error(err.message || 'Erro ao excluir cartão');
+    }
+  };
+
+  const handleCloseCardDetails = () => {
+    setShowCardDetails(false);
+    setSelectedCard(null);
   };
   
   return (
@@ -385,32 +407,32 @@ const CalendarView = ({
         </Box>
       </Paper>
       
+      {/* Standard Modal para Adicionar Cartão */}
+      <StandardModal
+        open={showAddCardModal}
+        onClose={handleCloseAddCard}
+        title="Adicionar Cartão"
+        maxWidth="md"
+        size="large"
+      >
+        <CardForm
+          card={{ 
+            laneId: lanes && lanes.length > 0 ? lanes[0].id : null,
+            dueDate: newCardDate
+          }}
+          onSubmit={handleAddCardSubmit}
+          companyId={companyId}
+        />
+      </StandardModal>
+
       {/* Card Details Modal */}
       {selectedCard && (
         <CardDetailsModal
           open={showCardDetails}
           card={selectedCard}
-          onClose={() => setShowCardDetails(false)}
-          onUpdate={async (cardId, cardData) => {
-            try {
-              await onCardUpdate(cardId, cardData);
-              toast.success('Cartão atualizado com sucesso!');
-              setShowCardDetails(false);
-            } catch (err) {
-              console.error("Erro ao atualizar cartão:", err);
-              toast.error(err.message || 'Erro ao atualizar cartão');
-            }
-          }}
-          onDelete={async (cardId) => {
-            try {
-              // Um mock para onCardDelete já que não foi passado como prop
-              toast.success('Cartão excluído com sucesso!');
-              setShowCardDetails(false);
-            } catch (err) {
-              console.error("Erro ao excluir cartão:", err);
-              toast.error(err.message || 'Erro ao excluir cartão');
-            }
-          }}
+          onClose={handleCloseCardDetails}
+          onUpdate={handleCardUpdate}
+          onDelete={handleCardDelete}
           companyId={companyId}
         />
       )}

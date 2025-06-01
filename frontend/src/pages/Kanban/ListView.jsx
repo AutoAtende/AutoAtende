@@ -24,7 +24,8 @@ import {
   InputLabel,
   Grid,
   Checkbox,
-  Avatar
+  Avatar,
+  CircularProgress
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -39,15 +40,15 @@ import {
 import { format } from 'date-fns';
 import { toast } from "../../helpers/toast";
 import useAuth from "../../hooks/useAuth";
-import { useModal } from "../../hooks/useModal";
+import StandardModal from "../../components/shared/StandardModal";
 import CardForm from './components/CardForm';
 import CardDetailsModal from './components/CardDetailsModal';
 import CardAssigneeAvatar from './components/CardAssigneeAvatar';
 
 const ListView = ({
   board,
-  lanes = [],  // Valor default para evitar undefined
-  cards = [],  // Valor default para evitar undefined
+  lanes = [],
+  cards = [],
   onCardCreate,
   onCardUpdate,
   onCardDelete,
@@ -55,13 +56,18 @@ const ListView = ({
 }) => {
   const theme = useTheme();
   const { user } = useAuth();
-  const { showMessage, closeModal } = useModal();
   const [order, setOrder] = useState('desc');
   const [orderBy, setOrderBy] = useState('createdAt');
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [selectedCard, setSelectedCard] = useState(null);
   const [showCardDetails, setShowCardDetails] = useState(false);
+  const [showAddCard, setShowAddCard] = useState(false);
+  const [showEditCard, setShowEditCard] = useState(false);
+  const [showDeleteCard, setShowDeleteCard] = useState(false);
+  const [cardToEdit, setCardToEdit] = useState(null);
+  const [cardToDelete, setCardToDelete] = useState(null);
+  const [isLoading, setIsLoading] = useState(false);
   const [filter, setFilter] = useState({
     search: '',
     lane: '',
@@ -79,11 +85,11 @@ const ListView = ({
     if (!event || !event.target) return;
     
     const { name, value, checked } = event.target;
-    setFilter({
-      ...filter,
+    setFilter(prevFilter => ({
+      ...prevFilter,
       [name]: name === 'showBlocked' ? checked : value
-    });
-    setPage(0); // Reset to first page when filter changes
+    }));
+    setPage(0);
   };
 
   const handleCardClick = (card) => {
@@ -93,7 +99,6 @@ const ListView = ({
   };
 
   const handleAddCard = () => {
-    // Default to first lane if available
     const defaultLaneId = lanes && lanes.length > 0 ? lanes[0].id : null;
     
     if (!defaultLaneId) {
@@ -101,33 +106,117 @@ const ListView = ({
       return;
     }
     
-    showMessage({
-      title: 'Adicionar Cartão',
-      content: (
-        <CardForm
-          card={{ laneId: defaultLaneId }}
-          onSubmit={async (cardData) => {
-            try {
-              await onCardCreate(cardData);
-              toast.success('Cartão criado com sucesso!');
-              closeModal();
-            } catch (err) {
-              console.error("Erro ao criar cartão:", err);
-              toast.error(err.message || 'Erro ao criar cartão');
-            }
-          }}
-          companyId={companyId}
-        />
-      ),
-      maxWidth: 'md'
-    });
+    setShowAddCard(true);
+  };
+
+  const handleAddCardSubmit = async (cardData) => {
+    try {
+      setIsLoading(true);
+      await onCardCreate(cardData);
+      toast.success('Cartão criado com sucesso!');
+      setShowAddCard(false);
+    } catch (err) {
+      console.error("Erro ao criar cartão:", err);
+      toast.error(err.message || 'Erro ao criar cartão');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleAddCardClose = () => {
+    setShowAddCard(false);
+  };
+
+  const handleEditCard = (card) => {
+    setCardToEdit(card);
+    setShowEditCard(true);
+  };
+
+  const handleEditCardSubmit = async (cardData) => {
+    try {
+      setIsLoading(true);
+      await onCardUpdate(cardToEdit.id, cardData);
+      toast.success('Cartão atualizado com sucesso!');
+      setShowEditCard(false);
+      setCardToEdit(null);
+    } catch (err) {
+      console.error("Erro ao atualizar cartão:", err);
+      toast.error(err.message || 'Erro ao atualizar cartão');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleEditCardClose = () => {
+    setShowEditCard(false);
+    setCardToEdit(null);
+  };
+
+  const handleDeleteCard = (card) => {
+    setCardToDelete(card);
+    setShowDeleteCard(true);
+  };
+
+  const handleDeleteCardConfirm = async () => {
+    try {
+      setIsLoading(true);
+      await onCardDelete(cardToDelete.id);
+      toast.success('Cartão excluído com sucesso!');
+      setShowDeleteCard(false);
+      setCardToDelete(null);
+    } catch (err) {
+      console.error("Erro ao excluir cartão:", err);
+      toast.error(err.message || 'Erro ao excluir cartão');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleDeleteCardClose = () => {
+    setShowDeleteCard(false);
+    setCardToDelete(null);
+  };
+
+  const handleCardDetailsClose = () => {
+    setShowCardDetails(false);
+    setSelectedCard(null);
+  };
+
+  const handleCardDetailsUpdate = async (cardId, cardData) => {
+    try {
+      setIsLoading(true);
+      await onCardUpdate(cardId, cardData);
+      toast.success('Cartão atualizado com sucesso!');
+      setShowCardDetails(false);
+      setSelectedCard(null);
+    } catch (err) {
+      console.error("Erro ao atualizar cartão:", err);
+      toast.error(err.message || 'Erro ao atualizar cartão');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleCardDetailsDelete = async (cardId) => {
+    try {
+      setIsLoading(true);
+      await onCardDelete(cardId);
+      toast.success('Cartão excluído com sucesso!');
+      setShowCardDetails(false);
+      setSelectedCard(null);
+    } catch (err) {
+      console.error("Erro ao excluir cartão:", err);
+      toast.error(err.message || 'Erro ao excluir cartão');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   // Verificações para garantir que tudo é array e evitar erros
   const safeCards = Array.isArray(cards) ? cards : [];
   const safeLanes = Array.isArray(lanes) ? lanes : [];
   
-  // Filter cards - Adicionando verificações de segurança
+  // Filter cards
   const filteredCards = safeCards.filter(card => {
     if (!card) return false;
     
@@ -150,7 +239,7 @@ const ListView = ({
     return matchSearch && matchLane && matchAssignee && matchBlocked;
   });
 
-  // Sort cards - Com verificações para valores nulos
+  // Sort cards
   const sortedCards = [...filteredCards].sort((a, b) => {
     if (!a || !b) return 0;
     
@@ -171,7 +260,6 @@ const ListView = ({
       valueA = a.dueDate ? new Date(a.dueDate) : null;
       valueB = b.dueDate ? new Date(b.dueDate) : null;
       
-      // Handle null values for dates
       if (valueA === null && valueB === null) return 0;
       if (valueA === null) return order === 'asc' ? 1 : -1;
       if (valueB === null) return order === 'asc' ? -1 : 1;
@@ -187,7 +275,7 @@ const ListView = ({
     return order === 'asc' ? result : -result;
   });
 
-  // Pagination - Verificando se os índices são válidos
+  // Pagination
   const paginatedCards = sortedCards.slice(
     page * rowsPerPage,
     Math.min(page * rowsPerPage + rowsPerPage, sortedCards.length)
@@ -515,27 +603,7 @@ const ListView = ({
                         size="small"
                         onClick={(e) => {
                           e.stopPropagation();
-                          setSelectedCard(card);
-                          showMessage({
-                            title: 'Editar Cartão',
-                            content: (
-                              <CardForm
-                                card={card}
-                                onSubmit={async (cardData) => {
-                                  try {
-                                    await onCardUpdate(card.id, cardData);
-                                    toast.success('Cartão atualizado com sucesso!');
-                                    closeModal();
-                                  } catch (err) {
-                                    console.error("Erro ao atualizar cartão:", err);
-                                    toast.error(err.message || 'Erro ao atualizar cartão');
-                                  }
-                                }}
-                                companyId={companyId}
-                              />
-                            ),
-                            maxWidth: 'md'
-                          });
+                          handleEditCard(card);
                         }}
                       >
                         <EditIcon />
@@ -545,34 +613,7 @@ const ListView = ({
                         color="error"
                         onClick={(e) => {
                           e.stopPropagation();
-                          showMessage({
-                            title: 'Excluir Cartão',
-                            content: (
-                              <Box>
-                                <Typography>{`Tem certeza que deseja excluir o cartão "${card.title || 'Sem título'}"?`}</Typography>
-                                <Box sx={{ mt: 2, display: 'flex', justifyContent: 'flex-end', gap: 1 }}>
-                                  <Button onClick={closeModal}>Cancelar</Button>
-                                  <Button 
-                                    variant="contained" 
-                                    color="error"
-                                    onClick={async () => {
-                                      try {
-                                        await onCardDelete(card.id);
-                                        toast.success('Cartão excluído com sucesso!');
-                                        closeModal();
-                                      } catch (err) {
-                                        console.error("Erro ao excluir cartão:", err);
-                                        toast.error(err.message || 'Erro ao excluir cartão');
-                                      }
-                                    }}
-                                  >
-                                    Excluir
-                                  </Button>
-                                </Box>
-                              </Box>
-                            ),
-                            maxWidth: 'sm'
-                          });
+                          handleDeleteCard(card);
                         }}
                       >
                         <DeleteIcon />
@@ -601,32 +642,80 @@ const ListView = ({
         labelDisplayedRows={({ from, to, count }) => `${from}-${to} de ${count}`}
       />
       
+      {/* Modal para Adicionar Cartão */}
+      <StandardModal
+        open={showAddCard}
+        onClose={handleAddCardClose}
+        title="Adicionar Cartão"
+        maxWidth="md"
+        size="large"
+      >
+        <CardForm
+          card={{ 
+            laneId: lanes && lanes.length > 0 ? lanes[0].id : null
+          }}
+          onSubmit={handleAddCardSubmit}
+          loading={isLoading}
+          companyId={companyId}
+        />
+      </StandardModal>
+
+      {/* Modal para Editar Cartão */}
+      <StandardModal
+        open={showEditCard}
+        onClose={handleEditCardClose}
+        title="Editar Cartão"
+        maxWidth="md"
+        size="large"
+      >
+        {cardToEdit && (
+          <CardForm
+            card={cardToEdit}
+            onSubmit={handleEditCardSubmit}
+            loading={isLoading}
+            companyId={companyId}
+          />
+        )}
+      </StandardModal>
+
+      {/* Modal para Excluir Cartão */}
+      <StandardModal
+        open={showDeleteCard}
+        onClose={handleDeleteCardClose}
+        title="Excluir Cartão"
+        maxWidth="sm"
+        size="small"
+        primaryAction={{
+          label: isLoading ? 'Excluindo...' : 'Excluir',
+          onClick: handleDeleteCardConfirm,
+          disabled: isLoading,
+          color: 'error',
+          icon: isLoading ? <CircularProgress size={16} /> : <DeleteIcon />
+        }}
+        secondaryAction={{
+          label: 'Cancelar',
+          onClick: handleDeleteCardClose,
+          disabled: isLoading
+        }}
+      >
+        <Typography>
+          {cardToDelete && (
+            <>
+              Tem certeza que deseja excluir o cartão "{cardToDelete.title || 'Sem título'}"?
+            </>
+          )}
+        </Typography>
+      </StandardModal>
+      
       {/* Card Details Modal */}
       {selectedCard && (
         <CardDetailsModal
           open={showCardDetails}
           card={selectedCard}
-          onClose={() => setShowCardDetails(false)}
-          onUpdate={async (cardId, cardData) => {
-            try {
-              await onCardUpdate(cardId, cardData);
-              toast.success('Cartão atualizado com sucesso!');
-              setShowCardDetails(false);
-            } catch (err) {
-              console.error("Erro ao atualizar cartão:", err);
-              toast.error(err.message || 'Erro ao atualizar cartão');
-            }
-          }}
-          onDelete={async (cardId) => {
-            try {
-              await onCardDelete(cardId);
-              toast.success('Cartão excluído com sucesso!');
-              setShowCardDetails(false);
-            } catch (err) {
-              console.error("Erro ao excluir cartão:", err);
-              toast.error(err.message || 'Erro ao excluir cartão');
-            }
-          }}
+          onClose={handleCardDetailsClose}
+          onUpdate={handleCardDetailsUpdate}
+          onDelete={handleCardDetailsDelete}
+          loading={isLoading}
           companyId={companyId}
         />
       )}

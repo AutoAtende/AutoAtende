@@ -1,15 +1,10 @@
 import React, { useState, useCallback } from "react";
 import Board from "react-trello";
-import { useTheme } from "@mui/material/styles";
-import { useModal } from "../../hooks/useModal";
+import { useTheme, alpha } from "@mui/material/styles";
 import {
   Box,
   Button,
   Typography,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogTitle,
   CircularProgress,
   IconButton,
   Tooltip
@@ -22,18 +17,20 @@ import {
   Assignment as AssignmentIcon,
   Person as PersonIcon,
   CalendarToday as CalendarIcon,
-  Info as InfoIcon
+  Info as InfoIcon,
+  WhatsApp as WhatsAppIcon
 } from "@mui/icons-material";
 import { useSpring, animated } from "react-spring";
 import { toast } from "../../helpers/toast";
 import useAuth from "../../hooks/useAuth";
+import StandardModal from "../../components/shared/StandardModal";
 import LaneForm from "./components/LaneForm";
 import CardForm from "./components/CardForm";
 import CardDetailsModal from "./components/CardDetailsModal";
 import ChecklistModal from "./components/ChecklistModal";
 import CardAssigneeAvatar from "./components/CardAssigneeAvatar";
 
-const AnimatedDialog = animated(Dialog);
+const AnimatedDialog = animated(StandardModal);
 
 const customLaneHeader = (laneTitle, cards, onAddCard, onEditLane, onDeleteLane, laneColor, userProfile) => {
   return (
@@ -165,8 +162,6 @@ const customCard = (props) => {
           {hasTicket && ticketInfo}
         </Typography>
       )}
-
-      
       
       {cardData.description && typeof cardData.description === 'string' && (
         <Typography variant="caption" sx={{ 
@@ -238,8 +233,8 @@ const customCard = (props) => {
 
 const KanbanView = ({
   board,
-  lanes = [],  // Valores default para prevenir undefined
-  cards = [],  // Valores default para prevenir undefined
+  lanes = [],
+  cards = [],
   onLaneCreate,
   onLaneUpdate,
   onLaneDelete,
@@ -252,12 +247,18 @@ const KanbanView = ({
 }) => {
   const theme = useTheme();
   const { user } = useAuth();
-  const { showMessage, closeModal } = useModal();
   const [isAddingLane, setIsAddingLane] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [selectedCard, setSelectedCard] = useState(null);
   const [showCardDetails, setShowCardDetails] = useState(false);
   const [showChecklist, setShowChecklist] = useState(false);
+  const [showEditLane, setShowEditLane] = useState(false);
+  const [selectedLane, setSelectedLane] = useState(null);
+  const [showDeleteLane, setShowDeleteLane] = useState(false);
+  const [showAddCard, setShowAddCard] = useState(false);
+  const [selectedLaneId, setSelectedLaneId] = useState(null);
+  const [showDeleteCard, setShowDeleteCard] = useState(false);
+  const [cardToDelete, setCardToDelete] = useState(null);
   
   const addLaneFormStyles = useSpring({
     opacity: isAddingLane ? 1 : 0,
@@ -265,7 +266,7 @@ const KanbanView = ({
     config: { tension: 300, friction: 20 }
   });
 
-  // Preparar os dados para o componente Board - Adicionando verificações extras
+  // Preparar os dados para o componente Board
   const formatBoardData = useCallback(() => {
     if (!Array.isArray(lanes)) {
       console.error("Lanes não é um array", lanes);
@@ -278,7 +279,6 @@ const KanbanView = ({
         return null;
       }
       
-      // Filtrar apenas cards válidos para esta lane
       const laneCards = Array.isArray(cards) 
         ? cards.filter(card => card && card.laneId === lane.id)
         : [];
@@ -292,7 +292,6 @@ const KanbanView = ({
             return null;
           }
           
-          // Incluir dados do card no description para uso pelo customCard
           const cardData = {
             id: card.id,
             description: card.description,
@@ -316,18 +315,17 @@ const KanbanView = ({
             title: card.title || (card.contact ? card.contact.name : 'Sem título'),
             description: JSON.stringify(cardData),
             label: card.tags?.length ? card.tags[0].name : '',
-            draggable: !card.isBlocked, // Cards bloqueados não podem ser movidos
+            draggable: !card.isBlocked,
             metadata: card.metadata
           };
-        }).filter(Boolean), // Remove elementos null
+        }).filter(Boolean),
         style: {
           width: 280,
         },
-        // Propriedades adicionais para o lane header
         color: lane.color || theme.palette.primary.main,
         cardLimit: lane.cardLimit
       };
-    }).filter(Boolean); // Remove elementos null
+    }).filter(Boolean);
     
     return { lanes: formattedLanes };
   }, [lanes, cards, theme.palette.primary.main]);
@@ -361,29 +359,28 @@ const KanbanView = ({
       return;
     }
     
-    showMessage({
-      title: 'Editar Coluna',
-      content: (
-        <LaneForm
-          lane={lane}
-          onSubmit={async (laneData) => {
-            try {
-              setIsLoading(true);
-              await onLaneUpdate(laneId, laneData);
-              toast.success('Coluna atualizada com sucesso!');
-              closeModal();
-              setIsLoading(false);
-            } catch (err) {
-              console.error("Erro ao atualizar coluna:", err);
-              toast.error(err.message || 'Erro ao atualizar coluna');
-              setIsLoading(false);
-            }
-          }}
-          loading={isLoading}
-        />
-      ),
-      maxWidth: 'md'
-    });
+    setSelectedLane(lane);
+    setShowEditLane(true);
+  };
+
+  const handleLaneEditSubmit = async (laneData) => {
+    try {
+      setIsLoading(true);
+      await onLaneUpdate(selectedLane.id, laneData);
+      toast.success('Coluna atualizada com sucesso!');
+      setShowEditLane(false);
+      setSelectedLane(null);
+    } catch (err) {
+      console.error("Erro ao atualizar coluna:", err);
+      toast.error(err.message || 'Erro ao atualizar coluna');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleLaneEditClose = () => {
+    setShowEditLane(false);
+    setSelectedLane(null);
   };
 
   const handleLaneDelete = (laneId) => {
@@ -393,42 +390,28 @@ const KanbanView = ({
       return;
     }
     
-    const laneCards = Array.isArray(cards) ? cards.filter(card => card && card.laneId === lane.id) : [];
-    const message = laneCards.length > 0 
-      ? `Tem certeza que deseja excluir a coluna "${lane.name}"? Existem ${laneCards.length} cartões nesta coluna que também serão excluídos.`
-      : `Tem certeza que deseja excluir a coluna "${lane.name}"?`;
-    
-    showMessage({
-      title: 'Excluir Coluna',
-      content: (
-        <Box>
-          <Typography>{message}</Typography>
-          <Box sx={{ mt: 2, display: 'flex', justifyContent: 'flex-end', gap: 1 }}>
-            <Button onClick={closeModal}>Cancelar</Button>
-            <Button 
-              variant="contained" 
-              color="error"
-              onClick={async () => {
-                try {
-                  setIsLoading(true);
-                  await onLaneDelete(laneId);
-                  toast.success('Coluna excluída com sucesso!');
-                  closeModal();
-                  setIsLoading(false);
-                } catch (err) {
-                  console.error("Erro ao excluir coluna:", err);
-                  toast.error(err.message || 'Erro ao excluir coluna');
-                  setIsLoading(false);
-                }
-              }}
-            >
-              Excluir
-            </Button>
-          </Box>
-        </Box>
-      ),
-      maxWidth: 'sm'
-    });
+    setSelectedLane(lane);
+    setShowDeleteLane(true);
+  };
+
+  const handleLaneDeleteConfirm = async () => {
+    try {
+      setIsLoading(true);
+      await onLaneDelete(selectedLane.id);
+      toast.success('Coluna excluída com sucesso!');
+      setShowDeleteLane(false);
+      setSelectedLane(null);
+    } catch (err) {
+      console.error("Erro ao excluir coluna:", err);
+      toast.error(err.message || 'Erro ao excluir coluna');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleLaneDeleteClose = () => {
+    setShowDeleteLane(false);
+    setSelectedLane(null);
   };
 
   const handleCardAdd = (laneId) => {
@@ -438,30 +421,28 @@ const KanbanView = ({
       return;
     }
     
-    showMessage({
-      title: 'Adicionar Cartão',
-      content: (
-        <CardForm
-          card={{ laneId: parseInt(laneId) }}
-          onSubmit={async (cardData) => {
-            try {
-              setIsLoading(true);
-              await onCardCreate(cardData);
-              toast.success('Cartão criado com sucesso!');
-              closeModal();
-              setIsLoading(false);
-            } catch (err) {
-              console.error("Erro ao criar cartão:", err);
-              toast.error(err.message || 'Erro ao criar cartão');
-              setIsLoading(false);
-            }
-          }}
-          loading={isLoading}
-          companyId={companyId}
-        />
-      ),
-      maxWidth: 'md'
-    });
+    setSelectedLaneId(parseInt(laneId));
+    setShowAddCard(true);
+  };
+
+  const handleCardAddSubmit = async (cardData) => {
+    try {
+      setIsLoading(true);
+      await onCardCreate(cardData);
+      toast.success('Cartão criado com sucesso!');
+      setShowAddCard(false);
+      setSelectedLaneId(null);
+    } catch (err) {
+      console.error("Erro ao criar cartão:", err);
+      toast.error(err.message || 'Erro ao criar cartão');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleCardAddClose = () => {
+    setShowAddCard(false);
+    setSelectedLaneId(null);
   };
 
   const handleCardClick = (cardId) => {
@@ -481,10 +462,11 @@ const KanbanView = ({
       await onCardUpdate(cardId, cardData);
       toast.success('Cartão atualizado com sucesso!');
       setShowCardDetails(false);
-      setIsLoading(false);
+      setSelectedCard(null);
     } catch (err) {
       console.error("Erro ao atualizar cartão:", err);
       toast.error(err.message || 'Erro ao atualizar cartão');
+    } finally {
       setIsLoading(false);
     }
   };
@@ -496,38 +478,35 @@ const KanbanView = ({
       return;
     }
     
-    showMessage({
-      title: 'Excluir Cartão',
-      content: (
-        <Box>
-          <Typography>{`Tem certeza que deseja excluir o cartão "${card.title || 'Sem título'}"?`}</Typography>
-          <Box sx={{ mt: 2, display: 'flex', justifyContent: 'flex-end', gap: 1 }}>
-            <Button onClick={closeModal}>Cancelar</Button>
-            <Button 
-              variant="contained" 
-              color="error"
-              onClick={async () => {
-                try {
-                  setIsLoading(true);
-                  await onCardDelete(cardId);
-                  toast.success('Cartão excluído com sucesso!');
-                  closeModal();
-                  setShowCardDetails(false);
-                  setIsLoading(false);
-                } catch (err) {
-                  console.error("Erro ao excluir cartão:", err);
-                  toast.error(err.message || 'Erro ao excluir cartão');
-                  setIsLoading(false);
-                }
-              }}
-            >
-              Excluir
-            </Button>
-          </Box>
-        </Box>
-      ),
-      maxWidth: 'sm'
-    });
+    setCardToDelete(card);
+    setShowDeleteCard(true);
+  };
+
+  const handleCardDeleteConfirm = async () => {
+    try {
+      setIsLoading(true);
+      await onCardDelete(cardToDelete.id);
+      toast.success('Cartão excluído com sucesso!');
+      setShowDeleteCard(false);
+      setCardToDelete(null);
+      setShowCardDetails(false);
+      setSelectedCard(null);
+    } catch (err) {
+      console.error("Erro ao excluir cartão:", err);
+      toast.error(err.message || 'Erro ao excluir cartão');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleCardDeleteClose = () => {
+    setShowDeleteCard(false);
+    setCardToDelete(null);
+  };
+
+  const handleCardDetailsClose = () => {
+    setShowCardDetails(false);
+    setSelectedCard(null);
   };
 
   const handleDragEnd = async (
@@ -551,7 +530,6 @@ const KanbanView = ({
     if (removedIndex === addedIndex) return;
     
     try {
-      // Certifique-se de que lanes é um array
       if (!Array.isArray(lanes)) {
         console.error("Lanes não é um array ao reordenar");
         return;
@@ -561,7 +539,6 @@ const KanbanView = ({
       const [movedLane] = reorderedLanes.splice(removedIndex, 1);
       reorderedLanes.splice(addedIndex, 0, movedLane);
       
-      // Atualizar position de cada lane
       const lanesWithPositions = reorderedLanes.map((lane, index) => ({
         id: lane.id,
         position: index
@@ -577,6 +554,11 @@ const KanbanView = ({
   const handleShowChecklist = () => {
     setShowChecklist(true);
     setShowCardDetails(false);
+  };
+
+  const handleChecklistClose = () => {
+    setShowChecklist(false);
+    setShowCardDetails(true);
   };
 
   const boardData = formatBoardData();
@@ -632,8 +614,8 @@ const KanbanView = ({
           draggable
           laneDraggable={(user?.profile === 'admin' || user?.super)}
           editable={(user?.profile === 'admin' || user?.super)}
-          canAddLanes={false} // Usamos nosso próprio botão
-          editLaneTitle={false} // Usamos nosso próprio modal
+          canAddLanes={false}
+          editLaneTitle={false}
           hideCardDeleteIcon
           style={{
             height: '100%',
@@ -655,26 +637,119 @@ const KanbanView = ({
       </Box>
       
       {/* Modal para adicionar coluna */}
-      <AnimatedDialog
+      <StandardModal
         open={isAddingLane}
         onClose={handleLaneAddClose}
-        style={addLaneFormStyles}
+        title="Adicionar Coluna"
+        maxWidth="md"
+        size="medium"
       >
-        <DialogTitle>Adicionar Coluna</DialogTitle>
-        <DialogContent>
-          <LaneForm
-            onSubmit={handleLaneAddSubmit}
-            loading={isLoading}
-          />
-        </DialogContent>
-      </AnimatedDialog>
+        <LaneForm
+          onSubmit={handleLaneAddSubmit}
+          loading={isLoading}
+        />
+      </StandardModal>
+
+      {/* Modal para editar coluna */}
+      <StandardModal
+        open={showEditLane}
+        onClose={handleLaneEditClose}
+        title="Editar Coluna"
+        maxWidth="md"
+        size="medium"
+      >
+        <LaneForm
+          lane={selectedLane}
+          onSubmit={handleLaneEditSubmit}
+          loading={isLoading}
+        />
+      </StandardModal>
+
+      {/* Modal para excluir coluna */}
+      <StandardModal
+        open={showDeleteLane}
+        onClose={handleLaneDeleteClose}
+        title="Excluir Coluna"
+        maxWidth="sm"
+        size="small"
+        primaryAction={{
+          label: isLoading ? 'Excluindo...' : 'Excluir',
+          onClick: handleLaneDeleteConfirm,
+          disabled: isLoading,
+          color: 'error',
+          icon: isLoading ? <CircularProgress size={16} /> : <DeleteIcon />
+        }}
+        secondaryAction={{
+          label: 'Cancelar',
+          onClick: handleLaneDeleteClose,
+          disabled: isLoading
+        }}
+      >
+        <Typography>
+          {selectedLane && (
+            <>
+              Tem certeza que deseja excluir a coluna "{selectedLane.name}"?
+              {cards.filter(card => card && card.laneId === selectedLane.id).length > 0 && (
+                <Box sx={{ mt: 1, color: 'warning.main' }}>
+                  Esta coluna possui cartões que também serão excluídos.
+                </Box>
+              )}
+            </>
+          )}
+        </Typography>
+      </StandardModal>
+
+      {/* Modal para adicionar cartão */}
+      <StandardModal
+        open={showAddCard}
+        onClose={handleCardAddClose}
+        title="Adicionar Cartão"
+        maxWidth="md"
+        size="large"
+      >
+        <CardForm
+          card={{ laneId: selectedLaneId }}
+          onSubmit={handleCardAddSubmit}
+          loading={isLoading}
+          companyId={companyId}
+        />
+      </StandardModal>
+
+      {/* Modal para excluir cartão */}
+      <StandardModal
+        open={showDeleteCard}
+        onClose={handleCardDeleteClose}
+        title="Excluir Cartão"
+        maxWidth="sm"
+        size="small"
+        primaryAction={{
+          label: isLoading ? 'Excluindo...' : 'Excluir',
+          onClick: handleCardDeleteConfirm,
+          disabled: isLoading,
+          color: 'error',
+          icon: isLoading ? <CircularProgress size={16} /> : <DeleteIcon />
+        }}
+        secondaryAction={{
+          label: 'Cancelar',
+          onClick: handleCardDeleteClose,
+          disabled: isLoading
+        }}
+      >
+        <Typography>
+          {cardToDelete && (
+            <>
+              Tem certeza que deseja excluir o cartão "{cardToDelete.title || 'Sem título'}"?
+            </>
+          )}
+        </Typography>
+      </StandardModal>
       
       {/* Modal de detalhes do card */}
       {selectedCard && (
         <CardDetailsModal
           open={showCardDetails}
           card={selectedCard}
-          onClose={() => setShowCardDetails(false)}
+          onClose={handleCardDetailsClose}
           onUpdate={handleCardUpdate}
           onDelete={handleCardDelete}
           onShowChecklist={handleShowChecklist}
@@ -688,10 +763,7 @@ const KanbanView = ({
         <ChecklistModal
           open={showChecklist}
           card={selectedCard}
-          onClose={() => {
-            setShowChecklist(false);
-            setShowCardDetails(true);
-          }}
+          onClose={handleChecklistClose}
           companyId={companyId}
         />
       )}

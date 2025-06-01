@@ -27,7 +27,7 @@ import api from "../../services/api";
 import { useHistory, useParams } from "react-router-dom";
 import useAuth from "../../hooks/useAuth";
 import { useLoading } from "../../hooks/useLoading";
-import { useModal } from "../../hooks/useModal";
+import StandardModal from "../../components/shared/StandardModal";
 
 import KanbanView from "./KanbanView";
 import ListView from "./ListView";
@@ -40,10 +40,9 @@ const Kanban = () => {
   const theme = useTheme();
   const history = useHistory();
   const { isAuth, user } = useAuth();
-  const { companyId } = user || {}; // Adicionado fallback
+  const { companyId } = user || {};
   const { boardId } = useParams();
   const { Loading } = useLoading();
-  const { showMessage, closeModal } = useModal();
   
   const [viewType, setViewType] = useState('kanban');
   const [boards, setBoards] = useState([]);
@@ -51,10 +50,15 @@ const Kanban = () => {
   const [lanes, setLanes] = useState([]);
   const [cards, setCards] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [showSettings, setShowSettings] = useState(false);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const [showMetrics, setShowMetrics] = useState(false);
   const [showBoardSettingsModal, setShowBoardSettingsModal] = useState(false);
+  const [showCreateBoard, setShowCreateBoard] = useState(false);
+  const [showEditBoard, setShowEditBoard] = useState(false);
+  const [showDeleteBoard, setShowDeleteBoard] = useState(false);
+  const [boardToEdit, setBoardToEdit] = useState(null);
+  const [boardToDelete, setBoardToDelete] = useState(null);
+  const [modalLoading, setModalLoading] = useState(false);
 
   const fetchBoards = useCallback(async () => {
     try {
@@ -64,12 +68,9 @@ const Kanban = () => {
         method: 'get'
       });
       
-      // Garantir que data é um array
       const boardsArray = Array.isArray(data) ? data : [];
       setBoards(boardsArray);
       
-      // Se não houver boardId na URL ou se o boardId não existir nos dados,
-      // use o primeiro quadro padrão ou o primeiro quadro disponível
       if (!boardId || !boardsArray.find(b => b.id.toString() === boardId)) {
         const defaultBoard = boardsArray.find(b => b.isDefault) || boardsArray[0];
         if (defaultBoard) {
@@ -100,7 +101,6 @@ const Kanban = () => {
     
     try {
       setIsLoading(true);
-      // Verificar se selectedBoard.lanes existe, caso contrário, definir como array vazio
       const lanesArray = selectedBoard.lanes || [];
       setLanes(lanesArray);
       setIsLoading(false);
@@ -126,16 +126,13 @@ const Kanban = () => {
         params: { 
           boardId: selectedBoard.id, 
           showArchived: false,
-          includeTickets: true // Adicionar este parâmetro
+          includeTickets: true
         }
       });
       
-      // Garantir que cards é um array
       const cardsArray = data?.cards || [];
       
-      // Verificar se há tickets associados e carregá-los corretamente
       if (cardsArray.length > 0) {
-        // Se necessário, buscar tickets que não foram incluídos na resposta
         const ticketIds = cardsArray
           .filter(card => card.ticketId && !card.ticket)
           .map(card => card.ticketId);
@@ -148,7 +145,6 @@ const Kanban = () => {
               params: { ids: ticketIds.join(',') }
             });
             
-            // Associar os tickets aos cartões
             if (ticketsData && ticketsData.length > 0) {
               ticketsData.forEach(ticket => {
                 const cardIndex = cardsArray.findIndex(c => c.ticketId === ticket.id);
@@ -206,11 +202,93 @@ const Kanban = () => {
   };
 
   const handleCreateBoard = () => {
-    setShowBoardSettingsModal(true);
+    setShowCreateBoard(true);
+  };
+
+  const handleCreateBoardSubmit = async (boardData) => {
+    try {
+      setModalLoading(true);
+      await api.request({
+        url: '/kanban/boards',
+        method: 'post',
+        data: boardData
+      });
+      toast.success('Quadro criado com sucesso!');
+      fetchBoards();
+      setShowCreateBoard(false);
+    } catch (err) {
+      console.error("Erro ao criar quadro:", err);
+      toast.error(err.message || 'Erro ao criar quadro');
+    } finally {
+      setModalLoading(false);
+    }
+  };
+
+  const handleCreateBoardClose = () => {
+    setShowCreateBoard(false);
   };
 
   const handleBoardSettings = () => {
-    setShowSettings(true);
+    if (selectedBoard) {
+      setBoardToEdit(selectedBoard);
+      setShowEditBoard(true);
+    }
+  };
+
+  const handleEditBoardSubmit = async (boardData) => {
+    try {
+      setModalLoading(true);
+      await api.request({
+        url: `/kanban/boards/${boardToEdit.id}`,
+        method: 'put',
+        data: boardData
+      });
+      toast.success('Quadro atualizado com sucesso!');
+      fetchBoards();
+      setShowEditBoard(false);
+      setBoardToEdit(null);
+    } catch (err) {
+      console.error("Erro ao atualizar quadro:", err);
+      toast.error(err.message || 'Erro ao atualizar quadro');
+    } finally {
+      setModalLoading(false);
+    }
+  };
+
+  const handleEditBoardClose = () => {
+    setShowEditBoard(false);
+    setBoardToEdit(null);
+  };
+
+  const handleDeleteBoard = () => {
+    if (selectedBoard) {
+      setBoardToDelete(selectedBoard);
+      setShowDeleteBoard(true);
+    }
+  };
+
+  const handleDeleteBoardConfirm = async () => {
+    try {
+      setModalLoading(true);
+      await api.request({
+        url: `/kanban/boards/${boardToDelete.id}`,
+        method: 'delete'
+      });
+      toast.success('Quadro excluído com sucesso!');
+      setShowDeleteBoard(false);
+      setBoardToDelete(null);
+      fetchBoards();
+    } catch (err) {
+      console.error("Erro ao excluir quadro:", err);
+      toast.error(err.message || 'Erro ao excluir quadro');
+    } finally {
+      setModalLoading(false);
+    }
+  };
+
+  const handleDeleteBoardClose = () => {
+    setShowDeleteBoard(false);
+    setBoardToDelete(null);
   };
 
   const handleToggleMetrics = () => {
@@ -458,73 +536,84 @@ const Kanban = () => {
         </>
       )}
       
-      {showSettings && selectedBoard && (
+      {/* Modal para Criar Quadro */}
+      <StandardModal
+        open={showCreateBoard}
+        onClose={handleCreateBoardClose}
+        title="Criar Novo Quadro"
+        maxWidth="md"
+        size="large"
+      >
         <BoardSettingsModal 
-          board={selectedBoard}
-          open={showSettings}
-          onClose={() => setShowSettings(false)}
-          onSave={async (boardData) => {
-            try {
-              Loading.turnOn();
-              await api.request({
-                url: `/kanban/boards/${selectedBoard.id}`,
-                method: 'put',
-                data: boardData
-              });
-              toast.success('Quadro atualizado com sucesso!');
-              fetchBoards();
-              setShowSettings(false);
-            } catch (err) {
-              console.error("Erro ao atualizar quadro:", err);
-              toast.error(err.message || 'Erro ao atualizar quadro');
-            } finally {
-              Loading.turnOff();
-            }
-          }}
-          onDelete={async () => {
-            try {
-              Loading.turnOn();
-              await api.request({
-                url: `/kanban/boards/${selectedBoard.id}`,
-                method: 'delete'
-              });
-              toast.success('Quadro excluído com sucesso!');
-              setShowSettings(false);
-              fetchBoards();
-            } catch (err) {
-              console.error("Erro ao excluir quadro:", err);
-              toast.error(err.message || 'Erro ao excluir quadro');
-            } finally {
-              Loading.turnOff();
-            }
-          }}
+          board={null}
+          open={false}
+          onClose={() => {}}
+          onSave={handleCreateBoardSubmit}
+          loading={modalLoading}
         />
-      )}
-      
-      {showBoardSettingsModal && (
-        <BoardSettingsModal 
-          open={showBoardSettingsModal}
-          onClose={() => setShowBoardSettingsModal(false)}
-          onSave={async (boardData) => {
-            try {
-              Loading.turnOn();
-              await api.request({
-                url: '/kanban/boards',
-                method: 'post',
-                data: boardData
-              });
-              toast.success('Quadro criado com sucesso!');
-              fetchBoards();
-              setShowBoardSettingsModal(false);
-            } catch (err) {
-              console.error("Erro ao criar quadro:", err);
-              toast.error(err.message || 'Erro ao criar quadro');
-            } finally {
-              Loading.turnOff();
-            }
-          }} 
-        />
-      )}
+      </StandardModal>
+
+      {/* Modal para Editar Quadro */}
+      <StandardModal
+        open={showEditBoard}
+        onClose={handleEditBoardClose}
+        title={`Editar Quadro: ${boardToEdit?.name || ''}`}
+        maxWidth="md"
+        size="large"
+        actions={[
+          {
+            label: 'Excluir Quadro',
+            onClick: handleDeleteBoard,
+            variant: 'outlined',
+            color: 'error',
+            icon: <DeleteIcon />,
+            disabled: modalLoading
+          }
+        ]}
+      >
+        {boardToEdit && (
+          <BoardSettingsModal 
+            board={boardToEdit}
+            open={false}
+            onClose={() => {}}
+            onSave={handleEditBoardSubmit}
+            onDelete={() => {}}
+            loading={modalLoading}
+          />
+        )}
+      </StandardModal>
+
+      {/* Modal para Excluir Quadro */}
+      <StandardModal
+        open={showDeleteBoard}
+        onClose={handleDeleteBoardClose}
+        title="Excluir Quadro"
+        maxWidth="sm"
+        size="small"
+        primaryAction={{
+          label: modalLoading ? 'Excluindo...' : 'Confirmar Exclusão',
+          onClick: handleDeleteBoardConfirm,
+          disabled: modalLoading,
+          color: 'error',
+          icon: modalLoading ? <CircularProgress size={16} /> : <DeleteIcon />
+        }}
+        secondaryAction={{
+          label: 'Cancelar',
+          onClick: handleDeleteBoardClose,
+          disabled: modalLoading
+        }}
+      >
+        <Typography>
+          {boardToDelete && (
+            <>
+              Tem certeza que deseja excluir o quadro "{boardToDelete.name}"?
+              <Box sx={{ mt: 1, color: 'warning.main' }}>
+                A exclusão do quadro removerá todas as colunas e cartões associados. Esta ação não pode ser desfeita.
+              </Box>
+            </>
+          )}
+        </Typography>
+      </StandardModal>
     </Box>
   );
 };

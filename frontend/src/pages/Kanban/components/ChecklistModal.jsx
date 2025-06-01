@@ -1,10 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { alpha, useTheme } from "@mui/material/styles";
 import {
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
   Button,
   Typography,
   Box,
@@ -28,7 +24,6 @@ import {
 import {
   Add as AddIcon,
   Delete as DeleteIcon,
-  Close as CloseIcon,
   DragIndicator as DragIcon,
   Assignment as AssignmentIcon,
   Info as InfoIcon
@@ -36,6 +31,7 @@ import {
 import { DragDropContext, Droppable, Draggable } from 'react-beautiful-dnd';
 import { toast } from "../../../helpers/toast";
 import useAuth from "../../../hooks/useAuth";
+import StandardModal from "../../../components/shared/StandardModal";
 import api from '../../../services/api';
 import CardAssigneeAvatar from './CardAssigneeAvatar';
 
@@ -76,10 +72,10 @@ const ChecklistModal = ({ open, card, onClose, companyId }) => {
           method: 'get'
         });
         setUsers(data);
-        setUsersLoading(false);
       } catch (err) {
         console.error(err);
         toast.error("Erro ao carregar usuários");
+      } finally {
         setUsersLoading(false);
       }
     };
@@ -97,10 +93,10 @@ const ChecklistModal = ({ open, card, onClose, companyId }) => {
           method: 'get'
         });
         setTemplates(data);
-        setTemplateLoading(false);
       } catch (err) {
         console.error(err);
         toast.error("Erro ao carregar templates de checklist");
+      } finally {
         setTemplateLoading(false);
       }
     };
@@ -140,10 +136,10 @@ const ChecklistModal = ({ open, card, onClose, companyId }) => {
       setChecklistItems(updatedItems);
       updateStats(updatedItems);
       setNewItemText('');
-      setLoading(false);
     } catch (err) {
       console.error(err);
       toast.error("Erro ao adicionar item ao checklist");
+    } finally {
       setLoading(false);
     }
   };
@@ -179,10 +175,10 @@ const ChecklistModal = ({ open, card, onClose, companyId }) => {
       const updatedItems = checklistItems.filter(item => item.id !== itemId);
       setChecklistItems(updatedItems);
       updateStats(updatedItems);
-      setLoading(false);
     } catch (err) {
       console.error(err);
       toast.error("Erro ao excluir item do checklist");
+    } finally {
       setLoading(false);
     }
   };
@@ -241,12 +237,12 @@ const ChecklistModal = ({ open, card, onClose, companyId }) => {
       updateStats(updatedItems);
       setSelectedTemplate('');
       setShowTemplateSelect(false);
-      setLoading(false);
       
       toast.success("Template aplicado com sucesso");
     } catch (err) {
       console.error(err);
       toast.error("Erro ao aplicar template de checklist");
+    } finally {
       setLoading(false);
     }
   };
@@ -283,287 +279,287 @@ const ChecklistModal = ({ open, card, onClose, companyId }) => {
     return theme.palette.background.paper;
   };
 
+  const handleTemplateSelectToggle = () => {
+    setShowTemplateSelect(!showTemplateSelect);
+    setSelectedTemplate('');
+  };
+
+  const handleTemplateApply = () => {
+    handleApplyTemplate();
+  };
+
+  const handleTemplateCancel = () => {
+    setShowTemplateSelect(false);
+    setSelectedTemplate('');
+  };
+
+  const handleAddKeyPress = (e) => {
+    if (e.key === 'Enter') {
+      handleAddItem();
+    }
+  };
+
   return (
-    <Dialog
+    <StandardModal
       open={open}
       onClose={onClose}
+      title={`Checklist: ${card?.title || "Sem título"}`}
+      subtitle={`Progresso: ${stats.completed}/${stats.total} completados${stats.required > 0 ? ` (${stats.requiredCompleted}/${stats.required} obrigatórios)` : ''}`}
       maxWidth="md"
-      fullWidth
+      size="large"
+      secondaryAction={{
+        label: 'Fechar',
+        onClick: onClose
+      }}
     >
-      <DialogTitle>
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <Box sx={{ display: 'flex', alignItems: 'center' }}>
-            <AssignmentIcon sx={{ mr: 1 }} />
+      <Box sx={{ mb: 2 }}>
+        <Paper 
+          variant="outlined" 
+          sx={{ p: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
+        >
+          <Box>
+            <Typography variant="body2" color="text.secondary">
+              Progresso
+            </Typography>
             <Typography variant="h6">
-              Checklist: {card?.title || "Sem título"}
+              {stats.completed}/{stats.total} completados
+              {stats.required > 0 && (
+                <Typography variant="caption" sx={{ ml: 1 }}>
+                  ({stats.requiredCompleted}/{stats.required} obrigatórios)
+                </Typography>
+              )}
             </Typography>
           </Box>
-          <IconButton onClick={onClose}>
-            <CloseIcon />
-          </IconButton>
-        </Box>
-      </DialogTitle>
-      
-      <DialogContent dividers>
-        <Box sx={{ mb: 2 }}>
-          <Paper 
-            variant="outlined" 
-            sx={{ p: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
-          >
-            <Box>
-              <Typography variant="body2" color="text.secondary">
-                Progresso
-              </Typography>
-              <Typography variant="h6">
-                {stats.completed}/{stats.total} completados
-                {stats.required > 0 && (
-                  <Typography variant="caption" sx={{ ml: 1 }}>
-                    ({stats.requiredCompleted}/{stats.required} obrigatórios)
-                  </Typography>
-                )}
-              </Typography>
-            </Box>
-            
-            <Box sx={{ display: 'flex', gap: 1 }}>
-              {templates.length > 0 && (
-                showTemplateSelect ? (
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                    <FormControl size="small" sx={{ width: 200 }}>
-                      <InputLabel>Selecionar Template</InputLabel>
-                      <Select
-                        value={selectedTemplate}
-                        onChange={(e) => setSelectedTemplate(e.target.value)}
-                        label="Selecionar Template"
-                        disabled={templateLoading}
-                      >
-                        {templates.map((template) => (
-                          <MenuItem key={template.id} value={template.id}>
-                            {template.name}
-                          </MenuItem>
-                        ))}
-                      </Select>
-                    </FormControl>
-                    <Button 
-                      variant="contained" 
-                      onClick={handleApplyTemplate}
-                      disabled={!selectedTemplate || loading}
-                      size="small"
+          
+          <Box sx={{ display: 'flex', gap: 1 }}>
+            {templates.length > 0 && (
+              showTemplateSelect ? (
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <FormControl size="small" sx={{ width: 200 }}>
+                    <InputLabel>Selecionar Template</InputLabel>
+                    <Select
+                      value={selectedTemplate}
+                      onChange={(e) => setSelectedTemplate(e.target.value)}
+                      label="Selecionar Template"
+                      disabled={templateLoading}
                     >
-                      Aplicar
-                    </Button>
-                    <Button 
-                      variant="outlined" 
-                      onClick={() => setShowTemplateSelect(false)}
-                      size="small"
-                    >
-                      Cancelar
-                    </Button>
-                  </Box>
-                ) : (
-                  <Button
-                    variant="outlined"
-                    startIcon={<AddIcon />}
-                    onClick={() => setShowTemplateSelect(true)}
+                      {templates.map((template) => (
+                        <MenuItem key={template.id} value={template.id}>
+                          {template.name}
+                        </MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+                  <Button 
+                    variant="contained" 
+                    onClick={handleTemplateApply}
+                    disabled={!selectedTemplate || loading}
+                    size="small"
                   >
-                    Usar Template
+                    Aplicar
                   </Button>
-                )
-              )}
-            </Box>
-          </Paper>
+                  <Button 
+                    variant="outlined" 
+                    onClick={handleTemplateCancel}
+                    size="small"
+                  >
+                    Cancelar
+                  </Button>
+                </Box>
+              ) : (
+                <Button
+                  variant="outlined"
+                  startIcon={<AddIcon />}
+                  onClick={handleTemplateSelectToggle}
+                >
+                  Usar Template
+                </Button>
+              )
+            )}
+          </Box>
+        </Paper>
+      </Box>
+      
+      <Box sx={{ mb: 3 }}>
+        <Box sx={{ display: 'flex', gap: 1, mb: 1 }}>
+          <TextField
+            label="Novo Item"
+            variant="outlined"
+            fullWidth
+            value={newItemText}
+            onChange={(e) => setNewItemText(e.target.value)}
+            onKeyPress={handleAddKeyPress}
+            size="small"
+          />
+          <Button
+            variant="contained"
+            onClick={handleAddItem}
+            disabled={!newItemText.trim() || loading}
+            startIcon={loading ? <CircularProgress size={20} /> : <AddIcon />}
+          >
+            Adicionar
+          </Button>
         </Box>
-        
-        <Box sx={{ mb: 3 }}>
-          <Box sx={{ display: 'flex', gap: 1, mb: 1 }}>
-            <TextField
-              label="Novo Item"
-              variant="outlined"
-              fullWidth
-              value={newItemText}
-              onChange={(e) => setNewItemText(e.target.value)}
-              onKeyPress={(e) => {
-                if (e.key === 'Enter') {
-                  handleAddItem();
+      </Box>
+      
+      <DragDropContext onDragEnd={handleDragEnd}>
+        <Droppable droppableId="checklist-items">
+          {(provided) => (
+            <List
+              {...provided.droppableProps}
+              ref={provided.innerRef}
+              sx={{ 
+                bgcolor: 'background.paper',
+                border: '1px solid',
+                borderColor: 'divider',
+                borderRadius: 1,
+                overflow: 'hidden',
+                '& .MuiListItem-root': {
+                  borderBottom: '1px solid',
+                  borderColor: 'divider',
+                  '&:last-child': {
+                    borderBottom: 'none'
+                  }
                 }
               }}
-              size="small"
-            />
-            <Button
-              variant="contained"
-              onClick={handleAddItem}
-              disabled={!newItemText.trim() || loading}
-              startIcon={loading ? <CircularProgress size={20} /> : <AddIcon />}
             >
-              Adicionar
-            </Button>
-          </Box>
-        </Box>
-        
-        <DragDropContext onDragEnd={handleDragEnd}>
-          <Droppable droppableId="checklist-items">
-            {(provided) => (
-              <List
-                {...provided.droppableProps}
-                ref={provided.innerRef}
-                sx={{ 
-                  bgcolor: 'background.paper',
-                  border: '1px solid',
-                  borderColor: 'divider',
-                  borderRadius: 1,
-                  overflow: 'hidden',
-                  '& .MuiListItem-root': {
-                    borderBottom: '1px solid',
-                    borderColor: 'divider',
-                    '&:last-child': {
-                      borderBottom: 'none'
-                    }
-                  }
-                }}
-              >
-                {checklistItems.length === 0 ? (
-                  <ListItem>
-                    <ListItemText 
-                      primary="Nenhum item no checklist"
-                      secondary="Adicione itens para começar a acompanhar tarefas"
-                      primaryTypographyProps={{ align: 'center' }}
-                      secondaryTypographyProps={{ align: 'center' }}
-                    />
-                  </ListItem>
-                ) : (
-                  checklistItems
-                    .sort((a, b) => (a.position || 0) - (b.position || 0))
-                    .map((item, index) => (
-                      <Draggable 
-                        key={item.id} 
-                        draggableId={item.id.toString()} 
-                        index={index}
-                      >
-                        {(provided, snapshot) => (
-                          <ListItem
-                            ref={provided.innerRef}
-                            {...provided.draggableProps}
-                            sx={{
-                              bgcolor: getItemBackgroundColor(item, snapshot.isDragging),
-                              borderRadius: snapshot.isDragging ? 1 : 0,
-                              boxShadow: snapshot.isDragging ? 1 : 0,
-                              transition: 'background-color 0.2s',
-                              '&:hover': {
-                                bgcolor: alpha(theme.palette.action.hover, 0.7)
-                              }
-                            }}
-                          >
-                            <ListItemIcon {...provided.dragHandleProps}>
-                              <DragIcon sx={{ cursor: 'grab' }} />
-                            </ListItemIcon>
-                            
-                            <ListItemIcon>
-                              <Checkbox
-                                edge="start"
-                                checked={!!item.checked}
-                                onChange={(e) => handleToggleItem(item.id, e.target.checked)}
-                              />
-                            </ListItemIcon>
-                            
-                            <ListItemText
-                              primary={
-                                <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                                  <Typography
-                                    sx={{
-                                      textDecoration: item.checked ? 'line-through' : 'none',
-                                      fontWeight: item.required ? 'bold' : 'normal'
-                                    }}
-                                  >
-                                    {item.description}
-                                  </Typography>
-                                  {item.required && (
-                                    <Tooltip title="Item obrigatório">
-                                      <InfoIcon 
-                                        fontSize="small" 
-                                        color="primary" 
-                                        sx={{ ml: 1 }}
-                                      />
-                                    </Tooltip>
-                                  )}
-                                </Box>
-                              }
-                              secondary={
-                                <Box sx={{ display: 'flex', alignItems: 'center', mt: 0.5 }}>
-                                  {item.assignedUser ? (
-                                    <>
-                                      <Typography variant="caption" color="text.secondary" sx={{ mr: 1 }}>
-                                        Atribuído para:
-                                      </Typography>
-                                      <CardAssigneeAvatar 
-                                        user={item.assignedUser} 
-                                        size="small" 
-                                      />
-                                      <Typography variant="caption" sx={{ ml: 0.5 }}>
-                                        {item.assignedUser.name}
-                                      </Typography>
-                                    </>
-                                  ) : (
-                                    <FormControl size="small" variant="standard" sx={{ minWidth: 120 }}>
-                                      <InputLabel>Atribuir para</InputLabel>
-                                      <Select
-                                        value=""
-                                        onChange={(e) => handleAssignUser(item.id, e.target.value)}
-                                        label="Atribuir para"
-                                        displayEmpty
-                                      >
-                                        <MenuItem value="">
-                                          <em>Ninguém</em>
-                                        </MenuItem>
-                                        {users.map((user) => (
-                                          <MenuItem key={user.id} value={user.id}>
-                                            {user.name}
-                                          </MenuItem>
-                                        ))}
-                                      </Select>
-                                    </FormControl>
-                                  )}
-                                </Box>
-                              }
+              {checklistItems.length === 0 ? (
+                <ListItem>
+                  <ListItemText 
+                    primary="Nenhum item no checklist"
+                    secondary="Adicione itens para começar a acompanhar tarefas"
+                    primaryTypographyProps={{ align: 'center' }}
+                    secondaryTypographyProps={{ align: 'center' }}
+                  />
+                </ListItem>
+              ) : (
+                checklistItems
+                  .sort((a, b) => (a.position || 0) - (b.position || 0))
+                  .map((item, index) => (
+                    <Draggable 
+                      key={item.id} 
+                      draggableId={item.id.toString()} 
+                      index={index}
+                    >
+                      {(provided, snapshot) => (
+                        <ListItem
+                          ref={provided.innerRef}
+                          {...provided.draggableProps}
+                          sx={{
+                            bgcolor: getItemBackgroundColor(item, snapshot.isDragging),
+                            borderRadius: snapshot.isDragging ? 1 : 0,
+                            boxShadow: snapshot.isDragging ? 1 : 0,
+                            transition: 'background-color 0.2s',
+                            '&:hover': {
+                              bgcolor: alpha(theme.palette.action.hover, 0.7)
+                            }
+                          }}
+                        >
+                          <ListItemIcon {...provided.dragHandleProps}>
+                            <DragIcon sx={{ cursor: 'grab' }} />
+                          </ListItemIcon>
+                          
+                          <ListItemIcon>
+                            <Checkbox
+                              edge="start"
+                              checked={!!item.checked}
+                              onChange={(e) => handleToggleItem(item.id, e.target.checked)}
                             />
-                            
-                            <ListItemSecondaryAction>
-                              <Box sx={{ display: 'flex', gap: 1 }}>
-                                <Tooltip title={item.required ? "Tornar opcional" : "Tornar obrigatório"}>
-                                  <Checkbox
-                                    edge="end"
-                                    checked={!!item.required}
-                                    onChange={(e) => handleToggleRequired(item.id, e.target.checked)}
-                                    icon={<InfoIcon color="disabled" />}
-                                    checkedIcon={<InfoIcon color="primary" />}
-                                  />
-                                </Tooltip>
-                                <IconButton
-                                  edge="end"
-                                  onClick={() => handleDeleteItem(item.id)}
-                                  color="error"
-                                  size="small"
+                          </ListItemIcon>
+                          
+                          <ListItemText
+                            primary={
+                              <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                                <Typography
+                                  sx={{
+                                    textDecoration: item.checked ? 'line-through' : 'none',
+                                    fontWeight: item.required ? 'bold' : 'normal'
+                                  }}
                                 >
-                                  <DeleteIcon />
-                                </IconButton>
+                                  {item.description}
+                                </Typography>
+                                {item.required && (
+                                  <Tooltip title="Item obrigatório">
+                                    <InfoIcon 
+                                      fontSize="small" 
+                                      color="primary" 
+                                      sx={{ ml: 1 }}
+                                    />
+                                  </Tooltip>
+                                )}
                               </Box>
-                            </ListItemSecondaryAction>
-                          </ListItem>
-                        )}
-                      </Draggable>
-                    ))
-                )}
-                {provided.placeholder}
-              </List>
-            )}
-          </Droppable>
-        </DragDropContext>
-      </DialogContent>
-      
-      <DialogActions>
-        <Button onClick={onClose}>
-          Fechar
-        </Button>
-      </DialogActions>
-    </Dialog>
+                            }
+                            secondary={
+                              <Box sx={{ display: 'flex', alignItems: 'center', mt: 0.5 }}>
+                                {item.assignedUser ? (
+                                  <>
+                                    <Typography variant="caption" color="text.secondary" sx={{ mr: 1 }}>
+                                      Atribuído para:
+                                    </Typography>
+                                    <CardAssigneeAvatar 
+                                      user={item.assignedUser} 
+                                      size="small" 
+                                    />
+                                    <Typography variant="caption" sx={{ ml: 0.5 }}>
+                                      {item.assignedUser.name}
+                                    </Typography>
+                                  </>
+                                ) : (
+                                  <FormControl size="small" variant="standard" sx={{ minWidth: 120 }}>
+                                    <InputLabel>Atribuir para</InputLabel>
+                                    <Select
+                                      value=""
+                                      onChange={(e) => handleAssignUser(item.id, e.target.value)}
+                                      label="Atribuir para"
+                                      displayEmpty
+                                    >
+                                      <MenuItem value="">
+                                        <em>Ninguém</em>
+                                      </MenuItem>
+                                      {users.map((user) => (
+                                        <MenuItem key={user.id} value={user.id}>
+                                          {user.name}
+                                        </MenuItem>
+                                      ))}
+                                    </Select>
+                                  </FormControl>
+                                )}
+                              </Box>
+                            }
+                          />
+                          
+                          <ListItemSecondaryAction>
+                            <Box sx={{ display: 'flex', gap: 1 }}>
+                              <Tooltip title={item.required ? "Tornar opcional" : "Tornar obrigatório"}>
+                                <Checkbox
+                                  edge="end"
+                                  checked={!!item.required}
+                                  onChange={(e) => handleToggleRequired(item.id, e.target.checked)}
+                                  icon={<InfoIcon color="disabled" />}
+                                  checkedIcon={<InfoIcon color="primary" />}
+                                />
+                              </Tooltip>
+                              <IconButton
+                                edge="end"
+                                onClick={() => handleDeleteItem(item.id)}
+                                color="error"
+                                size="small"
+                              >
+                                <DeleteIcon />
+                              </IconButton>
+                            </Box>
+                          </ListItemSecondaryAction>
+                        </ListItem>
+                      )}
+                    </Draggable>
+                  ))
+              )}
+              {provided.placeholder}
+            </List>
+          )}
+        </Droppable>
+      </DragDropContext>
+    </StandardModal>
   );
 };
 
