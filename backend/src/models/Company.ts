@@ -10,7 +10,8 @@ import {
   BelongsTo,
   DataType,
   HasMany,
-  AllowNull
+  AllowNull,
+  HasOne
 } from "sequelize-typescript";
 import Contact from "./Contact";
 import Invoices from "./Invoices";
@@ -177,7 +178,7 @@ class Company extends Model<Company> {
     hooks: true
   })
   employerPasswords: EmployerPassword[];
-  
+
   @Column
   cnpj: string;
 

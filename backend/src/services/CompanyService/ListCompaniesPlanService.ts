@@ -15,7 +15,7 @@ interface CompanyWithMetrics extends Company {
   metrics: CompanyMetrics;
 }
 
-const calculateCompanyMetrics = async (companyId: number): Promise<CompanyMetrics> => {
+export const calculateCompanyMetrics = async (companyId: number): Promise<CompanyMetrics> => {
   const companyDir = path.join(
     process.env.BACKEND_PUBLIC_PATH || "public",
     `company${companyId}`

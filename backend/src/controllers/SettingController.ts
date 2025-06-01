@@ -22,6 +22,7 @@ import {
   isSuperSetting
 } from "../@types/Settings";
 import { logger } from "../utils/logger";
+import GetCompanyWithPlanService from "@services/CompanyService/GetCOmpanyWithPlanService";
 
 // Interfaces for type safety
 interface Schedule {
@@ -423,7 +424,7 @@ export const batchUpdateSettings = async (req: Request, res: Response): Promise<
  * Reduz múltiplas chamadas separadas para cada tipo de configuração
  */
 export const getFullConfiguration = async (req: Request, res: Response): Promise<Response> => {
-  const { companyId } = req.params;
+  const companyId = req.user.companyId;
   const userId = req.user.id;
   
   try {
@@ -436,10 +437,8 @@ export const getFullConfiguration = async (req: Request, res: Response): Promise
       settings
     ] = await Promise.all([
       User.findByPk(userId), // Informações do usuário
-      Company.findByPk(companyId, {
-        include: [{ model: Plan, as: "plan" }]
-      }), // Dados da empresa e plano
-      ListSettingsService(parseInt(companyId)), // Usar o service que já retorna objetos limpos
+      GetCompanyWithPlanService(companyId), // Dados da empresa e plano
+      ListSettingsService(Number(companyId)), // Usar o service que já retorna objetos limpos
     ]);
 
     if (!user || !company) {
