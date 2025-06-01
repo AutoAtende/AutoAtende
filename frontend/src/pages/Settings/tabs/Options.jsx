@@ -57,8 +57,10 @@ import {
 } from "@fortawesome/free-solid-svg-icons";
 import { copyToClipboard } from "../../../helpers/copyToClipboard";
 import { toast } from "../../../helpers/toast";
+
+import useAuth from "../../../hooks/useAuth";
+import useSettings from "../../../hooks/useSettings";
 import OnlyForSuperUser from "../../../components/OnlyForSuperUser";
-import { AuthContext } from "../../../context/Auth/AuthContext";
 import StandardTabContent from "../../../components/shared/StandardTabContent";
 
 // Constantes
@@ -138,7 +140,6 @@ const StyledBadge = styled(Avatar)(({ theme }) => ({
 
 // Componente principal
 const Options = ({
-  settings,
   enableReasonWhenCloseTicketChanged,
   onSettingChange,
   pendingChanges
@@ -146,7 +147,8 @@ const Options = ({
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const [currentTab, setCurrentTab] = useState(0);
-  const [user] = useContext(AuthContext);
+  const [ user ] = useAuth();
+  const [ settings ] = useSettings();
 
   // Estado para armazenar configurações
   const [configState, setConfigState] = useState({

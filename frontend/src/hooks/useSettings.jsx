@@ -1,4 +1,5 @@
-import React, { createContext, useState, useContext, useCallback, useEffect } from "react";
+import React, { createContext, useState, useContext, useCallback } from "react";
+import PropTypes from "prop-types";
 import api, { openApi } from "../services/api";
 
 // Criação do contexto
@@ -8,6 +9,12 @@ const SettingsContext = createContext({});
 const CACHE_EXPIRATION_TIME = 86400000; // 24 horas em milissegundos
 
 export const SettingsProvider = ({ children }) => {
+  SettingsProvider.propTypes = {
+    children: PropTypes.oneOfType([
+      PropTypes.arrayOf(PropTypes.node),
+      PropTypes.node,
+    ]).isRequired,
+  };
   
   // Estado principal para armazenar as configurações como array (compatível com código existente)
   const [settings, setSettings] = useState([]);
@@ -194,31 +201,79 @@ export const SettingsProvider = ({ children }) => {
     return data;
   };
 
-  return (
-    <SettingsContext.Provider
-      value={{
-        settings,
-        loading,
-        getAll,
-        getAllPublicSetting,
-        getPublicSetting,
-        update,
-        updateWebhook,
-        deleteWebhookByparamName,
-        getWebhook
-      }}
-    >
-      {children}
-    </SettingsContext.Provider>
-  );
+ // Definindo a forma do contexto para validação
+ const contextValue = {
+  settings: PropTypes.arrayOf(
+    PropTypes.shape({
+      key: PropTypes.string.isRequired,
+      value: PropTypes.any,
+      companyId: PropTypes.string,
+    })
+  ),
+  loading: PropTypes.bool.isRequired,
+  getPublicSetting: PropTypes.func.isRequired,
+  getAll: PropTypes.func.isRequired,
+  getAllPublicSetting: PropTypes.func.isRequired,
+  update: PropTypes.func.isRequired,
+  updateWebhook: PropTypes.func.isRequired,
+  deleteWebhookByparamName: PropTypes.func.isRequired,
+  getWebhook: PropTypes.func.isRequired,
 };
 
-export function useSettings() {
-  const context = useContext(SettingsContext);
-  if (!context) {
-    throw new Error("useSettings deve ser usado dentro de um SettingsProvider");
-  }
-  return context;
+// Validando o valor do contexto em desenvolvimento
+if (process.env.NODE_ENV === 'development') {
+  PropTypes.checkPropTypes(
+    { value: PropTypes.shape(contextValue).isRequired },
+    { value: contextValue },
+    'context',
+    'SettingsContext.Provider'
+  );
 }
+
+return (
+  <SettingsContext.Provider
+    value={{
+      settings,
+      loading,
+      getPublicSetting,
+      getAll,
+      getAllPublicSetting,
+      update,
+      updateWebhook,
+      deleteWebhookByparamName,
+      getWebhook,
+    }}
+  >
+    {children}
+  </SettingsContext.Provider>
+);
+};
+
+const useSettings = () => {
+const context = useContext(SettingsContext);
+if (!context) {
+  throw new Error("useSettings must be used within a SettingsProvider");
+}
+return context;
+};
+
+// Adicionando PropTypes para o hook
+useSettings.propTypes = {
+settings: PropTypes.arrayOf(
+  PropTypes.shape({
+    key: PropTypes.string.isRequired,
+    value: PropTypes.any,
+    companyId: PropTypes.string,
+  })
+),
+loading: PropTypes.bool.isRequired,
+getPublicSetting: PropTypes.func.isRequired,
+getAll: PropTypes.func.isRequired,
+getAllPublicSetting: PropTypes.func.isRequired,
+update: PropTypes.func.isRequired,
+updateWebhook: PropTypes.func.isRequired,
+deleteWebhookByparamName: PropTypes.func.isRequired,
+getWebhook: PropTypes.func.isRequired,
+};
 
 export default useSettings;
