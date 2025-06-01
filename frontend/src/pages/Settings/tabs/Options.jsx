@@ -21,7 +21,7 @@ import {
   Avatar,
   Chip,
 } from "@mui/material";
-import { i18n } from "../../translate/i18n";
+import { i18n } from "../../../translate/i18n";
 import {
   Settings as SettingsIcon,
   AssessmentOutlined,
