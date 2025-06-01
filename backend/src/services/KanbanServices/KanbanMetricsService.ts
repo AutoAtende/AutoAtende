@@ -248,8 +248,14 @@ const calculateBoardMetrics = async (params: MetricsRequest): Promise<any> => {
     if (error instanceof AppError) {
       throw error;
     }
-    logger.error('Error calculating board metrics:', error);
-    throw new AppError('Error calculating board metrics');
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    const errorStack = error instanceof Error ? error.stack : '';
+    logger.error('Error calculating board metrics:', {
+      message: errorMessage,
+      stack: errorStack,
+      params: JSON.stringify(params, (_, v) => v === undefined ? null : v)
+    });
+    throw new AppError(`Error calculating board metrics: ${errorMessage}`, 500, error);
   }
 };
 
@@ -350,9 +356,16 @@ const recordCardMovement = async (data: CardMovementData, companyId: number): Pr
     if (error instanceof AppError) {
       throw error;
     }
-    logger.error('Error recording card movement metrics:', error);
-    // Não lançar erro para não interromper o fluxo principal
-    // Apenas registrar no log
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    const errorStack = error instanceof Error ? error.stack : '';
+    logger.error('Error recording card movement metrics:', {
+      message: errorMessage,
+      stack: errorStack,
+      data: JSON.stringify(data, (_, v) => v === undefined ? null : v),
+      companyId
+    });
+    // Don't throw error to not break the main flow
+    // Just log the error for monitoring
   }
 };
 
