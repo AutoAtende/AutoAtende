@@ -1,4 +1,3 @@
-// services/CompanyService/GetCompanyWithPlanService.ts
 import Company from "../../models/Company";
 import Plan from "../../models/Plan";
 import { logger } from "../../utils/logger";
@@ -13,7 +12,9 @@ const GetCompanyWithPlanService = async (companyId: number): Promise<Company | n
         attributes: [
           "id", "name", "users", "connections", "queues", "value",
           "useCampaigns", "useSchedules", "useInternalChat", "useExternalApi",
-          "useKanban", "useOpenAi", "useIntegrations", "useEmail", "whiteLabel"
+          "useKanban", "useOpenAi", "useIntegrations", "useEmail", "whiteLabel",
+          "isVisible", "useOpenAIAssistants", "useFlowBuilder", "useAPIOfficial",
+          "useChatBotRules", "storageLimit", "openAIAssistantsContentLimit"
         ]
       }]
     });

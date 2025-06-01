@@ -22,7 +22,7 @@ import {
   isSuperSetting
 } from "../@types/Settings";
 import { logger } from "../utils/logger";
-import GetCompanyWithPlanService from "@services/CompanyService/GetCOmpanyWithPlanService";
+import GetCompanyWithPlanService from "../services/CompanyService/GetCompanyWithPlanService";
 
 // Interfaces for type safety
 interface Schedule {
