@@ -38,6 +38,13 @@ import InactivityMessage from "../models/InactivityMessage";
 import InvoiceLogs from "../models/InvoiceLogs";
 import Invoices from "../models/Invoices";
 import KanbanBoard from "../models/KanbanBoard";
+import KanbanCard from "../models/KanbanCard";
+import KanbanChecklistItem from "../models/KanbanChecklistItem";
+import KanbanChecklistTemplate from "../models/KanbanChecklistTemplate";
+import KanbanLane from "../models/KanbanLane";
+import KanbanMetric from "../models/KanbanMetric";
+import KanbanWorkflow from "../models/KanbanWorkflow";
+import KanbanAutomationRule from "../models/KanbanAutomationRule";
 import Message from "../models/Message";
 import OldMessage from "../models/OldMessage";
 import Plan from "../models/Plan";
@@ -140,6 +147,13 @@ const models = [
   InvoiceLogs,
   Invoices,
   KanbanBoard,
+  KanbanCard,
+  KanbanChecklistItem,
+  KanbanChecklistTemplate,
+  KanbanLane,
+  KanbanMetric,
+  KanbanWorkflow,
+  KanbanAutomationRule,
   Appointment,
   Message,
   OldMessage,

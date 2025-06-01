@@ -1,37 +1,75 @@
-import { Table, Column, Model, PrimaryKey, ForeignKey, BelongsTo, DataType } from "sequelize-typescript";
-import Queue from "./Queue";
-import Ticket from "./Ticket";
+import {
+  Table,
+  Column,
+  CreatedAt,
+  UpdatedAt,
+  Model,
+  PrimaryKey,
+  AutoIncrement,
+  ForeignKey,
+  BelongsTo,
+  HasMany,
+  DataType,
+  AllowNull,
+  Default,
+  Unique
+} from "sequelize-typescript";
 import Company from "./Company";
+import User from "./User";
+import KanbanLane from "./KanbanLane";
 
-@Table
+@Table({ tableName: "KanbanBoards" })
 class KanbanBoard extends Model<KanbanBoard> {
   @PrimaryKey
-  @Column(DataType.UUID)
-  id: string;
-
-  @ForeignKey(() => Queue)
+  @AutoIncrement
   @Column
-  queueId: number;
+  id: number;
 
-  @BelongsTo(() => Queue)
-  queue: Queue;
-
-  @ForeignKey(() => Ticket)
+  @AllowNull(false)
   @Column
-  ticketId: number;
-
-  @BelongsTo(() => Ticket)
-  ticket: Ticket;
+  name: string;
 
   @Column
-  lane: string;
+  description: string;
+
+  @Column(DataType.STRING(20))
+  color: string;
+
+  @Default(false)
+  @Column
+  isDefault: boolean;
+
+  @Default('kanban')
+  @Column(DataType.ENUM('kanban', 'list', 'calendar'))
+  defaultView: string;
+
+  @Default(true)
+  @Column
+  active: boolean;
 
   @ForeignKey(() => Company)
+  @AllowNull(false)
   @Column
   companyId: number;
 
   @BelongsTo(() => Company)
   company: Company;
+
+  @ForeignKey(() => User)
+  @Column
+  createdBy: number;
+
+  @BelongsTo(() => User, 'createdBy')
+  creator: User;
+
+  @HasMany(() => KanbanLane)
+  lanes: KanbanLane[];
+
+  @CreatedAt
+  createdAt: Date;
+
+  @UpdatedAt
+  updatedAt: Date;
 }
 
 export default KanbanBoard;
