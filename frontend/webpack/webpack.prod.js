@@ -3,7 +3,7 @@ const { SwcMinifyWebpackPlugin } = require('swc-minify-webpack-plugin');
 
 module.exports = {
   mode: "production",
-  devtool: 'source-map', // Gera source maps separados para produção
+  devtool: false, // Gera source maps separados para produção
   plugins: [
     new webpack.DefinePlugin({
       'process.env': JSON.stringify(
