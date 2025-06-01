@@ -1,6 +1,6 @@
 // ExecuteAppointmentNodeService.ts
 import AppError from "../../errors/AppError";
-import { proto } from "bail-lite";
+import { proto } from "baileys";
 import Contact from "../../models/Contact";
 import Ticket from "../../models/Ticket";
 import Company from "../../models/Company";

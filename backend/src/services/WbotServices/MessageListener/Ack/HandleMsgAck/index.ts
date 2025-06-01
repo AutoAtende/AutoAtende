@@ -1,4 +1,4 @@
-import { WAMessage } from "bail-lite";
+import { WAMessage } from "baileys";
 import { getIO } from "../../../../../libs/socket";
 import Message from "../../../../../models/Message";
 import { logger } from "../../../../../utils/logger";

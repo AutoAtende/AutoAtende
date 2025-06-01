@@ -1,4 +1,4 @@
-import { proto, WASocket } from "bail-lite";
+import { proto, WASocket } from "baileys";
 import axios from 'axios';
 import moment from 'moment';
 import Contact from "../../../../../models/Contact";

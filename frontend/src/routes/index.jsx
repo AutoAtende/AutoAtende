@@ -54,7 +54,6 @@ const WhatsappTemplates = React.lazy(() => import("../pages/WhatsappTemplates"))
 const BulkSender = React.lazy(() => import("../pages/BulkSender"));
 const MessageRules = React.lazy(() => import("../pages/MessageRules"));
 const InactivityMonitorDashboard = React.lazy(() => import("../pages/FlowBuilder/InactivityMonitorDashboard"));
-const WbotPro = React.lazy(() => import("../pages/WbotPro"));
 
 // Lazy Loading - Componentes de Tarefas
 const TaskReportsPage = React.lazy(() => import("../pages/Tasks/components/TaskReportsPage"));
@@ -253,8 +252,7 @@ const Routes = () => {
                         <CustomRoute exact path="/flow-builder/imonitor" component={InactivityMonitorDashboard} isPrivate />
                         <CustomRoute exact path="/flow-builder/new" component={FlowBuilder} isPrivate />
                         <CustomRoute exact path="/flow-builder/:id" component={FlowBuilder} isPrivate />
-                        <CustomRoute exact path="/wbotpro" component={WbotPro} isPrivate />
-                        
+
                         <CustomRoute
                           exact
                           path="/subscription"

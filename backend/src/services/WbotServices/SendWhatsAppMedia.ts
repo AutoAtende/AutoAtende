@@ -1,4 +1,4 @@
-import { WAMessage, AnyMessageContent } from "bail-lite";
+import { WAMessage, AnyMessageContent } from "baileys";
 import fs from "fs";
 import { exec } from "child_process";
 import path from "path";

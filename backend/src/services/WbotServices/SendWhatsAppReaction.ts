@@ -1,5 +1,5 @@
-import { WAMessage } from "bail-lite";
-import WALegacySocket from "bail-lite";
+import { WAMessage } from "baileys";
+import WALegacySocket from "baileys";
 
 import AppError from "../../errors/AppError";
 import GetTicketWbot from "../../helpers/GetTicketWbot";

@@ -1,4 +1,4 @@
-import { WAMessage } from "bail-lite";
+import { WAMessage } from "baileys";
 import { Session } from "libs/wbot";
 import AppError from "../../errors/AppError";
 import GetTicketWbot from "../../helpers/GetTicketWbot";

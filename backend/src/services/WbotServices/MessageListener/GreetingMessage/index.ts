@@ -1,4 +1,4 @@
-import { proto } from "bail-lite";
+import { proto } from "baileys";
 import Ticket from "../../../../models/Ticket";
 import { Session } from "../../../../libs/wbot";
 import Whatsapp from "../../../../models/Whatsapp";

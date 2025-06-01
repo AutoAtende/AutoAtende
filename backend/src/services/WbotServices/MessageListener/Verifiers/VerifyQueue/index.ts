@@ -1,4 +1,4 @@
-import { proto } from "bail-lite";
+import { proto } from "baileys";
 import Setting from "../../../../../models/Setting";
 import { Session } from "../../../../../libs/wbot";
 import { isNumeric } from "../../wbotMessageListener";

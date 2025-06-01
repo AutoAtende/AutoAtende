@@ -1,4 +1,4 @@
-import {proto} from "bail-lite";
+import {proto} from "baileys";
 
 // Função para extrair informações de mensagens de texto
 export const getTextMessage = (msg: proto.IWebMessageInfo) => {

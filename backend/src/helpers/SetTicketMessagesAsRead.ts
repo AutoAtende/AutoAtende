@@ -1,4 +1,4 @@
-import { proto, WASocket } from "bail-lite";
+import { proto, WASocket } from "baileys";
 import { cacheLayer } from "../libs/cache";
 import { getIO } from "../libs/socket";
 import Message from "../models/Message";

@@ -1158,18 +1158,6 @@ const MainListItems = (props) => {
                   collapsed={collapsed}
                 />
 
-                {(isCorrectDomain && user.super) && (
-                  <ListItemLink
-                    to="/wbotpro"
-                    primary={i18n.t("mainDrawer.listItems.wbotpro")}
-                    icon={<BlinkingWhatsAppIcon />}
-                    tooltip={collapsed}
-                    drawerClose={drawerClose}
-                    level={1}
-                    collapsed={collapsed}
-                  />
-                )}
-
                 {user.super && (
                   <ListItemLink
                     to="/companies"

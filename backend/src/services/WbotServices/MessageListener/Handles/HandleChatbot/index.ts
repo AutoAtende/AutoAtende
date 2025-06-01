@@ -1,4 +1,4 @@
-import { WAMessage } from "bail-lite";
+import { WAMessage } from "baileys";
 import Ticket from "../../../../../models/Ticket";
 import { sleep } from "../../wbotMessageListener";
 import { Session } from "../../../../../libs/wbot";

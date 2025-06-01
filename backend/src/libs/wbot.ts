@@ -1,4 +1,4 @@
-import makeWASocket from "bail-lite";
+import makeWASocket from "baileys";
 import {
   WASocket,
   DisconnectReason,
@@ -15,7 +15,7 @@ import {
   Browsers,
   WAVersion,
   delay
-} from "bail-lite";
+} from "baileys";
 import { Boom } from "@hapi/boom";
 import NodeCache from "@cacheable/node-cache";
 import MAIN_LOGGER from "baileys/lib/Utils/logger";
@@ -211,7 +211,7 @@ export const restartWbot = async (companyId: number, session?: any): Promise<voi
 
 export let dataMessages = [];
 
-const waVersion: WAVersion = [2, 3000, 1021520106];
+const waVersion: WAVersion = [2, 3000, 1023333981];
 
 const getProjectWAVersion = async () => {
   try {

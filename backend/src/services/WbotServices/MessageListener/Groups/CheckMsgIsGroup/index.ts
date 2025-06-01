@@ -1,4 +1,4 @@
-import { proto } from "bail-lite";
+import { proto } from "baileys";
 import Setting from "../../../../../models/Setting";
 
 /** @description Bloqueia mensagens de grupos se o parâmetro estiver habilitado */
