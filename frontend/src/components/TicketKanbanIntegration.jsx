@@ -30,9 +30,9 @@ import {
   Refresh as RefreshIcon
 } from '@mui/icons-material';
 import { useHistory } from 'react-router-dom';
-import { toast } from "../../helpers/toast";
-import api from "../../services/api";
-import useAuth from "../../hooks/useAuth";
+import { toast } from "../helpers/toast";
+import api from "../services/api";
+import useAuth from "../hooks/useAuth";
 
 const TicketKanbanIntegration = ({ 
   ticket, 
