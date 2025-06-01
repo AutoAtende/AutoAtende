@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo, useContext } from "react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
 import PropTypes from 'prop-types';
 import {
     TextField,
@@ -87,12 +87,15 @@ const HelpForm = ({
     };
 
     return (
-        <StandardTabContent
-            title={isEditing ? "Editar Ajuda" : "Nova Ajuda"}
-            description="Configure vídeos de ajuda e documentação para os usuários"
-            icon={<HelpIcon />}
-            variant="paper"
-        >
+        <FormContainer>
+            <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                <HelpIcon color="primary" />
+                {isEditing ? "Editar Ajuda" : "Nova Ajuda"}
+            </Typography>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+                Configure vídeos de ajuda e documentação para os usuários
+            </Typography>
+
             <Formik
                 enableReinitialize
                 initialValues={initialValues}
@@ -104,7 +107,7 @@ const HelpForm = ({
                     }
                 }}
             >
-                {({ values, errors, touched, setFieldValue }) => (
+                {({ values, errors, touched }) => (
                     <Form>
                         <Grid container spacing={3}>
                             <Grid item xs={12} md={4}>
@@ -207,7 +210,7 @@ const HelpForm = ({
                     </Form>
                 )}
             </Formik>
-        </StandardTabContent>
+        </FormContainer>
     );
 };
 
@@ -235,11 +238,11 @@ function HelpsManager() {
     const [deleteAllModalOpen, setDeleteAllModalOpen] = useState(false);
 
     // Valores iniciais do formulário
-    const initialFormValues = {
+    const initialFormValues = useMemo(() => ({
         title: '',
         description: '',
         video: ''
-    };
+    }), []);
 
     const [formValues, setFormValues] = useState(initialFormValues);
 
@@ -248,10 +251,12 @@ function HelpsManager() {
         setLoading(true);
         try {
             const helpList = await list();
-            setRecords(helpList || []);
+            console.log('Ajudas carregadas:', helpList); // Debug
+            setRecords(Array.isArray(helpList) ? helpList : []);
         } catch (error) {
             console.error('Erro ao carregar ajudas:', error);
             toast.error('Não foi possível carregar a lista de ajudas');
+            setRecords([]); // Garantir que sempre seja um array
         } finally {
             setLoading(false);
         }
@@ -266,8 +271,8 @@ function HelpsManager() {
         if (!searchTerm) return records;
         
         return records.filter(record =>
-            record.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            record.description?.toLowerCase().includes(searchTerm.toLowerCase())
+            record?.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            record?.description?.toLowerCase().includes(searchTerm.toLowerCase())
         );
     }, [records, searchTerm]);
 
@@ -300,9 +305,9 @@ function HelpsManager() {
     const handleEdit = useCallback((help) => {
         setSelectedHelp(help);
         setFormValues({
-            title: help.title || '',
-            description: help.description || '',
-            video: help.video || ''
+            title: help?.title || '',
+            description: help?.description || '',
+            video: help?.video || ''
         });
         setIsEditing(true);
     }, []);
@@ -313,6 +318,11 @@ function HelpsManager() {
     }, []);
 
     const confirmDelete = async () => {
+        if (!selectedHelp?.id) {
+            toast.error('Erro: ID da ajuda não encontrado');
+            return;
+        }
+
         setLoading(true);
         try {
             await remove(selectedHelp.id);
@@ -329,8 +339,12 @@ function HelpsManager() {
     };
 
     const handleDeleteAll = useCallback(() => {
+        if (records.length === 0) {
+            toast.info('Não há ajudas para remover');
+            return;
+        }
         setDeleteAllModalOpen(true);
-    }, []);
+    }, [records.length]);
 
     const confirmDeleteAll = async () => {
         setLoading(true);
@@ -366,14 +380,14 @@ function HelpsManager() {
             color: 'primary'
         },
         {
-            label: `${records.filter(r => r.video).length} com vídeo`,
+            label: `${records.filter(r => r?.video).length} com vídeo`,
             icon: <YouTubeIcon />,
             color: 'error'
         }
     ], [records]);
 
     // Preparar ações do header
-    const headerActions = [
+    const headerActions = useMemo(() => [
         {
             label: 'Nova Ajuda',
             icon: <AddIcon />,
@@ -391,10 +405,10 @@ function HelpsManager() {
             disabled: records.length === 0,
             tooltip: 'Remove todas as ajudas cadastradas'
         }
-    ];
+    ], [handleCreateNew, handleDeleteAll, records.length]);
 
     // Preparar colunas da tabela
-    const columns = [
+    const columns = useMemo(() => [
         {
             field: 'title',
             label: 'Título',
@@ -402,9 +416,9 @@ function HelpsManager() {
             render: (help) => (
                 <Box>
                     <Typography variant="subtitle2" fontWeight={600}>
-                        {help.title || '-'}
+                        {help?.title || '-'}
                     </Typography>
-                    {help.description && (
+                    {help?.description && (
                         <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: 'block' }}>
                             {help.description.length > 100 
                                 ? `${help.description.substring(0, 100)}...` 
@@ -420,7 +434,7 @@ function HelpsManager() {
             label: 'Vídeo',
             align: 'center',
             render: (help) => (
-                help.video ? (
+                help?.video ? (
                     <Box display="flex" alignItems="center" justifyContent="center" gap={1}>
                         <YouTubeIcon fontSize="small" color="error" />
                         <Chip 
@@ -445,17 +459,17 @@ function HelpsManager() {
             label: 'Criado em',
             render: (help) => (
                 <Typography variant="body2" color="text.secondary">
-                    {help.createdAt 
+                    {help?.createdAt 
                         ? new Date(help.createdAt).toLocaleDateString('pt-BR')
                         : '-'
                     }
                 </Typography>
             )
         }
-    ];
+    ], []);
 
     // Preparar ações da tabela
-    const tableActions = [
+    const tableActions = useMemo(() => [
         {
             label: 'Editar',
             icon: <EditIcon />,
@@ -469,7 +483,7 @@ function HelpsManager() {
             color: 'error',
             divider: true
         }
-    ];
+    ], [handleEdit, handleDelete]);
 
     return (
         <StandardPageLayout
