@@ -86,7 +86,7 @@ const Settings = () => {
       const reasonSetting = safeSettings.find(s => s?.key === "enableReasonWhenCloseTicket");
       
       setReasonEnabled(reasonSetting?.value || "disabled");
-      setShowWhiteLabel(responseData?.planConfig?.plan?.whiteLabel || false);
+      setShowWhiteLabel(responseData?.planConfig?.plan?.whiteLabel || true);
 
     } catch (err) {
       console.error("Erro ao carregar dados da configuração:", err);
