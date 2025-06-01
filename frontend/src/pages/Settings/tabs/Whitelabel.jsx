@@ -310,7 +310,7 @@ function Whitelabel({ settings }) {
   // Função para atualizar o cache
   const updateSettingsCache = useCallback((key, value) => {
     try {
-      const companyId = user?.companyId;
+      const companyId = user?.companyId || localStorage.getItem("companyId");
       if (!companyId) return;
       
       const cacheKey = `whitelabel_settings_${companyId}`;

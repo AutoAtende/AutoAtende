@@ -62,7 +62,7 @@ const Settings = () => {
       setInitialLoading(true);
       setError(null);
 
-      const companyId = user?.companyId || localStorage.getItem("companyId");
+      const companyId = user.companyId || localStorage.getItem("companyId");
       
       if (!companyId) {
         throw new Error("ID da empresa não encontrado");
@@ -96,14 +96,14 @@ const Settings = () => {
       setInitialLoading(false);
       setLoading(false);
     }
-  }, [user?.companyId]);
+  }, [user.companyId]);
 
   // Carregar dados ao iniciar o componente
   useEffect(() => {
-    if (user?.companyId) {
+    if (user.companyId) {
       loadAllData();
     }
-  }, [loadAllData, user?.companyId]);
+  }, [loadAllData, user.companyId]);
 
   // Manipuladores
   const handleTabChange = (event, newValue) => {
@@ -188,7 +188,7 @@ const Settings = () => {
   const handleSubmitSchedules = async (scheduleData) => {
     setLoading(true);
     try {
-      const companyId = data?.company?.id || user?.companyId || localStorage.getItem("companyId");
+      const companyId = user.companyId || localStorage.getItem("companyId");
       
       if (!companyId) {
         throw new Error("ID da empresa não encontrado");
