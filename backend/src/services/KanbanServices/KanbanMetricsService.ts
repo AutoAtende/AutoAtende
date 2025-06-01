@@ -44,13 +44,10 @@ const calculateBoardMetrics = async (params: MetricsRequest): Promise<any> => {
       }
     }
 
+
     // Definir período de análise
     const start = startDate || new Date(new Date().setDate(new Date().getDate() - 30)); // 30 dias atrás como padrão
     const end = endDate || new Date();
-
-    // Convertendo datas para timestamp para operações de comparação no Sequelize (para resolver erros de tipagem)
-    const startTimestamp = new Date(start).getTime();
-    const endTimestamp = new Date(end).getTime();
 
     // Construir a condição where para os boards
     const boardWhere: any = { companyId };
@@ -92,19 +89,19 @@ const calculateBoardMetrics = async (params: MetricsRequest): Promise<any> => {
           ]
         }
       ],
-      group: ['lane.id', 'lane.name'],
+      group: [
+        Sequelize.col('lane.id'),
+        Sequelize.col('lane.name'),
+        Sequelize.col('KanbanCard.laneId')
+      ],
       raw: true
     });
 
-    // 2. Taxa de conversão entre lanes (cards que passaram de uma lane para outra)
-    // Esse cálculo é mais complexo e pode exigir dados de histórico de movimentação
-    // que não estão disponíveis no modelo atual. Implementação simplificada para demonstração.
-    
-    // 3. Throughput (cards concluídos por período)
+    // 2. Throughput (cards concluídos por período)
     const completedCardsByDay = await KanbanCard.findAll({
       attributes: [
-        [Sequelize.fn('DATE', Sequelize.col('completedAt')), 'date'],
-        [Sequelize.fn('COUNT', Sequelize.col('id')), 'count']
+        [Sequelize.fn('DATE', Sequelize.col('KanbanCard.completedAt')), 'date'],
+        [Sequelize.fn('COUNT', Sequelize.col('KanbanCard.id')), 'count']
       ],
       where: {
         completedAt: {
@@ -127,12 +124,15 @@ const calculateBoardMetrics = async (params: MetricsRequest): Promise<any> => {
           ]
         }
       ],
-      group: [Sequelize.fn('DATE', Sequelize.col('completedAt'))],
-      order: [Sequelize.fn('DATE', Sequelize.col('completedAt'))],
+      group: [
+        Sequelize.fn('DATE', Sequelize.col('KanbanCard.completedAt')),
+        'KanbanCard.id'
+      ],
+      order: [[Sequelize.fn('DATE', Sequelize.col('KanbanCard.completedAt')), 'ASC']],
       raw: true
     });
 
-    // 4. Produtividade por usuário
+    // 3. Produtividade por usuário
     const userProductivity = await KanbanCard.findAll({
       attributes: [
         [Sequelize.literal('assignedUser.id'), 'userId'],
@@ -172,11 +172,16 @@ const calculateBoardMetrics = async (params: MetricsRequest): Promise<any> => {
           ]
         }
       ],
-      group: ['assignedUser.id', 'assignedUser.name'],
+      group: [
+        'assignedUser.id',
+        'assignedUser.name',
+        'KanbanCard.assignedUserId',
+        'KanbanCard.id'
+      ],
       raw: true
     });
 
-    // 5. Lead time (tempo total desde a criação até a conclusão)
+    // 4. Lead time (tempo total desde a criação até a conclusão)
     const leadTime = await KanbanCard.findAll({
       attributes: [
         [Sequelize.fn('AVG', Sequelize.literal('EXTRACT(EPOCH FROM ("KanbanCard"."completedAt" - "KanbanCard"."createdAt")) / 3600')), 'avgLeadTimeHours']
@@ -210,7 +215,7 @@ const calculateBoardMetrics = async (params: MetricsRequest): Promise<any> => {
       raw: true
     });
 
-    // 6. Status dos cards
+    // 5. Status dos cards
     const cardsStatus = await KanbanCard.findAll({
       attributes: [
         [Sequelize.literal('lane.id'), 'laneId'],
@@ -232,7 +237,11 @@ const calculateBoardMetrics = async (params: MetricsRequest): Promise<any> => {
           ]
         }
       ],
-      group: ['lane.id', 'lane.name'],
+      group: [
+        'lane.id',
+        'lane.name',
+        'KanbanCard.laneId'
+      ],
       raw: true
     });
 
@@ -290,8 +299,6 @@ const recordCardMovement = async (data: CardMovementData, companyId: number): Pr
     });
 
     // Calcular e atualizar taxa de conversão para a lane de origem
-    // Este é um cálculo simplificado para demonstração
-    // Na implementação real, deve considerar um período maior
     const fromLaneCards = await KanbanCard.count({
       where: {
         laneId: data.fromLaneId
@@ -350,7 +357,8 @@ const recordCardMovement = async (data: CardMovementData, companyId: number): Pr
       endDate: new Date(),
       companyId,
       boardId: data.boardId,
-      laneId: data.fromLaneId
+      laneId: data.fromLaneId,
+      userId: data.userId
     });
   } catch (error) {
     if (error instanceof AppError) {
