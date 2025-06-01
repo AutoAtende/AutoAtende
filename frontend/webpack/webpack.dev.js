@@ -2,7 +2,7 @@ const webpack = require("webpack");
 
 module.exports = {
   mode: "development",
-  devtool: 'eval-source-map',
+  devtool: 'eval-cheap-module-source-map',
   devServer: {
     historyApiFallback: true,
     hot: true,
