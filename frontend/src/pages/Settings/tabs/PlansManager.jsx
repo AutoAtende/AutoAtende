@@ -335,7 +335,7 @@ const PlanForm = ({
                                     </FormControl>
                                 </Grid>
                                 <Grid item xs={12} sm={6} md={3}>
-                                    <FormControl fullWidth size="small">
+                                <FormControl fullWidth size="small">
                                         <InputLabel>API Externa</InputLabel>
                                         <Field
                                             as={Select}

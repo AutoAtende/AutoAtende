@@ -77,7 +77,7 @@ const Settings = () => {
       setData({
         currentUser: responseData?.user || {},
         company: responseData?.company || null,
-        schedules: responseData?.company?.schedules || [],
+        schedules: Array.isArray(responseData?.company?.schedules) ? responseData.company.schedules : [],
         settings: safeSettings,
         planConfig: responseData?.planConfig || {}
       });
@@ -88,14 +88,6 @@ const Settings = () => {
       setReasonEnabled(reasonSetting?.value || "disabled");
       setShowWhiteLabel(responseData?.planConfig?.plan?.whiteLabel || false);
 
-      // Armazenar dados em cache local
-      storeDataInCache({
-        user: responseData?.user,
-        company: responseData?.company,
-        settings: safeSettings,
-        planConfig: responseData?.planConfig
-      });
-
     } catch (err) {
       console.error("Erro ao carregar dados da configuração:", err);
       setError(err?.message || "Ocorreu um erro ao carregar as configurações");
@@ -105,36 +97,6 @@ const Settings = () => {
       setLoading(false);
     }
   }, [user?.companyId]);
-
-  // Armazenar dados em cache local para otimização
-  const storeDataInCache = useCallback((dataToCache) => {
-    try {
-      const now = new Date().getTime();
-      
-      if (dataToCache?.user) {
-        localStorage.setItem('cached_user_data', JSON.stringify({
-          timestamp: now,
-          data: dataToCache.user
-        }));
-      }
-      
-      if (dataToCache?.company) {
-        localStorage.setItem('cached_company_data', JSON.stringify({
-          timestamp: now,
-          data: dataToCache.company
-        }));
-      }
-      
-      if (dataToCache?.planConfig) {
-        localStorage.setItem('cached_plan_data', JSON.stringify({
-          timestamp: now,
-          data: dataToCache.planConfig
-        }));
-      }
-    } catch (error) {
-      console.error("Erro ao armazenar cache:", error);
-    }
-  }, []);
 
   // Carregar dados ao iniciar o componente
   useEffect(() => {
@@ -231,22 +193,11 @@ const Settings = () => {
       
       setData(prevData => ({
         ...prevData,
-        schedules: scheduleData || []
+        schedules: Array.isArray(scheduleData) ? scheduleData : []
       }));
       
       toast.success("Horários atualizados com sucesso.");
       
-      // Atualizar cache
-      const cachedCompanyData = localStorage.getItem('cached_company_data');
-      if (cachedCompanyData) {
-        try {
-          const parsedCache = JSON.parse(cachedCompanyData);
-          parsedCache.data.schedules = scheduleData;
-          localStorage.setItem('cached_company_data', JSON.stringify(parsedCache));
-        } catch (error) {
-          console.error("Erro ao atualizar cache:", error);
-        }
-      }
     } catch (e) {
       console.error("Erro ao atualizar horários:", e);
       toast.error(e?.message || "Erro ao atualizar horários");
@@ -264,10 +215,8 @@ const Settings = () => {
 
     // Adicionar tabs condicionalmente
     if (data.currentUser?.super) {
-      baseTabs.push(
-        { label: i18n.t("settings.tabs.plans") || "Planos", icon: <AssignmentIcon /> },
-        { label: i18n.t("settings.tabs.helps") || "Ajuda", icon: <HelpIcon /> }
-      );
+      baseTabs.push({ label: i18n.t("settings.tabs.plans") || "Planos", icon: <AssignmentIcon /> });
+      baseTabs.push({ label: i18n.t("settings.tabs.helps") || "Ajuda", icon: <HelpIcon /> });
     }
 
     if (showWhiteLabel) {
@@ -300,15 +249,26 @@ const Settings = () => {
   }, [data.currentUser?.super, showWhiteLabel, reasonEnabled, tabs.length]);
 
   const getTabName = useCallback((index) => {
-    const nameMap = [
-      'options',
-      'schedules',
-      ...(data.currentUser?.super ? ['plans', 'helps'] : []),
-      ...(showWhiteLabel ? ['whitelabel'] : []),
-      ...(data.currentUser?.super ? ['paymentGateway'] : []),
-      ...(reasonEnabled === "enabled" ? ['closureReasons'] : [])
-    ];
-    return nameMap[index] || 'options';
+    const nameArray = ['options', 'schedules'];
+    
+    if (data.currentUser?.super) {
+      nameArray.push('plans');
+      nameArray.push('helps');
+    }
+    
+    if (showWhiteLabel) {
+      nameArray.push('whitelabel');
+    }
+    
+    if (data.currentUser?.super) {
+      nameArray.push('paymentGateway');
+    }
+    
+    if (reasonEnabled === "enabled") {
+      nameArray.push('closureReasons');
+    }
+    
+    return nameArray[index] || 'options';
   }, [data.currentUser?.super, showWhiteLabel, reasonEnabled]);
 
   const activeTabIndex = getTabIndex(tab);
@@ -319,7 +279,6 @@ const Settings = () => {
   };
 
   // Renderização condicional
-  const isShowingContent = !initialLoading && !error;
   const hasPendingChanges = Object.keys(pendingChanges).length > 0;
 
   // Se ainda está carregando ou tem erro, usar layout original
@@ -390,7 +349,7 @@ const Settings = () => {
           variant="default"
         >
           <Options 
-            settings={data.settings || []}
+            settings={Array.isArray(data.settings) ? data.settings : []}
             enableReasonWhenCloseTicketChanged={handleEnableReasonWhenCloseTicketChanged}
             onSettingChange={handleSettingChange}
             pendingChanges={pendingChanges}
@@ -409,7 +368,7 @@ const Settings = () => {
           <SchedulesForm
             loading={loading}
             onSubmit={handleSubmitSchedules}
-            initialValues={data.schedules || []}
+            initialValues={Array.isArray(data.schedules) ? data.schedules : []}
             companyId={data.company?.id || user?.companyId}
             labelSaveButton={i18n.t("settings.saveButton") || "Salvar"}
           />
@@ -448,7 +407,7 @@ const Settings = () => {
           icon={<LabelIcon />}
           variant="default"
         >
-          <Whitelabel settings={data.settings || []} />
+          <Whitelabel settings={Array.isArray(data.settings) ? data.settings : []} />
         </StandardTabContent>
       )}
 
@@ -460,7 +419,7 @@ const Settings = () => {
           icon={<PaymentIcon />}
           variant="paper"
         >
-          <PaymentGateway settings={data.settings || []} />
+          <PaymentGateway settings={Array.isArray(data.settings) ? data.settings : []} />
         </StandardTabContent>
       )}
 
