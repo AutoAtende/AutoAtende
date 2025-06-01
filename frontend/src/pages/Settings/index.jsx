@@ -29,13 +29,13 @@ import useSettings from "../../hooks/useSettings";
 import { toast } from "../../helpers/toast";
 
 // Importar os componentes das abas
-import Options from "./Options";
-import PaymentGateway from "./PaymentGateway";
-import PlansManager from "./PlansManager";
-import HelpsManager from "./HelpsManager";
-import SchedulesForm from "./SchedulesForm";
-import Reason from "./Reason";
-import Whitelabel from "./Whitelabel";
+import Options from "./tabs/Options";
+import PaymentGateway from "./tabs/PaymentGateway";
+import PlansManager from "./tabs/PlansManager";
+import HelpsManager from "./tabs/HelpsManager";
+import SchedulesForm from "./tabs/SchedulesForm";
+import Reason from "./tabs/Reason";
+import Whitelabel from "./tabs/Whitelabel";
 
 // Componente TabPanel para renderizar o conteúdo das abas
 function TabPanel({ children, value, index, ...other }) {
