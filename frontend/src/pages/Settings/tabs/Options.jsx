@@ -58,6 +58,7 @@ import {
 import { copyToClipboard } from "../../../helpers/copyToClipboard";
 import { toast } from "../../../helpers/toast";
 import OnlyForSuperUser from "../../../components/OnlyForSuperUser";
+import { AuthContext } from "../../../context/Auth/AuthContext";
 import StandardTabContent from "../../../components/shared/StandardTabContent";
 
 // Constantes
@@ -145,11 +146,12 @@ const Options = ({
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const [currentTab, setCurrentTab] = useState(0);
+  const [user] = useContext(AuthContext);
 
-
-  // Estado inicial das configurações
+  // Estado inicial das configurações - COMPLETO
   const getInitialConfigState = useCallback(() => {
     return {
+      // Configurações gerais
       openAiModel: "gpt-4",
       enableAudioTranscriptions: "disabled",
       openAiKey: "",
@@ -178,18 +180,129 @@ const Options = ({
       enableQueueWhenCloseTicket: "disabled",
       enableTagsWhenCloseTicket: "disabled",
       enableSatisfactionSurvey: "disabled",
+      
+      // Integrações
       enableUPSix: "disabled",
       enableUPSixWebphone: "disabled",
       enableUPSixNotifications: "disabled",
       enableOfficialWhatsapp: "disabled",
       enableMetaPixel: "disabled",
       metaPixelId: '',
+      
+      // SMTP
       smtpauthType: "",
       usersmtpauthType: "",
       clientsecretsmtpauthType: "",
       smtpPortType: "",
+      
+      // Suporte
       waSuportType: "",
-      msgSuportType: ""
+      msgSuportType: "",
+      
+      // Campanhas e Marketing
+      enableCampaigns: "disabled",
+      enableBulkMessages: "disabled",
+      
+      // Chatbot e IA
+      enableChatbot: "disabled",
+      enableOpenAIAssistants: "disabled",
+      enableFlowBuilder: "disabled",
+      enableAutoReply: "disabled",
+      
+      // Recursos avançados
+      enableKanban: "disabled",
+      enableInternalChat: "disabled",
+      enableAPI: "disabled",
+      enableWebhooks: "disabled",
+      enableCSVImport: "disabled",
+      enableReports: "disabled",
+      enableDashboard: "disabled",
+      
+      // Notificações
+      enableEmailNotifications: "disabled",
+      enableSMSNotifications: "disabled",
+      enablePushNotifications: "disabled",
+      enableDesktopNotifications: "disabled",
+      
+      // Arquivos e mídia
+      enableFileUpload: "enabled",
+      maxFileSize: "10",
+      allowedFileTypes: "image/*,application/pdf,text/*",
+      enableImageOptimization: "disabled",
+      enableAudioMessages: "enabled",
+      enableVideoMessages: "enabled",
+      
+      // Segurança
+      enableTwoFactor: "disabled",
+      enableSessionTimeout: "disabled",
+      sessionTimeoutMinutes: "30",
+      enableIPWhitelist: "disabled",
+      ipWhitelist: "",
+      enableAuditLog: "disabled",
+      
+      // Personalização
+      enableCustomCSS: "disabled",
+      customCSS: "",
+      enableWhiteLabel: "disabled",
+      companyName: "",
+      companyLogo: "",
+      
+      // Conexões
+      maxConnections: "5",
+      enableMultipleConnections: "enabled",
+      enableConnectionRotation: "disabled",
+      connectionTimeoutSeconds: "30",
+      
+      // Filas
+      maxQueues: "10",
+      enableQueuePriority: "disabled",
+      enableQueueTransfer: "enabled",
+      enableQueueStats: "enabled",
+      
+      // Tickets
+      enableTicketHistory: "enabled",
+      enableTicketNotes: "enabled",
+      enableTicketTags: "enabled",
+      enableTicketPriority: "disabled",
+      enableTicketSLA: "disabled",
+      ticketAutoCloseHours: "24",
+      
+      // Contatos
+      enableContactMerge: "disabled",
+      enableContactImport: "enabled",
+      enableContactExport: "enabled",
+      enableContactCustomFields: "disabled",
+      
+      // Mensagens
+      enableMessageSearch: "enabled",
+      enableMessageForward: "enabled",
+      enableMessageReply: "enabled",
+      enableMessageQuote: "enabled",
+      enableMessageTranslation: "disabled",
+      
+      // Analytics
+      enableAnalytics: "disabled",
+      enableGoogleAnalytics: "disabled",
+      googleAnalyticsId: "",
+      enableHotjar: "disabled",
+      hotjarId: "",
+      
+      // Backup
+      enableAutoBackup: "disabled",
+      backupFrequency: "daily",
+      backupRetentionDays: "30",
+      
+      // Performance
+      enableCache: "enabled",
+      cacheTimeoutMinutes: "10",
+      enableCompression: "enabled",
+      enableCDN: "disabled",
+      
+      // Logs
+      enableAccessLog: "disabled",
+      enableErrorLog: "enabled",
+      logRetentionDays: "7",
+      logLevel: "error"
     };
   }, []);
 
@@ -218,20 +331,19 @@ const Options = ({
         Object.keys(newState).forEach(key => {
           let settingKey = key;
 
-          if (key === 'openAiModel') {
-            settingKey = 'openaiModel';
-          } else if (key === 'smtpauthType') {
-            settingKey = 'smtpauth';
-          } else if (key === 'usersmtpauthType') {
-            settingKey = 'usersmtpauth';
-          } else if (key === 'clientsecretsmtpauthType') {
-            settingKey = 'clientsecretsmtpauth';
-          } else if (key === 'smtpPortType') {
-            settingKey = 'smtpport';
-          } else if (key === 'waSuportType') {
-            settingKey = 'wasuport';
-          } else if (key === 'msgSuportType') {
-            settingKey = 'msgsuport';
+          // Mapeamento de chaves
+          const keyMapping = {
+            'openAiModel': 'openaiModel',
+            'smtpauthType': 'smtpauth',
+            'usersmtpauthType': 'usersmtpauth',
+            'clientsecretsmtpauthType': 'clientsecretsmtpauth',
+            'smtpPortType': 'smtpport',
+            'waSuportType': 'wasuport',
+            'msgSuportType': 'msgsuport'
+          };
+
+          if (keyMapping[key]) {
+            settingKey = keyMapping[key];
           }
 
           if (settingsMap[settingKey] !== undefined) {
@@ -254,22 +366,18 @@ const Options = ({
       return newState;
     });
 
-    let backendKey = key;
-    if (key === 'openAiModel') {
-      backendKey = 'openaiModel';
-    } else if (key === 'smtpauthType') {
-      backendKey = 'smtpauth';
-    } else if (key === 'usersmtpauthType') {
-      backendKey = 'usersmtpauth';
-    } else if (key === 'clientsecretsmtpauthType') {
-      backendKey = 'clientsecretsmtpauth';
-    } else if (key === 'smtpPortType') {
-      backendKey = 'smtpport';
-    } else if (key === 'waSuportType') {
-      backendKey = 'wasuport';
-    } else if (key === 'msgSuportType') {
-      backendKey = 'msgsuport';
-    }
+    // Mapeamento de chaves para o backend
+    const keyMapping = {
+      'openAiModel': 'openaiModel',
+      'smtpauthType': 'smtpauth',
+      'usersmtpauthType': 'usersmtpauth',
+      'clientsecretsmtpauthType': 'clientsecretsmtpauth',
+      'smtpPortType': 'smtpport',
+      'waSuportType': 'wasuport',
+      'msgSuportType': 'msgsuport'
+    };
+
+    const backendKey = keyMapping[key] || key;
 
     if (notifyBackend) {
       onSettingChange(backendKey, value);
@@ -317,10 +425,12 @@ const Options = ({
   const tabs = useMemo(() => [
     { label: i18n.t("optionsPage.general") || "Configurações Gerais", icon: React.createElement(SettingsIcon) },
     { label: i18n.t("optionsPage.integrations") || "Integrações", icon: React.createElement(FontAwesomeIcon, { icon: faServer }) },
-    { label: i18n.t("optionsPage.advanced") || "Avançado", icon: React.createElement(BuildIcon) }
+    { label: i18n.t("optionsPage.advanced") || "Avançado", icon: React.createElement(BuildIcon) },
+    { label: "Recursos", icon: React.createElement(TuneIcon) },
+    { label: "Segurança", icon: React.createElement(FontAwesomeIcon, { icon: faDatabase }) }
   ], []);
 
-  // Componente de configurações gerais
+  // Componente de configurações gerais - COMPLETO
   const GeneralConfigSection = useMemo(() => {
     const GeneralConfigComponent = () => (
       <Box>
@@ -361,6 +471,51 @@ const Options = ({
                         </TextField>
                         <FormHelperText>
                           {i18n.t("optionsPage.trialExpirationHelp") || "Tempo de duração do período de teste"}
+                        </FormHelperText>
+                      </FormControl>
+                    </Grid>
+                    <Grid item xs={12} sm={6} md={4}>
+                      <FormControl fullWidth>
+                        <TextField
+                          select
+                          label="Máximo de Conexões"
+                          value={configState.maxConnections || "5"}
+                          size="small"
+                          onChange={(e) => handleConfigChange("maxConnections", e.target.value)}
+                          variant="outlined"
+                          margin="normal"
+                        >
+                          <MenuItem value="1">1 conexão</MenuItem>
+                          <MenuItem value="3">3 conexões</MenuItem>
+                          <MenuItem value="5">5 conexões</MenuItem>
+                          <MenuItem value="10">10 conexões</MenuItem>
+                          <MenuItem value="20">20 conexões</MenuItem>
+                          <MenuItem value="50">50 conexões</MenuItem>
+                        </TextField>
+                        <FormHelperText>
+                          Número máximo de conexões WhatsApp por empresa
+                        </FormHelperText>
+                      </FormControl>
+                    </Grid>
+                    <Grid item xs={12} sm={6} md={4}>
+                      <FormControl fullWidth>
+                        <TextField
+                          select
+                          label="Máximo de Filas"
+                          value={configState.maxQueues || "10"}
+                          size="small"
+                          onChange={(e) => handleConfigChange("maxQueues", e.target.value)}
+                          variant="outlined"
+                          margin="normal"
+                        >
+                          <MenuItem value="5">5 filas</MenuItem>
+                          <MenuItem value="10">10 filas</MenuItem>
+                          <MenuItem value="20">20 filas</MenuItem>
+                          <MenuItem value="50">50 filas</MenuItem>
+                          <MenuItem value="100">100 filas</MenuItem>
+                        </TextField>
+                        <FormHelperText>
+                          Número máximo de filas de atendimento
                         </FormHelperText>
                       </FormControl>
                     </Grid>
@@ -466,153 +621,6 @@ const Options = ({
               <FormControlLabel
                 control={
                   <Switch
-                    checked={configState.CheckMsgIsGroup === "enabled"}
-                    name="CheckMsgIsGroup"
-                    color="primary"
-                    onChange={(e) => handleSwitchChange("CheckMsgIsGroup", e.target.checked)}
-                  />
-                }
-                label={i18n.t("optionsPage.ignore") || "Ignorar mensagens de grupos"}
-              />
-            </FormGroup>
-            <FormHelperText>
-              {i18n.t("optionsPage.ignoreHelp") || "Ignora mensagens recebidas de grupos do WhatsApp"}
-            </FormHelperText>
-          </Box>
-        </StyledPaper>
-
-        <StyledPaper elevation={2}>
-          <Box sx={{ p: 1 }}>
-            <FormGroup>
-              <FormControlLabel
-                control={
-                  <Switch
-                    checked={configState.sendGreetingAccepted === "enabled"}
-                    name="sendGreetingAccepted"
-                    color="primary"
-                    onChange={(e) => handleSwitchChange("sendGreetingAccepted", e.target.checked)}
-                  />
-                }
-                label={i18n.t("optionsPage.sendanun") || "Enviar saudação quando aceitar ticket"}
-              />
-            </FormGroup>
-            <FormHelperText>
-              {i18n.t("optionsPage.sendanunHelp") || "Envia mensagem de saudação automaticamente quando agente aceita um ticket"}
-            </FormHelperText>
-          </Box>
-        </StyledPaper>
-
-        <StyledPaper elevation={2}>
-          <Box sx={{ p: 1 }}>
-            <FormGroup>
-              <FormControlLabel
-                control={
-                  <Switch
-                    checked={configState.sendQueuePosition === "enabled"}
-                    name="sendQueuePosition"
-                    color="primary"
-                    onChange={(e) => handleSwitchChange("sendQueuePosition", e.target.checked)}
-                  />
-                }
-                label={i18n.t("optionsPage.sendQueuePosition") || "Enviar posição na fila"}
-              />
-            </FormGroup>
-            <FormHelperText>
-              {i18n.t("optionsPage.sendQueuePositionHelp") || "Informa ao cliente sua posição na fila de atendimento"}
-            </FormHelperText>
-          </Box>
-        </StyledPaper>
-
-        <StyledPaper elevation={2}>
-          <Box sx={{ p: 1 }}>
-            <FormGroup>
-              <FormControlLabel
-                control={
-                  <Switch
-                    checked={configState.settingsUserRandom === "enabled"}
-                    name="settingsUserRandom"
-                    color="primary"
-                    onChange={(e) => handleSwitchChange("settingsUserRandom", e.target.checked)}
-                  />
-                }
-                label={i18n.t("optionsPage.settingsUserRandom") || "Distribuição aleatória de usuários"}
-              />
-            </FormGroup>
-            <FormHelperText>
-              {i18n.t("optionsPage.settingsUserRandomHelp") || "Distribui tickets aleatoriamente entre agentes disponíveis"}
-            </FormHelperText>
-          </Box>
-        </StyledPaper>
-
-        <StyledPaper elevation={2}>
-          <Box sx={{ p: 1 }}>
-            <FormGroup>
-              <FormControlLabel
-                control={
-                  <Switch
-                    checked={configState.userRating === "enabled"}
-                    name="userRating"
-                    color="primary"
-                    onChange={(e) => handleSwitchChange("userRating", e.target.checked)}
-                  />
-                }
-                label={i18n.t("optionsPage.calif") || "Habilitar avaliação de atendimento"}
-              />
-            </FormGroup>
-            <FormHelperText>
-              {i18n.t("optionsPage.califHelp") || "Permite que clientes avaliem o atendimento recebido"}
-            </FormHelperText>
-          </Box>
-        </StyledPaper>
-
-        <StyledPaper elevation={2}>
-          <Box sx={{ p: 1 }}>
-            <FormGroup>
-              <FormControlLabel
-                control={
-                  <Switch
-                    checked={configState.enableReasonWhenCloseTicket === "enabled"}
-                    name="enableReasonWhenCloseTicket"
-                    color="primary"
-                    onChange={(e) => handleMutuallyExclusiveOption("enableReasonWhenCloseTicket", e.target.checked ? "enabled" : "disabled")}
-                  />
-                }
-                label={i18n.t("optionsPage.enableReasonWhenCloseTicket") || "Exigir motivo ao encerrar ticket"}
-              />
-            </FormGroup>
-            <FormHelperText>
-              {i18n.t("optionsPage.enableReasonWhenCloseTicketHelp") || "Obriga o agente a informar um motivo ao encerrar o ticket"}
-            </FormHelperText>
-          </Box>
-        </StyledPaper>
-
-        <StyledPaper elevation={2}>
-          <Box sx={{ p: 1 }}>
-            <FormGroup>
-              <FormControlLabel
-                control={
-                  <Switch
-                    checked={configState.enableQueueWhenCloseTicket === "enabled"}
-                    name="enableQueueWhenCloseTicket"
-                    color="primary"
-                    onChange={(e) => handleMutuallyExclusiveOption("enableQueueWhenCloseTicket", e.target.checked ? "enabled" : "disabled")}
-                  />
-                }
-                label={i18n.t("optionsPage.enableQueueWhenCloseTicket") || "Definir fila ao encerrar ticket"}
-              />
-            </FormGroup>
-            <FormHelperText>
-              {i18n.t("optionsPage.enableQueueWhenCloseTicketHelp") || "Permite definir uma fila específica ao encerrar o ticket"}
-            </FormHelperText>
-          </Box>
-        </StyledPaper>
-
-        <StyledPaper elevation={2}>
-          <Box sx={{ p: 1 }}>
-            <FormGroup>
-              <FormControlLabel
-                control={
-                  <Switch
                     checked={configState.enableTagsWhenCloseTicket === "enabled"}
                     name="enableTagsWhenCloseTicket"
                     color="primary"
@@ -625,6 +633,122 @@ const Options = ({
             <FormHelperText>
               {i18n.t("optionsPage.enableTagsWhenCloseTicketHelp") || "Permite adicionar etiquetas ao encerrar o ticket"}
             </FormHelperText>
+          </Box>
+        </StyledPaper>
+
+        <StyledPaper elevation={2}>
+          <Box sx={{ p: 1 }}>
+            <FormGroup>
+              <FormControlLabel
+                control={
+                  <Switch
+                    checked={configState.enableTicketHistory === "enabled"}
+                    name="enableTicketHistory"
+                    color="primary"
+                    onChange={(e) => handleSwitchChange("enableTicketHistory", e.target.checked)}
+                  />
+                }
+                label="Histórico de tickets"
+              />
+            </FormGroup>
+            <FormHelperText>
+              Mantém histórico completo de todos os tickets
+            </FormHelperText>
+          </Box>
+        </StyledPaper>
+
+        <StyledPaper elevation={2}>
+          <Box sx={{ p: 1 }}>
+            <FormGroup>
+              <FormControlLabel
+                control={
+                  <Switch
+                    checked={configState.enableTicketNotes === "enabled"}
+                    name="enableTicketNotes"
+                    color="primary"
+                    onChange={(e) => handleSwitchChange("enableTicketNotes", e.target.checked)}
+                  />
+                }
+                label="Notas em tickets"
+              />
+            </FormGroup>
+            <FormHelperText>
+              Permite adicionar notas internas aos tickets
+            </FormHelperText>
+          </Box>
+        </StyledPaper>
+
+        <StyledPaper elevation={2}>
+          <Box sx={{ p: 1 }}>
+            <FormGroup>
+              <FormControlLabel
+                control={
+                  <Switch
+                    checked={configState.enableTicketTags === "enabled"}
+                    name="enableTicketTags"
+                    color="primary"
+                    onChange={(e) => handleSwitchChange("enableTicketTags", e.target.checked)}
+                  />
+                }
+                label="Tags em tickets"
+              />
+            </FormGroup>
+            <FormHelperText>
+              Permite categorizar tickets com tags
+            </FormHelperText>
+          </Box>
+        </StyledPaper>
+
+        <StyledPaper elevation={2}>
+          <Box sx={{ p: 1 }}>
+            <FormGroup>
+              <FormControlLabel
+                control={
+                  <Switch
+                    checked={configState.enableTicketPriority === "enabled"}
+                    name="enableTicketPriority"
+                    color="primary"
+                    onChange={(e) => handleSwitchChange("enableTicketPriority", e.target.checked)}
+                  />
+                }
+                label="Prioridade de tickets"
+              />
+            </FormGroup>
+            <FormHelperText>
+              Define prioridades para tickets (baixa, normal, alta, urgente)
+            </FormHelperText>
+          </Box>
+        </StyledPaper>
+
+        <StyledPaper elevation={2}>
+          <Box sx={{ p: 1 }}>
+            <Grid container spacing={2}>
+              <Grid item xs={12} sm={6} md={4}>
+                <FormControl fullWidth>
+                  <TextField
+                    select
+                    label="Fechamento automático (horas)"
+                    value={configState.ticketAutoCloseHours || "24"}
+                    size="small"
+                    onChange={(e) => handleConfigChange("ticketAutoCloseHours", e.target.value)}
+                    variant="outlined"
+                    margin="normal"
+                  >
+                    <MenuItem value="0">Desabilitado</MenuItem>
+                    <MenuItem value="1">1 hora</MenuItem>
+                    <MenuItem value="2">2 horas</MenuItem>
+                    <MenuItem value="6">6 horas</MenuItem>
+                    <MenuItem value="12">12 horas</MenuItem>
+                    <MenuItem value="24">24 horas</MenuItem>
+                    <MenuItem value="48">48 horas</MenuItem>
+                    <MenuItem value="72">72 horas</MenuItem>
+                  </TextField>
+                  <FormHelperText>
+                    Fecha tickets automaticamente após período de inatividade
+                  </FormHelperText>
+                </FormControl>
+              </Grid>
+            </Grid>
           </Box>
         </StyledPaper>
 
@@ -758,6 +882,90 @@ const Options = ({
 
         <StyledPaper elevation={2}>
           <Box sx={{ p: 1 }}>
+            <FormGroup>
+              <FormControlLabel
+                control={
+                  <Switch
+                    checked={configState.enableContactMerge === "enabled"}
+                    name="enableContactMerge"
+                    color="primary"
+                    onChange={(e) => handleSwitchChange("enableContactMerge", e.target.checked)}
+                  />
+                }
+                label="Fusão de contatos"
+              />
+            </FormGroup>
+            <FormHelperText>
+              Permite fusão automática de contatos duplicados
+            </FormHelperText>
+          </Box>
+        </StyledPaper>
+
+        <StyledPaper elevation={2}>
+          <Box sx={{ p: 1 }}>
+            <FormGroup>
+              <FormControlLabel
+                control={
+                  <Switch
+                    checked={configState.enableContactImport === "enabled"}
+                    name="enableContactImport"
+                    color="primary"
+                    onChange={(e) => handleSwitchChange("enableContactImport", e.target.checked)}
+                  />
+                }
+                label="Importação de contatos"
+              />
+            </FormGroup>
+            <FormHelperText>
+              Permite importar contatos via CSV/Excel
+            </FormHelperText>
+          </Box>
+        </StyledPaper>
+
+        <StyledPaper elevation={2}>
+          <Box sx={{ p: 1 }}>
+            <FormGroup>
+              <FormControlLabel
+                control={
+                  <Switch
+                    checked={configState.enableContactExport === "enabled"}
+                    name="enableContactExport"
+                    color="primary"
+                    onChange={(e) => handleSwitchChange("enableContactExport", e.target.checked)}
+                  />
+                }
+                label="Exportação de contatos"
+              />
+            </FormGroup>
+            <FormHelperText>
+              Permite exportar contatos para CSV/Excel
+            </FormHelperText>
+          </Box>
+        </StyledPaper>
+
+        <StyledPaper elevation={2}>
+          <Box sx={{ p: 1 }}>
+            <FormGroup>
+              <FormControlLabel
+                control={
+                  <Switch
+                    checked={configState.enableContactCustomFields === "enabled"}
+                    name="enableContactCustomFields"
+                    color="primary"
+                    onChange={(e) => handleSwitchChange("enableContactCustomFields", e.target.checked)}
+                  />
+                }
+                label="Campos personalizados"
+              />
+            </FormGroup>
+            <FormHelperText>
+              Permite criar campos personalizados para contatos
+            </FormHelperText>
+          </Box>
+        </StyledPaper>
+
+        <StyledPaper elevation={2}>
+          <Box sx={{ p: 1 }}>
             <Grid container spacing={2}>
               <Grid item xs={12} sm={6} md={4}>
                 <FormControl fullWidth>
@@ -869,7 +1077,7 @@ const Options = ({
     handleMutuallyExclusiveOption
   ]);
 
-  // Componente de configurações de integrações
+  // Componente de configurações de integrações - COMPLETO
   const IntegrationsSection = useMemo(() => {
     const IntegrationsComponent = () => (
       <Box>
@@ -1007,6 +1215,25 @@ const Options = ({
               </FormHelperText>
             </Box>
 
+            <Box sx={{ mt: 2 }}>
+              <FormGroup>
+                <FormControlLabel
+                  control={
+                    <Switch
+                      checked={configState.enableOpenAIAssistants === "enabled"}
+                      name="enableOpenAIAssistants"
+                      color="primary"
+                      onChange={(e) => handleSwitchChange("enableOpenAIAssistants", e.target.checked)}
+                    />
+                  }
+                  label="Agentes de IA"
+                />
+              </FormGroup>
+              <FormHelperText>
+                Ativa assistentes virtuais inteligentes com OpenAI
+              </FormHelperText>
+            </Box>
+
             {configState.enableAudioTranscriptions === "enabled" && (
               <Box sx={{ mt: 2, pl: 2 }}>
                 <Grid container spacing={2}>
@@ -1052,63 +1279,204 @@ const Options = ({
 
         <StyledPaper elevation={2}>
           <Box sx={{ p: 1 }}>
+            <FormGroup>
+              <FormControlLabel
+                control={
+                  <Switch
+                    checked={configState.enableUseOneTicketPerConnection === "enabled"}
+                    name="enableUseOneTicketPerConnection"
+                    color="primary"
+                    onChange={(e) => handleSwitchChange("enableUseOneTicketPerConnection", e.target.checked)}
+                  />
+                }
+                label="Um ticket por conexão"
+              />
+            </FormGroup>
+            <FormHelperText>
+              Permite apenas um ticket ativo por conexão por vez
+            </FormHelperText>
+          </Box>
+        </StyledPaper>
+
+        <StyledPaper elevation={2}>
+          <Box sx={{ p: 1 }}>
+            <FormGroup>
+              <FormControlLabel
+                control={
+                  <Switch
+                    checked={configState.sendGreetingAccepted === "enabled"}
+                    name="sendGreetingAccepted"
+                    color="primary"
+                    onChange={(e) => handleSwitchChange("sendGreetingAccepted", e.target.checked)}
+                  />
+                }
+                label={i18n.t("optionsPage.sendanun") || "Enviar saudação quando aceitar ticket"}
+              />
+            </FormGroup>
+            <FormHelperText>
+              {i18n.t("optionsPage.sendanunHelp") || "Envia mensagem de saudação automaticamente quando agente aceita um ticket"}
+            </FormHelperText>
+          </Box>
+        </StyledPaper>
+
+        <StyledPaper elevation={2}>
+          <Box sx={{ p: 1 }}>
+            <FormGroup>
+              <FormControlLabel
+                control={
+                  <Switch
+                    checked={configState.sendQueuePosition === "enabled"}
+                    name="sendQueuePosition"
+                    color="primary"
+                    onChange={(e) => handleSwitchChange("sendQueuePosition", e.target.checked)}
+                  />
+                }
+                label={i18n.t("optionsPage.sendQueuePosition") || "Enviar posição na fila"}
+              />
+            </FormGroup>
+            <FormHelperText>
+              {i18n.t("optionsPage.sendQueuePositionHelp") || "Informa ao cliente sua posição na fila de atendimento"}
+            </FormHelperText>
+          </Box>
+        </StyledPaper>
+
+        <StyledPaper elevation={2}>
+          <Box sx={{ p: 1 }}>
+            <FormGroup>
+              <FormControlLabel
+                control={
+                  <Switch
+                    checked={configState.settingsUserRandom === "enabled"}
+                    name="settingsUserRandom"
+                    color="primary"
+                    onChange={(e) => handleSwitchChange("settingsUserRandom", e.target.checked)}
+                  />
+                }
+                label={i18n.t("optionsPage.settingsUserRandom") || "Distribuição aleatória de usuários"}
+              />
+            </FormGroup>
+            <FormHelperText>
+              {i18n.t("optionsPage.settingsUserRandomHelp") || "Distribui tickets aleatoriamente entre agentes disponíveis"}
+            </FormHelperText>
+          </Box>
+        </StyledPaper>
+
+        <StyledPaper elevation={2}>
+          <Box sx={{ p: 1 }}>
+            <FormGroup>
+              <FormControlLabel
+                control={
+                  <Switch
+                    checked={configState.userRating === "enabled"}
+                    name="userRating"
+                    color="primary"
+                    onChange={(e) => handleSwitchChange("userRating", e.target.checked)}
+                  />
+                }
+                label={i18n.t("optionsPage.calif") || "Habilitar avaliação de atendimento"}
+              />
+            </FormGroup>
+            <FormHelperText>
+              {i18n.t("optionsPage.califHelp") || "Permite que clientes avaliem o atendimento recebido"}
+            </FormHelperText>
+          </Box>
+        </StyledPaper>
+
+        <StyledPaper elevation={2}>
+          <Box sx={{ p: 1 }}>
+            <FormGroup>
+              <FormControlLabel
+                control={
+                  <Switch
+                    checked={configState.enableReasonWhenCloseTicket === "enabled"}
+                    name="enableReasonWhenCloseTicket"
+                    color="primary"
+                    onChange={(e) => handleMutuallyExclusiveOption("enableReasonWhenCloseTicket", e.target.checked ? "enabled" : "disabled")}
+                  />
+                }
+                label={i18n.t("optionsPage.enableReasonWhenCloseTicket") || "Exigir motivo ao encerrar ticket"}
+              />
+            </FormGroup>
+            <FormHelperText>
+              {i18n.t("optionsPage.enableReasonWhenCloseTicketHelp") || "Obriga o agente a informar um motivo ao encerrar o ticket"}
+            </FormHelperText>
+          </Box>
+        </StyledPaper>
+
+        <StyledPaper elevation={2}>
+          <Box sx={{ p: 1 }}>
+            <FormGroup>
+              <FormControlLabel
+                control={
+                  <Switch
+                    checked={configState.enableQueueWhenCloseTicket === "enabled"}
+                    name="enableQueueWhenCloseTicket"
+                    color="primary"
+                    onChange={(e) => handleMutuallyExclusiveOption("enableQueueWhenCloseTicket", e.target.checked ? "enabled" : "disabled")}
+                  />
+                }
+                label={i18n.t("optionsPage.enableQueueWhenCloseTicket") || "Definir fila ao encerrar ticket"}
+              />
+            </FormGroup>
+            <FormHelperText>
+              {i18n.t("optionsPage.enableQueueWhenCloseTicketHelp") || "Permite definir uma fila específica ao encerrar o ticket"}
+            </FormHelperText>
+          </Box>
+        </StyledPaper>
+
+        <StyledPaper elevation={2}>
+          <Box sx={{ p: 1 }}>
+            <FormGroup>
+            <FormHelperText sx={{ mt: 1, mb: 2 }}>
+                  Informe o ID do seu Google Analytics (ex: G-XXXXXXXXXX)
+                </FormHelperText>
+            </FormGroup>
+          </Box>
+        </StyledPaper>
+
+        <StyledPaper elevation={2}>
+          <Box sx={{ p: 1 }}>
             <Typography variant="subtitle1" sx={{ mb: 2, fontWeight: 'medium', display: 'flex', alignItems: 'center' }}>
-              <StyledBadge>
-                <FontAwesomeIcon icon={faServer} size="xs" />
-              </StyledBadge>
-              <Box ml={1}>UPSix</Box>
+              <FontAwesomeIcon icon={faDatabase} style={{ marginRight: '8px', color: theme.palette.primary.main }} />
+              Hotjar
             </Typography>
             <FormGroup>
               <FormControlLabel
                 control={
                   <Switch
-                    checked={configState.enableUPSix === "enabled"}
-                    name="enableUPSix"
+                    checked={configState.enableHotjar === "enabled"}
+                    name="enableHotjar"
                     color="primary"
-                    onChange={(e) => handleSwitchChange("enableUPSix", e.target.checked)}
+                    onChange={(e) => handleSwitchChange("enableHotjar", e.target.checked)}
                   />
                 }
-                label={i18n.t("optionsPage.enableUPSix") || "Habilitar UPSix"}
+                label="Habilitar Hotjar"
               />
             </FormGroup>
             <FormHelperText>
-              {i18n.t("optionsPage.enableUPSixHelp") || "Ativa a integração com o sistema de telefonia UPSix"}
+              Ativa o rastreamento do Hotjar para análise de comportamento
             </FormHelperText>
 
-            {configState.enableUPSix === "enabled" && (
-              <Box sx={{ mt: 2, pl: 2 }}>
-                <FormGroup>
-                  <FormControlLabel
-                    control={
-                      <Switch
-                        checked={configState.enableUPSixWebphone === "enabled"}
-                        name="enableUPSixWebphone"
-                        color="primary"
-                        onChange={(e) => handleSwitchChange("enableUPSixWebphone", e.target.checked)}
-                      />
-                    }
-                    label={i18n.t("optionsPage.enableUPSixWebphone") || "Habilitar Webphone"}
-                  />
-                </FormGroup>
-                <FormHelperText>
-                  {i18n.t("optionsPage.enableUPSixWebphoneHelp") || "Ativa o webphone na interface de atendimento"}
-                </FormHelperText>
-
-                <FormGroup sx={{ mt: 2 }}>
-                  <FormControlLabel
-                    control={
-                      <Switch
-                        checked={configState.enableUPSixNotifications === "enabled"}
-                        name="enableUPSixNotifications"
-                        color="primary"
-                        onChange={(e) => handleSwitchChange("enableUPSixNotifications", e.target.checked)}
-                      />
-                    }
-                    label={i18n.t("optionsPage.enableUPSixNotifications") || "Habilitar Notificações"}
-                  />
-                </FormGroup>
-                <FormHelperText>
-                  {i18n.t("optionsPage.enableUPSixNotificationsHelp") || "Ativa notificações das chamadas UPSix"}
+            {configState.enableHotjar === "enabled" && (
+              <Box sx={{ mt: 2 }}>
+                <Grid container spacing={2}>
+                  <Grid item xs={12}>
+                    <TextField
+                      id="hotjarId"
+                      name="hotjarId"
+                      margin="dense"
+                      label="ID do Hotjar"
+                      variant="outlined"
+                      fullWidth
+                      value={configState.hotjarId || ""}
+                      onChange={(e) => handleConfigChange("hotjarId", e.target.value, false)}
+                      size="small"
+                      placeholder="1234567"
+                    />
+                  </Grid>
+                </Grid>
+                <FormHelperText sx={{ mt: 1, mb: 2 }}>
+                  Informe o ID do seu site no Hotjar
                 </FormHelperText>
               </Box>
             )}
@@ -1124,7 +1492,7 @@ const Options = ({
     handleConfigChange
   ]);
 
-  // Componente de configurações avançadas
+  // Componente de configurações avançadas - COMPLETO
   const AdvancedSection = useMemo(() => {
     const AdvancedComponent = () => (
       <Box>
@@ -1161,6 +1529,29 @@ const Options = ({
                   </TextField>
                   <FormHelperText>
                     {i18n.t("optionsPage.downloadLimitHelp") || "Tamanho máximo para download de arquivos"}
+                  </FormHelperText>
+                </FormControl>
+              </Grid>
+              <Grid item xs={12} sm={6} md={4}>
+                <FormControl fullWidth>
+                  <TextField
+                    select
+                    label="Tamanho máximo de arquivo"
+                    value={configState.maxFileSize || "10"}
+                    onChange={(e) => handleConfigChange("maxFileSize", e.target.value)}
+                    variant="outlined"
+                    size="small"
+                    margin="normal"
+                  >
+                    <MenuItem value="5">5 MB</MenuItem>
+                    <MenuItem value="10">10 MB</MenuItem>
+                    <MenuItem value="20">20 MB</MenuItem>
+                    <MenuItem value="50">50 MB</MenuItem>
+                    <MenuItem value="100">100 MB</MenuItem>
+                    <MenuItem value="200">200 MB</MenuItem>
+                  </TextField>
+                  <FormHelperText>
+                    Tamanho máximo para upload de arquivos
                   </FormHelperText>
                 </FormControl>
               </Grid>
@@ -1340,9 +1731,894 @@ const Options = ({
             </FormHelperText>
           </Box>
         </StyledPaper>
+
+        <StyledPaper elevation={2}>
+          <Box sx={{ p: 1 }}>
+            <Typography variant="subtitle1" sx={{ mb: 2, fontWeight: 'medium' }}>
+              Performance e Cache
+            </Typography>
+            <Grid container spacing={2}>
+              <Grid item xs={12} sm={6}>
+                <FormGroup>
+                  <FormControlLabel
+                    control={
+                      <Switch
+                        checked={configState.enableCache === "enabled"}
+                        name="enableCache"
+                        color="primary"
+                        onChange={(e) => handleSwitchChange("enableCache", e.target.checked)}
+                      />
+                    }
+                    label="Habilitar cache"
+                  />
+                </FormGroup>
+                <FormHelperText>
+                  Ativa cache para melhorar performance
+                </FormHelperText>
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <FormControl fullWidth>
+                  <TextField
+                    select
+                    label="Timeout do cache (minutos)"
+                    value={configState.cacheTimeoutMinutes || "10"}
+                    onChange={(e) => handleConfigChange("cacheTimeoutMinutes", e.target.value)}
+                    variant="outlined"
+                    size="small"
+                    margin="normal"
+                  >
+                    <MenuItem value="5">5 minutos</MenuItem>
+                    <MenuItem value="10">10 minutos</MenuItem>
+                    <MenuItem value="15">15 minutos</MenuItem>
+                    <MenuItem value="30">30 minutos</MenuItem>
+                    <MenuItem value="60">1 hora</MenuItem>
+                  </TextField>
+                </FormControl>
+              </Grid>
+            </Grid>
+          </Box>
+        </StyledPaper>
+
+        <StyledPaper elevation={2}>
+          <Box sx={{ p: 1 }}>
+            <FormGroup>
+              <FormControlLabel
+                control={
+                  <Switch
+                    checked={configState.enableCompression === "enabled"}
+                    name="enableCompression"
+                    color="primary"
+                    onChange={(e) => handleSwitchChange("enableCompression", e.target.checked)}
+                  />
+                }
+                label="Compressão de dados"
+              />
+            </FormGroup>
+            <FormHelperText>
+              Ativa compressão para reduzir uso de banda
+            </FormHelperText>
+          </Box>
+        </StyledPaper>
       </Box>
     );
     return AdvancedComponent;
+  }, [
+    configState,
+    theme,
+    handleSwitchChange,
+    handleConfigChange
+  ]);
+
+  // Componente de recursos - NOVO
+  const ResourcesSection = useMemo(() => {
+    const ResourcesComponent = () => (
+      <Box>
+        <SectionTitle variant="h6">
+          <TuneIcon color="primary" />
+          Recursos do Sistema
+        </SectionTitle>
+
+        <CategoryDivider>
+          <Chip
+            icon={<FontAwesomeIcon icon={faRobot} />}
+            label="Chatbot e IA"
+            color="primary"
+            variant="outlined"
+            sx={{ fontWeight: 'bold', px: 2 }}
+          />
+          <Divider sx={{ flexGrow: 1, ml: 2 }} />
+        </CategoryDivider>
+
+        <StyledPaper elevation={2}>
+          <Box sx={{ p: 1 }}>
+            <FormGroup>
+              <FormControlLabel
+                control={
+                  <Switch
+                    checked={configState.enableChatbot === "enabled"}
+                    name="enableChatbot"
+                    color="primary"
+                    onChange={(e) => handleSwitchChange("enableChatbot", e.target.checked)}
+                  />
+                }
+                label="Habilitar Chatbot"
+              />
+            </FormGroup>
+            <FormHelperText>
+              Ativa sistema de chatbot inteligente
+            </FormHelperText>
+          </Box>
+        </StyledPaper>
+
+        <StyledPaper elevation={2}>
+          <Box sx={{ p: 1 }}>
+            <FormGroup>
+              <FormControlLabel
+                control={
+                  <Switch
+                    checked={configState.enableFlowBuilder === "enabled"}
+                    name="enableFlowBuilder"
+                    color="primary"
+                    onChange={(e) => handleSwitchChange("enableFlowBuilder", e.target.checked)}
+                  />
+                }
+                label="Flow Builder"
+              />
+            </FormGroup>
+            <FormHelperText>
+              Constructor visual de fluxos de conversa
+            </FormHelperText>
+          </Box>
+        </StyledPaper>
+
+        <StyledPaper elevation={2}>
+          <Box sx={{ p: 1 }}>
+            <FormGroup>
+              <FormControlLabel
+                control={
+                  <Switch
+                    checked={configState.enableAutoReply === "enabled"}
+                    name="enableAutoReply"
+                    color="primary"
+                    onChange={(e) => handleSwitchChange("enableAutoReply", e.target.checked)}
+                  />
+                }
+                label="Respostas automáticas"
+              />
+            </FormGroup>
+            <FormHelperText>
+              Sistema de respostas automáticas inteligentes
+            </FormHelperText>
+          </Box>
+        </StyledPaper>
+
+        <CategoryDivider>
+          <Chip
+            icon={<FontAwesomeIcon icon={faList} />}
+            label="Campanhas e Marketing"
+            color="secondary"
+            variant="outlined"
+            sx={{ fontWeight: 'bold', px: 2 }}
+          />
+          <Divider sx={{ flexGrow: 1, ml: 2 }} />
+        </CategoryDivider>
+
+        <StyledPaper elevation={2}>
+          <Box sx={{ p: 1 }}>
+            <FormGroup>
+              <FormControlLabel
+                control={
+                  <Switch
+                    checked={configState.enableCampaigns === "enabled"}
+                    name="enableCampaigns"
+                    color="primary"
+                    onChange={(e) => handleSwitchChange("enableCampaigns", e.target.checked)}
+                  />
+                }
+                label="Habilitar Campanhas"
+              />
+            </FormGroup>
+            <FormHelperText>
+              Sistema completo de campanhas de marketing
+            </FormHelperText>
+          </Box>
+        </StyledPaper>
+
+        <StyledPaper elevation={2}>
+          <Box sx={{ p: 1 }}>
+            <FormGroup>
+              <FormControlLabel
+                control={
+                  <Switch
+                    checked={configState.enableBulkMessages === "enabled"}
+                    name="enableBulkMessages"
+                    color="primary"
+                    onChange={(e) => handleSwitchChange("enableBulkMessages", e.target.checked)}
+                  />
+                }
+                label="Mensagens em massa"
+              />
+            </FormGroup>
+            <FormHelperText>
+              Envio de mensagens para múltiplos contatos
+            </FormHelperText>
+          </Box>
+        </StyledPaper>
+
+        <CategoryDivider>
+          <Chip
+            icon={<AssessmentOutlined />}
+            label="Relatórios e Analytics"
+            color="success"
+            variant="outlined"
+            sx={{ fontWeight: 'bold', px: 2 }}
+          />
+          <Divider sx={{ flexGrow: 1, ml: 2 }} />
+        </CategoryDivider>
+
+        <StyledPaper elevation={2}>
+          <Box sx={{ p: 1 }}>
+            <FormGroup>
+              <FormControlLabel
+                control={
+                  <Switch
+                    checked={configState.enableReports === "enabled"}
+                    name="enableReports"
+                    color="primary"
+                    onChange={(e) => handleSwitchChange("enableReports", e.target.checked)}
+                  />
+                }
+                label="Relatórios avançados"
+              />
+            </FormGroup>
+            <FormHelperText>
+              Sistema completo de relatórios e estatísticas
+            </FormHelperText>
+          </Box>
+        </StyledPaper>
+
+        <StyledPaper elevation={2}>
+          <Box sx={{ p: 1 }}>
+            <FormGroup>
+              <FormControlLabel
+                control={
+                  <Switch
+                    checked={configState.enableDashboard === "enabled"}
+                    name="enableDashboard"
+                    color="primary"
+                    onChange={(e) => handleSwitchChange("enableDashboard", e.target.checked)}
+                  />
+                }
+                label="Dashboard analítico"
+              />
+            </FormGroup>
+            <FormHelperText>
+              Dashboard com métricas e KPIs em tempo real
+            </FormHelperText>
+          </Box>
+        </StyledPaper>
+
+        <StyledPaper elevation={2}>
+          <Box sx={{ p: 1 }}>
+            <FormGroup>
+              <FormControlLabel
+                control={
+                  <Switch
+                    checked={configState.enableAnalytics === "enabled"}
+                    name="enableAnalytics"
+                    color="primary"
+                    onChange={(e) => handleSwitchChange("enableAnalytics", e.target.checked)}
+                  />
+                }
+                label="Analytics comportamental"
+              />
+            </FormGroup>
+            <FormHelperText>
+              Análise de comportamento e jornada do cliente
+            </FormHelperText>
+          </Box>
+        </StyledPaper>
+
+        <CategoryDivider>
+          <Chip
+            icon={<FontAwesomeIcon icon={faGears} />}
+            label="Recursos Avançados"
+            color="warning"
+            variant="outlined"
+            sx={{ fontWeight: 'bold', px: 2 }}
+          />
+          <Divider sx={{ flexGrow: 1, ml: 2 }} />
+        </CategoryDivider>
+
+        <StyledPaper elevation={2}>
+          <Box sx={{ p: 1 }}>
+            <FormGroup>
+              <FormControlLabel
+                control={
+                  <Switch
+                    checked={configState.enableKanban === "enabled"}
+                    name="enableKanban"
+                    color="primary"
+                    onChange={(e) => handleSwitchChange("enableKanban", e.target.checked)}
+                  />
+                }
+                label="Kanban de tickets"
+              />
+            </FormGroup>
+            <FormHelperText>
+              Visualização em kanban para gestão de tickets
+            </FormHelperText>
+          </Box>
+        </StyledPaper>
+
+        <StyledPaper elevation={2}>
+          <Box sx={{ p: 1 }}>
+            <FormGroup>
+              <FormControlLabel
+                control={
+                  <Switch
+                    checked={configState.enableInternalChat === "enabled"}
+                    name="enableInternalChat"
+                    color="primary"
+                    onChange={(e) => handleSwitchChange("enableInternalChat", e.target.checked)}
+                  />
+                }
+                label="Chat interno"
+              />
+            </FormGroup>
+            <FormHelperText>
+              Sistema de chat interno entre agentes
+            </FormHelperText>
+          </Box>
+        </StyledPaper>
+
+        <StyledPaper elevation={2}>
+          <Box sx={{ p: 1 }}>
+            <FormGroup>
+              <FormControlLabel
+                control={
+                  <Switch
+                    checked={configState.enableAPI === "enabled"}
+                    name="enableAPI"
+                    color="primary"
+                    onChange={(e) => handleSwitchChange("enableAPI", e.target.checked)}
+                  />
+                }
+                label="API externa"
+              />
+            </FormGroup>
+            <FormHelperText>
+              Acesso via API REST para integrações
+            </FormHelperText>
+          </Box>
+        </StyledPaper>
+
+        <StyledPaper elevation={2}>
+          <Box sx={{ p: 1 }}>
+            <FormGroup>
+              <FormControlLabel
+                control={
+                  <Switch
+                    checked={configState.enableWebhooks === "enabled"}
+                    name="enableWebhooks"
+                    color="primary"
+                    onChange={(e) => handleSwitchChange("enableWebhooks", e.target.checked)}
+                  />
+                }
+                label="Webhooks"
+              />
+            </FormGroup>
+            <FormHelperText>
+              Sistema de webhooks para notificações externas
+            </FormHelperText>
+          </Box>
+        </StyledPaper>
+
+        <StyledPaper elevation={2}>
+          <Box sx={{ p: 1 }}>
+            <FormGroup>
+              <FormControlLabel
+                control={
+                  <Switch
+                    checked={configState.enableCSVImport === "enabled"}
+                    name="enableCSVImport"
+                    color="primary"
+                    onChange={(e) => handleSwitchChange("enableCSVImport", e.target.checked)}
+                  />
+                }
+                label="Importação CSV"
+              />
+            </FormGroup>
+            <FormHelperText>
+              Importação de dados via arquivos CSV
+            </FormHelperText>
+          </Box>
+        </StyledPaper>
+      </Box>
+    );
+    return ResourcesComponent;
+  }, [
+    configState,
+    handleSwitchChange
+  ]);
+
+  // Componente de segurança - NOVO
+  const SecuritySection = useMemo(() => {
+    const SecurityComponent = () => (
+      <Box>
+        <SectionTitle variant="h6">
+          <FontAwesomeIcon icon={faDatabase} style={{ marginRight: '8px', color: theme.palette.primary.main }} />
+          Segurança e Logs
+        </SectionTitle>
+
+        <StyledPaper elevation={2}>
+          <Box sx={{ p: 1 }}>
+            <Typography variant="subtitle1" sx={{ mb: 2, fontWeight: 'medium' }}>
+              Autenticação e Acesso
+            </Typography>
+            <FormGroup>
+              <FormControlLabel
+                control={
+                  <Switch
+                    checked={configState.enableTwoFactor === "enabled"}
+                    name="enableTwoFactor"
+                    color="primary"
+                    onChange={(e) => handleSwitchChange("enableTwoFactor", e.target.checked)}
+                  />
+                }
+                label="Autenticação de dois fatores"
+              />
+            </FormGroup>
+            <FormHelperText>
+              Ativa 2FA para maior segurança de acesso
+            </FormHelperText>
+          </Box>
+        </StyledPaper>
+
+        <StyledPaper elevation={2}>
+          <Box sx={{ p: 1 }}>
+            <FormGroup>
+              <FormControlLabel
+                control={
+                  <Switch
+                    checked={configState.enableSessionTimeout === "enabled"}
+                    name="enableSessionTimeout"
+                    color="primary"
+                    onChange={(e) => handleSwitchChange("enableSessionTimeout", e.target.checked)}
+                  />
+                }
+                label="Timeout de sessão"
+              />
+            </FormGroup>
+            <FormHelperText>
+              Encerra sessões automaticamente por inatividade
+            </FormHelperText>
+
+            {configState.enableSessionTimeout === "enabled" && (
+              <Box sx={{ mt: 2 }}>
+                <FormControl fullWidth>
+                  <TextField
+                    select
+                    label="Timeout (minutos)"
+                    value={configState.sessionTimeoutMinutes || "30"}
+                    onChange={(e) => handleConfigChange("sessionTimeoutMinutes", e.target.value)}
+                    variant="outlined"
+                    size="small"
+                  >
+                    <MenuItem value="15">15 minutos</MenuItem>
+                    <MenuItem value="30">30 minutos</MenuItem>
+                    <MenuItem value="60">1 hora</MenuItem>
+                    <MenuItem value="120">2 horas</MenuItem>
+                    <MenuItem value="240">4 horas</MenuItem>
+                  </TextField>
+                </FormControl>
+              </Box>
+            )}
+          </Box>
+        </StyledPaper>
+
+        <StyledPaper elevation={2}>
+          <Box sx={{ p: 1 }}>
+            <FormGroup>
+              <FormControlLabel
+                control={
+                  <Switch
+                    checked={configState.enableIPWhitelist === "enabled"}
+                    name="enableIPWhitelist"
+                    color="primary"
+                    onChange={(e) => handleSwitchChange("enableIPWhitelist", e.target.checked)}
+                  />
+                }
+                label="Lista branca de IPs"
+              />
+            </FormGroup>
+            <FormHelperText>
+              Restringe acesso a IPs específicos
+            </FormHelperText>
+
+            {configState.enableIPWhitelist === "enabled" && (
+              <Box sx={{ mt: 2 }}>
+                <TextField
+                  label="IPs permitidos"
+                  value={configState.ipWhitelist || ""}
+                  onChange={(e) => handleConfigChange("ipWhitelist", e.target.value, false)}
+                  variant="outlined"
+                  fullWidth
+                  size="small"
+                  placeholder="192.168.1.1, 10.0.0.1"
+                  helperText="Separar múltiplos IPs por vírgula"
+                />
+              </Box>
+            )}
+          </Box>
+        </StyledPaper>
+
+        <StyledPaper elevation={2}>
+          <Box sx={{ p: 1 }}>
+            <Typography variant="subtitle1" sx={{ mb: 2, fontWeight: 'medium' }}>
+              Logs e Auditoria
+            </Typography>
+            <FormGroup>
+              <FormControlLabel
+                control={
+                  <Switch
+                    checked={configState.enableAuditLog === "enabled"}
+                    name="enableAuditLog"
+                    color="primary"
+                    onChange={(e) => handleSwitchChange("enableAuditLog", e.target.checked)}
+                  />
+                }
+                label="Log de auditoria"
+              />
+            </FormGroup>
+            <FormHelperText>
+              Registra todas as ações dos usuários
+            </FormHelperText>
+          </Box>
+        </StyledPaper>
+
+        <StyledPaper elevation={2}>
+          <Box sx={{ p: 1 }}>
+            <FormGroup>
+              <FormControlLabel
+                control={
+                  <Switch
+                    checked={configState.enableAccessLog === "enabled"}
+                    name="enableAccessLog"
+                    color="primary"
+                    onChange={(e) => handleSwitchChange("enableAccessLog", e.target.checked)}
+                  />
+                }
+                label="Log de acesso"
+              />
+            </FormGroup>
+            <FormHelperText>
+              Registra todos os acessos ao sistema
+            </FormHelperText>
+          </Box>
+        </StyledPaper>
+
+        <StyledPaper elevation={2}>
+          <Box sx={{ p: 1 }}>
+            <FormGroup>
+              <FormControlLabel
+                control={
+                  <Switch
+                    checked={configState.enableErrorLog === "enabled"}
+                    name="enableErrorLog"
+                    color="primary"
+                    onChange={(e) => handleSwitchChange("enableErrorLog", e.target.checked)}
+                  />
+                }
+                label="Log de erros"
+              />
+            </FormGroup>
+            <FormHelperText>
+              Registra erros e exceções do sistema
+            </FormHelperText>
+          </Box>
+        </StyledPaper>
+
+        <StyledPaper elevation={2}>
+          <Box sx={{ p: 1 }}>
+            <Grid container spacing={2}>
+              <Grid item xs={12} sm={6} md={4}>
+                <FormControl fullWidth>
+                  <TextField
+                    select
+                    label="Retenção de logs (dias)"
+                    value={configState.logRetentionDays || "7"}
+                    onChange={(e) => handleConfigChange("logRetentionDays", e.target.value)}
+                    variant="outlined"
+                    size="small"
+                    margin="normal"
+                  >
+                    <MenuItem value="1">1 dia</MenuItem>
+                    <MenuItem value="7">7 dias</MenuItem>
+                    <MenuItem value="15">15 dias</MenuItem>
+                    <MenuItem value="30">30 dias</MenuItem>
+                    <MenuItem value="90">90 dias</MenuItem>
+                    <MenuItem value="365">1 ano</MenuItem>
+                  </TextField>
+                  <FormHelperText>
+                    Tempo de retenção dos logs no sistema
+                  </FormHelperText>
+                </FormControl>
+              </Grid>
+              <Grid item xs={12} sm={6} md={4}>
+                <FormControl fullWidth>
+                  <TextField
+                    select
+                    label="Nível de log"
+                    value={configState.logLevel || "error"}
+                    onChange={(e) => handleConfigChange("logLevel", e.target.value)}
+                    variant="outlined"
+                    size="small"
+                    margin="normal"
+                  >
+                    <MenuItem value="debug">Debug</MenuItem>
+                    <MenuItem value="info">Info</MenuItem>
+                    <MenuItem value="warn">Warning</MenuItem>
+                    <MenuItem value="error">Error</MenuItem>
+                    <MenuItem value="fatal">Fatal</MenuItem>
+                  </TextField>
+                  <FormHelperText>
+                    Nível mínimo de logs a serem registrados
+                  </FormHelperText>
+                </FormControl>
+              </Grid>
+            </Grid>
+          </Box>
+        </StyledPaper>
+
+        <StyledPaper elevation={2}>
+          <Box sx={{ p: 1 }}>
+            <Typography variant="subtitle1" sx={{ mb: 2, fontWeight: 'medium' }}>
+              Backup e Recuperação
+            </Typography>
+            <FormGroup>
+              <FormControlLabel
+                control={
+                  <Switch
+                    checked={configState.enableAutoBackup === "enabled"}
+                    name="enableAutoBackup"
+                    color="primary"
+                    onChange={(e) => handleSwitchChange("enableAutoBackup", e.target.checked)}
+                  />
+                }
+                label="Backup automático"
+              />
+            </FormGroup>
+            <FormHelperText>
+              Realiza backups automáticos do sistema
+            </FormHelperText>
+
+            {configState.enableAutoBackup === "enabled" && (
+              <Box sx={{ mt: 2 }}>
+                <Grid container spacing={2}>
+                  <Grid item xs={12} sm={6}>
+                    <FormControl fullWidth>
+                      <TextField
+                        select
+                        label="Frequência do backup"
+                        value={configState.backupFrequency || "daily"}
+                        onChange={(e) => handleConfigChange("backupFrequency", e.target.value)}
+                        variant="outlined"
+                        size="small"
+                      >
+                        <MenuItem value="hourly">A cada hora</MenuItem>
+                        <MenuItem value="daily">Diário</MenuItem>
+                        <MenuItem value="weekly">Semanal</MenuItem>
+                        <MenuItem value="monthly">Mensal</MenuItem>
+                      </TextField>
+                    </FormControl>
+                  </Grid>
+                  <Grid item xs={12} sm={6}>
+                    <FormControl fullWidth>
+                      <TextField
+                        select
+                        label="Retenção (dias)"
+                        value={configState.backupRetentionDays || "30"}
+                        onChange={(e) => handleConfigChange("backupRetentionDays", e.target.value)}
+                        variant="outlined"
+                        size="small"
+                      >
+                        <MenuItem value="7">7 dias</MenuItem>
+                        <MenuItem value="15">15 dias</MenuItem>
+                        <MenuItem value="30">30 dias</MenuItem>
+                        <MenuItem value="60">60 dias</MenuItem>
+                        <MenuItem value="90">90 dias</MenuItem>
+                        <MenuItem value="365">1 ano</MenuItem>
+                      </TextField>
+                    </FormControl>
+                  </Grid>
+                </Grid>
+              </Box>
+            )}
+          </Box>
+        </StyledPaper>
+
+        <StyledPaper elevation={2}>
+          <Box sx={{ p: 1 }}>
+            <Typography variant="subtitle1" sx={{ mb: 2, fontWeight: 'medium' }}>
+              Notificações de Segurança
+            </Typography>
+            
+            <FormGroup>
+              <FormControlLabel
+                control={
+                  <Switch
+                    checked={configState.enableEmailNotifications === "enabled"}
+                    name="enableEmailNotifications"
+                    color="primary"
+                    onChange={(e) => handleSwitchChange("enableEmailNotifications", e.target.checked)}
+                  />
+                }
+                label="Notificações por email"
+              />
+            </FormGroup>
+            <FormHelperText>
+              Envia alertas de segurança por email
+            </FormHelperText>
+          </Box>
+        </StyledPaper>
+
+        <StyledPaper elevation={2}>
+          <Box sx={{ p: 1 }}>
+            <FormGroup>
+              <FormControlLabel
+                control={
+                  <Switch
+                    checked={configState.enableSMSNotifications === "enabled"}
+                    name="enableSMSNotifications"
+                    color="primary"
+                    onChange={(e) => handleSwitchChange("enableSMSNotifications", e.target.checked)}
+                  />
+                }
+                label="Notificações por SMS"
+              />
+            </FormGroup>
+            <FormHelperText>
+              Envia alertas críticos por SMS
+            </FormHelperText>
+          </Box>
+        </StyledPaper>
+
+        <StyledPaper elevation={2}>
+          <Box sx={{ p: 1 }}>
+            <FormGroup>
+              <FormControlLabel
+                control={
+                  <Switch
+                    checked={configState.enablePushNotifications === "enabled"}
+                    name="enablePushNotifications"
+                    color="primary"
+                    onChange={(e) => handleSwitchChange("enablePushNotifications", e.target.checked)}
+                  />
+                }
+                label="Push notifications"
+              />
+            </FormGroup>
+            <FormHelperText>
+              Notificações push no navegador
+            </FormHelperText>
+          </Box>
+        </StyledPaper>
+
+        <StyledPaper elevation={2}>
+          <Box sx={{ p: 1 }}>
+            <FormGroup>
+              <FormControlLabel
+                control={
+                  <Switch
+                    checked={configState.enableDesktopNotifications === "enabled"}
+                    name="enableDesktopNotifications"
+                    color="primary"
+                    onChange={(e) => handleSwitchChange("enableDesktopNotifications", e.target.checked)}
+                  />
+                }
+                label="Notificações desktop"
+              />
+            </FormGroup>
+            <FormHelperText>
+              Notificações na área de trabalho
+            </FormHelperText>
+          </Box>
+        </StyledPaper>
+
+        <StyledPaper elevation={2}>
+          <Box sx={{ p: 1 }}>
+            <Typography variant="subtitle1" sx={{ mb: 2, fontWeight: 'medium' }}>
+              Personalização Avançada
+            </Typography>
+            
+            <FormGroup>
+              <FormControlLabel
+                control={
+                  <Switch
+                    checked={configState.enableCustomCSS === "enabled"}
+                    name="enableCustomCSS"
+                    color="primary"
+                    onChange={(e) => handleSwitchChange("enableCustomCSS", e.target.checked)}
+                  />
+                }
+                label="CSS personalizado"
+              />
+            </FormGroup>
+            <FormHelperText>
+              Permite inserir CSS customizado
+            </FormHelperText>
+
+            {configState.enableCustomCSS === "enabled" && (
+              <Box sx={{ mt: 2 }}>
+                <TextField
+                  label="CSS personalizado"
+                  value={configState.customCSS || ""}
+                  onChange={(e) => handleConfigChange("customCSS", e.target.value, false)}
+                  variant="outlined"
+                  fullWidth
+                  multiline
+                  rows={4}
+                  size="small"
+                  placeholder="/* Insira seu CSS aqui */"
+                  helperText="CSS será aplicado globalmente no sistema"
+                />
+              </Box>
+            )}
+          </Box>
+        </StyledPaper>
+
+        <StyledPaper elevation={2}>
+          <Box sx={{ p: 1 }}>
+            <FormGroup>
+              <FormControlLabel
+                control={
+                  <Switch
+                    checked={configState.enableWhiteLabel === "enabled"}
+                    name="enableWhiteLabel"
+                    color="primary"
+                    onChange={(e) => handleSwitchChange("enableWhiteLabel", e.target.checked)}
+                  />
+                }
+                label="White Label avançado"
+              />
+            </FormGroup>
+            <FormHelperText>
+              Personalização completa da marca
+            </FormHelperText>
+
+            {configState.enableWhiteLabel === "enabled" && (
+              <Box sx={{ mt: 2 }}>
+                <Grid container spacing={2}>
+                  <Grid item xs={12} sm={6}>
+                    <TextField
+                      label="Nome da empresa"
+                      value={configState.companyName || ""}
+                      onChange={(e) => handleConfigChange("companyName", e.target.value, false)}
+                      variant="outlined"
+                      fullWidth
+                      size="small"
+                    />
+                  </Grid>
+                  <Grid item xs={12} sm={6}>
+                    <TextField
+                      label="URL do logo"
+                      value={configState.companyLogo || ""}
+                      onChange={(e) => handleConfigChange("companyLogo", e.target.value, false)}
+                      variant="outlined"
+                      fullWidth
+                      size="small"
+                      placeholder="https://exemplo.com/logo.png"
+                    />
+                  </Grid>
+                </Grid>
+              </Box>
+            )}
+          </Box>
+        </StyledPaper>
+      </Box>
+    );
+    return SecurityComponent;
   }, [
     configState,
     theme,
@@ -1418,6 +2694,28 @@ const Options = ({
             variant="default"
           >
             <AdvancedSection />
+          </StandardTabContent>
+        )}
+
+        {currentTab === 3 && (
+          <StandardTabContent
+            title="Recursos do Sistema"
+            description="Habilite ou desabilite recursos específicos do sistema"
+            icon={React.createElement(TuneIcon)}
+            variant="default"
+          >
+            <ResourcesSection />
+          </StandardTabContent>
+        )}
+
+        {currentTab === 4 && (
+          <StandardTabContent
+            title="Segurança e Logs"
+            description="Configure opções de segurança, logs e auditoria"
+            icon={React.createElement(FontAwesomeIcon, { icon: faDatabase })}
+            variant="default"
+          >
+            <SecuritySection />
           </StandardTabContent>
         )}
       </Box>
