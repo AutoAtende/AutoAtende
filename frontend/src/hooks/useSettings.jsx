@@ -8,6 +8,7 @@ const SettingsContext = createContext({});
 // Configuração do tempo de expiração do cache
 const CACHE_EXPIRATION_TIME = 86400000; // 24 horas em milissegundos
 
+
 export const SettingsProvider = ({ children }) => {
   SettingsProvider.propTypes = {
     children: PropTypes.oneOfType([

@@ -34,7 +34,9 @@ import {
     ThumbUpAltOutlined as ThumbUpAltOutlinedIcon,
     CheckCircleOutline as CheckCircleOutlineIcon,
     DeleteOutlineOutlined as DeleteOutlineOutlinedIcon,
-    ThumbDownAltOutlined as ThumbDownAltOutlinedIcon
+    ThumbDownAltOutlined as ThumbDownAltOutlinedIcon,
+    ViewKanban as KanbanIcon,
+    Info as InfoIcon
   } from '@mui/icons-material';
 
 
@@ -45,6 +47,7 @@ import useSettings from "../../hooks/useSettings";
 import ReasonSelectionModal from "../ReasonSelectionModal";
 import QueueSelectionModal from "../QueueSelectionModal";
 import TagsSelectionModal from "../TagsSelectionModal";
+import TicketKanbanIntegration from "../TicketKanbanIntegration";
 
 const StyledDialog = styled(Dialog)(({ theme }) => ({
   '& .MuiDialog-paper': {
@@ -149,6 +152,7 @@ const TicketDetailsModal = ({
   const [reasonModalOpen, setReasonModalOpen] = useState(false);
   const [queueModalOpen, setQueueModalOpen] = useState(false);
   const [tagModalOpen, setTagModalOpen] = useState(false);
+  const [showKanbanSection, setShowKanbanSection] = useState(false);
     
   // Funções para o fechamento de ticket
   const handleCloseTicketWithModal = async () => {
@@ -299,6 +303,36 @@ const TicketDetailsModal = ({
           )}
 
           <Divider variant="fullWidth" sx={{ my: 1.5 }} />
+
+          {/* Seção Kanban */}
+          <SectionTitle>
+            <Box display="flex" alignItems="center" justifyContent="space-between">
+              <Box display="flex" alignItems="center">
+                <KanbanIcon sx={{ fontSize: 16, mr: 0.5 }} />
+                Kanban
+              </Box>
+              <ActionButton
+                size="small"
+                variant="outlined"
+                onClick={() => setShowKanbanSection(!showKanbanSection)}
+                startIcon={<InfoIcon />}
+              >
+                {showKanbanSection ? 'Ocultar' : 'Mostrar'}
+              </ActionButton>
+            </Box>
+          </SectionTitle>
+          
+          {showKanbanSection && (
+            <Box sx={{ mt: 1, mb: 2 }}>
+              <TicketKanbanIntegration 
+                ticket={ticket}
+                onUpdate={(updatedTicket) => {
+                  // Callback para atualizar dados se necessário
+                }}
+                showInTicketDetails={true}
+              />
+            </Box>
+          )}
 
           {/* Tags */}
           <SectionTitle>

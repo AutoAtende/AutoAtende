@@ -15,7 +15,6 @@ import {i18n} from "../../translate/i18n";
 import useSettings from "../../hooks/useSettings";
 
 
-
 const useStyles = makeStyles((theme) => ({
     chatContainer: {
         flex: 1,

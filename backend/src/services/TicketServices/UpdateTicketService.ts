@@ -2,6 +2,7 @@ import moment from "moment";
 
 import CheckContactOpenTickets from "../../helpers/CheckContactOpenTickets";
 import SetTicketMessagesAsRead from "../../helpers/SetTicketMessagesAsRead";
+import { logger } from "../../utils/logger";
 import { getIO } from "../../libs/socket";
 import Ticket from "../../models/Ticket";
 import Setting from "../../models/Setting";
@@ -27,6 +28,8 @@ import { sendMessageNotificationToFrontend } from "../SocketEventMessageNotifica
 import Contact from "../../models/Contact";
 import { verifyMessage } from "../WbotServices/MessageListener/Verifiers/VerifyMessage";
 import ListUsersService from "../UserServices/ListUsersService";
+import KanbanTicketIntegrationService from "../KanbanServices/KanbanTicketIntegrationService";
+
 
 export interface TicketData {
   status?: string;
@@ -245,6 +248,45 @@ const checkIfContactHasTicketTheSameConnection = async (
   }
 
   return null;
+};
+
+
+const handleKanbanIntegration = async (
+  ticket: Ticket,
+  oldStatus: string,
+  newStatus: string,
+  companyId: number
+): Promise<void> => {
+  try {
+    // Se ticket foi criado/reaberto, criar cartão automaticamente
+    if ((oldStatus === undefined || oldStatus === 'closed') && 
+        (newStatus === 'pending' || newStatus === 'open')) {
+      
+      await KanbanTicketIntegrationService.createCardFromTicket({
+        ticketId: ticket.id,
+        companyId,
+        userId: ticket.userId
+      });
+      
+      logger.info(`Cartão Kanban criado automaticamente para ticket ${ticket.id}`);
+    }
+    
+    // Se ticket foi fechado definitivamente, arquivar cartão
+    else if (newStatus === 'closed' && oldStatus !== 'closed') {
+      await KanbanTicketIntegrationService.archiveCardFromTicket(ticket.id);
+      logger.info(`Cartão Kanban arquivado para ticket fechado ${ticket.id}`);
+    }
+    
+    // Para outras mudanças, apenas atualizar o cartão
+    else {
+      await KanbanTicketIntegrationService.updateCardFromTicket(ticket.id, companyId);
+      logger.info(`Cartão Kanban atualizado para ticket ${ticket.id}`);
+    }
+
+  } catch (error) {
+    // Log do erro mas não interrompe o fluxo principal do ticket
+    logger.error(`Erro na integração Kanban para ticket ${ticket.id}:`, error);
+  }
 };
 
 /**
@@ -660,6 +702,8 @@ const UpdateTicketService = async ({
 
     await ticket.reload();
 
+    await handleKanbanIntegration(ticket, oldStatus, status, companyId);
+
     //Envia notificação quando moda de area e/ou fila.
     if (status == "pending" && queueId != oldQueueId) {
       const { users } = await ListUsersService({ companyId });
@@ -812,6 +856,71 @@ const UpdateTicketService = async ({
     return { ticket, oldStatus, oldUserId };
   } catch (err) {
     console.trace(err);
+  }
+};
+
+export const configureLaneStatusMapping = async (
+  companyId: number, 
+  mapping: Record<string, string>
+): Promise<void> => {
+  try {
+    // Salvar configuração no banco (criar nova tabela ou usar Settings)
+    const Setting = (await import("../../models/Setting")).default;
+    
+    await Setting.upsert({
+      companyId,
+      key: "kanban_lane_status_mapping",
+      value: JSON.stringify(mapping)
+    });
+
+    logger.info(`Mapeamento lane-status configurado para empresa ${companyId}`);
+  } catch (error) {
+    logger.error("Erro ao configurar mapeamento lane-status:", error);
+    throw error;
+  }
+};
+
+/**
+ * ADIÇÃO: Função para obter mapeamento de lanes para status
+ */
+export const getLaneStatusMapping = async (companyId: number): Promise<Record<string, string>> => {
+  try {
+    const Setting = (await import("../../models/Setting")).default;
+    
+    const setting = await Setting.findOne({
+      where: {
+        companyId,
+        key: "kanban_lane_status_mapping"
+      }
+    });
+
+    if (setting && setting.value) {
+      return JSON.parse(setting.value);
+    }
+
+    // Mapeamento padrão
+    return {
+      'Pendente': 'pending',
+      'Novo': 'pending',
+      'Em Atendimento': 'open',
+      'Em Progresso': 'open',
+      'Aberto': 'open',
+      'Aguardando Cliente': 'pending',
+      'Aguardando Resposta': 'pending',
+      'Resolvido': 'closed',
+      'Finalizado': 'closed',
+      'Concluído': 'closed',
+      'Fechado': 'closed'
+    };
+
+  } catch (error) {
+    logger.error("Erro ao obter mapeamento lane-status:", error);
+    // Retorna mapeamento padrão em caso de erro
+    return {
+      'Pendente': 'pending',
+      'Em Atendimento': 'open',
+      'Finalizado': 'closed'
+    };
   }
 };
 

@@ -3,13 +3,17 @@ import {Op} from "sequelize";
 import Company from "../../models/Company";
 import Contact from "../../models/Contact";
 import Ticket from "../../models/Ticket";
+import { logger } from "../../utils/logger";
+import KanbanCard from "../../models/KanbanCard";
 import ShowTicketService from "./ShowTicketService";
 import FindOrCreateATicketTrakingService from "./FindOrCreateATicketTrakingService";
 import Setting from "../../models/Setting";
 import Whatsapp from "../../models/Whatsapp";
 import TicketTraking from "../../models/TicketTraking";
 import User from "../../models/User";
+import KanbanTicketIntegrationService from "../KanbanServices/KanbanTicketIntegrationService";
 import ListSettingsServiceOne from "../SettingServices/ListSettingsServiceOne";
+
 
 interface TicketData {
   status?: string;
@@ -17,6 +21,74 @@ interface TicketData {
   unreadMessages?: number;
   value?: number;
 }
+
+/**
+ * NOVA FUNÇÃO: Gerenciar integração Kanban após criação/atualização do ticket
+ */
+const handleKanbanIntegration = async (
+  ticket: Ticket,
+  wasCreated: boolean,
+  oldStatus?: string,
+  companyId?: number
+): Promise<void> => {
+  try {
+    // Verificar se integração Kanban está habilitada
+    const autoCreateSetting = await ListSettingsServiceOne({
+      companyId: companyId || ticket.companyId,
+      key: "kanban_auto_create_cards"
+    });
+
+    if (autoCreateSetting?.value !== "enabled") {
+      return; // Integração desabilitada
+    }
+
+    // Se ticket foi criado pela primeira vez
+    if (wasCreated && (ticket.status === "pending" || ticket.status === "open")) {
+      
+      // Verificar se existe quadro padrão configurado
+      const defaultBoardSetting = await ListSettingsServiceOne({
+        companyId: ticket.companyId,
+        key: "kanban_default_board_id"
+      });
+
+      const boardId = defaultBoardSetting?.value && defaultBoardSetting.value !== '' ? 
+        parseInt(defaultBoardSetting.value) : undefined;
+
+      // Criar cartão automaticamente
+      await KanbanTicketIntegrationService.createCardFromTicket({
+        ticketId: ticket.id,
+        boardId,
+        companyId: ticket.companyId,
+        userId: ticket.userId
+      });
+
+      logger.info(`[KANBAN] Cartão criado automaticamente para novo ticket ${ticket.id}`);
+    }
+    
+    // Se ticket foi reaberto (status mudou de closed para pending/open)
+    else if (!wasCreated && oldStatus === 'closed' && 
+             (ticket.status === 'pending' || ticket.status === 'open')) {
+      
+      await KanbanTicketIntegrationService.createCardFromTicket({
+        ticketId: ticket.id,
+        companyId: ticket.companyId,
+        userId: ticket.userId
+      });
+
+      logger.info(`[KANBAN] Cartão recriado para ticket reaberto ${ticket.id}`);
+    }
+    
+    // Para outras atualizações, apenas sincronizar dados
+    else if (!wasCreated) {
+      await KanbanTicketIntegrationService.updateCardFromTicket(ticket.id, ticket.companyId);
+      logger.info(`[KANBAN] Cartão atualizado para ticket ${ticket.id}`);
+    }
+
+  } catch (error) {
+    // Log do erro mas não interrompe o fluxo principal do ticket
+    logger.error(`[KANBAN] Erro na integração para ticket ${ticket.id}:`, error);
+  }
+};
 
 const FindOrCreateTicketService = async (
   contact: Contact,
@@ -32,7 +104,8 @@ const FindOrCreateTicketService = async (
 
 
   let ticket: Ticket = null;
-
+  let wasTicketCreated = false;
+  let oldTicketStatus: string | undefined;
 
     ticket = await Ticket.findOne({
       where: {
@@ -172,6 +245,8 @@ const FindOrCreateTicketService = async (
   }
 
   if (!ticket) {
+    // Ticket será criado
+    wasTicketCreated = true;
 
     const whatsapp = await Whatsapp.findOne({
       where: {id: whatsappId}
@@ -222,7 +297,78 @@ const FindOrCreateTicketService = async (
 
   ticket = await ShowTicketService(ticket.id, companyId);
 
+  if (!importing && !isApi) {
+    await handleKanbanIntegration(ticket, wasTicketCreated, oldTicketStatus, companyId);
+  }
+
   return ticket;
+};
+
+export const processKanbanIntegrationForImportedTickets = async (companyId: number): Promise<number> => {
+  try {
+    logger.info(`[KANBAN] Iniciando processamento de tickets importados para empresa ${companyId}`);
+
+    // Verificar se integração está habilitada
+    const autoCreateSetting = await ListSettingsServiceOne({
+      companyId,
+      key: "kanban_auto_create_cards"
+    });
+
+    if (autoCreateSetting?.value !== "enabled") {
+      logger.info(`[KANBAN] Integração desabilitada para empresa ${companyId}`);
+      return 0;
+    }
+
+    // Buscar tickets criados nas últimas 24h sem cartão Kanban
+    const recentTickets = await Ticket.findAll({
+      where: {
+        companyId,
+        status: { [Op.in]: ['pending', 'open'] },
+        createdAt: {
+          [Op.gte]: new Date(Date.now() - 24 * 60 * 60 * 1000) // últimas 24h
+        }
+      },
+      include: [
+        {
+          model: Contact,
+          as: 'contact'
+        }
+      ]
+    });
+
+    let processedCount = 0;
+
+    for (const ticket of recentTickets) {
+      try {
+        // Verificar se já existe cartão para este ticket
+        const existingCard = await KanbanCard.findOne({
+          where: { 
+            ticketId: ticket.id,
+            isArchived: false
+          }
+        });
+
+        if (!existingCard) {
+          await KanbanTicketIntegrationService.createCardFromTicket({
+            ticketId: ticket.id,
+            companyId,
+            userId: ticket.userId
+          });
+          processedCount++;
+        }
+
+      } catch (error) {
+        logger.error(`[KANBAN] Erro ao processar ticket ${ticket.id}:`, error);
+      }
+    }
+
+    logger.info(`[KANBAN] Processados ${processedCount} tickets importados para empresa ${companyId}`);
+    return processedCount;
+
+  } catch (error) {
+    logger.error(`[KANBAN] Erro no processamento em lote:`, error);
+    throw error;
+  }
 };
 
 export default FindOrCreateTicketService;

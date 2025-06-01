@@ -6,6 +6,8 @@ import KanbanLaneController from "../controllers/KanbanLaneController";
 import KanbanCardController from "../controllers/KanbanCardController";
 import KanbanChecklistController from "../controllers/KanbanChecklistController";
 import KanbanMetricsController from "../controllers/KanbanMetricsController";
+import KanbanTicketController from "../controllers/KanbanTicketController";
+
 
 const routes = Router();
 
@@ -29,6 +31,30 @@ routes.put("/kanban/boards/:boardId", isAuth, KanbanBoardController.update);
 
 // Remover um quadro
 routes.delete("/kanban/boards/:boardId", isAuth, KanbanBoardController.remove);
+
+
+//-------------------------------------------------------------------------
+// Rotas para Integração Kanban-Ticket
+//-------------------------------------------------------------------------
+
+// Criar cartão a partir de ticket
+routes.post("/kanban/tickets/create-card", isAuth, KanbanTicketController.createCardFromTicket);
+
+// Criação automática em lote
+routes.post("/kanban/tickets/auto-create", isAuth, KanbanTicketController.autoCreateCards);
+
+// Processar tickets importados (criados via FindOrCreateTicketService com importing=true)
+routes.post("/kanban/tickets/process-imported", isAuth, KanbanTicketController.processImportedTickets);
+
+// Sincronizar status ticket com lane
+routes.post("/kanban/tickets/:cardId/sync", isAuth, KanbanTicketController.syncTicketStatus);
+
+// Atualizar cartão a partir do ticket
+routes.put("/kanban/tickets/:ticketId/update-card", isAuth, KanbanTicketController.updateCardFromTicket);
+
+// Arquivar cartão quando ticket for fechado
+routes.delete("/kanban/tickets/:ticketId/archive-card", isAuth, KanbanTicketController.archiveCardFromTicket);
+
 
 //-------------------------------------------------------------------------
 // Rotas para Colunas (Lanes)

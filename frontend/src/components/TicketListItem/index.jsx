@@ -44,6 +44,7 @@ import { GlobalContext } from "../../context/GlobalContext";
 import TagsModal from "./TagsModal";
 import TicketDetailsModal from "../TicketDetailsModal";
 import InfoIcon from '@mui/icons-material/Info';
+import TicketKanbanIntegration from "../TicketKanbanIntegration";
 
 const getContrastColor = (hexColor) => {
     // Se não houver cor definida, use branco para fundo escuro padrão
@@ -395,11 +396,11 @@ const TicketListItem = ({ ticket, handleClose, setTabOpen }) => {
     const { settings } = useSettings();
     const history = useHistory();
 
-    const displayContactInfo = settings?.displayContactInfo;
-    const enableReasonWhenCloseTicket = settings?.enableReasonWhenCloseTicket;
-    const enableQueueWhenClosingTicket = settings?.enableQueueWhenCloseTicket;
-    const enableTagsWhenClosingTicket = settings?.enableTagsWhenCloseTicket;
-    const sendGreetingAccepted = settings?.sendGreetingAccepted;
+    const displayContactInfo = settings.displayContactInfo;
+    const enableReasonWhenCloseTicket = settings.enableReasonWhenCloseTicket;
+    const enableQueueWhenClosingTicket = settings.enableQueueWhenCloseTicket;
+    const enableTagsWhenClosingTicket = settings.enableTagsWhenCloseTicket;
+    const sendGreetingAccepted = settings.sendGreetingAccepted;
     const theme = useTheme();
     const isSmallScreen = useMediaQuery(theme.breakpoints.down('sm'));
 
@@ -413,6 +414,13 @@ const TicketListItem = ({ ticket, handleClose, setTabOpen }) => {
     const handleOpenDetailsModal = (e) => {
         if (e) e.stopPropagation();
         setDetailsModalOpen(true);
+    };
+
+    const handleTicketUpdate = (updatedTicket) => {
+        // Callback para atualizar o ticket na lista
+        if (setMakeRequest) {
+            setMakeRequest(Math.random());
+        }
     };
     
     // Funções para gerenciar o popover de tags
@@ -743,6 +751,13 @@ const TicketListItem = ({ ticket, handleClose, setTabOpen }) => {
                             Ver tags ({ticket.tags.length})
                         </ViewTagsBadge>
                     )}
+
+                    {/* Integração Kanban compacta */}
+                    <TicketKanbanIntegration 
+                        ticket={ticket}
+                        onUpdate={handleTicketUpdate}
+                        showInTicketDetails={false}
+                    />
                 </BadgesRow>
 
                 <Popover
@@ -798,8 +813,8 @@ const TicketListItem = ({ ticket, handleClose, setTabOpen }) => {
                                 role={user.profile}
                                 perform="ticket-options:spy"
                                 yes={() => (
-                                    <Tooltip title="Espiar Conversa">
-                                        <ActionIconButton color={blue[700]} onClick={handleSpyTicket}>
+                                    <Tooltip title="Espiar Conversa"> 
+                                    <ActionIconButton color={blue[700]} onClick={handleSpyTicket}>
                                             <VisibilityIcon fontSize="small" />
                                         </ActionIconButton>
                                     </Tooltip>
@@ -831,7 +846,7 @@ const TicketListItem = ({ ticket, handleClose, setTabOpen }) => {
                                     </Tooltip>
                                 )}
                             />
-</>
+                        </>
                     )}
                 </ActionButtons>
             </>
