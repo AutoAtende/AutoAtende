@@ -132,7 +132,7 @@ const Settings = () => {
 
   // Salvar todas as alterações pendentes
   const handleSaveAllChanges = useCallback(async () => {
-    if (Object.keys(pendingChanges).length === 0) {
+    if (!pendingChanges || typeof pendingChanges !== 'object' || Object.keys(pendingChanges).length === 0) {
       toast.info("Não há alterações para salvar");
       return;
     }
@@ -140,10 +140,12 @@ const Settings = () => {
     try {
       setIsSaving(true);
       
+      // Garantir que temos um objeto válido para iterar
+      const changes = pendingChanges || {};
       // Agrupar todas as alterações para enviar em uma única requisição
-      const settingsToUpdate = Object.entries(pendingChanges).map(([key, value]) => ({
+      const settingsToUpdate = Object.entries(changes).map(([key, value]) => ({
         key,
-        value: value?.toString() || ""
+        value: value !== undefined && value !== null ? String(value) : ""
       }));
       
       await api.post("/settings/batch-update", {
@@ -151,18 +153,23 @@ const Settings = () => {
       });
       
       // Atualizar configurações locais
-      setData(prevData => ({
-        ...prevData,
-        settings: prevData.settings.map(setting => {
-          if (pendingChanges[setting.key] !== undefined) {
-            return {
-              ...setting, 
-              value: pendingChanges[setting.key]?.toString() || ""
-            };
-          }
-          return setting;
-        })
-      }));
+      setData(prevData => {
+        // Garantir que prevData.settings é um array
+        const currentSettings = Array.isArray(prevData.settings) ? prevData.settings : [];
+        
+        return {
+          ...prevData,
+          settings: currentSettings.map(setting => {
+            if (setting?.key && changes[setting.key] !== undefined) {
+              return {
+                ...setting, 
+                value: changes[setting.key] !== undefined ? String(changes[setting.key]) : (setting.value || "")
+              };
+            }
+            return setting;
+          })
+        };
+      });
       
       // Limpar alterações pendentes
       setPendingChanges({});
