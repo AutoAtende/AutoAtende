@@ -359,59 +359,7 @@ OptionTextField.propTypes = {
  */
 
 const GENERAL_OPTIONS = (theme, configState) => [
-  // Seção IA / OpenAI — Mantém exemplo, pode ser movida para INTEGRATION_OPTIONS se preferir
-  {
-    id: "openAiModel",
-    label: i18n.t("optionsPage.openaiModel"),
-    type: "select",
-    options: openAiModels,
-    helpText: i18n.t("optionsPage.openaiModelHelp"),
-    disabledIf: () => false,
-    startAdornment: null,
-  },
-  {
-    id: "enableAudioTranscriptions",
-    label:
-      i18n.t("optionsPage.enableAudioTranscriptions") || "Ativar transcrição de áudio",
-    type: "switch",
-    helpText:
-      i18n.t("optionsPage.enableAudioTranscriptionsHelp") ||
-      "Ativa a transcrição de áudio utilizando o serviço da OpenAI",
-    disabledIf: () => false,
-  },
-  {
-    id: "openAiKey",
-    label: i18n.t("optionsPage.openAiKey") || "Chave da API OpenAI",
-    type: "text",
-    helpText:
-      i18n.t("optionsPage.openAiKeyHelp") ||
-      "Informe a chave da API OpenAI para realizar a transcrição de áudio",
-    disabledIf: (state) => state.enableAudioTranscriptions !== "enabled",
-    inputProps: {
-      type: "password",
-      endAdornment: (
-        <Box>
-          {configState.openAiKey && (
-            <Tooltip
-              title={i18n.t("optionsPage.copyApiKey") || "Copiar chave"}
-            >
-              <FileCopyIcon
-                sx={{ cursor: "pointer", ml: 1 }}
-                onClick={() => {
-                  copyToClipboard(configState.openAiKey);
-                  toast.success(
-                    i18n.t("optionsPage.apiKeyCopied") ||
-                      "Chave copiada com sucesso!"
-                  );
-                }}
-              />
-            </Tooltip>
-          )}
-        </Box>
-      ),
-    },
-  },
-
+  
   // ---------- Configurações Gerais (superusuário) ----------
   {
     id: "trialExpiration",

@@ -57,7 +57,7 @@ const StyledPopover = styled(Popover)(({ theme }) => ({
 const HeaderContainer = styled(Box)(({ theme }) => ({
   padding: theme.spacing(2),
   backgroundColor: theme.palette.primary.main,
-  color: theme.palette.primary.contrastText,
+  color: "white",
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'space-between'
@@ -66,10 +66,12 @@ const HeaderContainer = styled(Box)(({ theme }) => ({
 const NotificationText = styled(Box)(({ theme }) => ({
   display: 'flex',
   alignItems: 'center',
+
 }));
 
 const HeaderIcon = styled(EventIcon)(({ theme }) => ({
   marginRight: theme.spacing(1),
+  color: "white",
 }));
 
 const TaskTitle = styled(Typography)(({ theme }) => ({

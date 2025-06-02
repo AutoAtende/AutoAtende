@@ -509,7 +509,7 @@ const Contacts = () => {
     const actions = [];
     const normalizedContact = normalizeContactData(contact);
 
-    if (user?.profile !== 'user' && !normalizedContact.isGroup) {
+    if (!normalizedContact.isGroup) {
       actions.push({
         label: "Iniciar Chat",
         icon: <WhatsAppIcon />,
@@ -518,14 +518,16 @@ const Contacts = () => {
       });
     }
 
+    if (user?.profile !== 'user' && !normalizedContact.isGroup) {
     actions.push({
       label: "Editar",
       icon: <EditIcon />,
       onClick: () => handleEditContact(normalizedContact),
       color: "primary"
     });
+    }
 
-    if (!normalizedContact.isGroup) {
+    if (user?.profile !== 'user' && !normalizedContact.isGroup) {
       actions.push({
         label: normalizedContact.active ? "Bloquear" : "Desbloquear",
         icon: normalizedContact.active ? <LockIcon /> : <LockOpenIcon />,
@@ -537,6 +539,7 @@ const Contacts = () => {
       });
     }
 
+    if (user?.profile !== 'user' && !normalizedContact.isGroup) {
     actions.push({
       label: "Excluir",
       icon: <DeleteIcon />,
@@ -546,7 +549,8 @@ const Contacts = () => {
       },
       color: "error"
     });
-
+    }
+    
     return actions;
   }, [user, handleStartChat, handleEditContact]);
 

@@ -12,7 +12,6 @@ import { getIO } from "../../libs/socket";
 import KanbanChecklistItem from '../../models/KanbanChecklistItem';
 import database from '../../database';
 
-
 interface CreateCardData {
   title?: string;
   description?: string;
@@ -136,9 +135,13 @@ const createCard = async (data: CreateCardData): Promise<KanbanCard> => {
         throw new AppError('Ticket not found or does not belong to company', 404);
       }
 
-      // Se o ticket for informado mas o title não, usar o contactId como título
-      if (!cardData.title && ticket.contact) {
-        cardData.title = ticket.contact.name || `Ticket #${ticket.id}`;
+      // Se o ticket for informado mas o title não, usar dados do ticket
+      if (!cardData.title) {
+        if (ticket.contact) {
+          cardData.title = `${ticket.contact.name} - Ticket #${ticket.id}`;
+        } else {
+          cardData.title = `Ticket #${ticket.id}`;
+        }
       }
     }
 
@@ -164,7 +167,19 @@ const createCard = async (data: CreateCardData): Promise<KanbanCard> => {
         {
           model: Ticket,
           as: 'ticket',
-          attributes: ['id', 'status', 'unreadMessages']
+          attributes: ['id', 'status', 'unreadMessages'],
+          include: [
+            {
+              model: Contact,
+              as: 'contact',
+              attributes: ['id', 'name', 'number', 'profilePicUrl']
+            }
+          ]
+        },
+        {
+          model: KanbanLane,
+          as: 'lane',
+          attributes: ['id', 'name', 'color', 'boardId']
         }
       ]
     });
@@ -208,7 +223,14 @@ const findCard = async (cardId: number, companyId: number): Promise<KanbanCard> 
         {
           model: Ticket,
           as: 'ticket',
-          attributes: ['id', 'status', 'unreadMessages']
+          attributes: ['id', 'status', 'unreadMessages'],
+          include: [
+            {
+              model: Contact,
+              as: 'contact',
+              attributes: ['id', 'name', 'number', 'profilePicUrl']
+            }
+          ]
         },
         {
           model: KanbanChecklistItem,
@@ -365,7 +387,7 @@ const findCards = async (params: FindCardsParams): Promise<{ cards: KanbanCard[]
       ]
     });
 
-    // Buscar cards com includes
+    // Buscar cards com includes completos
     const cards = await KanbanCard.findAll({
       where: cardWhere,
       include: [
@@ -373,11 +395,13 @@ const findCards = async (params: FindCardsParams): Promise<{ cards: KanbanCard[]
           model: KanbanLane,
           as: 'lane',
           where: laneWhere,
+          attributes: ['id', 'name', 'color', 'boardId'],
           include: [
             {
               model: KanbanBoard,
               as: 'board',
-              where: boardWhere
+              where: boardWhere,
+              attributes: ['id', 'name']
             }
           ]
         },
@@ -394,12 +418,26 @@ const findCards = async (params: FindCardsParams): Promise<{ cards: KanbanCard[]
         {
           model: Ticket,
           as: 'ticket',
-          attributes: ['id', 'status', 'unreadMessages']
+          attributes: ['id', 'status', 'unreadMessages', 'uuid'],
+          include: [
+            {
+              model: Contact,
+              as: 'contact',
+              attributes: ['id', 'name', 'number', 'profilePicUrl']
+            }
+          ]
         },
         {
           model: KanbanChecklistItem,
           as: 'checklistItems',
-          attributes: ['id', 'description', 'checked', 'required']
+          attributes: ['id', 'description', 'checked', 'required'],
+          include: [
+            {
+              model: User,
+              as: 'assignedUser',
+              attributes: ['id', 'name']
+            }
+          ]
         }
       ],
       order: [
@@ -488,7 +526,8 @@ const updateCard = async (
       include: [
         {
           model: KanbanLane,
-          as: 'lane'
+          as: 'lane',
+          attributes: ['id', 'name', 'color', 'boardId']
         },
         {
           model: User,
@@ -503,7 +542,14 @@ const updateCard = async (
         {
           model: Ticket,
           as: 'ticket',
-          attributes: ['id', 'status', 'unreadMessages']
+          attributes: ['id', 'status', 'unreadMessages', 'uuid'],
+          include: [
+            {
+              model: Contact,
+              as: 'contact',
+              attributes: ['id', 'name', 'number', 'profilePicUrl']
+            }
+          ]
         },
         {
           model: KanbanChecklistItem,
@@ -663,7 +709,8 @@ const moveCard = async (
       include: [
         {
           model: KanbanLane,
-          as: 'lane'
+          as: 'lane',
+          attributes: ['id', 'name', 'color', 'boardId']
         },
         {
           model: User,
@@ -678,7 +725,14 @@ const moveCard = async (
         {
           model: Ticket,
           as: 'ticket',
-          attributes: ['id', 'status', 'unreadMessages']
+          attributes: ['id', 'status', 'unreadMessages', 'uuid'],
+          include: [
+            {
+              model: Contact,
+              as: 'contact',
+              attributes: ['id', 'name', 'number', 'profilePicUrl']
+            }
+          ]
         },
         {
           model: KanbanChecklistItem,

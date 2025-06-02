@@ -46,10 +46,10 @@ const customLaneHeader = (laneTitle, cards, onAddCard, onEditLane, onDeleteLane,
     }}>
       <Box sx={{ display: 'flex', alignItems: 'center' }}>
         <Typography variant="subtitle1" fontWeight="bold">
-          {laneTitle}
+          {laneTitle || 'Sem nome'}
         </Typography>
         <Typography variant="caption" sx={{ ml: 1 }}>
-          ({cards.length})
+          ({Array.isArray(cards) ? cards.length : 0})
         </Typography>
       </Box>
       <Box sx={{ display: 'flex', gap: 0.5 }}>
@@ -81,23 +81,38 @@ const customCard = (props) => {
   const { card, dragging, onClick } = props;
   const theme = useTheme();
   
-  // Parse cardData from description
+  // Verificação de segurança para o cartão
+  if (!card) {
+    console.error("Card é undefined no customCard");
+    return null;
+  }
+  
+  // Parse cardData de forma segura
   let cardData = {};
   try {
-    if (typeof card.description === 'string') {
-      cardData = JSON.parse(card.description) || {};
+    if (card.metadata && typeof card.metadata === 'object') {
+      cardData = card.metadata;
+    } else if (card.description && typeof card.description === 'string') {
+      // Tentar fazer parse apenas se a descrição começar com {
+      if (card.description.trim().startsWith('{')) {
+        cardData = JSON.parse(card.description);
+      } else {
+        cardData = { description: card.description };
+      }
     }
   } catch (error) {
     console.error("Erro ao analisar dados do cartão:", error);
+    cardData = { description: card.description || '' };
   }
   
-  const checklistItems = cardData.checklistItems || [];
+  const checklistItems = Array.isArray(cardData.checklistItems) ? cardData.checklistItems : [];
   const completedItems = checklistItems.filter(item => item && item.checked).length;
   const totalItems = checklistItems.length;
   const hasDueDate = !!cardData.dueDate;
   const dueDate = hasDueDate ? new Date(cardData.dueDate) : null;
   const isPastDue = hasDueDate && dueDate && new Date() > dueDate;
   const hasTicket = !!cardData.ticketId;
+  
   const ticketInfo = hasTicket ? (
     <Box sx={{ 
       display: 'flex', 
@@ -132,7 +147,7 @@ const customCard = (props) => {
         },
         mb: 1,
         position: 'relative',
-        borderLeft: cardData.priority > 0 ? `4px solid ${theme.palette.error.main}` : null,
+        borderLeft: (cardData.priority && cardData.priority > 0) ? `4px solid ${theme.palette.error.main}` : null,
         opacity: cardData.isBlocked ? 0.7 : 1
       }}
     >
@@ -159,9 +174,10 @@ const customCard = (props) => {
       {cardData.contactName && (
         <Typography variant="caption" sx={{ display: 'block', mb: 0.5 }}>
           Cliente: {cardData.contactName}
-          {hasTicket && ticketInfo}
         </Typography>
       )}
+      
+      {hasTicket && ticketInfo}
       
       {cardData.description && typeof cardData.description === 'string' && (
         <Typography variant="caption" sx={{ 
@@ -203,14 +219,14 @@ const customCard = (props) => {
           
           {cardData.tags && Array.isArray(cardData.tags) && cardData.tags.length > 0 && (
             <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
-              {cardData.tags.slice(0, 2).map((tag) => (
+              {cardData.tags.slice(0, 2).map((tag, index) => (
                 <Box
-                  key={tag.id}
+                  key={tag?.id || index}
                   sx={{
                     width: 12,
                     height: 12,
                     borderRadius: '50%',
-                    bgcolor: tag.color || 'primary.main',
+                    bgcolor: tag?.color || 'primary.main',
                   }}
                 />
               ))}
@@ -292,31 +308,35 @@ const KanbanView = ({
             return null;
           }
           
-          const cardData = {
-            id: card.id,
-            description: card.description,
-            priority: card.priority,
-            dueDate: card.dueDate,
-            contactId: card.contactId,
-            contactName: card.contact?.name,
-            ticketId: card.ticketId,
-            assignedUserId: card.assignedUserId,
-            assignedUser: card.assignedUser,
-            value: card.value,
-            sku: card.sku,
-            tags: card.tags || [],
-            isBlocked: card.isBlocked,
-            blockReason: card.blockReason,
-            checklistItems: card.checklistItems || []
-          };
+          // Preparar dados do cartão de forma mais robusta
+          const cardTitle = card.title || 
+                           (card.contact?.name ? `${card.contact.name} - #${card.id}` : '') ||
+                           (card.ticketId ? `Ticket #${card.ticketId}` : '') ||
+                           'Sem título';
           
           return {
             id: card.id.toString(),
-            title: card.title || (card.contact ? card.contact.name : 'Sem título'),
-            description: JSON.stringify(cardData),
+            title: cardTitle,
+            description: card.description || '',
             label: card.tags?.length ? card.tags[0].name : '',
             draggable: !card.isBlocked,
-            metadata: card.metadata
+            metadata: {
+              id: card.id,
+              description: card.description,
+              priority: card.priority || 0,
+              dueDate: card.dueDate,
+              contactId: card.contactId,
+              contactName: card.contact?.name,
+              ticketId: card.ticketId,
+              assignedUserId: card.assignedUserId,
+              assignedUser: card.assignedUser,
+              value: card.value,
+              sku: card.sku,
+              tags: card.tags || [],
+              isBlocked: card.isBlocked || false,
+              blockReason: card.blockReason,
+              checklistItems: card.checklistItems || []
+            }
           };
         }).filter(Boolean),
         style: {
@@ -341,7 +361,6 @@ const KanbanView = ({
   const handleLaneAddSubmit = async (laneData) => {
     try {
       setIsLoading(true);
-      // Add boardId to the lane data before submission
       await onLaneCreate({
         ...laneData,
         boardId: board?.id

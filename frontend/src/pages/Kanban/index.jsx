@@ -1,4 +1,3 @@
-// pages/Kanban/index.jsx
 import React, { useState, useEffect, useCallback } from "react";
 import { 
   Box, 
@@ -127,41 +126,63 @@ const Kanban = () => {
         method: 'get',
         params: { 
           boardId: selectedBoard.id, 
-          showArchived: false,
-          includeTickets: true
+          showArchived: false
         }
       });
       
       const cardsArray = data?.cards || [];
       
-      if (cardsArray.length > 0) {
-        const ticketIds = cardsArray
-          .filter(card => card.ticketId && !card.ticket)
-          .map(card => card.ticketId);
-        
-        if (ticketIds.length > 0) {
-          try {
-            const { data: ticketsData } = await api.request({
-              url: '/tickets/batch',
-              method: 'get',
-              params: { ids: ticketIds.join(',') }
-            });
-            
-            if (ticketsData && ticketsData.length > 0) {
-              ticketsData.forEach(ticket => {
-                const cardIndex = cardsArray.findIndex(c => c.ticketId === ticket.id);
-                if (cardIndex !== -1) {
-                  cardsArray[cardIndex].ticket = ticket;
-                }
+      // Enriquecer os cartões com dados de tickets e contatos
+      const enrichedCards = await Promise.all(
+        cardsArray.map(async (card) => {
+          if (!card) return null;
+          
+          const enrichedCard = { ...card };
+          
+          // Buscar dados do ticket se existir
+          if (card.ticketId && !card.ticket) {
+            try {
+              const { data: ticketData } = await api.request({
+                url: `/tickets/${card.ticketId}`,
+                method: 'get'
               });
+              enrichedCard.ticket = ticketData;
+            } catch (ticketErr) {
+              console.warn(`Erro ao carregar ticket ${card.ticketId}:`, ticketErr);
             }
-          } catch (err) {
-            console.error("Erro ao carregar tickets associados:", err);
           }
-        }
-      }
+          
+          // Buscar dados do contato se existir
+          if (card.contactId && !card.contact) {
+            try {
+              const { data: contactData } = await api.request({
+                url: `/contacts/${card.contactId}`,
+                method: 'get'
+              });
+              enrichedCard.contact = contactData;
+            } catch (contactErr) {
+              console.warn(`Erro ao carregar contato ${card.contactId}:`, contactErr);
+            }
+          }
+          
+          // Buscar dados do usuário responsável se existir
+          if (card.assignedUserId && !card.assignedUser) {
+            try {
+              const { data: userData } = await api.request({
+                url: `/users/${card.assignedUserId}`,
+                method: 'get'
+              });
+              enrichedCard.assignedUser = userData;
+            } catch (userErr) {
+              console.warn(`Erro ao carregar usuário ${card.assignedUserId}:`, userErr);
+            }
+          }
+          
+          return enrichedCard;
+        })
+      );
       
-      setCards(cardsArray);
+      setCards(enrichedCards.filter(Boolean));
     } catch (err) {
       console.error("Erro ao carregar cartões:", err);
       toast.error(err.message || "Erro ao carregar cartões do Kanban");
@@ -297,6 +318,110 @@ const Kanban = () => {
     setShowMetrics(prev => !prev);
   };
 
+  // Funções para operações de cartões
+  const handleCardCreate = async (cardData) => {
+    const response = await api.request({
+      url: '/kanban/cards',
+      method: 'post',
+      data: cardData
+    });
+    
+    // Atualizar lista de cartões após criação
+    setTimeout(() => fetchCards(), 500);
+    
+    return response;
+  };
+
+  const handleCardUpdate = async (cardId, cardData) => {
+    const response = await api.request({
+      url: `/kanban/cards/${cardId}`,
+      method: 'put',
+      data: cardData
+    });
+    
+    // Atualizar lista de cartões após atualização
+    setTimeout(() => fetchCards(), 500);
+    
+    return response;
+  };
+
+  const handleCardDelete = async (cardId) => {
+    const response = await api.request({
+      url: `/kanban/cards/${cardId}`,
+      method: 'delete'
+    });
+    
+    // Atualizar lista de cartões após exclusão
+    setTimeout(() => fetchCards(), 500);
+    
+    return response;
+  };
+
+  const handleCardMove = async (cardId, laneId) => {
+    const response = await api.request({
+      url: `/kanban/cards/${cardId}/move`,
+      method: 'post',
+      data: { laneId }
+    });
+    
+    // Atualizar lista de cartões após movimento
+    setTimeout(() => fetchCards(), 500);
+    
+    return response;
+  };
+
+  // Funções para operações de lanes
+  const handleLaneCreate = async (laneData) => {
+    const response = await api.request({
+      url: '/kanban/lanes',
+      method: 'post',
+      data: laneData
+    });
+    
+    // Atualizar dados do board
+    setTimeout(() => fetchBoards(), 500);
+    
+    return response;
+  };
+
+  const handleLaneUpdate = async (laneId, laneData) => {
+    const response = await api.request({
+      url: `/kanban/lanes/${laneId}`,
+      method: 'put',
+      data: laneData
+    });
+    
+    // Atualizar dados do board
+    setTimeout(() => fetchBoards(), 500);
+    
+    return response;
+  };
+
+  const handleLaneDelete = async (laneId) => {
+    const response = await api.request({
+      url: `/kanban/lanes/${laneId}`,
+      method: 'delete'
+    });
+    
+    // Atualizar dados do board
+    setTimeout(() => fetchBoards(), 500);
+    
+    return response;
+  };
+
+  const handleLanesReorder = async (lanes) => {
+    const response = await api.request({
+      url: `/kanban/boards/${selectedBoard.id}/reorder-lanes`,
+      method: 'post',
+      data: { lanes }
+    });
+    
+    // Atualizar dados do board
+    setTimeout(() => fetchBoards(), 500);
+    
+    return response;
+  };
+
   return (
     <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
       <Paper sx={{ p: 2, mb: 2 }}>
@@ -422,64 +547,14 @@ const Kanban = () => {
               board={selectedBoard}
               lanes={lanes || []}
               cards={cards || []}
-              onLaneCreate={(laneData) => {
-                const newLaneData = {
-                  ...laneData,
-                  boardId: selectedBoard.id
-                };
-                return api.request({
-                  url: '/kanban/lanes',
-                  method: 'post',
-                  data: newLaneData
-                });
-              }}
-              onLaneUpdate={(laneId, laneData) => {
-                return api.request({
-                  url: `/kanban/lanes/${laneId}`,
-                  method: 'put',
-                  data: laneData
-                });
-              }}
-              onLaneDelete={(laneId) => {
-                return api.request({
-                  url: `/kanban/lanes/${laneId}`,
-                  method: 'delete'
-                });
-              }}
-              onCardCreate={(cardData) => {
-                return api.request({
-                  url: '/kanban/cards',
-                  method: 'post',
-                  data: cardData
-                });
-              }}
-              onCardUpdate={(cardId, cardData) => {
-                return api.request({
-                  url: `/kanban/cards/${cardId}`,
-                  method: 'put',
-                  data: cardData
-                });
-              }}
-              onCardDelete={(cardId) => {
-                return api.request({
-                  url: `/kanban/cards/${cardId}`,
-                  method: 'delete'
-                });
-              }}
-              onCardMove={(cardId, laneId) => {
-                return api.request({
-                  url: `/kanban/cards/${cardId}/move`,
-                  method: 'post',
-                  data: { laneId }
-                });
-              }}
-              onLanesReorder={(lanes) => {
-                return api.request({
-                  url: `/kanban/boards/${selectedBoard.id}/reorder-lanes`,
-                  method: 'post',
-                  data: { lanes }
-                });
-              }}
+              onLaneCreate={handleLaneCreate}
+              onLaneUpdate={handleLaneUpdate}
+              onLaneDelete={handleLaneDelete}
+              onCardCreate={handleCardCreate}
+              onCardUpdate={handleCardUpdate}
+              onCardDelete={handleCardDelete}
+              onCardMove={handleCardMove}
+              onLanesReorder={handleLanesReorder}
               companyId={companyId}
             />
           )}
@@ -489,26 +564,9 @@ const Kanban = () => {
               board={selectedBoard}
               lanes={lanes || []}
               cards={cards || []}
-              onCardCreate={(cardData) => {
-                return api.request({
-                  url: '/kanban/cards',
-                  method: 'post',
-                  data: cardData
-                });
-              }}
-              onCardUpdate={(cardId, cardData) => {
-                return api.request({
-                  url: `/kanban/cards/${cardId}`,
-                  method: 'put',
-                  data: cardData
-                });
-              }}
-              onCardDelete={(cardId) => {
-                return api.request({
-                  url: `/kanban/cards/${cardId}`,
-                  method: 'delete'
-                });
-              }}
+              onCardCreate={handleCardCreate}
+              onCardUpdate={handleCardUpdate}
+              onCardDelete={handleCardDelete}
               companyId={companyId}
             />
           )}
@@ -518,20 +576,8 @@ const Kanban = () => {
               board={selectedBoard}
               lanes={lanes || []}
               cards={cards || []}
-              onCardCreate={(cardData) => {
-                return api.request({
-                  url: '/kanban/cards',
-                  method: 'post',
-                  data: cardData
-                });
-              }}
-              onCardUpdate={(cardId, cardData) => {
-                return api.request({
-                  url: `/kanban/cards/${cardId}`,
-                  method: 'put',
-                  data: cardData
-                });
-              }}
+              onCardCreate={handleCardCreate}
+              onCardUpdate={handleCardUpdate}
               companyId={companyId}
             />
           )}

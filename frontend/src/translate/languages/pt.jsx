@@ -4590,6 +4590,7 @@ const messages = {
         }
       },
       settings: {
+        saveAll: "Salvar todas",
         loading: "Carregando configurações...",
         loadError: "Erro ao carregar configurações",
         title: "Configurações",
