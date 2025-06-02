@@ -37,10 +37,10 @@ import {
 } from '@mui/icons-material';
 import { styled, useTheme } from '@mui/material/styles';
 
-// Styled Components Mobile First
+// Styled Components Mobile First - SEM altura fixa
 const StyledTableContainer = styled(TableContainer)(({ theme }) => ({
-  flex: 1,
-  overflow: 'hidden',
+  width: '100%',
+  // REMOVIDO: flex, overflow, height - deixa crescer naturalmente
   borderRadius: 12, // Mobile first: bordas mais arredondadas
   boxShadow: theme.palette.mode === 'dark' 
     ? '0 2px 12px rgba(0, 0, 0, 0.4)' 
@@ -59,16 +59,14 @@ const StyledTableContainer = styled(TableContainer)(({ theme }) => ({
   }
 }));
 
+// CORRIGIDO: Cabeçalho SEM cor de fundo azul
 const StyledTableHead = styled(TableHead)(({ theme }) => ({
   '& .MuiTableCell-head': {
-    backgroundColor: theme.palette.primary.main,
+    // REMOVIDO: backgroundColor com cor primária
     fontWeight: 600,
     fontSize: '0.8125rem',
-    color: theme.palette.primary.contrastText,
-    position: 'sticky',
-    top: 0,
-    zIndex: 10,
-    borderBottom: `2px solid ${theme.palette.primary.dark}`,
+    color: theme.palette.text.primary, // cor normal do texto
+    borderBottom: `2px solid ${theme.palette.divider}`,
     padding: theme.spacing(1.5),
     // Mobile first
     [theme.breakpoints.up('sm')]: {
@@ -139,6 +137,7 @@ const MobileCard = styled(Card)(({ theme }) => ({
   }
 }));
 
+// CORRIGIDO: EmptyState SEM altura fixa
 const EmptyStateContainer = styled(Box)(({ theme }) => ({
   display: 'flex',
   flexDirection: 'column',
@@ -146,11 +145,11 @@ const EmptyStateContainer = styled(Box)(({ theme }) => ({
   justifyContent: 'center',
   padding: theme.spacing(4),
   textAlign: 'center',
-  minHeight: '200px',
+  width: '100%',
+  // REMOVIDO: minHeight
   // Mobile first
   [theme.breakpoints.up('sm')]: {
     padding: theme.spacing(6),
-    minHeight: '300px',
   },
   [theme.breakpoints.up('md')]: {
     padding: theme.spacing(8),
@@ -161,7 +160,7 @@ const LoadingContainer = styled(Box)(({ theme }) => ({
   padding: theme.spacing(2)
 }));
 
-// Componente de Estado Vazio Melhorado
+// Componente de Estado Vazio Melhorado - SEM altura fixa
 const EmptyState = ({ icon, title, description, action }) => {
   const theme = useTheme();
   const isXs = useMediaQuery(theme.breakpoints.only('xs'));
@@ -234,76 +233,64 @@ const TableSkeleton = ({ rows = 5, columns = 4 }) => {
   );
 };
 
-// Menu de Ações Melhorado
-const ActionsMenu = ({ 
-  anchorEl, 
-  open, 
-  onClose, 
-  actions = [], 
-  selectedItem 
-}) => {
+// CORRIGIDO: Ações individuais SEM MoreVert
+const IndividualActions = ({ actions = [], item }) => {
   const theme = useTheme();
-  const isXs = useMediaQuery(theme.breakpoints.only('xs'));
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   
+  if (!actions || actions.length === 0) return null;
+  
+  // No mobile, mostrar apenas as 2 primeiras ações
+  // No desktop, mostrar todas as ações
+  const visibleActions = isMobile ? actions.slice(0, 2) : actions;
+
   return (
-    <Menu
-      anchorEl={anchorEl}
-      keepMounted
-      open={open}
-      onClose={onClose}
-      PaperProps={{
-        elevation: 8,
-        sx: {
-          minWidth: isXs ? 200 : 180,
-          borderRadius: 2,
-          '& .MuiMenuItem-root': {
-            py: isXs ? 1.5 : 1,
-            px: 2,
-            fontSize: isXs ? '0.875rem' : '0.8125rem',
-            minHeight: isXs ? 44 : 'auto'
-          }
-        }
-      }}
-      transformOrigin={{ horizontal: 'right', vertical: 'top' }}
-      anchorOrigin={{ horizontal: 'right', vertical: 'bottom' }}
-    >
-      {actions.map((action, index) => (
-        <React.Fragment key={index}>
-          {action.divider && <Divider />}
-          <MenuItem
-            onClick={() => {
-              action.onClick(selectedItem);
-              onClose();
+    <Box sx={{ 
+      display: 'flex', 
+      alignItems: 'center', 
+      justifyContent: 'flex-end',
+      gap: 0.5 
+    }}>
+      {visibleActions.map((action, index) => (
+        <Tooltip key={index} title={action.label} arrow placement="top">
+          <IconButton
+            size="small"
+            onClick={(event) => {
+              event.stopPropagation();
+              action.onClick(item);
             }}
             disabled={action.disabled}
             sx={{
-              color: action.color || 'inherit',
+              color: action.color === 'error' 
+                ? 'error.main' 
+                : action.color === 'success'
+                  ? 'success.main'
+                  : action.color === 'primary'
+                    ? 'primary.main'
+                    : 'text.secondary',
               '&:hover': {
                 backgroundColor: action.color === 'error' 
                   ? 'error.light' 
-                  : 'action.hover'
+                  : action.color === 'success'
+                    ? 'success.light'
+                    : action.color === 'primary'
+                      ? 'primary.light'
+                      : 'action.hover',
+                color: action.color === 'error' 
+                  ? 'error.dark' 
+                  : action.color === 'success'
+                    ? 'success.dark'
+                    : action.color === 'primary'
+                      ? 'primary.dark'
+                      : 'text.primary'
               }
             }}
           >
-            {action.icon && (
-              <ListItemIcon sx={{ 
-                color: 'inherit',
-                minWidth: isXs ? 36 : 32
-              }}>
-                {action.icon}
-              </ListItemIcon>
-            )}
-            <ListItemText 
-              primary={action.label}
-              primaryTypographyProps={{
-                fontWeight: action.primary ? 600 : 400,
-                fontSize: 'inherit'
-              }}
-            />
-          </MenuItem>
-        </React.Fragment>
+            {action.icon}
+          </IconButton>
+        </Tooltip>
       ))}
-    </Menu>
+    </Box>
   );
 };
 
@@ -316,7 +303,6 @@ const MobileCardRow = ({
   selected, 
   onSelect, 
   onRowClick,
-  onActionsClick,
   index,
   showRowNumbers,
   actualIndex
@@ -381,15 +367,8 @@ const MobileCardRow = ({
               </IconButton>
             )}
             
-            {actions.length > 0 && (
-              <IconButton
-                size="small"
-                onClick={(e) => onActionsClick(e, item)}
-                sx={{ p: 0.5 }}
-              >
-                <MoreVertIcon />
-              </IconButton>
-            )}
+            {/* Ações individuais */}
+            <IndividualActions actions={actions} item={item} />
           </Stack>
         </Box>
         
@@ -420,7 +399,7 @@ const MobileCardRow = ({
   );
 };
 
-// Componente Principal da Tabela Melhorado
+// Componente Principal da Tabela Melhorado - SEM altura fixa
 const StandardTable = ({
   columns = [],
   data = [],
@@ -432,7 +411,7 @@ const StandardTable = ({
   onRowClick,
   onSelectionChange,
   initialRowsPerPage = 10,
-  stickyHeader = true,
+  stickyHeader = false, // DESABILITADO por padrão
   dense = false,
   hover = true,
   showRowNumbers = false,
@@ -449,8 +428,6 @@ const StandardTable = ({
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(initialRowsPerPage);
   const [selected, setSelected] = useState([]);
-  const [actionMenuAnchor, setActionMenuAnchor] = useState(null);
-  const [selectedItem, setSelectedItem] = useState(null);
 
   // Determinar se deve usar visualização mobile
   const useMobileView = mobileView === 'cards' || (mobileView === 'auto' && isXs);
@@ -501,18 +478,6 @@ const StandardTable = ({
     );
   };
 
-  // Handler do Menu de Ações
-  const handleOpenActionsMenu = (event, item) => {
-    event.stopPropagation();
-    setSelectedItem(item);
-    setActionMenuAnchor(event.currentTarget);
-  };
-
-  const handleCloseActionsMenu = () => {
-    setActionMenuAnchor(null);
-    setSelectedItem(null);
-  };
-
   // Cálculo da paginação
   const startIndex = page * rowsPerPage;
   const endIndex = startIndex + rowsPerPage;
@@ -548,10 +513,15 @@ const StandardTable = ({
   }
 
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+    <Box sx={{ 
+      display: 'flex', 
+      flexDirection: 'column',
+      width: '100%'
+      // REMOVIDO: height - deixa crescer naturalmente
+    }}>
       {/* Visualização Mobile em Cards */}
       {useMobileView ? (
-        <Box sx={{ flex: 1, overflow: 'auto', px: 1 }}>
+        <Box sx={{ flex: 1, px: 1 }}>
           {/* Header com seleção para mobile */}
           {selectable && (
             <Box sx={{ mb: 2, p: 2, bgcolor: 'background.paper', borderRadius: 2 }}>
@@ -584,7 +554,6 @@ const StandardTable = ({
                 selected={isItemSelected}
                 onSelect={(event) => handleRowSelect(event, index)}
                 onRowClick={onRowClick}
-                onActionsClick={handleOpenActionsMenu}
                 index={index}
                 showRowNumbers={showRowNumbers}
                 actualIndex={actualIndex}
@@ -639,7 +608,7 @@ const StandardTable = ({
 
                 {/* Coluna de Ações */}
                 {actions.length > 0 && (
-                  <TableCell align="right" width={60}>
+                  <TableCell align="right" width={120}>
                     Ações
                   </TableCell>
                 )}
@@ -701,19 +670,10 @@ const StandardTable = ({
                       ))
                     )}
 
-                    {/* Menu de Ações */}
+                    {/* Ações Individuais */}
                     {actions.length > 0 && (
                       <TableCell align="right">
-                        <IconButton
-                          size="small"
-                          onClick={(event) => {
-                            event.stopPropagation();
-                            handleOpenActionsMenu(event, item)}
-                          }
-                          color="primary"
-                        >
-                          <MoreVertIcon />
-                        </IconButton>
+                        <IndividualActions actions={actions} item={item} />
                       </TableCell>
                     )}
                   </StyledTableRow>
@@ -756,15 +716,6 @@ const StandardTable = ({
           }}
         />
       )}
-
-      {/* Menu de Ações */}
-      <ActionsMenu
-        anchorEl={actionMenuAnchor}
-        open={Boolean(actionMenuAnchor)}
-        onClose={handleCloseActionsMenu}
-        actions={actions}
-        selectedItem={selectedItem}
-      />
     </Box>
   );
 };

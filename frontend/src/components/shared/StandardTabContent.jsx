@@ -23,12 +23,12 @@ import {
 } from '@mui/icons-material';
 import { styled, useTheme } from '@mui/material/styles';
 
-// Styled Components Mobile First
+// Styled Components Mobile First - SEM limitações de altura
 const TabContainer = styled(Box)(({ theme }) => ({
   display: 'flex',
   flexDirection: 'column',
   width: '100%',
-  // Remove qualquer limitação de altura para permitir crescimento natural
+  // REMOVIDO: qualquer limitação de altura
 }));
 
 const TabHeader = styled(Box)(({ theme }) => ({
@@ -75,18 +75,20 @@ const TabDescription = styled(Typography)(({ theme }) => ({
   }
 }));
 
+// CORRIGIDO: ContentWrapper SEM limitações de altura ou overflow
 const ContentWrapper = styled(Box)(({ theme }) => ({
   display: 'flex',
   flexDirection: 'column',
   width: '100%',
-  // Remove limitações de altura e overflow para permitir crescimento natural
+  // REMOVIDO: height, minHeight, overflow - deixa crescer naturalmente
 }));
 
+// CORRIGIDO: ContentArea SEM limitações de altura
 const ContentArea = styled(Box)(({ theme, variant }) => ({
   display: 'flex',
   flexDirection: 'column',
   width: '100%',
-  // Remove limitações de altura para permitir expansão completa
+  // REMOVIDO: height, minHeight, overflow - deixa o conteúdo crescer naturalmente
   ...(variant === 'paper' && {
     backgroundColor: theme.palette.background.paper,
     borderRadius: 12, // Mobile first: bordas mais arredondadas
@@ -311,7 +313,7 @@ const TabAlert = ({
   );
 };
 
-// Componente Principal Melhorado
+// Componente Principal Melhorado - SEM limitações de altura
 const StandardTabContent = ({
   title,
   description,
@@ -411,7 +413,7 @@ const StandardTabContent = ({
         </TabHeader>
       )}
 
-      {/* Área de Conteúdo */}
+      {/* Área de Conteúdo - SEM limitações de altura */}
       <ContentWrapper>
         <ContentArea variant={variant} {...contentProps}>
           {showEmptyState && emptyState ? (
@@ -421,8 +423,8 @@ const StandardTabContent = ({
                 alignItems: 'center', 
                 justifyContent: 'center',
                 padding: theme.spacing(2),
-                minHeight: '200px',
                 width: '100%'
+                // REMOVIDO: minHeight - deixa o conteúdo definir a altura
               }}>
                 {emptyState}
               </Box>

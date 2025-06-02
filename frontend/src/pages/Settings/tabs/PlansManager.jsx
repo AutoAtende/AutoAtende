@@ -40,7 +40,7 @@ import {
 
 import StandardPageLayout from "../../../components/shared/StandardPageLayout";
 import StandardTabContent from "../../../components/shared/StandardTabContent";
-import StandardTable from "../../../components/shared/StandardTable";
+import StandardDataTable from "../../../components/shared/StandardDataTable"; // Usando StandardDataTable
 import StandardEmptyState from "../../../components/shared/StandardEmptyState";
 import StandardModal from "../../../components/shared/StandardModal";
 import { toast } from "../../../helpers/toast";
@@ -51,6 +51,7 @@ import { i18n } from "../../../translate/i18n";
 const FormContainer = styled(Paper)(({ theme }) => ({
     padding: theme.spacing(3),
     borderRadius: 12,
+    marginBottom: theme.spacing(3),
     boxShadow: theme.palette.mode === 'dark' 
         ? '0 2px 8px rgba(0, 0, 0, 0.3)' 
         : '0 2px 8px rgba(0, 0, 0, 0.08)',
@@ -108,29 +109,15 @@ const PlanForm = ({
     isEditing 
 }) => {
     return (
-        <StandardTabContent
-            title={isEditing ? "Editar Plano" : "Novo Plano"}
-            description="Configure os limites e funcionalidades disponíveis no plano"
-            icon={<AssignmentIcon />}
-            variant="paper"
-            actions={
-                isEditing && (
-                    <Button
-                        variant="outlined"
-                        color="error"
-                        startIcon={<DeleteIcon />}
-                        onClick={() => onDelete(initialValues)}
-                        disabled={loading}
-                        sx={{ 
-                            borderRadius: { xs: 3, sm: 2 },
-                            minHeight: { xs: 48, sm: 40 }
-                        }}
-                    >
-                        Excluir Plano
-                    </Button>
-                )
-            }
-        >
+        <FormContainer>
+            <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                <AssignmentIcon color="primary" />
+                {isEditing ? "Editar Plano" : "Novo Plano"}
+            </Typography>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+                Configure os limites e funcionalidades disponíveis no plano
+            </Typography>
+
             <Formik
                 enableReinitialize
                 initialValues={initialValues}
@@ -510,11 +497,27 @@ const PlanForm = ({
                             >
                                 {isEditing ? 'Atualizar' : 'Salvar'}
                             </Button>
+                            
+                            {isEditing && (
+                                <Button
+                                    variant="outlined"
+                                    color="error"
+                                    startIcon={<DeleteIcon />}
+                                    onClick={() => onDelete(initialValues)}
+                                    disabled={loading}
+                                    sx={{ 
+                                        borderRadius: { xs: 3, sm: 2 },
+                                        minHeight: { xs: 48, sm: 40 }
+                                    }}
+                                >
+                                    Excluir
+                                </Button>
+                            )}
                         </Box>
                     </Form>
                 )}
             </Formik>
-        </StandardTabContent>
+        </FormContainer>
     );
 };
 
@@ -712,9 +715,6 @@ export default function PlansManager() {
         }
     ];
 
-    // Função auxiliar para renderizar status
-    const renderStatus = (value) => value ? 'Sim' : 'Não';
-
     // Preparar colunas da tabela
     const columns = [
         {
@@ -840,7 +840,7 @@ export default function PlansManager() {
         }
     ];
 
-    // Preparar ações da tabela
+    // Preparar ações da tabela - INDIVIDUAL
     const tableActions = [
         {
             label: 'Editar',
@@ -852,8 +852,7 @@ export default function PlansManager() {
             label: 'Excluir',
             icon: <DeleteIcon />,
             onClick: handleDelete,
-            color: 'error',
-            divider: true
+            color: 'error'
         }
     ];
 
@@ -877,7 +876,7 @@ export default function PlansManager() {
                 isEditing={isEditing}
             />
 
-            {/* Lista/Tabela */}
+            {/* Lista/Tabela usando StandardDataTable */}
             <StandardTabContent
                 title="Planos Cadastrados"
                 description="Lista de todos os planos de assinatura disponíveis"
@@ -887,7 +886,7 @@ export default function PlansManager() {
             >
                 {records.length === 0 && !loading ? (
                     <StandardEmptyState
-                        type="plans"
+                        type="default"
                         title="Nenhum plano cadastrado"
                         description="Comece criando seu primeiro plano de assinatura"
                         primaryAction={{
@@ -897,7 +896,7 @@ export default function PlansManager() {
                         }}
                     />
                 ) : (
-                    <StandardTable
+                    <StandardDataTable
                         columns={columns}
                         data={filteredRecords}
                         actions={tableActions}
@@ -909,7 +908,9 @@ export default function PlansManager() {
                                 description="Tente ajustar os termos de busca"
                             />
                         }
-                        showEmptyState={filteredRecords.length === 0 && searchTerm}
+                        emptyTitle="Nenhum plano encontrado"
+                        emptyDescription="Tente ajustar os termos de busca ou crie um novo plano"
+                        stickyHeader={false}
                     />
                 )}
             </StandardTabContent>

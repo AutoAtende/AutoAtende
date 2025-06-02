@@ -17,13 +17,12 @@ import {
 import { Search as SearchIcon } from '@mui/icons-material';
 import { styled, useTheme } from '@mui/material/styles';
 
-// Styled Components com foco Mobile First
+// Styled Components - SEM overflow hidden ou altura fixa
 const PageContainer = styled(Box)(({ theme }) => ({
   display: 'flex',
   flexDirection: 'column',
-  height: '100vh',
   width: '100%',
-  overflow: 'hidden',
+  // REMOVIDO: height: 100vh, overflow: hidden
   padding: theme.spacing(1, 1.5),
   // Primeira regra: Mobile (xs)
   [theme.breakpoints.up('sm')]: {
@@ -123,14 +122,14 @@ const TabsContainer = styled(Paper)(({ theme }) => ({
   }
 }));
 
+// CORRIGIDO: ContentArea SEM altura fixa ou overflow auto
 const ContentArea = styled(Box)(({ theme }) => ({
   flex: 1,
   display: 'flex',
   flexDirection: 'column',
-  minHeight: 0,
   width: '100%',
-  overflow: 'auto',
-  // Scroll customizado
+  // REMOVIDO: minHeight: 0, overflow: auto - deixa a página rolar naturalmente
+  // Scroll customizado (só se necessário)
   '&::-webkit-scrollbar': {
     width: 6,
     [theme.breakpoints.up('sm')]: {
@@ -212,7 +211,7 @@ ResponsiveActionButton.propTypes = {
   fullWidth: PropTypes.bool
 };
 
-// Componente Principal Melhorado
+// Componente Principal Melhorado - SEM altura fixa
 const StandardPageLayout = ({
   title,
   subtitle,
@@ -365,7 +364,7 @@ const StandardPageLayout = ({
         </Fade>
       )}
 
-      {/* Área de Conteúdo */}
+      {/* Área de Conteúdo - SEM limitação de altura */}
       <ContentArea>
         {showEmptyState && emptyState ? (
           <Fade in timeout={500}>
@@ -375,7 +374,7 @@ const StandardPageLayout = ({
               alignItems: 'center', 
               justifyContent: 'center',
               width: '100%',
-              minHeight: 200
+              padding: 2
             }}>
               {emptyState}
             </Box>
@@ -385,8 +384,8 @@ const StandardPageLayout = ({
             flex: 1, 
             display: 'flex', 
             flexDirection: 'column',
-            width: '100%',
-            minHeight: 0
+            width: '100%'
+            // REMOVIDO: minHeight: 0 - deixa crescer naturalmente
           }}>
             {children}
           </Box>

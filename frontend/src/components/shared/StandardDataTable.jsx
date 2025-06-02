@@ -33,10 +33,10 @@ import { styled, useTheme } from '@mui/material/styles';
 import TableRowSkeleton from './TableRowSkeleton';
 import StandardEmptyState from './StandardEmptyState';
 
-// Styled Components - Mantendo o mesmo estilo da página Tags
+// Styled Components - SEM altura fixa ou overflow
 const StyledTableContainer = styled(TableContainer)(({ theme }) => ({
-  height: '100%',
-  overflow: 'auto',
+  width: '100%',
+  // REMOVIDO: height, overflow
   '&::-webkit-scrollbar': {
     width: 6,
     [theme.breakpoints.up('sm')]: {
@@ -65,10 +65,8 @@ const StyledTableHead = styled(TableHead)(({ theme }) => ({
     fontSize: '0.875rem',
     padding: theme.spacing(1.5, 2),
     borderBottom: `2px solid ${theme.palette.divider}`,
-    position: 'sticky',
-    top: 0,
-    zIndex: 10,
-    backgroundColor: theme.palette.background.paper,
+    // REMOVIDO: position sticky, backgroundColor - sem fundo colorido
+    color: theme.palette.text.primary, // cor normal do texto
     boxShadow: `inset 0 -1px 0 ${theme.palette.divider}`
   }
 }));
@@ -91,16 +89,7 @@ const StyledTableRow = styled(TableRow)(({ theme }) => ({
   }
 }));
 
-const EmptyStateContainer = styled(Box)(({ theme }) => ({
-  display: 'flex',
-  flexDirection: 'column',
-  alignItems: 'center',
-  justifyContent: 'center',
-  height: '100%',
-  minHeight: 400,
-  padding: theme.spacing(4),
-  textAlign: 'center'
-}));
+// REMOVIDO: EmptyStateContainer com minHeight
 
 const ActionsContainer = styled(Box)(({ theme }) => ({
   display: 'flex',
@@ -119,7 +108,7 @@ const ActionsContainer = styled(Box)(({ theme }) => ({
   }
 }));
 
-// Componente de Estado Vazio
+// Componente de Estado Vazio SEM altura fixa
 const TableEmptyState = ({ 
   icon, 
   title, 
@@ -133,7 +122,16 @@ const TableEmptyState = ({
   }
 
   return (
-    <EmptyStateContainer>
+    <Box sx={{ 
+      display: 'flex',
+      flexDirection: 'column',
+      alignItems: 'center',
+      justifyContent: 'center',
+      padding: 4,
+      textAlign: 'center',
+      width: '100%'
+      // REMOVIDO: height, minHeight
+    }}>
       {icon && (
         <Box sx={{ fontSize: 64, color: 'text.secondary', mb: 2 }}>
           {icon}
@@ -157,15 +155,14 @@ const TableEmptyState = ({
           {actionLabel}
         </Button>
       )}
-    </EmptyStateContainer>
+    </Box>
   );
 };
 
-// Componente de Ações Inline CORRIGIDO
+// Componente de Ações Inline - INDIVIDUAL, sem MoreVert
 const InlineActions = ({ actions = [], item, maxVisibleActions = 3 }) => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
-  const [anchorEl, setAnchorEl] = useState(null);
   
   // Garantir que actions seja sempre um array e seja uma função
   const resolvedActions = typeof actions === 'function' ? actions(item) : (Array.isArray(actions) ? actions : []);
@@ -174,29 +171,9 @@ const InlineActions = ({ actions = [], item, maxVisibleActions = 3 }) => {
     return null;
   }
   
-  // Limitar ações visíveis baseado na tela
-  const maxVisible = isMobile ? 2 : maxVisibleActions;
-  const visibleActions = resolvedActions.slice(0, maxVisible);
-  const hiddenActions = resolvedActions.slice(maxVisible);
-  const hasMoreActions = hiddenActions.length > 0;
-
-  const handleMenuOpen = (event) => {
-    event.stopPropagation();
-    setAnchorEl(event.currentTarget);
-  };
-
-  const handleMenuClose = (event) => {
-    if (event) {
-      event.stopPropagation();
-    }
-    setAnchorEl(null);
-  };
-
-  const handleActionClick = (action, event) => {
-    event.stopPropagation();
-    handleMenuClose();
-    action.onClick(item);
-  };
+  // NO MOBILE: mostrar apenas 2 ações principais
+  // NO DESKTOP: mostrar todas as ações individuais
+  const visibleActions = isMobile ? resolvedActions.slice(0, 2) : resolvedActions;
 
   return (
     <ActionsContainer onClick={(e) => e.stopPropagation()}>
@@ -240,96 +217,11 @@ const InlineActions = ({ actions = [], item, maxVisibleActions = 3 }) => {
           </IconButton>
         </Tooltip>
       ))}
-      
-      {hasMoreActions && (
-        <>
-          <Tooltip title="Mais ações" arrow placement="top">
-            <IconButton
-              size="small"
-              onClick={handleMenuOpen}
-              color="default"
-              sx={{
-                color: 'text.secondary',
-                '&:hover': {
-                  backgroundColor: 'action.hover',
-                  color: 'text.primary'
-                }
-              }}
-            >
-              <MoreVertIcon fontSize="small" />
-            </IconButton>
-          </Tooltip>
-          
-          <Menu
-            anchorEl={anchorEl}
-            open={Boolean(anchorEl)}
-            onClose={handleMenuClose}
-            onClick={(e) => e.stopPropagation()}
-            PaperProps={{
-              sx: {
-                borderRadius: 2,
-                boxShadow: theme.shadows[8],
-                minWidth: 160
-              }
-            }}
-            anchorOrigin={{
-              vertical: 'bottom',
-              horizontal: 'right',
-            }}
-            transformOrigin={{
-              vertical: 'top',
-              horizontal: 'right',
-            }}
-          >
-            {hiddenActions.map((action, index) => (
-              <MenuItem
-                key={index}
-                onClick={(event) => handleActionClick(action, event)}
-                disabled={action.disabled}
-                sx={{
-                  minHeight: 40,
-                  px: 2,
-                  color: action.color === 'error' 
-                    ? 'error.main' 
-                    : action.color === 'success'
-                      ? 'success.main'
-                      : 'text.primary',
-                  '&:hover': {
-                    backgroundColor: action.color === 'error' 
-                      ? 'error.light' 
-                      : action.color === 'success'
-                        ? 'success.light'
-                        : 'action.hover'
-                  }
-                }}
-              >
-                <ListItemIcon
-                  sx={{
-                    color: 'inherit',
-                    minWidth: 36
-                  }}
-                >
-                  {action.icon}
-                </ListItemIcon>
-                <ListItemText
-                  primary={action.label}
-                  sx={{
-                    '& .MuiListItemText-primary': {
-                      fontSize: '0.875rem',
-                      fontWeight: 500
-                    }
-                  }}
-                />
-              </MenuItem>
-            ))}
-          </Menu>
-        </>
-      )}
     </ActionsContainer>
   );
 };
 
-// Componente Principal CORRIGIDO
+// Componente Principal CORRIGIDO - SEM altura fixa
 const StandardDataTable = ({
   // Dados
   data = [],
@@ -352,7 +244,7 @@ const StandardDataTable = ({
   onEmptyActionClick,
   
   // Configurações visuais
-  stickyHeader = true,
+  stickyHeader = false, // DESABILITADO por padrão
   size = "small",
   hover = true,
   
