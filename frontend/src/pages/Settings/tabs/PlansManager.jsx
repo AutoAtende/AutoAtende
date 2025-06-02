@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo, useContext } from "react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
 import PropTypes from 'prop-types';
 import {
     Grid,
@@ -14,10 +14,12 @@ import {
     Chip,
     FormControlLabel,
     Alert,
-    Divider,
-    Paper
+    Paper,
+    Tabs,
+    Tab,
+    useMediaQuery
 } from "@mui/material";
-import { styled } from '@mui/material/styles';
+import { styled, useTheme } from '@mui/material/styles';
 import { Formik, Form, Field } from 'formik';
 import * as Yup from 'yup';
 import {
@@ -35,12 +37,12 @@ import {
     Storage as StorageIcon,
     SmartToy as AIIcon,
     Visibility as VisibilityIcon,
-    VisibilityOff as VisibilityOffIcon
+    VisibilityOff as VisibilityOffIcon,
+    List as ListIcon
 } from "@mui/icons-material";
 
 import StandardPageLayout from "../../../components/shared/StandardPageLayout";
-import StandardTabContent from "../../../components/shared/StandardTabContent";
-import StandardDataTable from "../../../components/shared/StandardDataTable"; // Usando StandardDataTable
+import StandardDataTable from "../../../components/shared/StandardDataTable";
 import StandardEmptyState from "../../../components/shared/StandardEmptyState";
 import StandardModal from "../../../components/shared/StandardModal";
 import { toast } from "../../../helpers/toast";
@@ -51,7 +53,6 @@ import { i18n } from "../../../translate/i18n";
 const FormContainer = styled(Paper)(({ theme }) => ({
     padding: theme.spacing(3),
     borderRadius: 12,
-    marginBottom: theme.spacing(3),
     boxShadow: theme.palette.mode === 'dark' 
         ? '0 2px 8px rgba(0, 0, 0, 0.3)' 
         : '0 2px 8px rgba(0, 0, 0, 0.08)',
@@ -67,6 +68,24 @@ const FeatureSection = styled(Box)(({ theme }) => ({
     backgroundColor: theme.palette.action.hover,
     borderRadius: 8,
     border: `1px solid ${theme.palette.divider}`
+}));
+
+const StatsChip = styled(Chip)(({ theme }) => ({
+    fontSize: '0.75rem',
+    height: 24,
+    '& .MuiChip-icon': {
+        fontSize: '0.875rem'
+    }
+}));
+
+const SectionTitle = styled(Typography)(({ theme }) => ({
+    color: theme.palette.primary.main,
+    fontWeight: 600,
+    fontSize: '1.25rem',
+    marginBottom: theme.spacing(2),
+    display: 'flex',
+    alignItems: 'center',
+    gap: theme.spacing(1)
 }));
 
 // Schema de validação
@@ -110,19 +129,11 @@ const PlanForm = ({
 }) => {
     return (
         <FormContainer>
-            <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                <AssignmentIcon color="primary" />
-                {isEditing ? "Editar Plano" : "Novo Plano"}
-            </Typography>
-            <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-                Configure os limites e funcionalidades disponíveis no plano
-            </Typography>
-
             <Formik
                 enableReinitialize
                 initialValues={initialValues}
                 validationSchema={planValidationSchema}
-                onSubmit={(values, { resetForm }) => {
+                onSubmit={(values, { resetForm, setSubmitting }) => {
                     // Ajustar formato do valor
                     const adjustedValues = {
                         ...values,
@@ -132,9 +143,10 @@ const PlanForm = ({
                     if (!isEditing) {
                         resetForm();
                     }
+                    setSubmitting(false);
                 }}
             >
-                {({ values, errors, touched, setFieldValue }) => (
+                {({ values, errors, touched, setFieldValue, isSubmitting, isValid, dirty }) => (
                     <Form>
                         {/* Informações Básicas */}
                         <FeatureSection>
@@ -143,7 +155,7 @@ const PlanForm = ({
                                 Informações Básicas
                             </Typography>
                             <Grid container spacing={2}>
-                                <Grid item xs={12} sm={6} md={3}>
+                                <Grid item xs={12} sm={6} md={4}>
                                     <Field
                                         as={TextField}
                                         name="name"
@@ -155,7 +167,7 @@ const PlanForm = ({
                                         helperText={touched.name && errors.name}
                                     />
                                 </Grid>
-                                <Grid item xs={12} sm={6} md={3}>
+                                <Grid item xs={12} sm={6} md={4}>
                                     <Field
                                         as={TextField}
                                         name="value"
@@ -170,7 +182,7 @@ const PlanForm = ({
                                         }}
                                     />
                                 </Grid>
-                                <Grid item xs={12} sm={6} md={3}>
+                                <Grid item xs={12} sm={6} md={4}>
                                     <FormControlLabel
                                         control={
                                             <Switch
@@ -322,7 +334,7 @@ const PlanForm = ({
                                     </FormControl>
                                 </Grid>
                                 <Grid item xs={12} sm={6} md={3}>
-                                <FormControl fullWidth size="small">
+                                    <FormControl fullWidth size="small">
                                         <InputLabel>API Externa</InputLabel>
                                         <Field
                                             as={Select}
@@ -475,7 +487,7 @@ const PlanForm = ({
                                 variant="outlined"
                                 onClick={onCancel}
                                 startIcon={<ClearIcon />}
-                                disabled={loading}
+                                disabled={loading || isSubmitting}
                                 sx={{ 
                                     borderRadius: { xs: 3, sm: 2 },
                                     minHeight: { xs: 48, sm: 40 }
@@ -489,7 +501,7 @@ const PlanForm = ({
                                 variant="contained"
                                 color="primary"
                                 startIcon={<SaveIcon />}
-                                disabled={loading}
+                                disabled={loading || isSubmitting || !isValid || (!dirty && !isEditing)}
                                 sx={{ 
                                     borderRadius: { xs: 3, sm: 2 },
                                     minHeight: { xs: 48, sm: 40 }
@@ -504,7 +516,7 @@ const PlanForm = ({
                                     color="error"
                                     startIcon={<DeleteIcon />}
                                     onClick={() => onDelete(initialValues)}
-                                    disabled={loading}
+                                    disabled={loading || isSubmitting}
                                     sx={{ 
                                         borderRadius: { xs: 3, sm: 2 },
                                         minHeight: { xs: 48, sm: 40 }
@@ -533,6 +545,8 @@ PlanForm.propTypes = {
 // Componente Principal
 export default function PlansManager() {
     const { list, save, update, remove } = usePlans();
+    const theme = useTheme();
+    const isMobile = useMediaQuery(theme.breakpoints.down('md'));
 
     // Estados
     const [loading, setLoading] = useState(false);
@@ -540,6 +554,7 @@ export default function PlansManager() {
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedPlan, setSelectedPlan] = useState(null);
     const [isEditing, setIsEditing] = useState(false);
+    const [activeTab, setActiveTab] = useState(0); // 0 = Criar/Editar, 1 = Listar
     
     // Estados de modais
     const [deleteModalOpen, setDeleteModalOpen] = useState(false);
@@ -616,6 +631,7 @@ export default function PlansManager() {
             
             await loadPlans();
             handleCancel();
+            setActiveTab(1); // Vai para aba de listagem após salvar
         } catch (error) {
             console.error('Erro ao salvar:', error);
             toast.error('Não foi possível realizar a operação. Verifique se já existe um plano com o mesmo nome ou se os campos foram preenchidos corretamente');
@@ -651,6 +667,7 @@ export default function PlansManager() {
             openAIAssistantsContentLimit: plan.openAIAssistantsContentLimit || 100,
         });
         setIsEditing(true);
+        setActiveTab(0); // Vai para aba de edição
     }, []);
 
     const handleDelete = useCallback((plan) => {
@@ -682,12 +699,20 @@ export default function PlansManager() {
 
     const handleCreateNew = useCallback(() => {
         handleCancel();
+        setActiveTab(0); // Vai para aba de criação
     }, [handleCancel]);
+
+    const handleTabChange = useCallback((event, newValue) => {
+        setActiveTab(newValue);
+        if (newValue === 0 && !isEditing) {
+            handleCancel(); // Limpa o formulário quando vai para aba de criação
+        }
+    }, [isEditing, handleCancel]);
 
     // Preparar estatísticas
     const stats = useMemo(() => [
         {
-            label: `${records.length} planos cadastrados`,
+            label: `${records.length} planos`,
             icon: <AssignmentIcon />,
             color: 'primary'
         },
@@ -727,14 +752,14 @@ export default function PlansManager() {
                         {plan.name || '-'}
                     </Typography>
                     <Box sx={{ display: 'flex', gap: 0.5, mt: 0.5, flexWrap: 'wrap' }}>
-                        <Chip 
+                        <StatsChip 
                             label={plan.isVisible ? 'Visível' : 'Oculto'} 
                             size="small" 
                             color={plan.isVisible ? 'success' : 'default'}
                             variant="outlined"
                         />
                         {plan.whiteLabel && (
-                            <Chip 
+                            <StatsChip 
                                 label="WhiteLabel" 
                                 size="small" 
                                 color="secondary"
@@ -817,20 +842,18 @@ export default function PlansManager() {
                         </Typography>
                         <Box sx={{ display: 'flex', gap: 0.5, mt: 0.5, flexWrap: 'wrap' }}>
                             {enabledFeatures.slice(0, 3).map((feature, index) => (
-                                <Chip 
+                                <StatsChip 
                                     key={index}
                                     label={feature} 
                                     size="small" 
                                     variant="outlined"
-                                    sx={{ fontSize: '0.7rem' }}
                                 />
                             ))}
                             {enabledFeatures.length > 3 && (
-                                <Chip 
+                                <StatsChip 
                                     label={`+${enabledFeatures.length - 3}`} 
                                     size="small" 
                                     color="primary"
-                                    sx={{ fontSize: '0.7rem' }}
                                 />
                             )}
                         </Box>
@@ -861,59 +884,117 @@ export default function PlansManager() {
             title="Gerenciamento de Planos"
             subtitle="Configure os planos de assinatura e funcionalidades disponíveis"
             actions={headerActions}
-            showSearch
+            showSearch={activeTab === 1} // Só mostra busca na aba de listagem
             searchValue={searchTerm}
             onSearchChange={handleSearch}
             searchPlaceholder="Buscar planos..."
         >
-            {/* Formulário */}
-            <PlanForm
-                initialValues={formValues}
-                onSubmit={handleSubmit}
-                onCancel={handleCancel}
-                onDelete={handleDelete}
-                loading={loading}
-                isEditing={isEditing}
-            />
+            {/* Navegação por Abas */}
+            <Paper elevation={2} sx={{ mb: 3, borderRadius: isMobile ? 3 : 1 }}>
+                <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
+                    <Tabs 
+                        value={activeTab} 
+                        onChange={handleTabChange}
+                        indicatorColor="primary"
+                        textColor="primary"
+                        variant={isMobile ? "fullWidth" : "standard"}
+                    >
+                        <Tab 
+                            icon={<AssignmentIcon />} 
+                            label={isEditing ? "Editar Plano" : "Novo Plano"} 
+                            iconPosition="start"
+                            sx={{ 
+                                minHeight: isMobile ? 56 : 48,
+                                fontSize: isMobile ? '0.9rem' : '0.875rem' 
+                            }}
+                        />
+                        <Tab 
+                            icon={<ListIcon />} 
+                            label="Listar Planos" 
+                            iconPosition="start"
+                            sx={{ 
+                                minHeight: isMobile ? 56 : 48,
+                                fontSize: isMobile ? '0.9rem' : '0.875rem' 
+                            }}
+                        />
+                    </Tabs>
+                </Box>
+            </Paper>
 
-            {/* Lista/Tabela usando StandardDataTable */}
-            <StandardTabContent
-                title="Planos Cadastrados"
-                description="Lista de todos os planos de assinatura disponíveis"
-                icon={<AssignmentIcon />}
-                stats={stats}
-                variant="default"
-            >
-                {records.length === 0 && !loading ? (
-                    <StandardEmptyState
-                        type="default"
-                        title="Nenhum plano cadastrado"
-                        description="Comece criando seu primeiro plano de assinatura"
-                        primaryAction={{
-                            label: 'Criar primeiro plano',
-                            icon: <AddIcon />,
-                            onClick: handleCreateNew
-                        }}
-                    />
-                ) : (
-                    <StandardDataTable
-                        columns={columns}
-                        data={filteredRecords}
-                        actions={tableActions}
+            {/* Conteúdo das Abas */}
+            {activeTab === 0 && (
+                <Box>
+                    <PlanForm
+                        initialValues={formValues}
+                        onSubmit={handleSubmit}
+                        onCancel={handleCancel}
+                        onDelete={handleDelete}
                         loading={loading}
-                        emptyState={
-                            <StandardEmptyState
-                                type="search"
-                                title="Nenhum plano encontrado"
-                                description="Tente ajustar os termos de busca"
-                            />
-                        }
-                        emptyTitle="Nenhum plano encontrado"
-                        emptyDescription="Tente ajustar os termos de busca ou crie um novo plano"
-                        stickyHeader={false}
+                        isEditing={isEditing}
                     />
-                )}
-            </StandardTabContent>
+                </Box>
+            )}
+
+            {activeTab === 1 && (
+                <Box>
+                    <SectionTitle>
+                        <AssignmentIcon />
+                        Planos Cadastrados
+                    </SectionTitle>
+                    
+                    <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+                        Lista de todos os planos de assinatura disponíveis
+                    </Typography>
+
+                    {/* Estatísticas */}
+                    <Box sx={{ 
+                        display: 'flex', 
+                        gap: 1, 
+                        mb: 3,
+                        flexWrap: 'wrap'
+                    }}>
+                        {stats.map((stat, index) => (
+                            <StatsChip
+                                key={index}
+                                icon={stat.icon}
+                                label={stat.label}
+                                color={stat.color}
+                                variant="outlined"
+                            />
+                        ))}
+                    </Box>
+
+                    {records.length === 0 && !loading ? (
+                        <StandardEmptyState
+                            type="default"
+                            title="Nenhum plano cadastrado"
+                            description="Comece criando seu primeiro plano de assinatura"
+                            primaryAction={{
+                                label: 'Criar primeiro plano',
+                                icon: <AddIcon />,
+                                onClick: handleCreateNew
+                            }}
+                        />
+                    ) : (
+                        <StandardDataTable
+                            columns={columns}
+                            data={filteredRecords}
+                            actions={tableActions}
+                            loading={loading}
+                            emptyState={
+                                <StandardEmptyState
+                                    type="search"
+                                    title="Nenhum plano encontrado"
+                                    description="Tente ajustar os termos de busca"
+                                />
+                            }
+                            emptyTitle="Nenhum plano encontrado"
+                            emptyDescription="Tente ajustar os termos de busca ou crie um novo plano"
+                            stickyHeader={false}
+                        />
+                    )}
+                </Box>
+            )}
 
             {/* Modal de Confirmação - Excluir */}
             <StandardModal
