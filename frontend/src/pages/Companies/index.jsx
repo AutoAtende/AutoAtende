@@ -483,6 +483,7 @@ const Companies = () => {
           data={filteredCompanies}
           columns={columns}
           loading={loading && records.length === 0}
+          actions={filteredCompanies.length > 0 ? getTableActions(filteredCompanies[0]) : []}
           onRowClick={(company) => {
             setSelectedCompany(company);
             setShowDetailsModal(true);
@@ -490,6 +491,7 @@ const Companies = () => {
           stickyHeader={true}
           size="small"
           hover={true}
+          maxVisibleActions={8}
           emptyIcon={<BusinessIcon />}
           emptyTitle={
             activeTab === 0 
@@ -510,49 +512,6 @@ const Companies = () => {
             setSelectedCompany(null);
             setShowCompanyModal(true);
           } : undefined}
-          // Renderização customizada para ações condicionais por linha
-          customRowRenderer={(company, index, columns) => (
-            <>
-              {columns.map((column, colIndex) => (
-                <TableCell
-                  key={column.id || colIndex}
-                  align={column.align || 'left'}
-                >
-                  {column.render 
-                    ? column.render(company, index)
-                    : company[column.field] || '-'
-                  }
-                </TableCell>
-              ))}
-              <TableCell align="center">
-                <Box sx={{ display: 'flex', gap: 0.5, justifyContent: 'center' }}>
-                  {getTableActions(company).slice(0, 4).map((action, actionIndex) => (
-                    <Tooltip key={actionIndex} title={action.label}>
-                      <IconButton
-                        size="small"
-                        onClick={(event) => {
-                          event.stopPropagation();
-                          action.onClick(company);
-                        }}
-                        disabled={action.disabled}
-                        color={action.color || 'default'}
-                        sx={{
-                          padding: '4px',
-                          '&:hover': {
-                            backgroundColor: action.color === 'error' 
-                              ? 'error.light' 
-                              : 'action.hover'
-                          }
-                        }}
-                      >
-                        {action.icon}
-                      </IconButton>
-                    </Tooltip>
-                  ))}
-                </Box>
-              </TableCell>
-            </>
-          )}
         />
 
         {/* Indicador de carregamento para scroll infinito */}
