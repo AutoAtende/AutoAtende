@@ -1,36 +1,25 @@
 import Setting from "../../models/Setting";
-import { DEFAULT_COMPANY_ID, isSuperSetting } from "../../@types/Settings";
-import { logger } from "../../utils/logger";
-import AppError from "../../errors/AppError";
 
-interface SuperSettingRequest {
+interface Request {
   key: string;
 }
 
 const GetSuperSettingService = async ({
   key
-}: SuperSettingRequest): Promise<string | null> => {
-  try {
-    if (!isSuperSetting(key)) {
-      return null;
-    }
+}: Request): Promise<string | undefined> => {
 
-    const setting = await Setting.findOne({
-      where: {
-        companyId: DEFAULT_COMPANY_ID,
-        key
-      }
-    });
-
-    return setting?.value || null;
-  } catch (error) {
-    logger.error({
-      message: "Erro ao obter configuração super",
-      key,
-      error
-    });
-    throw new AppError("ERR_GET_SUPER_SETTING", 500);
+  if (!key.startsWith("_")) {
+    return null;
   }
+
+  const setting = await Setting.findOne({
+    where: {
+      companyId: 1,
+      key
+    }
+  });
+
+  return setting?.value;
 };
 
 export default GetSuperSettingService;

@@ -3,10 +3,7 @@ import path from "path";
 import fs from "fs";
 import { getIO } from "../libs/socket";
 import AppError from "../errors/AppError";
-import User from "../models/User";
-import Company from "../models/Company";
-import Plan from "../models/Plan";
-import Setting from "../models/Setting";
+
 import UpdateSettingService from "../services/SettingServices/UpdateSettingService";
 import ListSettingsService from "../services/SettingServices/ListSettingsService";
 import ListSettingByValueService from "../services/SettingServices/ListSettingByValueService";
@@ -15,69 +12,41 @@ import { publicFolder } from "../config/upload";
 import GetPublicSettingService, {
   GetAllPublicSettingsService
 } from "../services/SettingServices/GetPublicSettingService";
-import { 
-  LogoUploadRequest,
-  BackgroundUploadRequest,
-  PrivateFileUploadRequest,
-  isSuperSetting
-} from "../@types/Settings";
-import { logger } from "../utils/logger";
-import GetCompanyWithPlanService from "../services/CompanyService/GetCompanyWithPlanService";
+import GetMenuConfigService from "../services/SettingServices/GetMenuConfigService";
 
-// Interfaces for type safety
-interface Schedule {
-  id?: number;
-  companyId?: number;
-  weekday?: number;
-  startTime?: string;
-  endTime?: string;
-  userId?: number | null;
-  createdAt?: Date;
-  updatedAt?: Date;
+interface MenuItem {
+  id: string;
+  name: string;
+  enabled: boolean;
+  order: number;
 }
 
-// Extend the Company model to include the schedules association
-interface CompanyWithSchedules extends Company {
-  schedules: Schedule[];
-  getDataValue: <K extends keyof this>(key: K) => this[K];
-  toJSON: () => any;
+interface MenuConfig {
+  items: MenuItem[];
 }
+
+type LogoRequest = {
+  mode: string;
+};
+
+type BackgroundRequest = {
+  page: string;
+};
+
+type PrivateFileRequest = {
+  settingKey: string;
+};
 
 export const index = async (req: Request, res: Response): Promise<Response> => {
-  const userCompanyId = req.user.companyId;
-  const companyId = parseInt(req.params.companyId);
-
-  console.log("[SettingsController] userCompanyId: ", userCompanyId);
-  console.log("[SettingsController] companyId: ", companyId);
-
-  if(userCompanyId !== companyId){
-    throw new AppError("ERR_NO_PERMISSION", 403);
-  }
-
-  try {
-    const settings = await ListSettingsService(companyId);
-    console.log("[SettingsController] settings: ", settings);
-    
-    // Garantir que sempre retornamos um array válido
-    const safeSettings = Array.isArray(settings) ? settings : [];
-    
-    return res.status(200).json(safeSettings);
-  } catch (error) {
-    logger.error({
-      message: "Erro ao listar configurações",
-      companyId,
-      error
-    });
-    if (error instanceof AppError) {
-      throw error;
-    }
-    throw new AppError("ERR_LIST_SETTINGS", 500);
-  }
+  const isSuper = req.user.isSuper;
+  const companyId = req.user.companyId;
+  const settings = await ListSettingsService(isSuper, companyId);
+  return res.status(200).json(settings);
 };
 
 export const storeLogo = async (req: Request, res: Response): Promise<Response> => {
   const file = req.file as Express.Multer.File;
-  const { mode }: LogoUploadRequest = req.body;
+  const { mode }: LogoRequest = req.body;
   const companyId = req.user.companyId;
   const validModes = ["appLogoLight", "appLogoDark", "appLogoFavicon", "appLogoPWAIcon"];
 
@@ -86,45 +55,31 @@ export const storeLogo = async (req: Request, res: Response): Promise<Response> 
   }
 
   if (validModes.indexOf(mode) === -1) {
-    return res.status(406).json({ failed: true, message: "Modo inválido" });
+    return res.status(406).json({ failed: true, message: "Invalid mode" });
   }
 
-  if (!file) {
-    return res.status(400).json({ failed: true, message: "Nenhum arquivo enviado" });
-  }
+  if (file && file.mimetype.startsWith("image/")) {
+    const logoDir = path.join(publicFolder, `company${companyId}`, 'logos');
+    await fs.promises.mkdir(logoDir, { recursive: true });
+    
+    const newPath = path.join(logoDir, file.filename);
+    await fs.promises.rename(file.path, newPath);
 
-  try {
-    if (file.mimetype.startsWith("image/")) {
-      const logoDir = path.join(publicFolder, `company${companyId}`, 'logos');
-      await fs.promises.mkdir(logoDir, { recursive: true });
-      
-      const newPath = path.join(logoDir, file.filename);
-      await fs.promises.rename(file.path, newPath);
-
-      const setting = await UpdateSettingService({
-        key: mode,
-        value: `company${companyId}/logos/${file.filename}`,
-        companyId
-      });
-
-      return res.status(200).json(setting.value);
-    }
-
-    return res.status(406).json({ failed: true, message: "Tipo de arquivo inválido" });
-  } catch (error) {
-    logger.error({
-      message: "Erro ao salvar logo",
-      companyId,
-      mode,
-      error
+    const setting = await UpdateSettingService({
+      key: mode,
+      value: `company${companyId}/logos/${file.filename}`,
+      companyId
     });
-    return res.status(500).json({ failed: true, message: "Erro interno do servidor" });
+
+    return res.status(200).json(setting.value);
   }
-};
+
+  return res.status(406).json({ failed: true, message: "Invalid file type" });
+}
 
 export const storeBackground = async (req: Request, res: Response): Promise<Response> => {
   const file = req.file as Express.Multer.File;
-  const { page }: BackgroundUploadRequest = req.body;
+  const { page }: BackgroundRequest = req.body;
   const companyId = req.user.companyId;
   const validPages = ["login", "signup"];
 
@@ -133,15 +88,15 @@ export const storeBackground = async (req: Request, res: Response): Promise<Resp
   }
 
   if (validPages.indexOf(page) === -1) {
-    return res.status(406).json({ failed: true, message: "Página inválida" });
+    return res.status(406).json({ failed: true, message: "Invalid page" });
   }
 
   if (!file) {
-    return res.status(400).json({ failed: true, message: "Nenhum arquivo enviado" });
+    return res.status(400).json({ failed: true, message: "No file uploaded" });
   }
 
-  try {
-    if (file.mimetype.startsWith("image/")) {
+  if (file.mimetype.startsWith("image/")) {
+    try {
       const backgroundsDir = path.join(publicFolder, `company${companyId}`, 'backgrounds');
       await fs.promises.mkdir(backgroundsDir, { recursive: true });
       
@@ -155,18 +110,13 @@ export const storeBackground = async (req: Request, res: Response): Promise<Resp
       });
 
       return res.status(200).json(setting.value);
+    } catch (error) {
+      console.error("Error in storeBackground:", error);
+      return res.status(500).json({ failed: true, message: "Internal server error" });
     }
-
-    return res.status(406).json({ failed: true, message: "Tipo de arquivo inválido" });
-  } catch (error) {
-    logger.error({
-      message: "Erro ao salvar background",
-      companyId,
-      page,
-      error
-    });
-    return res.status(500).json({ failed: true, message: "Erro interno do servidor" });
   }
+
+  return res.status(406).json({ failed: true, message: "Invalid file type" });
 };
 
 export const listBackgrounds = async (req: Request, res: Response): Promise<Response> => {
@@ -183,11 +133,7 @@ export const listBackgrounds = async (req: Request, res: Response): Promise<Resp
     );
     return res.status(200).json(backgrounds);
   } catch (error) {
-    logger.error({
-      message: "Erro ao listar backgrounds",
-      companyId,
-      error
-    });
+    console.error("Error listing backgrounds:", error);
     throw new AppError("ERR_LIST_BACKGROUNDS", 500);
   }
 };
@@ -205,9 +151,10 @@ export const deleteBackground = async (req: Request, res: Response): Promise<Res
     if (fs.existsSync(backgroundPath)) {
       await fs.promises.unlink(backgroundPath);
       
-      // Encontrar a configuração que usa este background
+      // Find the setting that uses this background
       const setting = await ListSettingByValueService(`company${companyId}/backgrounds/${filename}`);
       if (setting) {
+        // const defaultBackgroundValue = setting.key.includes('login') ? 'backgrounds/default_login.jpeg' : 'backgrounds/default_signup.jpeg';
         const defaultBackgroundValue = setting.key.includes('login') ? 'backgrounds/default.jpeg' : 'backgrounds/default.jpeg';
         await UpdateSettingService({
           key: setting.key,
@@ -215,50 +162,41 @@ export const deleteBackground = async (req: Request, res: Response): Promise<Res
           companyId
         });
 
-        return res.status(200).json({ 
-          message: "Background excluído com sucesso", 
-          defaultBackground: defaultBackgroundValue 
-        });
+        return res.status(200).json({ message: "Background deleted successfully", defaultBackground: defaultBackgroundValue });
       }
 
-      return res.status(200).json({ message: "Background excluído com sucesso" });
+      return res.status(200).json({ message: "Background deleted successfully" });
     } else {
       throw new AppError("ERR_BACKGROUND_NOT_FOUND", 404);
     }
   } catch (error) {
-    logger.error({
-      message: "Erro ao excluir background",
-      companyId,
-      filename,
-      error
-    });
-    if (error instanceof AppError) {
-      throw error;
-    }
+    console.error("Error deleting background:", error);
     throw new AppError("ERR_DELETE_BACKGROUND", 500);
   }
 };
 
 export const getSettingRegister = async (req: Request, res: Response): Promise<Response> => {
+  const isSuper = req.user.isSuper;
   const companyId = req.user.companyId;
 
-  console.log("[getSettingRegister] companyId: ", companyId);
+  if (!isSuper) {
+    throw new AppError("ERR_NO_PERMISSION", 403);
+  }
+
+  const settings = await ListSettingsService(isSuper, companyId);
+
+  return res.status(200).json(settings);
+};
+
+export const getMenuConfig = async (req: Request, res: Response): Promise<Response> => {
+  const companyId = req.user.companyId;
 
   try {
-    // ListSettingsService já retorna array de objetos simples
-    const settings = await ListSettingsService(companyId);
-    
-    return res.status(200).json(settings);
+    const menuConfig = await GetMenuConfigService(companyId);
+    return res.status(200).json(menuConfig);
   } catch (error) {
-    logger.error({
-      message: "Erro ao obter registro de configurações",
-      companyId,
-      error
-    });
-    if (error instanceof AppError) {
-      throw error;
-    }
-    throw new AppError("ERR_GET_SETTING_REGISTER", 500);
+    console.error("Error fetching menu config:", error);
+    throw new AppError("ERR_FETCH_MENU_CONFIG", 500);
   }
 };
 
@@ -266,254 +204,127 @@ export const update = async (req: Request, res: Response): Promise<Response> => 
   if (req.user.profile !== "admin") {
     throw new AppError("ERR_NO_PERMISSION", 403);
   }
-  
-  const { settingKey: key } = req.params;
-  const { value } = req.body;
+  const {settingKey: key} = req.params;
+  const {value} = req.body;
   const companyId = req.user.companyId;
 
-  if (isSuperSetting(key) && !req.user.isSuper) {
+  if (key.startsWith("_") && !req.user.isSuper) {
     throw new AppError("ERR_NO_PERMISSION", 403);
   }
 
+  const setting = await UpdateSettingService({
+    key,
+    value,
+    companyId
+  });
+
+  const io = getIO();
+  io
+    .to(`company-${companyId}-mainchannel`)
+    .emit(`company-${companyId}-settings`, {
+      action: "update",
+      setting
+    });
+
+  return res.status(200).json(setting);
+};
+
+export const updateMenuConfig = async (req: Request, res: Response): Promise<Response> => {
+  if (req.user.profile !== "admin") {
+    throw new AppError("ERR_NO_PERMISSION", 403);
+  }
+
+  const companyId = req.user.companyId;
+  const { menuItems } = req.body as { menuItems: MenuItem[] };
+
   try {
+    // Validação dos dados recebidos
+    if (!Array.isArray(menuItems)) {
+      throw new AppError("ERR_INVALID_MENU_ITEMS_FORMAT", 400);
+    }
+
+    // Validação da estrutura de cada item
+    const isValidMenuItem = (item: any): item is MenuItem => {
+      return (
+        typeof item.id === "string" &&
+        typeof item.name === "string" &&
+        typeof item.enabled === "boolean" &&
+        typeof item.order === "number"
+      );
+    };
+
+    if (!menuItems.every(isValidMenuItem)) {
+      throw new AppError("ERR_INVALID_MENU_ITEM_STRUCTURE", 400);
+    }
+
+    // Garante que a ordem está correta e sem duplicatas
+    const sortedItems = menuItems
+      .sort((a, b) => a.order - b.order)
+      .map((item, index) => ({
+        ...item,
+        order: index + 1
+      }));
+
+    // Salva a configuração no banco de dados
     const setting = await UpdateSettingService({
-      key,
-      value,
+      key: "menuConfig",
+      value: JSON.stringify({ items: sortedItems }),
       companyId
     });
 
+    // Emite evento via socket para atualização em tempo real
     const io = getIO();
-    io
-      .to(`company-${companyId}-mainchannel`)
-      .emit(`company-${companyId}-settings`, {
-        action: "update",
-        setting
-      });
-
-    return res.status(200).json(setting);
-  } catch (error) {
-    logger.error({
-      message: "Erro ao atualizar configuração",
-      key,
-      companyId,
-      error
+    io.to(`company-${companyId}-mainchannel`).emit(`company-${companyId}-menu-config`, {
+      action: "update",
+      menuConfig: { items: sortedItems }
     });
+
+    // Retorna a configuração atualizada
+    return res.status(200).json({
+      status: "success",
+      message: "Menu configuration updated successfully",
+      data: { items: sortedItems }
+    });
+
+  } catch (error) {
     if (error instanceof AppError) {
       throw error;
     }
-    throw new AppError("ERR_UPDATE_SETTING", 500);
+    
+    console.error("Error updating menu config:", error);
+    throw new AppError("ERR_UPDATING_MENU_CONFIG", 500);
   }
 };
 
 export const publicIndex = async (req: Request, res: Response): Promise<Response> => {
-  const companyId = req.params.companyId ? parseInt(req.params.companyId as string) : undefined;
-  
-  try {
-    const settings = await GetAllPublicSettingsService(companyId);
-    
-    // Garantir que sempre retornamos um array válido
-    const safeSettings = Array.isArray(settings) ? settings : [];
-    
-    return res.status(200).json(safeSettings);
-  } catch (error) {
-    logger.error({
-      message: "Erro ao obter configurações públicas",
-      companyId,
-      error
-    });
-    return res.status(500).json({ error: "Erro ao obter configurações públicas" });
-  }
+  const companyId = req.query.companyId ? parseInt(req.query.companyId as string) : undefined;
+  const settings = await GetAllPublicSettingsService(companyId);
+  return res.status(200).json(settings);
 };
 
 export const publicShow = async (req: Request, res: Response): Promise<Response> => {
   const { settingKey: key } = req.params;
-  const companyId = req.params.companyId ? parseInt(req.params.companyId as string) : undefined;
+  const companyId = req.query.companyId ? parseInt(req.query.companyId as string) : undefined;
   
   try {
     const settingValue = await GetPublicSettingService({ key, companyId });
     return res.status(200).json(settingValue);
   } catch (error) {
-    logger.error({
-      message: "Erro ao obter configuração pública",
-      key,
-      companyId,
-      error
-    });
-    return res.status(404).json({ error: "Configuração não encontrada ou não é pública" });
+    return res.status(404).json({ error: "Setting not found or not public" });
   }
 };
 
 export const storePrivateFile = async (req: Request, res: Response): Promise<Response> => {
-  if (req.user.profile !== "admin") {
-    throw new AppError("ERR_NO_PERMISSION", 403);
-  }
-  
   const file = req.file as Express.Multer.File;
-  const { settingKey }: PrivateFileUploadRequest = req.body;
+  const {settingKey}: PrivateFileRequest = req.body;
   const companyId = req.user.companyId;
 
-  if (!file) {
-    return res.status(400).json({ failed: true, message: "Nenhum arquivo enviado" });
-  }
+  const setting = await UpdateSettingService({
+    key: `_${settingKey}`,
+    value: file.filename,
+    companyId
+  });
 
-  try {
-    const setting = await UpdateSettingService({
-      key: `_${settingKey}`,
-      value: file.filename,
-      companyId
-    });
+  return res.status(200).json(setting.value);
+}
 
-    return res.status(200).json(setting.value);
-  } catch (error) {
-    logger.error({
-      message: "Erro ao salvar arquivo privado",
-      settingKey,
-      companyId,
-      error
-    });
-    if (error instanceof AppError) {
-      throw error;
-    }
-    throw new AppError("ERR_STORE_PRIVATE_FILE", 500);
-  }
-};
-
-// Rota para atualizar múltiplas configurações de uma vez
-export const batchUpdateSettings = async (req: Request, res: Response): Promise<Response> => {
-  const { settings } = req.body;
-  const { companyId } = req.user;
-  
-  if (!Array.isArray(settings) || settings.length === 0) {
-    return res.status(400).json({
-      error: "Formato inválido",
-      message: "É necessário fornecer um array de configurações para atualizar"
-    });
-  }
-  
-  try {
-    // Criar array de promessas para todas as atualizações
-    const updatePromises = settings.map(setting => 
-      UpdateSettingService({
-        key: setting.key,
-        value: setting.value,
-        companyId
-      })
-    );
-    
-    // Executar todas as atualizações em paralelo
-    const results = await Promise.all(updatePromises);
-    
-    return res.status(200).json({
-      success: true,
-      message: "Configurações atualizadas com sucesso",
-      count: results.length
-    });
-  } catch (error) {
-    console.error("Erro ao atualizar configurações em lote:", error);
-    return res.status(500).json({
-      error: "Erro interno do servidor",
-      message: "Não foi possível atualizar as configurações"
-    });
-  }
-};
-
-// Versão alternativa que lida com schedules de forma mais segura
-
-/**
- * Obtém todas as configurações necessárias para a página de Settings em uma única chamada
- * Reduz múltiplas chamadas separadas para cada tipo de configuração
- */
-export const getFullConfiguration = async (req: Request, res: Response): Promise<Response> => {
-  const companyId = req.user.companyId;
-  const userId = req.user.id;
-  
-  try {
-    console.log('[getFullConfiguration] Carregando dados para companyId:', companyId, 'userId:', userId);
-    
-    // Buscar todas as informações em paralelo para otimizar performance
-    const [
-      user,
-      company,
-      settings
-    ] = await Promise.all([
-      User.findByPk(userId), // Informações do usuário
-      GetCompanyWithPlanService(companyId), // Dados da empresa e plano
-      ListSettingsService(Number(companyId)), // Usar o service que já retorna objetos limpos
-    ]);
-
-    if (!user || !company) {
-      return res.status(404).json({ 
-        error: "Dados não encontrados",
-        message: "Não foi possível encontrar informações do usuário ou empresa"
-      });
-    }
-
-    // ListSettingsService já retorna um array válido de objetos simples
-    console.log('[getFullConfiguration] Settings recebidas do service:', {
-      total: settings.length,
-      isArray: Array.isArray(settings),
-      sample: settings.slice(0, 2)
-    });
-
-    // Converter company para objeto simples
-    const companyJson = company.toJSON ? company.toJSON() : company;
-    
-    // Lidar com schedules de forma segura usando verificação de propriedade
-    let schedules: any[] = [];
-    
-    // Verificar se company tem schedules (pode ser via associação Sequelize)
-    if ('schedules' in companyJson && Array.isArray(companyJson.schedules)) {
-      schedules = companyJson.schedules;
-    } else if (company.getDataValue && Array.isArray(company.getDataValue('schedules'))) {
-      schedules = company.getDataValue('schedules');
-    } else {
-      // Se não tem schedules incluídos, pode buscar separadamente se necessário
-      console.log('[getFullConfiguration] Schedules não encontrados na company, usando array vazio');
-      schedules = [];
-    }
-
-    const planConfig = company.plan;
-
-    const responseData = {
-      user: user.toJSON ? user.toJSON() : user,
-      company: {
-        ...companyJson,
-        schedules: schedules // Array garantido, usando a variável já tipada
-      },
-      settings, // Array já validado pelo ListSettingsService
-      planConfig: planConfig?.toJSON ? planConfig.toJSON() : planConfig
-    };
-
-    console.log('[getFullConfiguration] Resposta preparada:', {
-      hasUser: !!responseData.user,
-      hasCompany: !!responseData.company,
-      settingsCount: responseData.settings.length,
-      schedulesCount: schedules.length,
-      hasPlanConfig: !!responseData.planConfig
-    });
-
-    return res.status(200).json(responseData);
-    
-  } catch (error) {
-    console.error("Erro ao obter configuração completa:", error);
-    
-    logger.error({
-      message: "Erro ao obter configuração completa",
-      companyId,
-      userId,
-      error
-    });
-    
-    // Em caso de erro, ainda garantir uma resposta com arrays vazios válidos
-    return res.status(500).json({
-      error: "Erro interno do servidor",
-      message: "Não foi possível carregar as configurações",
-      user: null,
-      company: {
-        schedules: [] // Array vazio como fallback
-      },
-      settings: [], // Array vazio como fallback
-      planConfig: null
-    });
-  }
-};

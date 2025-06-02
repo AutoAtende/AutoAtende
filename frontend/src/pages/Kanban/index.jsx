@@ -1,700 +1,1150 @@
-import React, { useState, useEffect, useCallback } from "react";
-import { 
-  Box, 
-  Paper, 
-  Typography, 
-  Button, 
-  IconButton, 
-  Tabs, 
-  Tab, 
-  Divider, 
-  Tooltip, 
-  useTheme, 
-  CircularProgress 
+import React, { useState, useEffect, useContext, useCallback } from "react";
+import Board from "react-trello";
+import { useHistory } from "react-router-dom";
+import {
+  TextField,
+  IconButton,
+  FormControlLabel,
+  Switch,
+  Typography,
+  Modal,
+  Button,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
+  Box,
+  Chip,
+  Tooltip,
+  Tabs,
+  Tab,
+  alpha,
+  useTheme
 } from "@mui/material";
 import {
-  Add as AddIcon,
-  ListAlt as ListViewIcon,
-  ViewKanban as KanbanViewIcon,
-  CalendarToday as CalendarViewIcon,
-  Refresh as RefreshIcon,
   Settings as SettingsIcon,
-  Delete as DeleteIcon,
-  Dashboard as DashboardIcon,
-  ArrowBack as ArrowBackIcon,
-} from '@mui/icons-material';
-import { toast } from "../../helpers/toast";
-import api from "../../services/api";
-import { useHistory, useParams } from "react-router-dom";
-import useAuth from "../../hooks/useAuth";
-import { useLoading } from "../../hooks/useLoading";
-import StandardModal from "../../components/shared/StandardModal";
+  Visibility as VisibilityIcon,
+  VisibilityOff as VisibilityOffIcon,
+  WhatsApp as WhatsAppIcon,
+  CommentOutlined as CommentIcon,
+  Pending as PendingIcon,
+  Inbox as InboxIcon,
+  Close as CloseIcon,
+  Check as CheckIcon,
+  CheckCircle as CheckCircleIcon
+} from "@mui/icons-material";
+import { green } from "@mui/material/colors";
 
-import KanbanView from "./KanbanView";
-import ListView from "./ListView";
-import CalendarView from "./CalendarView";
-import KanbanTicketsView from "./KanbanTicketsView";
-import BoardSelector from "./components/BoardSelector";
+import { AuthContext } from "../../context/Auth/AuthContext";
+import { UsersFilter } from "./components/UsersFilter";
+import { DatePickerMoment } from "../../components/DatePickerMoment";
 import BoardSettingsModal from "./components/BoardSettingsModal";
-import KanbanMetrics from "./components/KanbanMetrics";
+import InfoModal from "./components/InfoModal";
+import api from "../../services/api";
+import { toast } from "../../helpers/toast";
+import { i18n } from "../../translate/i18n";
+import usePlans from "../../hooks/usePlans";
+
+import {
+  KanbanContainer,
+  FilterContainer,
+  FilterFields,
+  FilterButtons,
+  ModalContent,
+  BoardStyles,
+  EmptyStateContainer
+} from "./styles";
+
+const QueueSelect = ({ queues, selectedQueue, onChange }) => (
+  <FormControl variant="outlined" size="small" sx={{ width: "100px", minWidth: "100px" }}>
+    <InputLabel>Setor</InputLabel>
+    <Select
+      value={selectedQueue || ''}
+      onChange={onChange}
+      label="Setor"
+    >
+      <MenuItem value="">
+        <em>Selecione um setor</em>
+      </MenuItem>
+      {queues.map((queue) => (
+        <MenuItem key={queue.id} value={queue.id}>
+          {queue.name}
+        </MenuItem>
+      ))}
+    </Select>
+  </FormControl>
+);
 
 const Kanban = () => {
-  const theme = useTheme();
   const history = useHistory();
-  const { isAuth, user } = useAuth();
-  const { companyId } = user || {};
-  const { boardId } = useParams();
-  const { Loading } = useLoading();
+  const theme = useTheme();
+  const isDarkMode = theme.palette.mode === 'dark';
+  const { user } = useContext(AuthContext);
+  const { profile } = user;
+  const jsonString = user.queues?.map((queue) => queue.id) || [];
   
-  const [viewType, setViewType] = useState('kanbanTickets');
-  const [boards, setBoards] = useState([]);
-  const [selectedBoard, setSelectedBoard] = useState(null);
-  const [lanes, setLanes] = useState([]);
-  const [cards, setCards] = useState([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [refreshTrigger, setRefreshTrigger] = useState(0);
-  const [showMetrics, setShowMetrics] = useState(false);
-  const [showBoardSettingsModal, setShowBoardSettingsModal] = useState(false);
-  const [showCreateBoard, setShowCreateBoard] = useState(false);
-  const [showEditBoard, setShowEditBoard] = useState(false);
-  const [showDeleteBoard, setShowDeleteBoard] = useState(false);
-  const [boardToEdit, setBoardToEdit] = useState(null);
-  const [boardToDelete, setBoardToDelete] = useState(null);
-  const [modalLoading, setModalLoading] = useState(false);
+  // Estados do componente
+  const [viewType, setViewType] = useState('active');
+  const [statusFilter, setStatusFilter] = useState("all"); // Adicionado para filtrar "open" ou "pending"
+  const [tags, setTags] = useState([]);
+  const [allTags, setAllTags] = useState([]);
+  const [tickets, setTickets] = useState([]);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [settingsModalOpen, setSettingsModalOpen] = useState(false);
+  const [enableTicketValueAndSku, setEnableTicketValueAndSku] = useState(false);
+  const [searchParams, setSearchParams] = useState("");
+  const [selectedUsers, setSelectedUsers] = useState([]);
+  const [selectedDate, setSelectedDate] = useState({ from: "", until: "" });
+  const [showOpenLane, setShowOpenLane] = useState(true);
+  const [showPendingLane, setShowPendingLane] = useState(true);
+  const [cardModalOpen, setCardModalOpen] = useState(false);
+  const [selectedCard, setSelectedCard] = useState(null);
+  const [makeRequest, setMakeRequest] = useState(null);
+  const [queues, setQueues] = useState([]);
+  const [selectedQueue, setSelectedQueue] = useState('');
+  const [file, setFile] = useState({ lanes: [] });
+  const [tabValue, setTabValue] = useState(0);
 
-  const fetchBoards = useCallback(async () => {
-    try {
-      setIsLoading(true);
-      const { data } = await api.request({
-        url: '/kanban/boards',
-        method: 'get'
-      });
-      
-      const boardsArray = Array.isArray(data) ? data : [];
-      setBoards(boardsArray);
-      
-      if (!boardId || !boardsArray.find(b => b.id.toString() === boardId)) {
-        const defaultBoard = boardsArray.find(b => b.isDefault) || boardsArray[0];
-        if (defaultBoard) {
-          history.push(`/kanban/${defaultBoard.id}`, { replace: true });
-          setSelectedBoard(defaultBoard);
-          setViewType(defaultBoard.defaultView || 'kanban');
-        }
-      } else {
-        const board = boardsArray.find(b => b.id.toString() === boardId);
-        setSelectedBoard(board);
-        setViewType(board?.defaultView || 'kanban');
+  const { getPlanCompany } = usePlans();
+
+  useEffect(() => {
+    async function fetchData() {
+      const companyId = user?.companyId;
+      const planConfigs = await getPlanCompany(undefined, companyId);
+      if (!planConfigs.plan.useKanban) {
+        toast.error(i18n.t("kanban.messages.accessDenied"));
+        setTimeout(() => {
+          history.push(`/`);
+        }, 1000);
       }
-      
-      setIsLoading(false);
-    } catch (err) {
-      console.error("Erro ao carregar quadros:", err);
-      toast.error(err.message || "Erro ao carregar quadros Kanban");
-      setIsLoading(false);
-      setBoards([]);
     }
-  }, [boardId, history]);
 
-  const fetchLanes = useCallback(async () => {
-    if (!selectedBoard) {
-      setLanes([]);
-      return;
-    }
-    
-    try {
-      setIsLoading(true);
-      const lanesArray = selectedBoard.lanes || [];
-      setLanes(lanesArray);
-      setIsLoading(false);
-    } catch (err) {
-      console.error("Erro ao carregar colunas:", err);
-      toast.error(err.message || "Erro ao carregar colunas do Kanban");
-      setIsLoading(false);
-      setLanes([]);
-    }
-  }, [selectedBoard]);
+    fetchData();
+  }, []);
 
-  const fetchCards = useCallback(async () => {
-    if (!selectedBoard) {
-      setCards([]);
-      return;
-    }
-    
-    try {
-      setIsLoading(true);
-      const { data } = await api.request({
-        url: '/kanban/cards',
-        method: 'get',
-        params: { 
-          boardId: selectedBoard.id, 
-          showArchived: false
+  useEffect(() => {
+    const loadQueues = async () => {
+      try {
+        const { data } = await api.get("/queue");
+        const userQueues = user.profile === "admin" 
+          ? data 
+          : data.filter((queue) => user.queues.some((q) => q.id === queue.id));
+        setQueues(userQueues);
+      } catch (err) {
+        toast.error(err);
+      }
+    };
+    loadQueues();
+  }, [user.profile, user.queues]);
+
+  useEffect(() => {
+    api.get(`/settings`).then(({ data }) => {
+      if (Array.isArray(data)) {
+        const enableTicketValueAndSku = data.find(
+          (d) => d.key === "enableTicketValueAndSku"
+        );
+        if (enableTicketValueAndSku) {
+          setEnableTicketValueAndSku(
+            enableTicketValueAndSku?.value || "disabled"
+          );
         }
+      }
+    });
+  }, []);
+
+  const handleOpenBoardSettings = () => {
+    setSettingsModalOpen(true);
+  };
+
+  const fetchTags = async () => {
+    if (!selectedQueue) return;
+    
+    try {
+      const response = await api.get(`/queue/${selectedQueue}/tags`);
+      const responseAll = await api.get("/tags/kanban/?alltags=true");
+      const fetchedTags = response.data || [];
+      const fetchedAllTags = responseAll.data.lista || [];
+
+      setAllTags(fetchedAllTags);
+      setTags(fetchedTags);
+      await fetchTickets();
+    } catch (error) {
+      toast.error(error);
+    }
+  };
+
+  const fetchTickets = async () => {
+    if (!selectedQueue) return;
+    
+    try {
+      const { data } = await api.get("/kanban", {
+        params: {
+          queueId: selectedQueue,
+          searchParam: searchParams,
+          users: JSON.stringify(selectedUsers),
+          dateFrom: selectedDate.from,
+          dateTo: selectedDate.until,
+          viewType,
+          status: statusFilter === "all" ? undefined : statusFilter
+        },
+      });
+      setTickets(data.tickets);
+    } catch (err) {
+      toast.error(err);
+      setTickets([]);
+    }
+  };
+
+  const handleViewTypeChange = (event) => {
+    setViewType(event.target.checked ? 'closed' : 'active');
+  };
+  
+  const handleTabChange = (event, newValue) => {
+    setTabValue(newValue);
+    
+    // Atualizar filtro de status com base na aba selecionada
+    switch(newValue) {
+      case 0: // Todos
+        setStatusFilter("all");
+        break;
+      case 1: // Em aberto
+        setStatusFilter("open");
+        break;
+      case 2: // Aguardando
+        setStatusFilter("pending");
+        break;
+      default:
+        setStatusFilter("all");
+    }
+  };
+
+  useEffect(() => {
+    if (selectedQueue) {
+      fetchTags();
+    }
+  }, [selectedQueue, selectedUsers, selectedDate, searchParams, makeRequest, viewType, statusFilter]);
+
+  const handleQueueChange = (event) => {
+    setSelectedQueue(event.target.value);
+  };
+
+  const handleCardClick = (cardId, metadata, laneId) => {
+    const selectedTicket = tickets.find(
+      (ticket) => ticket.id.toString() === cardId
+    );
+    setSelectedCard(selectedTicket);
+    setCardModalOpen(true);
+  };
+
+  const handleCloseCardModal = () => {
+    setCardModalOpen(false);
+    setSelectedCard(null);
+  };
+
+  const handleLaneMove = (removedIndex, addedIndex, payload) => {
+    const newLanes = Array.from(file.lanes);
+    const [removedLane] = newLanes.splice(removedIndex, 1);
+    newLanes.splice(addedIndex, 0, removedLane);
+    setFile({ lanes: newLanes });
+  };
+  
+  // Método para aceitar um ticket diretamente pelo Kanban
+  const handleAcceptTicket = async (ticketId) => {
+    try {
+      await api.put(`/tickets/${ticketId}`, {
+        status: "open",
+        userId: user.id
       });
       
-      const cardsArray = data?.cards || [];
-      
-      // Enriquecer os cartões com dados de tickets e contatos
-      const enrichedCards = await Promise.all(
-        cardsArray.map(async (card) => {
-          if (!card) return null;
-          
-          const enrichedCard = { ...card };
-          
-          // Buscar dados do ticket se existir
-          if (card.ticketId && !card.ticket) {
-            try {
-              const { data: ticketData } = await api.request({
-                url: `/tickets/${card.ticketId}`,
-                method: 'get'
-              });
-              enrichedCard.ticket = ticketData;
-            } catch (ticketErr) {
-              console.warn(`Erro ao carregar ticket ${card.ticketId}:`, ticketErr);
-            }
-          }
-          
-          // Buscar dados do contato se existir
-          if (card.contactId && !card.contact) {
-            try {
-              const { data: contactData } = await api.request({
-                url: `/contacts/${card.contactId}`,
-                method: 'get'
-              });
-              enrichedCard.contact = contactData;
-            } catch (contactErr) {
-              console.warn(`Erro ao carregar contato ${card.contactId}:`, contactErr);
-            }
-          }
-          
-          // Buscar dados do usuário responsável se existir
-          if (card.assignedUserId && !card.assignedUser) {
-            try {
-              const { data: userData } = await api.request({
-                url: `/users/${card.assignedUserId}`,
-                method: 'get'
-              });
-              enrichedCard.assignedUser = userData;
-            } catch (userErr) {
-              console.warn(`Erro ao carregar usuário ${card.assignedUserId}:`, userErr);
-            }
-          }
-          
-          return enrichedCard;
-        })
+      toast.success("Ticket aceito com sucesso!");
+      fetchTickets(); // Recarregar tickets após aceitar
+    } catch (err) {
+      console.error(err);
+      toast.error("Erro ao aceitar o ticket");
+    }
+  };
+
+  const createCardDescription = (ticket, kanbanTags) => {
+    // Filtrar tags que não são do kanban
+    const nonKanbanTags = ticket.tags.filter(tag => 
+      !kanbanTags.some(kTag => kTag.id === tag.id)
+    );
+
+    // Verificar o status do ticket para mostrar botão de aceitar se estiver em pending
+    const isPending = ticket.status === "pending";
+
+    return (
+      <div style={{ position: "relative" }}>
+        <img
+          src={ticket.contact.profilePicUrl || "/nopicture.png"}
+          alt={ticket.contact.name || ticket.contact.number}
+          style={{
+            position: "absolute",
+            top: 0,
+            left: 0,
+            width: "40px",
+            height: "40px",
+            borderRadius: "50%",
+            objectFit: "cover",
+            marginBottom: "10px",
+          }}
+        />
+        <div style={{ marginLeft: "50px", marginRight: "50px" }}>
+          <strong>{ticket.contact.name || ticket.contact.number}</strong>
+          <br />
+          {ticket.contact.number !== ticket.contact.name && ticket.contact.number}
+          <br />
+          {ticket.lastMessage}
+          <br />
+          {enableTicketValueAndSku === "enabled" && (
+            <>
+              <b>SKU: {ticket.sku || "N/D"}</b> -
+              <b>VALOR: R${(Number(ticket.value) || 0).toFixed(2).replace(".", ",")}</b>
+            </>
+          )}
+        </div>
+        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, mt: 1, justifyContent: 'space-between' }}>
+          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+            {nonKanbanTags.map((tag) => (
+              <Chip
+                key={tag.id}
+                label={tag.name}
+                size="small"
+                sx={{
+                  backgroundColor: tag.color || '#eee',
+                  color: '#fff',
+                  maxWidth: '90px',
+                  '& .MuiChip-label': {
+                    overflow: 'hidden',
+                    whiteSpace: 'nowrap',
+                    textOverflow: 'ellipsis',
+                  }
+                }}
+              />
+            ))}
+          </Box>
+          <Box sx={{ display: 'flex', gap: 0.5 }}>
+            {isPending && (
+              <IconButton
+                edge="end"
+                onClick={(e) => {
+                  e.stopPropagation(); // Impedir que o card seja aberto
+                  handleAcceptTicket(ticket.id);
+                }}
+                size="small"
+                color="primary"
+                sx={{ 
+                  ml: 0.5,
+                  backgroundColor: alpha(theme.palette.success.main, 0.1),
+                  '&:hover': {
+                    backgroundColor: alpha(theme.palette.success.main, 0.2),
+                  }
+                }}
+              >
+                <CheckCircleIcon fontSize="small" />
+              </IconButton>
+            )}
+            <IconButton
+              edge="end"
+              onClick={() => handleCardClick(ticket.id.toString())}
+              size="small"
+              sx={{ 
+                color: "#10a110",
+                backgroundColor: alpha('#10a110', 0.1),
+                '&:hover': {
+                  backgroundColor: alpha('#10a110', 0.2),
+                }
+              }}
+            >
+              <WhatsAppIcon fontSize="small" />
+            </IconButton>
+          </Box>
+        </Box>
+      </div>
+    );
+  };
+
+  const popularCards = async () => {
+    if (!selectedQueue) {
+      setFile({ lanes: [] });
+      return;
+    }
+  
+    try {
+      // Separar tickets por status (open e pending)
+      const openTickets = tickets.filter(
+        ticket => ticket.status === "open" && ticketMatchesSearchQuery(ticket)
       );
       
-      setCards(enrichedCards.filter(Boolean));
-    } catch (err) {
-      console.error("Erro ao carregar cartões:", err);
-      toast.error(err.message || "Erro ao carregar cartões do Kanban");
-      setCards([]);
-    } finally {
-      setIsLoading(false);
-    }
-  }, [selectedBoard]);
-
-  // Carrega dados iniciais
-  useEffect(() => {
-    fetchBoards();
-  }, [fetchBoards, refreshTrigger]);
-
-  // Carrega lanes quando o board muda
-  useEffect(() => {
-    fetchLanes();
-  }, [fetchLanes, selectedBoard]);
-
-  // Carrega cards quando lanes mudam
-  useEffect(() => {
-    fetchCards();
-  }, [fetchCards, lanes]);
-
-  const handleBoardChange = (boardId) => {
-    history.push(`/kanban/${boardId}`);
-    const board = boards.find(b => b.id.toString() === boardId.toString());
-    if (board) {
-      setSelectedBoard(board);
-      setViewType(board.defaultView || 'kanban');
-    }
-  };
-
-  const handleViewChange = (event, newView) => {
-    setViewType(newView);
-  };
-
-  const renderView = () => {
-    switch (viewType) {
-      case 'kanban':
-        return (
-          <KanbanView
-            lanes={lanes}
-            loading={loading}
-            selectedBoard={selectedBoard}
-            onCardMove={handleCardMove}
-            onCardClick={handleCardClick}
-            onAddCard={handleAddCard}
-            onRefresh={fetchData}
-          />
+      const pendingTickets = tickets.filter(
+        ticket => ticket.status === "pending" && ticketMatchesSearchQuery(ticket)
+      );
+  
+      const lanes = [];
+      
+      // Lane para tickets em aberto (sem tag)
+      if (showOpenLane) {
+        lanes.push({
+          id: "open",
+          title: (
+            <div style={{ width: '100%', textAlign: 'center' }}>
+              <div style={{
+                backgroundColor: theme.palette.success.main,
+                padding: "8px",
+                marginBottom: "8px",
+                borderRadius: "4px",
+                fontSize: "18px",
+                fontWeight: "bold",
+                color: "white"
+              }}>
+                {i18n.t("Em aberto")}
+              </div>
+              <div style={{ color: theme.palette.text.secondary, fontSize: "14px" }}>
+                {openTickets.filter(t => t.tags.length === 0).length.toString()} tickets
+                {enableTicketValueAndSku === "enabled" && (
+                  <div>
+                    R$ {openTickets
+                      .filter(t => t.tags.length === 0)
+                      .reduce((acc, ticket) => acc + (Number(ticket.value) || 0), 0)
+                      .toFixed(2)
+                      .replace(".", ",")}
+                  </div>
+                )}
+              </div>
+            </div>
+          ),
+          cards: await Promise.all(
+            openTickets
+              .filter(ticket => ticket.tags.length === 0)
+              .map(async (ticket) => {
+                let ticketName = ticket.contact?.name || "Sem nome";
+  
+                return {
+                  id: ticket.id.toString(),
+                  label: "Ticket nº " + ticket.id.toString(),
+                  description: createCardDescription(ticket, tags),
+                  title: ticketName,
+                  draggable: true,
+                  href: "/tickets/" + ticket.uuid,
+                  style: {
+                    backgroundColor: isDarkMode ? theme.palette.background.paper : "white",
+                    color: theme.palette.text.primary,
+                    boxShadow: theme.shadows[2],
+                    borderLeft: `4px solid ${theme.palette.success.main}`
+                  }
+                };
+              })
+          ),
+          style: {
+            backgroundColor: isDarkMode ? theme.palette.background.default : "white"
+          },
+        });
+      }
+      
+      // Lane para tickets aguardando (sem tag)
+      if (showPendingLane) {
+        lanes.push({
+          id: "pending",
+          title: (
+            <div style={{ width: '100%', textAlign: 'center' }}>
+              <div style={{
+                backgroundColor: theme.palette.warning.main,
+                padding: "8px",
+                marginBottom: "8px",
+                borderRadius: "4px",
+                fontSize: "18px",
+                fontWeight: "bold",
+                color: "white"
+              }}>
+                {i18n.t("Aguardando")}
+              </div>
+              <div style={{ color: theme.palette.text.secondary, fontSize: "14px" }}>
+                {pendingTickets.filter(t => t.tags.length === 0).length.toString()} tickets
+                {enableTicketValueAndSku === "enabled" && (
+                  <div>
+                    R$ {pendingTickets
+                      .filter(t => t.tags.length === 0)
+                      .reduce((acc, ticket) => acc + (Number(ticket.value) || 0), 0)
+                      .toFixed(2)
+                      .replace(".", ",")}
+                  </div>
+                )}
+              </div>
+            </div>
+          ),
+          cards: await Promise.all(
+            pendingTickets
+              .filter(ticket => ticket.tags.length === 0)
+              .map(async (ticket) => {
+                let ticketName = ticket.contact?.name || "Sem nome";
+  
+                return {
+                  id: ticket.id.toString(),
+                  label: "Ticket nº " + ticket.id.toString(),
+                  description: createCardDescription(ticket, tags),
+                  title: ticketName,
+                  draggable: false, // Tickets pendentes não podem ser movidos
+                  href: "/tickets/" + ticket.uuid,
+                  style: {
+                    backgroundColor: isDarkMode ? theme.palette.background.paper : "white",
+                    color: theme.palette.text.primary,
+                    boxShadow: theme.shadows[2],
+                    borderLeft: `4px solid ${theme.palette.warning.main}`
+                  }
+                };
+              })
+          ),
+          style: {
+            backgroundColor: isDarkMode ? theme.palette.background.default : "white"
+          },
+        });
+      }
+      
+      // Lanes para tags
+      for (const tag of tags) {
+        // Tickets com esta tag (apenas os abertos podem ser movidos)
+        const tagTickets = tickets.filter(ticket => 
+          ticket.tags.some(t => t.id === tag.id) && ticketMatchesSearchQuery(ticket)
         );
-      case 'list':
-        return <ListView tickets={tickets} loading={loading} />;
-      case 'calendar':
-        return <CalendarView events={events} />;
-      case 'kanbanTickets':
-        return <KanbanTicketsView />;
-      default:
-        return null;
+        
+        // Dividir por status para aplicar propriedade draggable corretamente
+        const openTagTickets = tagTickets.filter(t => t.status === "open");
+        const pendingTagTickets = tagTickets.filter(t => t.status === "pending");
+        
+        // Todos os tickets com esta tag
+        const allTagTickets = [...openTagTickets, ...pendingTagTickets];
+  
+        lanes.push({
+          id: tag.id.toString(),
+          title: (
+            <div style={{ width: '100%', textAlign: 'center' }}>
+              <div style={{
+                backgroundColor: tag.color,
+                padding: "8px",
+                marginBottom: "8px",
+                borderRadius: "4px",
+                fontSize: "18px",
+                fontWeight: "bold",
+                color: "white"
+              }}>
+                {tag.name}
+              </div>
+              <div style={{ color: theme.palette.text.secondary, fontSize: "14px" }}>
+                {allTagTickets.length.toString()} tickets
+                {enableTicketValueAndSku === "enabled" && (
+                  <div>
+                    R$ {allTagTickets
+                      .reduce((acc, ticket) => acc + (Number(ticket.value) || 0), 0)
+                      .toFixed(2)
+                      .replace(".", ",")}
+                  </div>
+                )}
+                {!!tag?.actCamp > 0 && (
+                  <div style={{ fontSize: "12px", marginTop: "4px" }}>
+                    Campanha ativa, envio as 18hrs.
+                  </div>
+                )}
+              </div>
+            </div>
+          ),
+          cards: await Promise.all(
+            allTagTickets.map(async (ticket) => {
+              let ticketName = ticket.contact?.name || "Sem nome";
+  
+              return {
+                id: ticket.id.toString(),
+                label: "Ticket nº " + ticket.id.toString(),
+                description: createCardDescription(ticket, tags),
+                title: ticketName,
+                draggable: ticket.status === "open", // Apenas tickets em aberto podem ser movidos
+                href: "/tickets/" + ticket.uuid,
+                style: {
+                  backgroundColor: isDarkMode ? theme.palette.background.paper : "white",
+                  color: theme.palette.text.primary,
+                  boxShadow: theme.shadows[2],
+                  borderLeft: `4px solid ${tag.color}`
+                }
+              };
+            })
+          ),
+          style: {
+            backgroundColor: isDarkMode ? theme.palette.background.default : "white"
+          },
+        });
+      }
+  
+      setFile({ lanes });
+    } catch (error) {
+      console.error('Erro ao popular cards:', error);
+      toast.error('Erro ao carregar o quadro Kanban');
     }
   };
+  
+  
+  const toggleOpenLaneVisibility = useCallback(() => {
+    setShowOpenLane((prev) => !prev);
+  }, []);
+  
+  const togglePendingLaneVisibility = useCallback(() => {
+    setShowPendingLane((prev) => !prev);
+  }, []);
 
-  const handleRefresh = () => {
-    setRefreshTrigger(prev => prev + 1);
-  };
+  useEffect(() => {
+    popularCards(jsonString);
+  }, [tags, tickets, searchQuery, showOpenLane, showPendingLane, isDarkMode]);
 
-  const handleCreateBoard = () => {
-    setShowCreateBoard(true);
-  };
+// Função atualizada para usar as rotas de TicketTag ao invés das rotas de Kanban
+const handleCardMove = async (cardId, sourceLaneId, targetLaneId) => {
+  try {
+    if (sourceLaneId === targetLaneId) {
+      return; // Nada a fazer se mover para a mesma lane
+    }
+    
+    const ticketId = cardId;
+    const ticket = tickets.find(t => t.id.toString() === ticketId);
+    
+    if (!ticket) {
+      toast.error("Ticket não encontrado");
+      return;
+    }
+    
+    // Verificar se o ticket está com status "open" - apenas tickets em aberto podem ser movidos
+    if (ticket.status !== "open") {
+      toast.error("Apenas tickets em aberto podem ser movidos entre colunas");
+      return;
+    }
 
-  const handleCreateBoardSubmit = async (boardData) => {
+    // Se estamos movendo de/para "open" ou "pending", precisamos atualizar o status
+    if (sourceLaneId === "open" || sourceLaneId === "pending" || targetLaneId === "open" || targetLaneId === "pending") {
+      // Determinar o novo status
+      let newStatus = ticket.status;
+      
+      if (targetLaneId === "open") {
+        newStatus = "open";
+      } else if (targetLaneId === "pending") {
+        newStatus = "pending";
+      }
+      
+      // Se o status mudou, atualizar
+      if (newStatus !== ticket.status) {
+        await api.put(`/tickets/${ticketId}`, {
+          status: newStatus,
+          userId: newStatus === "open" ? user.id : null
+        });
+      }
+      
+      // Se estamos movendo para uma lane de tag, adicionar a tag ao ticket
+      if (targetLaneId !== "open" && targetLaneId !== "pending") {
+        // Usar a rota de TicketTag ao invés da rota de Kanban
+        await api.put(`/ticket-tags/${ticketId}/${targetLaneId}`);
+      }
+    } else {
+      // Estamos movendo entre tags ou removendo tags
+      try {
+        // Se targetLaneId é uma tag válida, atribuir a tag
+        if (targetLaneId !== "0") {
+          // Usar a rota de TicketTag ao invés da rota de Kanban
+          await api.put(`/ticket-tags/${ticketId}/${targetLaneId}`);
+          
+          // Verificar e processar campanha se necessário
+          await processCampaignOnMove(cardId, sourceLaneId, targetLaneId);
+        } else {
+          // Remover todas as tags do ticket usando a rota de TicketTag
+          await api.delete(`/ticket-tags/${ticketId}`);
+        }
+      } catch (error) {
+        console.error('Erro ao atualizar tag do ticket:', error);
+        toast.error('Erro ao mover o ticket. Verifique se você tem permissão para esta operação.');
+        return;
+      }
+    }
+    
+    // Recarregar tickets após a alteração
+    await fetchTickets();
+    
+  } catch (err) {
+    console.error('Erro ao mover ticket:', err);
+    const errorMsg = err.response?.data?.error || 'Erro ao mover o ticket entre as colunas';
+    toast.error(errorMsg);
+  }
+};
+
+  const processCampaignOnMove = async (cardId, sourceLaneId, targetLaneId) => {
     try {
-      setModalLoading(true);
-      await api.request({
-        url: '/kanban/boards',
-        method: 'post',
-        data: boardData
+      const targetTicketId = cardId;
+      const movedTicket = tickets.find(
+        (ticket) => ticket.id.toString() === targetTicketId
+      );
+
+      if (!movedTicket || !movedTicket.contact) {
+        console.error("Ticket ou contato não encontrado");
+        return false;
+      }
+
+      const response = await api.get("/schedules", {
+        params: { contactId: movedTicket.contact.id },
       });
-      toast.success('Quadro criado com sucesso!');
-      fetchBoards();
-      setShowCreateBoard(false);
+
+      const schedules = response.data.schedules;
+
+      // Verificar se a tag de destino é uma tag de campanha
+      const targetTag = tags.find(tag => tag.id.toString() === targetLaneId);
+      const isCampaignTag = targetTag && targetTag.actCamp === 1;
+
+      if (schedules.length === 0) {
+        if (isCampaignTag) {
+          await handleEmptySchedules(targetLaneId, movedTicket);
+        }
+      } else {
+        if (isCampaignTag) {
+          await handleNonEmptySchedules(targetLaneId, schedules, movedTicket);
+        } else if (targetLaneId === "0" || targetLaneId === "open" || targetLaneId === "pending") {
+          // Se estamos movendo para uma coluna não-campanha, cancelar agendamentos existentes
+          await handleDeleteScheduleForContact(movedTicket.contact.id);
+          toast.success(`Campanhas zeradas para ${movedTicket.contact.name}.`);
+        }
+      }
+
+      return true;
     } catch (err) {
-      console.error("Erro ao criar quadro:", err);
-      toast.error(err.message || 'Erro ao criar quadro');
-    } finally {
-      setModalLoading(false);
+      console.error(err);
+      return false;
     }
   };
 
-  const handleCreateBoardClose = () => {
-    setShowCreateBoard(false);
-  };
-
-  const handleBoardSettings = () => {
-    if (selectedBoard) {
-      setBoardToEdit(selectedBoard);
-      setShowEditBoard(true);
+  const handleEmptySchedules = async (tagId, movedTicket) => {
+    if (tagId !== "0" && tagId !== "open" && tagId !== "pending") {
+      toast.success(
+        `Campanha nº ${tagId} iniciada para ${movedTicket.contact.name}. Horario de envio as 18h`,
+        {
+          autoClose: 10000,
+        }
+      );
+      await campanhaInit(movedTicket, tagId);
+    } else {
+      toast.success(`Campanhas zeradas para ${movedTicket.contact.name}.`, {
+        autoClose: 10000,
+      });
     }
   };
 
-  const handleEditBoardSubmit = async (boardData) => {
+  const handleNonEmptySchedules = async (
+    tagId,
+    schedules,
+    movedTicket
+  ) => {
+    const campIdInSchedules = schedules[0].campId;
+
+    if (String(tagId) === String(campIdInSchedules)) {
+      toast.success(
+        `Campanha nº ${tagId} já está em andamento para ${movedTicket.contact.name}.`,
+        {
+          autoClose: 10000,
+        }
+      );
+    } else {
+      const scheduleIdToDelete = schedules[0].id;
+
+      if (tagId !== "0" && tagId !== "open" && tagId !== "pending") {
+        await handleDeleteScheduleAndInit(
+          tagId,
+          scheduleIdToDelete,
+          campIdInSchedules,
+          movedTicket
+        );
+      } else {
+        await handleDeleteSchedule(
+          tagId,
+          scheduleIdToDelete,
+          movedTicket
+        );
+      }
+    }
+  };
+
+  const handleDeleteScheduleAndInit = async (
+    tagId,
+    scheduleIdToDelete,
+    campIdInSchedules,
+    movedTicket
+  ) => {
     try {
-      setModalLoading(true);
-      await api.request({
-        url: `/kanban/boards/${boardToEdit.id}`,
-        method: 'put',
-        data: boardData
-      });
-      toast.success('Quadro atualizado com sucesso!');
-      fetchBoards();
-      setShowEditBoard(false);
-      setBoardToEdit(null);
-    } catch (err) {
-      console.error("Erro ao atualizar quadro:", err);
-      toast.error(err.message || 'Erro ao atualizar quadro');
-    } finally {
-      setModalLoading(false);
+      await api.delete(`/schedules/${scheduleIdToDelete}`);
+      toast.error(
+        `Campanha nº ${campIdInSchedules} excluída para ${movedTicket.contact.name}.`,
+        {
+          autoClose: 10000,
+        }
+      );
+      await campanhaInit(movedTicket, tagId);
+      toast.success(
+        `Campanha nº ${tagId} iniciada para ${movedTicket.contact.name}. Horario de envio as 18h`,
+        {
+          autoClose: 10000,
+        }
+      );
+    } catch (deleteError) {
+      console.error("Erro ao excluir campanha:", deleteError);
     }
   };
 
-  const handleEditBoardClose = () => {
-    setShowEditBoard(false);
-    setBoardToEdit(null);
-  };
-
-  const handleDeleteBoard = () => {
-    if (selectedBoard) {
-      setBoardToDelete(selectedBoard);
-      setShowDeleteBoard(true);
-    }
-  };
-
-  const handleDeleteBoardConfirm = async () => {
+  const handleDeleteSchedule = async (
+    tagId,
+    scheduleIdToDelete,
+    movedTicket
+  ) => {
     try {
-      setModalLoading(true);
-      await api.request({
-        url: `/kanban/boards/${boardToDelete.id}`,
-        method: 'delete'
+      await api.delete(`/schedules/${scheduleIdToDelete}`);
+      toast.success(`Campanhas zeradas para ${movedTicket.contact.name}.`, {
+        autoClose: 10000,
       });
-      toast.success('Quadro excluído com sucesso!');
-      setShowDeleteBoard(false);
-      setBoardToDelete(null);
-      fetchBoards();
-    } catch (err) {
-      console.error("Erro ao excluir quadro:", err);
-      toast.error(err.message || 'Erro ao excluir quadro');
-    } finally {
-      setModalLoading(false);
+    } catch (deleteError) {
+      console.error("Erro ao excluir campanha:", deleteError);
     }
   };
 
-  const handleDeleteBoardClose = () => {
-    setShowDeleteBoard(false);
-    setBoardToDelete(null);
+  const handleDeleteScheduleForContact = async (contactId) => {
+    try {
+      const response = await api.get("/schedules", {
+        params: { contactId }
+      });
+      
+      const schedules = response.data.schedules || [];
+      
+      for (const schedule of schedules) {
+        await api.delete(`/schedules/${schedule.id}`);
+      }
+      
+      return true;
+    } catch (error) {
+      console.error("Erro ao excluir agendamentos:", error);
+      return false;
+    }
   };
 
-  const handleToggleMetrics = () => {
-    setShowMetrics(prev => !prev);
+  const campanhaInit = async (ticket, campId) => {
+    try {
+      const tagResponse = await api.get(`/tags/${campId}`);
+      const tagMsg = tagResponse.data.msgR;
+      const rptDays = tagResponse.data.rptDays;
+      const pathFile = tagResponse.data.mediaPath;
+      const nameMedia = tagResponse.data.mediaName;
+      
+      // Obter instância de WhatsApp ativa
+      const { data: whatsapps } = await api.get("/whatsapp/");
+      const activeWhatsapp = whatsapps.find(w => w.status === "CONNECTED" && w.isDefault === 1);
+      
+      if (!activeWhatsapp) {
+        toast.error("Nenhuma conexão WhatsApp disponível");
+        return;
+      }
+
+      const getRandomNumber = (min, max) => {
+        return Math.floor(Math.random() * (max - min + 1)) + min;
+      };
+
+      const getToday18hRandom = () => {
+        const today18h = new Date();
+        today18h.setHours(18);
+        today18h.setMinutes(getRandomNumber(1, 30)); // Adiciona minutos aleatórios
+        today18h.setSeconds(getRandomNumber(1, 60)); // Adiciona segundos aleatórios
+        return today18h;
+      };
+
+      // Obter a data de hoje às 18:00 com minutos e segundos aleatórios
+      const campDay = getToday18hRandom();
+
+      const currentTime = new Date();
+      if (currentTime.getHours() >= 18) {
+        // Se já passou das 18:00, definir o horário para amanhã
+        campDay.setDate(campDay.getDate() + 1);
+      }
+
+      const scheduleData = {
+        body: tagMsg,
+        sendAt: campDay,
+        contactId: ticket.contact.id,
+        userId: user.id,
+        whatsappId: activeWhatsapp.id,
+        daysR: rptDays,
+        campId: campId,
+        mediaPath: pathFile,
+        mediaName: nameMedia,
+      };
+
+      try {
+        const response = await api.post("/schedules", scheduleData);
+
+        if (response.status === 200) {
+          console.log("Agendamento criado com sucesso:", response.data);
+          return true;
+        } else {
+          console.error("Erro ao criar agendamento:", response.data);
+          return false;
+        }
+      } catch (error) {
+        console.error("Erro ao criar agendamento:", error);
+        return false;
+      }
+    } catch (error) {
+      console.error("Erro ao criar agendamento:", error);
+      return false;
+    }
   };
 
-  // Funções para operações de cartões
-  const handleCardCreate = async (cardData) => {
-    const response = await api.request({
-      url: '/kanban/cards',
-      method: 'post',
-      data: cardData
-    });
-    
-    // Atualizar lista de cartões após criação
-    setTimeout(() => fetchCards(), 500);
-    
-    return response;
+  const ticketMatchesSearchQuery = (ticket) => {
+    if (searchQuery.trim() === "") {
+      if (selectedUsers.length > 0) {
+        return !ticket.user?.id || selectedUsers.includes(ticket.user.id);
+      }
+      return true;
+    }
+
+    const query = searchQuery.toLowerCase();
+    var match =
+      ticket.contact.number.toLowerCase().includes(query) ||
+      (ticket.lastMessage &&
+        ticket.lastMessage.toLowerCase().includes(query)) ||
+      ticket.contact?.name?.toLowerCase().includes(query) ||
+      ticket.value?.includes(query) ||
+      ticket.sku?.includes(query);
+
+    if (selectedUsers.length > 0) {
+      return match && selectedUsers.includes(ticket.userId);
+    }
+
+    return match;
   };
 
-  const handleCardUpdate = async (cardId, cardData) => {
-    const response = await api.request({
-      url: `/kanban/cards/${cardId}`,
-      method: 'put',
-      data: cardData
-    });
-    
-    // Atualizar lista de cartões após atualização
-    setTimeout(() => fetchCards(), 500);
-    
-    return response;
+  const handleSelectedDate = (value, range) => {
+    setSelectedDate({ ...selectedDate, [range]: value });
   };
 
-  const handleCardDelete = async (cardId) => {
-    const response = await api.request({
-      url: `/kanban/cards/${cardId}`,
-      method: 'delete'
-    });
-    
-    // Atualizar lista de cartões após exclusão
-    setTimeout(() => fetchCards(), 500);
-    
-    return response;
+  const handleSearchQueryChange = (e) => {
+    setSearchQuery(e.target.value);
   };
 
-  const handleCardMove = async (cardId, laneId) => {
-    const response = await api.request({
-      url: `/kanban/cards/${cardId}/move`,
-      method: 'post',
-      data: { laneId }
-    });
-    
-    // Atualizar lista de cartões após movimento
-    setTimeout(() => fetchCards(), 500);
-    
-    return response;
-  };
-
-  // Funções para operações de lanes
-  const handleLaneCreate = async (laneData) => {
-    const response = await api.request({
-      url: '/kanban/lanes',
-      method: 'post',
-      data: laneData
-    });
-    
-    // Atualizar dados do board
-    setTimeout(() => fetchBoards(), 500);
-    
-    return response;
-  };
-
-  const handleLaneUpdate = async (laneId, laneData) => {
-    const response = await api.request({
-      url: `/kanban/lanes/${laneId}`,
-      method: 'put',
-      data: laneData
-    });
-    
-    // Atualizar dados do board
-    setTimeout(() => fetchBoards(), 500);
-    
-    return response;
-  };
-
-  const handleLaneDelete = async (laneId) => {
-    const response = await api.request({
-      url: `/kanban/lanes/${laneId}`,
-      method: 'delete'
-    });
-    
-    // Atualizar dados do board
-    setTimeout(() => fetchBoards(), 500);
-    
-    return response;
-  };
-
-  const handleLanesReorder = async (lanes) => {
-    const response = await api.request({
-      url: `/kanban/boards/${selectedBoard.id}/reorder-lanes`,
-      method: 'post',
-      data: { lanes }
-    });
-    
-    // Atualizar dados do board
-    setTimeout(() => fetchBoards(), 500);
-    
-    return response;
+  const onFiltered = (value) => {
+    setSelectedUsers(value);
   };
 
   return (
-    <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-      <Paper sx={{ p: 2, mb: 2 }}>
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-          <Typography variant="h5" component="h1">Kanban</Typography>
-          
-          <Box sx={{ display: 'flex', gap: 1 }}>
-            <Button
-              variant="outlined"
-              startIcon={<RefreshIcon />}
-              onClick={handleRefresh}
-            >
-              Atualizar
-            </Button>
-            
-            <Button
-              variant="outlined"
-              startIcon={<DashboardIcon />}
-              onClick={handleToggleMetrics}
-              color={showMetrics ? "primary" : "inherit"}
-            >
-              Métricas
-            </Button>
-            
-            {(user?.profile === 'admin' || user?.super) && (
-              <Button
-                variant="contained"
-                startIcon={<AddIcon />}
-                onClick={handleCreateBoard}
-              >
-                Novo Quadro
-              </Button>
-            )}
-          </Box>
-        </Box>
-        
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <BoardSelector 
-            boards={boards || []} 
-            selectedBoardId={selectedBoard?.id} 
-            onChange={handleBoardChange} 
+    <KanbanContainer>
+      <FilterContainer>
+        <FilterFields>
+          <QueueSelect 
+            queues={queues}
+            selectedQueue={selectedQueue}
+            onChange={handleQueueChange}
           />
           
-          {selectedBoard && (
-            <Box sx={{ display: 'flex', alignItems: 'center' }}>
-              <Tabs
-                value={viewType}
-                onChange={handleViewChange}
-                aria-label="view type tabs"
-                sx={{ minHeight: 48 }}
-              >
-                <Tab 
-                  icon={<KanbanViewIcon />} 
-                  value="kanban" 
-                  label="Kanban" 
-                  sx={{ minHeight: 48 }}
-                />
-                <Tab 
-                  icon={<KanbanViewIcon />} 
-                  value="kanbanTickets" 
-                  label="Kanban Tickets" 
-                  sx={{ minHeight: 48 }}
-                />
-                <Tab 
-                  icon={<ListViewIcon />} 
-                  value="list" 
-                  label="Lista" 
-                  sx={{ minHeight: 48 }}
-                />
-                <Tab 
-                  icon={<CalendarViewIcon />} 
-                  value="calendar" 
-                  label="Calendário" 
-                  sx={{ minHeight: 48 }}
-                />
-              </Tabs>
-              
-              <Divider orientation="vertical" flexItem sx={{ mx: 2 }} />
-              
-              <Tooltip title="Configurações do Quadro">
-                <IconButton onClick={handleBoardSettings}>
-                  <SettingsIcon />
-                </IconButton>
-              </Tooltip>
-            </Box>
-          )}
-        </Box>
-      </Paper>
-      
-      {showMetrics && selectedBoard && (
-        <KanbanMetrics 
-          boardId={selectedBoard.id} 
-          onClose={() => setShowMetrics(false)} 
-        />
-      )}
-      
-      {isLoading ? (
-        <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '50vh' }}>
-          <CircularProgress />
-        </Box>
-      ) : !selectedBoard ? (
-        <Box 
-          sx={{ 
-            display: 'flex', 
-            flexDirection: 'column',
-            justifyContent: 'center', 
-            alignItems: 'center', 
-            height: '50vh',
-            gap: 2
-          }}
-        >
-          <Typography variant="h6" color="textSecondary">
-            Nenhum quadro selecionado
-          </Typography>
-          {boards.length === 0 && (
-            <Button
-              variant="contained"
-              startIcon={<AddIcon />}
-              onClick={handleCreateBoard}
-            >
-              Criar Primeiro Quadro
-            </Button>
-          )}
-        </Box>
-      ) : (
-        <>
-          {viewType === 'kanban' && (
-            <KanbanView 
-              board={selectedBoard}
-              lanes={lanes || []}
-              cards={cards || []}
-              onLaneCreate={handleLaneCreate}
-              onLaneUpdate={handleLaneUpdate}
-              onLaneDelete={handleLaneDelete}
-              onCardCreate={handleCardCreate}
-              onCardUpdate={handleCardUpdate}
-              onCardDelete={handleCardDelete}
-              onCardMove={handleCardMove}
-              onLanesReorder={handleLanesReorder}
-              companyId={companyId}
-            />
-          )}
-          
-          {viewType === 'list' && (
-            <ListView 
-              board={selectedBoard}
-              lanes={lanes || []}
-              cards={cards || []}
-              onCardCreate={handleCardCreate}
-              onCardUpdate={handleCardUpdate}
-              onCardDelete={handleCardDelete}
-              companyId={companyId}
-            />
-          )}
-          
-          {viewType === 'calendar' && (
-            <CalendarView 
-              board={selectedBoard}
-              lanes={lanes || []}
-              cards={cards || []}
-              onCardCreate={handleCardCreate}
-              onCardUpdate={handleCardUpdate}
-              companyId={companyId}
-            />
-          )}
-        </>
-      )}
-      
-      {/* Modal para Criar Quadro */}
-      <StandardModal
-        open={showCreateBoard}
-        onClose={handleCreateBoardClose}
-        title="Criar Novo Quadro"
-        maxWidth="md"
-        size="large"
-      >
-        <BoardSettingsModal 
-          board={null}
-          open={false}
-          onClose={() => {}}
-          onSave={handleCreateBoardSubmit}
-          loading={modalLoading}
-        />
-      </StandardModal>
-
-      {/* Modal para Editar Quadro */}
-      <StandardModal
-        open={showEditBoard}
-        onClose={handleEditBoardClose}
-        title={`Editar Quadro: ${boardToEdit?.name || ''}`}
-        maxWidth="md"
-        size="large"
-        actions={[
-          {
-            label: 'Excluir Quadro',
-            onClick: handleDeleteBoard,
-            variant: 'outlined',
-            color: 'error',
-            icon: <DeleteIcon />,
-            disabled: modalLoading
-          }
-        ]}
-      >
-        {boardToEdit && (
-          <BoardSettingsModal 
-            board={boardToEdit}
-            open={false}
-            onClose={() => {}}
-            onSave={handleEditBoardSubmit}
-            onDelete={() => {}}
-            loading={modalLoading}
+          <TextField
+            placeholder="Pesquisar..."
+            size="small"
+            value={searchQuery}
+            onChange={handleSearchQueryChange}
+            fullWidth
+            variant="outlined"
+            sx={{ flex: '1 1 200px' }}
           />
-        )}
-      </StandardModal>
-
-      {/* Modal para Excluir Quadro */}
-      <StandardModal
-        open={showDeleteBoard}
-        onClose={handleDeleteBoardClose}
-        title="Excluir Quadro"
-        maxWidth="sm"
-        size="small"
-        primaryAction={{
-          label: modalLoading ? 'Excluindo...' : 'Confirmar Exclusão',
-          onClick: handleDeleteBoardConfirm,
-          disabled: modalLoading,
-          color: 'error',
-          icon: modalLoading ? <CircularProgress size={16} /> : <DeleteIcon />
-        }}
-        secondaryAction={{
-          label: 'Cancelar',
-          onClick: handleDeleteBoardClose,
-          disabled: modalLoading
-        }}
-      >
-        <Typography>
-          {boardToDelete && (
+          
+          {(profile === "admin" || profile === "superv") && (
             <>
-              Tem certeza que deseja excluir o quadro "{boardToDelete.name}"?
-              <Box sx={{ mt: 1, color: 'warning.main' }}>
-                A exclusão do quadro removerá todas as colunas e cartões associados. Esta ação não pode ser desfeita.
+              <Box sx={{ width: '200px' }}>
+                <UsersFilter onFiltered={onFiltered} />
+              </Box>
+              <Box sx={{ display: 'flex', gap: '5px' }}>
+                <DatePickerMoment
+                  label="De"
+                  getDate={(value) => handleSelectedDate(value, "from")}
+                />
+                <DatePickerMoment
+                  label="Até"
+                  getDate={(value) => handleSelectedDate(value, "until")}
+                />
               </Box>
             </>
           )}
-        </Typography>
-      </StandardModal>
-    </Box>
+          
+          <FormControlLabel
+            control={
+              <Switch
+                checked={viewType === 'closed'}
+                onChange={handleViewTypeChange}
+                color="primary"
+              />
+            }
+            label={viewType === 'closed' ? "Tickets Fechados" : "Tickets Ativos"}
+          />
+          
+          <FilterButtons>
+            <Tooltip title="Configurações do Kanban">
+              <IconButton
+                onClick={handleOpenBoardSettings}
+                size="medium"
+              >
+                <SettingsIcon sx={{ color: green[500] }} />
+              </IconButton>
+            </Tooltip>
+            <Tooltip title={showOpenLane ? "Ocultar coluna Em Aberto" : "Mostrar coluna Em Aberto"}>
+              <IconButton
+                onClick={toggleOpenLaneVisibility}
+                size="medium"
+              >
+                {showOpenLane ? <VisibilityOffIcon /> : <VisibilityIcon />}
+              </IconButton>
+            </Tooltip>
+            <Tooltip title={showPendingLane ? "Ocultar coluna Aguardando" : "Mostrar coluna Aguardando"}>
+              <IconButton
+                onClick={togglePendingLaneVisibility}
+                size="medium"
+                sx={{ ml: 1 }}
+              >
+                {showPendingLane ? <VisibilityOffIcon color="warning" /> : <VisibilityIcon color="warning" />}
+              </IconButton>
+            </Tooltip>
+            <InfoModal />
+          </FilterButtons>
+        </FilterFields>
+        
+        {/* Tabs para filtrar status */}
+        {viewType === 'active' && selectedQueue && (
+          <Box sx={{ borderBottom: 1, borderColor: 'divider', mt: 1 }}>
+            <Tabs value={tabValue} onChange={handleTabChange} variant="fullWidth">
+              <Tab 
+                icon={<InboxIcon />} 
+                label="Todos" 
+                iconPosition="start"
+              />
+              <Tab 
+                icon={<CommentIcon />} 
+                label="Em Aberto" 
+                iconPosition="start"
+              />
+              <Tab 
+                icon={<PendingIcon />} 
+                label="Aguardando" 
+                iconPosition="start"
+              />
+            </Tabs>
+          </Box>
+        )}
+      </FilterContainer>
+
+      {selectedQueue ? (
+        <BoardStyles.Container>
+          <Board
+            data={file}
+            onCardMoveAcrossLanes={handleCardMove}
+            onLaneDragEnd={handleLaneMove}
+            onCardClick={handleCardClick}
+            draggable
+            style={{
+              backgroundColor: isDarkMode ? theme.palette.background.default : "rgba(252, 252, 252, 0.03)",
+              width: "100%",
+              height: "calc(100vh - 200px)",
+              color: theme.palette.text.primary
+            }}
+            laneStyle={{
+              backgroundColor: isDarkMode ? theme.palette.background.default : "white",
+              color: theme.palette.text.primary
+            }}
+            cardStyle={{
+              backgroundColor: isDarkMode ? theme.palette.background.paper : "white",
+              color: theme.palette.text.primary,
+              margin: "10px 0"
+            }}
+          />
+        </BoardStyles.Container>
+      ) : (
+        <EmptyStateContainer>
+          <SettingsIcon sx={{ fontSize: 64, color: theme.palette.action.disabled }} />
+          <Typography variant="h6" color="textSecondary">
+            Selecione um setor para visualizar o quadro Kanban
+          </Typography>
+        </EmptyStateContainer>
+      )}
+
+      <Modal
+        open={cardModalOpen}
+        onClose={handleCloseCardModal}
+        aria-labelledby="ticket-modal-title"
+        aria-describedby="ticket-modal-description"
+      >
+        <ModalContent sx={{ bgcolor: theme.palette.background.paper }}>
+          {selectedCard && (
+            <>
+              <Typography variant="h6" component="h2" id="ticket-modal-title">
+                Ticket #{selectedCard.id}
+              </Typography>
+              <Typography sx={{ mt: 2 }} id="ticket-modal-description">
+                <strong>
+                  {selectedCard.contact.name || selectedCard.contact.number}
+                </strong>
+                <br />
+                {selectedCard.lastMessage}
+                <br />
+                {enableTicketValueAndSku === "enabled" && (
+                  <>
+                    <b>SKU: {selectedCard.sku || "N/D"}</b> -
+                    <b>
+                      VALOR: R$
+                      {(Number(selectedCard.value) || 0)
+                        .toFixed(2)
+                        .replace(".", ",")}
+                    </b>
+                  </>
+                )}
+              </Typography>
+              <Box sx={{ display: 'flex', gap: 1, mt: 2 }}>
+                <Button
+                  variant="contained"
+                  color="primary"
+                  startIcon={<WhatsAppIcon />}
+                  onClick={() => {
+                    history.push(`/tickets/${selectedCard.uuid}`);
+                    handleCloseCardModal();
+                  }}
+                >
+                  Abrir Conversa
+                </Button>
+                
+                {selectedCard.status === "pending" && (
+                  <Button
+                    variant="contained"
+                    color="success"
+                    startIcon={<CheckIcon />}
+                    onClick={() => {
+                      handleAcceptTicket(selectedCard.id);
+                      handleCloseCardModal();
+                    }}
+                  >
+                    Aceitar Ticket
+                  </Button>
+                )}
+                
+                <Button
+                  variant="outlined"
+                  color="inherit"
+                  startIcon={<CloseIcon />}
+                  onClick={handleCloseCardModal}
+                >
+                  Fechar
+                </Button>
+              </Box>
+            </>
+          )}
+        </ModalContent>
+      </Modal>
+
+      {settingsModalOpen && (
+        <BoardSettingsModal
+          open={settingsModalOpen}
+          onClose={() => setSettingsModalOpen(false)}
+          setMakeRequest={setMakeRequest}
+        />
+      )}
+    </KanbanContainer>
   );
 };
 
