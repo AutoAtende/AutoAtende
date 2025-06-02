@@ -708,7 +708,7 @@ const INTEGRATION_OPTIONS = (theme, configState) => [
 
   // ---------- NOVAS CONFIGURAÇÕES DE KANBAN ----------
   {
-    id: "kanban_auto_create_cards",
+    id: "kanbanAutoCreateCards",
     label: "Criar cartões automaticamente no Kanban",
     type: "switch",
     helpText:
@@ -725,7 +725,7 @@ const INTEGRATION_OPTIONS = (theme, configState) => [
     },
   },
   {
-    id: "kanban_auto_sync_status",
+    id: "kanbanAutoSyncStatus",
     label: "Sincronizar status automaticamente com o Kanban",
     type: "switch",
     helpText:
@@ -733,7 +733,7 @@ const INTEGRATION_OPTIONS = (theme, configState) => [
     disabledIf: () => false,
   },
   {
-    id: "kanban_default_board_id",
+    id: "kanbanDefaultBoardId",
     label: "ID padrão do quadro Kanban",
     type: "text",
     helpText:
@@ -741,7 +741,7 @@ const INTEGRATION_OPTIONS = (theme, configState) => [
     disabledIf: () => false,
   },
   {
-    id: "kanban_lane_status_mapping",
+    id: "kanbanLaneStatusMapping",
     label: "Mapeamento de status para colunas do Kanban",
     type: "text",
     helpText:
@@ -751,7 +751,7 @@ const INTEGRATION_OPTIONS = (theme, configState) => [
     rows: 4,
   },
   {
-    id: "kanban_auto_archive_closed",
+    id: "kanbanAutoArchiveClosed",
     label: "Arquivar automaticamente tickets fechados no Kanban",
     type: "switch",
     helpText:
@@ -929,10 +929,10 @@ const Options = ({
     metaPixelId: "",
 
     // NOVAS CONFIGURAÇÕES DE KANBAN
-    kanban_auto_create_cards: "disabled",
-    kanban_auto_sync_status: "enabled",
-    kanban_default_board_id: "",
-    kanban_lane_status_mapping: JSON.stringify(
+    kanbanAutoCreateCards: "enabled",
+    kanbanAutoSyncStatus: "enabled",
+    kanbanDefaultBoardId: "1",
+    kanbanLaneStatusMapping: JSON.stringify(
       {
         Pendente: "pending",
         Novo: "pending",
@@ -949,7 +949,7 @@ const Options = ({
       null,
       2
     ),
-    kanban_auto_archive_closed: "enabled",
+    kanbanAutoArchiveClosed: "enabled",
 
     // SMTP
     smtpauthType: "",

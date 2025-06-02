@@ -118,7 +118,7 @@ const TicketKanbanIntegration = ({
   const checkAutoCreateSettings = async () => {
     try {
       const { data } = await api.request({
-        url: '/settings/kanban_auto_create_cards',
+        url: '/settings/kanbanAutoCreateCards',
         method: 'get'
       });
       setAutoCreateEnabled(data.value === 'enabled');
@@ -184,7 +184,7 @@ const TicketKanbanIntegration = ({
       setLoading(true);
       
       await api.request({
-        url: '/settings/kanban_auto_create_cards',
+        url: '/settings/kanbanAutoCreateCards',
         method: 'post',
         data: {
           value: enabled ? 'enabled' : 'disabled'

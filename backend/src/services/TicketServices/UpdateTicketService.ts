@@ -869,7 +869,7 @@ export const configureLaneStatusMapping = async (
     
     await Setting.upsert({
       companyId,
-      key: "kanban_lane_status_mapping",
+      key: "kanbanLaneStatusMapping",
       value: JSON.stringify(mapping)
     });
 
@@ -890,7 +890,7 @@ export const getLaneStatusMapping = async (companyId: number): Promise<Record<st
     const setting = await Setting.findOne({
       where: {
         companyId,
-        key: "kanban_lane_status_mapping"
+        key: "kanbanLaneStatusMapping"
       }
     });
 

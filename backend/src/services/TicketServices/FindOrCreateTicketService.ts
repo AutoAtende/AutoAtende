@@ -35,7 +35,7 @@ const handleKanbanIntegration = async (
     // Verificar se integração Kanban está habilitada
     const autoCreateSetting = await ListSettingsServiceOne({
       companyId: companyId || ticket.companyId,
-      key: "kanban_auto_create_cards"
+      key: "kanbanAutoCreateCards"
     });
 
     if (autoCreateSetting?.value !== "enabled") {
@@ -48,7 +48,7 @@ const handleKanbanIntegration = async (
       // Verificar se existe quadro padrão configurado
       const defaultBoardSetting = await ListSettingsServiceOne({
         companyId: ticket.companyId,
-        key: "kanban_default_board_id"
+        key: "kanbanDefaultBoardId"
       });
 
       const boardId = defaultBoardSetting?.value && defaultBoardSetting.value !== '' ? 
@@ -311,7 +311,7 @@ export const processKanbanIntegrationForImportedTickets = async (companyId: numb
     // Verificar se integração está habilitada
     const autoCreateSetting = await ListSettingsServiceOne({
       companyId,
-      key: "kanban_auto_create_cards"
+      key: "kanbanAutoCreateCards"
     });
 
     if (autoCreateSetting?.value !== "enabled") {

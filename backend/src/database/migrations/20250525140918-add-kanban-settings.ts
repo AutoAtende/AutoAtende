@@ -21,19 +21,19 @@ module.exports = {
       // Configurações padrão do Kanban
       const defaultSettings = [
         {
-          key: 'kanban_auto_create_cards',
+          key: 'kanbanAutoCreateCards',
           value: 'disabled'
         },
         {
-          key: 'kanban_auto_sync_status', 
+          key: 'kanbanAutoSyncStatus', 
           value: 'enabled'
         },
         {
-          key: 'kanban_default_board_id',
+          key: 'kanbanDefaultBoardId',
           value: ''
         },
         {
-          key: 'kanban_lane_status_mapping',
+          key: 'kanbanLaneStatusMapping',
           value: JSON.stringify({
             'Pendente': 'pending',
             'Novo': 'pending',
@@ -49,7 +49,7 @@ module.exports = {
           })
         },
         {
-          key: 'kanban_auto_archive_closed',
+          key: 'kanbanAutoArchiveClosed',
           value: 'enabled'
         }
       ];
@@ -109,11 +109,11 @@ module.exports = {
 
       // Listar configurações que serão removidas
       const kanbanKeys = [
-        'kanban_auto_create_cards',
-        'kanban_auto_sync_status', 
-        'kanban_default_board_id',
-        'kanban_lane_status_mapping',
-        'kanban_auto_archive_closed'
+        'kanbanAutoCreateCards',
+        'kanbanAutoSyncStatus', 
+        'kanbanDefaultBoardId',
+        'kanbanLaneStatusMapping',
+        'kanbanAutoArchiveClosed'
       ];
 
       // Contar configurações existentes
