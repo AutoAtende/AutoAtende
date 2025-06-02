@@ -58,13 +58,71 @@ const settings = [
   { key: "metaPixelId", value: "" },
   { key: "enableSatisfactionSurvey", value: "disabled" },
   { key: "enableAudioTranscriptions", value: "disabled" },
-  { key: "openAiKey", value: "" }
+  { key: "openAiKey", value: "" },
+  {
+    key: 'kanbanAutoCreateCards',
+    value: 'disabled'
+  },
+  {
+    key: 'kanbanAutoSyncStatus', 
+    value: 'enabled'
+  },
+  {
+    key: 'kanbanDefaultBoardId',
+    value: ''
+  },
+  {
+    key: 'kanbanLaneStatusMapping',
+    value: JSON.stringify({
+      'Pendente': 'pending',
+      'Novo': 'pending',
+      'Em Atendimento': 'open',
+      'Em Progresso': 'open',
+      'Aberto': 'open',
+      'Aguardando Cliente': 'pending',
+      'Aguardando Resposta': 'pending',
+      'Resolvido': 'closed',
+      'Finalizado': 'closed',
+      'Concluído': 'closed',
+      'Fechado': 'closed'
+    })
+  },
 ];
+
+// Função para remover configurações não listadas
+async function removeUnlistedSettings(client) {
+  try {
+    // Obtém todas as chaves de configuração atuais
+    const currentSettings = settings.map(s => s.key);
+    
+    // Remove as configurações que não estão na lista
+    const result = await client.query(
+      'DELETE FROM "Settings" WHERE "companyId" = $1 AND "key" != ALL($2) RETURNING "key"',
+      [companyId, currentSettings]
+    );
+    
+    if (result.rows.length > 0) {
+      console.log('Configurações removidas:', result.rows.map(r => r.key).join(', '));
+    } else {
+      console.log('Nenhuma configuração não listada encontrada para remoção.');
+    }
+  } catch (error) {
+    console.error('Erro ao remover configurações não listadas:', error);
+    throw error;
+  }
+}
 
 // Função para verificar e inserir configurações ausentes
 async function checkAndInsertSettings() {
   const client = await pool.connect();
   try {
+    // Inicia uma transação
+    await client.query('BEGIN');
+
+    // 1. Primeiro, remove as configurações não listadas
+    await removeUnlistedSettings(client);
+    
+    // 2. Depois, atualiza ou insere as configurações da lista
     for (const setting of settings) {
       const { key, value } = setting;
 
@@ -91,8 +149,7 @@ async function checkAndInsertSettings() {
             'UPDATE "Settings" SET "value" = $1, "updatedAt" = NOW() WHERE "companyId" = $2 AND "key" = $3',
             [value, companyId, key]
           );
-        }
-        else {
+        } else {
           console.log(`Configuração existente: ${key} = ${currentValue}`);
         }
       } else {
@@ -104,11 +161,17 @@ async function checkAndInsertSettings() {
         );
       }
     }
+    
+    // Se chegou até aqui sem erros, faz commit da transação
+    await client.query('COMMIT');
+    console.log('Todas as configurações foram sincronizadas com sucesso!');
   } catch (error) {
+    // Em caso de erro, faz rollback da transação
+    await client.query('ROLLBACK');
     console.error("Erro ao verificar/inserir configurações:", error);
   } finally {
     client.release();
-    pool.end();
+    await pool.end();
   }
 }
 
