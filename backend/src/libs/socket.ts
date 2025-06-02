@@ -3,6 +3,7 @@ import { Server } from 'http';
 import { verify } from "jsonwebtoken";
 import AppError from "../errors/AppError";
 import { logger } from "../utils/logger";
+import { Op } from "sequelize";
 
 import User from '../models/User';
 import Queue from "../models/Queue";
@@ -296,6 +297,227 @@ export const initIO = async (httpServer: Server): Promise<SocketIO> => {
           socket.join(ticketId);
         } else {
           socket.disconnect(true);
+        }
+      });
+
+      socket.on("clearNotifications", async () => {
+        try {
+          const userData = socket.data.user;
+          if (!userData?.id) {
+            logger.warn("ID de usuário inválido para clearNotifications");
+            return;
+          }
+      
+          const user = await User.findByPk(userData.id, { include: [Queue] });
+          if (!user) {
+            logger.warn(`Usuário ${userData.id} não encontrado para clearNotifications`);
+            return;
+          }
+      
+          logger.info(`Processando clearNotifications para usuário ${user.id} da empresa ${user.companyId}`);
+      
+          // Buscar tickets com mensagens não lidas baseado no perfil do usuário
+          let whereCondition: any = {
+            companyId: user.companyId,
+            unreadMessages: { [Op.gt]: 0 }
+          };
+      
+          // Aplicar filtros baseados no perfil do usuário
+          if (user.profile === "user") {
+            const userQueueIds = user.queues.map(queue => queue.id);
+            whereCondition = {
+              ...whereCondition,
+              [Op.or]: [
+                { userId: user.id },
+                { 
+                  status: "pending",
+                  queueId: { [Op.in]: userQueueIds }
+                }
+              ]
+            };
+          }
+      
+          // Buscar todos os tickets que atendem aos critérios
+          const tickets = await Ticket.findAll({
+            where: whereCondition,
+            attributes: ['id', 'unreadMessages']
+          });
+      
+          if (tickets.length === 0) {
+            socket.emit("clearNotificationsResult", {
+              success: true,
+              message: "Nenhuma notificação para limpar",
+              clearedTickets: 0
+            });
+            return;
+          }
+      
+          const ticketIds = tickets.map(ticket => ticket.id);
+          
+          // Atualizar todos os tickets para marcar mensagens como lidas
+          const [updatedCount] = await Ticket.update(
+            { unreadMessages: 0 },
+            { 
+              where: { 
+                id: { [Op.in]: ticketIds },
+                companyId: user.companyId 
+              } 
+            }
+          );
+      
+          // Emitir evento para todos os clientes conectados da empresa
+          io.to(`company-${user.companyId}`).emit(`company-${user.companyId}-ticket`, {
+            action: "clearNotifications",
+            ticketIds: ticketIds,
+            userId: user.id,
+            timestamp: new Date()
+          });
+      
+          // Confirmar para o cliente que solicitou
+          socket.emit("clearNotificationsResult", {
+            success: true,
+            message: "Notificações limpas com sucesso",
+            clearedTickets: updatedCount,
+            ticketIds: ticketIds
+          });
+      
+          logger.info(`${updatedCount} tickets tiveram suas notificações limpas pelo usuário ${user.id} via socket`);
+      
+        } catch (error) {
+          logger.error("Erro ao processar clearNotifications via socket:", error);
+          socket.emit("clearNotificationsResult", {
+            success: false,
+            error: "Erro interno do servidor ao limpar notificações",
+            message: error.message
+          });
+        }
+      });
+      
+      // Evento para marcar ticket específico como lido
+      socket.on("markTicketAsRead", async (data) => {
+        try {
+          const { ticketId } = data;
+          const userData = socket.data.user;
+          
+          if (!userData?.id) {
+            logger.warn("ID de usuário inválido para markTicketAsRead");
+            return;
+          }
+      
+          if (!ticketId) {
+            socket.emit("markTicketAsReadResult", {
+              success: false,
+              error: "ID do ticket é obrigatório"
+            });
+            return;
+          }
+      
+          const user = await User.findByPk(userData.id);
+          if (!user) {
+            logger.warn(`Usuário ${userData.id} não encontrado para markTicketAsRead`);
+            return;
+          }
+      
+          // Verificar se o ticket existe e pertence à empresa
+          const ticket = await Ticket.findOne({
+            where: { 
+              id: Number(ticketId), 
+              companyId: user.companyId 
+            }
+          });
+      
+          if (!ticket) {
+            socket.emit("markTicketAsReadResult", {
+              success: false,
+              error: "Ticket não encontrado",
+              ticketId: Number(ticketId)
+            });
+            return;
+          }
+      
+          // Atualizar o ticket para marcar mensagens como lidas
+          await ticket.update({ unreadMessages: 0 });
+      
+          // Emitir evento para todos os clientes conectados da empresa
+          io.to(`company-${user.companyId}`).emit(`company-${user.companyId}-ticket`, {
+            action: "updateUnread",
+            ticketId: Number(ticketId),
+            userId: user.id,
+            timestamp: new Date()
+          });
+      
+          // Confirmar para o cliente que solicitou
+          socket.emit("markTicketAsReadResult", {
+            success: true,
+            message: "Ticket marcado como lido",
+            ticketId: Number(ticketId)
+          });
+      
+          logger.info(`Ticket ${ticketId} marcado como lido pelo usuário ${user.id} via socket`);
+      
+        } catch (error) {
+          logger.error("Erro ao processar markTicketAsRead via socket:", error);
+          socket.emit("markTicketAsReadResult", {
+            success: false,
+            error: "Erro interno do servidor",
+            message: error.message
+          });
+        }
+      });
+      
+      // Evento para solicitar contagem de notificações
+      socket.on("getNotificationCount", async () => {
+        try {
+          const userData = socket.data.user;
+          if (!userData?.id) {
+            logger.warn("ID de usuário inválido para getNotificationCount");
+            return;
+          }
+      
+          const user = await User.findByPk(userData.id, { include: [Queue] });
+          if (!user) {
+            logger.warn(`Usuário ${userData.id} não encontrado para getNotificationCount`);
+            return;
+          }
+      
+          let whereCondition: any = {
+            companyId: user.companyId,
+            unreadMessages: { [Op.gt]: 0 }
+          };
+      
+          // Aplicar filtros baseados no perfil do usuário
+          if (user.profile === "user") {
+            const userQueueIds = user.queues.map(queue => queue.id);
+            whereCondition = {
+              ...whereCondition,
+              [Op.or]: [
+                { userId: user.id },
+                { 
+                  status: "pending",
+                  queueId: { [Op.in]: userQueueIds }
+                }
+              ]
+            };
+          }
+      
+          const count = await Ticket.count({
+            where: whereCondition
+          });
+      
+          socket.emit("notificationCountResult", {
+            success: true,
+            count,
+            userId: user.id,
+            companyId: user.companyId
+          });
+      
+        } catch (error) {
+          logger.error("Erro ao processar getNotificationCount via socket:", error);
+          socket.emit("notificationCountResult", {
+            success: false,
+            error: "Erro interno do servidor",
+            message: error.message
+          });
         }
       });
 

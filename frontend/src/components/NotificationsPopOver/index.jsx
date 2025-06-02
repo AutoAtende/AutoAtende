@@ -1,8 +1,7 @@
-import React, { useState, useRef, useEffect, useContext } from "react";
+import React, { useState, useRef, useEffect, useContext, useCallback } from "react";
 import { useTheme, styled } from "@mui/material/styles";
 import { useHistory } from "react-router-dom";
 import { format } from "date-fns";
-import useSound from "use-sound";
 
 import Popover from "@mui/material/Popover";
 import IconButton from "@mui/material/IconButton";
@@ -23,6 +22,7 @@ import NotificationTicketItem from "./NotificationTicketItem";
 import { i18n } from "../../translate/i18n";
 import useSettings from "../../hooks/useSettings";
 import useTickets from "../../hooks/useTickets";
+import useNotificationSound from "../../hooks/useNotificationSound";
 import alertSound from "../../assets/sound.mp3";
 import { AuthContext } from "../../context/Auth/AuthContext";
 import { SocketContext } from "../../context/Socket/SocketContext";
@@ -128,23 +128,37 @@ const NotificationsPopOver = (props) => {
   const sendGreetingAccepted = settings.sendGreetingAccepted;
 
   const { tickets } = useTickets({ withUnreadMessages: "true" });
-  const [play] = useSound(alertSound, {volume: props.volume});
-  const soundAlertRef = useRef();
+  
+  // Hook personalizado para som de notificação
+  const { playSound, testSound, isReady } = useNotificationSound(alertSound, props.volume || 0.5);
 
   const historyRef = useRef(history);
   
   const socketManager = useContext(SocketContext);
-  const { notifications, setNotifications, setMakeRequestTagTotalTicketPending, setMakeRequestTicketList, setMakeRequest, setOpenTabTicket } = useContext(GlobalContext);
+  const { 
+    notifications, 
+    setNotifications, 
+    setMakeRequestTagTotalTicketPending, 
+    setMakeRequestTicketList, 
+    setMakeRequest, 
+    setOpenTabTicket 
+  } = useContext(GlobalContext);
 
   // Inicializa o serviço de notificações
   useEffect(() => {
-    notificationService.initialize();
+    const initNotifications = async () => {
+      try {
+        const initialized = notificationService.initialize();
+        if (initialized) {
+          console.log('Serviço de notificações inicializado com sucesso');
+        }
+      } catch (error) {
+        console.error('Erro ao inicializar serviço de notificações:', error);
+      }
+    };
+    
+    initNotifications();
   }, []);
-
-  // Configuração do som
-  useEffect(() => {
-    soundAlertRef.current = play;
-  }, [play]);
 
   // Atualiza notificações no contexto global
   useEffect(() => {
@@ -156,26 +170,43 @@ const NotificationsPopOver = (props) => {
     ticketIdRef.current = ticketIdUrl;
   }, [ticketIdUrl]);
 
+  // Função para tocar som de notificação
+  const handlePlaySound = useCallback(() => {
+    try {
+      if (props.volume > 0 && isReady()) {
+        playSound();
+        console.log('Som de notificação reproduzido');
+      } else {
+        console.warn('Som não pode ser reproduzido - volume:', props.volume, 'isReady:', isReady());
+      }
+    } catch (error) {
+      console.error('Erro ao reproduzir som:', error);
+    }
+  }, [playSound, props.volume, isReady]);
+
   // Configuração de WebSocket
   useEffect(() => {
     const companyId = localStorage.getItem("companyId");
-    if (!companyId) return;
-    if (!socketManager?.GetSocket) return;
+    if (!companyId || !socketManager?.GetSocket) return;
     
     const socket = socketManager.GetSocket(companyId);
     if (!socket) return;
 
     const onConnectNotificationsPopover = () => {
       socket.emit("joinNotification");
+      console.log('Conectado às notificações via socket');
     };
 
     const onCompanyTicketNotificationsPopover = (data) => {
+      console.log('Evento de ticket recebido:', data);
+      
       if (data.action === "updateUnread" || data.action === "delete") {
         setNotifications(prevState => {
           const ticketIndex = prevState.findIndex(t => t.id === data.ticketId);
           if (ticketIndex !== -1) {
-            prevState.splice(ticketIndex, 1);
-            return [...prevState];
+            const newState = [...prevState];
+            newState.splice(ticketIndex, 1);
+            return newState;
           }
           return prevState;
         });
@@ -185,16 +216,26 @@ const NotificationsPopOver = (props) => {
             n => n.tag === String(data.ticketId)
           );
           if (notificationIndex !== -1) {
-            notificationService.clearNotifications([prevState[notificationIndex]]);
-            prevState.splice(notificationIndex, 1);
-            return [...prevState];
+            const notificationToRemove = prevState[notificationIndex];
+            notificationService.clearNotifications([notificationToRemove]);
+            const newState = [...prevState];
+            newState.splice(notificationIndex, 1);
+            return newState;
           }
           return prevState;
         });
+      } else if (data.action === "clearNotifications") {
+        // Limpar todas as notificações quando vem do servidor
+        setNotifications([]);
+        notificationService.clearAllNotifications();
+        setDesktopNotifications([]);
+        console.log('Todas as notificações foram limpas via socket');
       }
     };
     
     const onCompanyAppMessageNotificationsPopover = (data) => {
+      console.log('Mensagem recebida:', data);
+      
       if (
         data.action === "create" &&
         !data.message.read &&
@@ -203,8 +244,9 @@ const NotificationsPopOver = (props) => {
         setNotifications(prevState => {
           const ticketIndex = prevState.findIndex(t => t.id === data.ticket.id);
           if (ticketIndex !== -1) {
-            prevState[ticketIndex] = data.ticket;
-            return [...prevState];
+            const newState = [...prevState];
+            newState[ticketIndex] = data.ticket;
+            return newState;
           }
           return [data.ticket, ...prevState];
         });
@@ -220,15 +262,32 @@ const NotificationsPopOver = (props) => {
       }
     };
 
+    // Listener para resultado de limpar notificações
+    const onClearNotificationsResult = (result) => {
+      console.log('Resultado de limpar notificações:', result);
+      if (result.success) {
+        setNotifications([]);
+        notificationService.clearAllNotifications();
+        setDesktopNotifications([]);
+        toast.success(result.message || "Notificações limpas com sucesso");
+      } else {
+        toast.error(result.error || "Erro ao limpar notificações");
+      }
+      setLoading(false);
+    };
+
     socket.on("connect", onConnectNotificationsPopover);
     socket.on(`company-${companyId}-ticket`, onCompanyTicketNotificationsPopover);
     socket.on(`company-${companyId}-appMessage`, onCompanyAppMessageNotificationsPopover);
+    socket.on("clearNotificationsResult", onClearNotificationsResult);
 
     return () => {
-        socket.off(`company-${companyId}-ticket`, onCompanyTicketNotificationsPopover);
-        socket.off(`company-${companyId}-appMessage`, onCompanyAppMessageNotificationsPopover);
+      socket.off("connect", onConnectNotificationsPopover);
+      socket.off(`company-${companyId}-ticket`, onCompanyTicketNotificationsPopover);
+      socket.off(`company-${companyId}-appMessage`, onCompanyAppMessageNotificationsPopover);
+      socket.off("clearNotificationsResult", onClearNotificationsResult);
     };
-  }, [user, profile, queues, socketManager, setNotifications]);
+  }, [user, profile, queues, socketManager, setNotifications, handlePlaySound]);
 
   // Função para criar notificações
   const handleNotifications = (data) => {
@@ -241,9 +300,8 @@ const NotificationsPopOver = (props) => {
     }
   
     // Reproduzir som de alerta
-    if (soundAlertRef.current) {
-      soundAlertRef.current();
-    }
+    console.log('Reproduzindo som de notificação...');
+    handlePlaySound();
   
     // Criar notificação apenas se tiver permissão
     const messageBody = message.body || i18n.t("notifications.newMessage");
@@ -269,8 +327,9 @@ const NotificationsPopOver = (props) => {
           (n) => n.tag === notification.tag
         );
         if (notificationIndex !== -1) {
-          prevState[notificationIndex] = notification;
-          return [...prevState];
+          const newState = [...prevState];
+          newState[notificationIndex] = notification;
+          return newState;
         }
         return [notification, ...prevState];
       });
@@ -278,12 +337,13 @@ const NotificationsPopOver = (props) => {
   };
 
   // Solicitação explícita de permissão para notificações
-  const requestNotificationPermission = () => {
+  const requestNotificationPermission = async () => {
     try {
-      notificationService.requestPermissionExplicitly();
+      await notificationService.requestPermissionExplicitly();
+      toast.success("Permissão para notificações concedida!");
     } catch (error) {
       console.error("Erro ao solicitar permissão para notificações:", error);
-      toast.error(i18n.t("notifications.permissionError"));
+      toast.error(error.message || "Erro ao solicitar permissão para notificações");
     }
   };
 
@@ -297,27 +357,38 @@ const NotificationsPopOver = (props) => {
 
   const handleClearAllNotifications = async () => {
     try {
-      if (notifications.length === 0) return;
+      if (notifications.length === 0) {
+        toast.info("Nenhuma notificação para limpar");
+        return;
+      }
       
-      // Atualizar apenas o atributo unreadMessages para 0
+      setLoading(true);
+      
+      // Usar socket para limpar notificações
       const companyId = localStorage.getItem("companyId");
       const socket = socketManager.GetSocket(companyId);
       
-      // Em vez de atualizar os tickets individualmente,
-      // emitimos um evento para o servidor para marcar todas as mensagens como lidas
-      socket.emit("clearNotifications");
+      if (socket) {
+        console.log('Enviando comando para limpar notificações via socket...');
+        socket.emit("clearNotifications");
+      } else {
+        // Fallback para API REST se socket não estiver disponível
+        console.log('Socket não disponível, usando API REST...');
+        await api.post("/notifications/clear");
+        
+        // Limpar notificações localmente
+        setNotifications([]);
+        notificationService.clearAllNotifications();
+        setDesktopNotifications([]);
+        
+        toast.success("Notificações limpas com sucesso");
+        setLoading(false);
+      }
       
-      // Limpar notificações no estado global
-      setNotifications([]);
-      
-      // Limpar notificações do navegador
-      notificationService.clearNotifications(desktopNotifications);
-      setDesktopNotifications([]);
-      
-      toast.success(i18n.t("notifications.cleared"));
     } catch (err) {
-      console.error(err);
-      toast.error(i18n.t("notifications.clearError"));
+      console.error("Erro ao limpar notificações:", err);
+      toast.error(err.response?.data?.message || "Erro ao limpar notificações");
+      setLoading(false);
     }
   };
 
@@ -330,10 +401,7 @@ const NotificationsPopOver = (props) => {
       const socket = socketManager.GetSocket(companyId);
       
       if (socket) {
-        socket.emit("company-ticket-notification", {
-          action: "updateUnread",
-          ticketId: ticket.id
-        });
+        socket.emit("markTicketAsRead", { ticketId: ticket.id });
       }
       
       // Atualizar lista de notificações no estado local
@@ -357,14 +425,12 @@ const NotificationsPopOver = (props) => {
       history.push(`/tickets/${ticket.uuid}`);
     } catch (err) {
       console.error("Erro ao processar clique na notificação:", err);
-      toast.error(i18n.t("notifications.clickError") || "Erro ao abrir o ticket");
+      toast.error("Erro ao abrir o ticket");
     }
   };
 
-  // Função modificada para não usar o contexto problemático
   const handleSpyTicket = async (ticketId) => {
     try {
-      // Antes de abrir o modal, precisamos garantir que temos um ticket válido
       setLoading(true);
       
       // Buscar o ticket completo para garantir que ele existe
@@ -375,13 +441,12 @@ const NotificationsPopOver = (props) => {
         return;
       }
       
-      // Configurar o ID do ticket para o diálogo
       setViewingTicketId(ticketId);
       setOpenTicketMessageDialog(true);
       handleClickAway();
     } catch (err) {
       console.error("Erro ao espiar ticket:", err);
-      toast.error(err.response?.data?.message || "Erro ao espiar a conversa. Tente novamente.");
+      toast.error(err.response?.data?.message || "Erro ao espiar a conversa");
     } finally {
       setLoading(false);
     }
@@ -394,19 +459,17 @@ const NotificationsPopOver = (props) => {
     try {
       await api.delete(`/tickets/${deletingTicketId}`);
       
-      // Atualizar contadores
       setMakeRequestTagTotalTicketPending(Math.random());
       setMakeRequestTicketList(Math.random());
       
-      // Remover da lista de notificações
       setNotifications(prevState => 
         prevState.filter(t => t.id !== deletingTicketId)
       );
       
-      toast.success(i18n.t("notifications.ticketDeleted") || "Ticket excluído com sucesso");
+      toast.success("Ticket excluído com sucesso");
     } catch (err) {
       console.error("Erro ao excluir ticket:", err);
-      toast.error(i18n.t("notifications.deleteError") || "Erro ao excluir o ticket");
+      toast.error("Erro ao excluir o ticket");
     } finally {
       setLoading(false);
       setDeletingTicketId(null);
@@ -429,7 +492,6 @@ const NotificationsPopOver = (props) => {
         queueId: ticket?.queue?.id
       });
       
-      // Enviar mensagem de saudação se configurado
       if (sendGreetingAccepted === "enabled" && !ticket?.isGroup) {
         const msg = `{{ms}}*{{name}}*, meu nome é *${user?.name}* e agora vou prosseguir com seu atendimento!`;
         const message = {
@@ -446,27 +508,23 @@ const NotificationsPopOver = (props) => {
         }
       }
       
-      // Atualizar contadores
       setMakeRequestTagTotalTicketPending(Math.random());
       setMakeRequestTicketList(Math.random());
       
-      // Remover da lista de notificações
       setNotifications(prevState => 
         prevState.filter(t => t.id !== ticketId)
       );
       
-      // Muda para a aba ATENDENDO
       setOpenTabTicket({ tab: "open", makeRequest: Math.random() });
       
-      toast.success(i18n.t("notifications.ticketAccepted") || "Ticket aceito com sucesso");
+      toast.success("Ticket aceito com sucesso");
       
-      // Navegar para o ticket
       if (ticket?.uuid) {
         history.push(`/tickets/${ticket?.uuid}`);
       }
     } catch (err) {
       console.error("Erro ao aceitar ticket:", err);
-      toast.error(i18n.t("notifications.acceptError") || "Erro ao aceitar o ticket");
+      toast.error("Erro ao aceitar o ticket");
     } finally {
       setLoading(false);
       handleClickAway();
@@ -506,11 +564,9 @@ const NotificationsPopOver = (props) => {
       
       await api.put(`/tickets/${ticketId}`, closeData);
       
-      // Atualizar contadores
       setMakeRequestTagTotalTicketPending(Math.random());
       setMakeRequestTicketList(Math.random());
       
-      // Remover da lista de notificações
       setNotifications(prevState => 
         prevState.filter(t => t.id !== ticketId)
       );
@@ -540,14 +596,12 @@ const NotificationsPopOver = (props) => {
   const browserNotification = () => {
     document.title = theme.appName || "...";
     return (
-      <>
-        <Favicon
-          animated={true}
-          url={(theme?.appLogoFavicon) ? theme.appLogoFavicon : defaultLogoFavicon}
-          alertCount={notifications.length}
-          iconSize={195}
-        />
-      </>
+      <Favicon
+        animated={true}
+        url={(theme?.appLogoFavicon) ? theme.appLogoFavicon : defaultLogoFavicon}
+        alertCount={notifications.length}
+        iconSize={195}
+      />
     );
   };
 
@@ -567,43 +621,41 @@ const NotificationsPopOver = (props) => {
         size="large"
       >
         <WhatsAppIcon style={{ color: "white" }} />
-        {notifications.length > 0 ? (
+        {notifications.length > 0 && (
           <StyledBadge 
             variant="dot" 
             color="white"
           />
-        ) : ""}
+        )}
       </IconButton>
       <PopoverPaper
-  disableScrollLock
-  open={isOpen}
-  anchorEl={anchorEl.current}
-  anchorOrigin={{
-    vertical: "bottom",
-    horizontal: "right",
-  }}
-  transformOrigin={{
-    vertical: "top",
-    horizontal: "right",
-  }}
-  onClose={handleClickAway}
-  sx={{
-    // Adicionando estilos personalizados para mobile
-    [theme.breakpoints.down('sm')]: {
-      '& .MuiBackdrop-root': {
-        backgroundColor: '#ffffff'
-      }
-    }
-  }}
->
-        {/* Cabeçalho estilizado */}
+        disableScrollLock
+        open={isOpen}
+        anchorEl={anchorEl.current}
+        anchorOrigin={{
+          vertical: "bottom",
+          horizontal: "right",
+        }}
+        transformOrigin={{
+          vertical: "top",
+          horizontal: "right",
+        }}
+        onClose={handleClickAway}
+        sx={{
+          [theme.breakpoints.down('sm')]: {
+            '& .MuiBackdrop-root': {
+              backgroundColor: '#ffffff'
+            }
+          }
+        }}
+      >
         <NotificationHeader>
           <Typography variant="h6" sx={{ color: '#FFFFFF', display: 'flex', alignItems: 'center' }}>
             <HeaderIcon />
             {i18n.t("notifications.title")}
           </Typography>
           {!notificationService.hasPermission() && (
-            <Tooltip title={i18n.t("notifications.enableNotifications")}>
+            <Tooltip title="Habilitar notificações do navegador">
               <NotificationButton 
                 size="small" 
                 color="white"
@@ -614,11 +666,12 @@ const NotificationsPopOver = (props) => {
             </Tooltip>
           )}
           {notifications.length > 0 && (
-            <Tooltip title={i18n.t("notifications.clearAll")}>
+            <Tooltip title="Limpar todas as notificações">
               <ClearButton 
                 size="small" 
                 color="white"
                 onClick={handleClearAllNotifications}
+                disabled={loading}
               >
                 <ClearAllIcon fontSize="small" />
               </ClearButton>
@@ -626,13 +679,12 @@ const NotificationsPopOver = (props) => {
           )}
         </NotificationHeader>
 
-        {/* Contador de notificações */}
         {notifications.length > 0 && (
           <NotificationCount>
             <Typography variant="subtitle2" color="textSecondary">
               {notifications.length} {notifications.length === 1 
-                ? i18n.t("notifications.message") 
-                : i18n.t("notifications.messages")}
+                ? "notificação" 
+                : "notificações"}
             </Typography>
           </NotificationCount>
         )}
@@ -640,7 +692,7 @@ const NotificationsPopOver = (props) => {
         <List dense component={TabContainer}>
           {notifications.length === 0 ? (
             <ListItem>
-              <ListItemText>{i18n.t("notifications.noTickets")}</ListItemText>
+              <ListItemText>Nenhuma notificação pendente</ListItemText>
             </ListItem>
           ) : (
             notifications.map((ticket) => (
@@ -662,16 +714,14 @@ const NotificationsPopOver = (props) => {
         </List>
       </PopoverPaper>
       
-      {/* Diálogo para espiar mensagens */}
       <NotificationTicketMessagesDialog
         open={openTicketMessageDialog}
         handleClose={() => setOpenTicketMessageDialog(false)}
         ticketId={viewingTicketId}
       />
       
-      {/* Modal de confirmação para exclusão */}
       <ConfirmationModal
-        title={i18n.t("notifications.confirmDeleteTitle") || "Confirmar exclusão"}
+        title="Confirmar exclusão"
         open={confirmationOpen}
         onClose={() => {
           setConfirmationOpen(false);
@@ -679,10 +729,9 @@ const NotificationsPopOver = (props) => {
         }}
         onConfirm={handleDeleteTicket}
       >
-        {i18n.t("notifications.confirmDeleteMessage") || "Tem certeza que deseja excluir este ticket?"}
+        Tem certeza que deseja excluir este ticket?
       </ConfirmationModal>
       
-      {/* Modal para selecionar motivo de encerramento */}
       {reasonModalOpen && (
         <ReasonSelectionModal
           open={reasonModalOpen}
