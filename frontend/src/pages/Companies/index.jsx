@@ -483,7 +483,6 @@ const Companies = () => {
           data={filteredCompanies}
           columns={columns}
           loading={loading && records.length === 0}
-          actions={filteredCompanies.length > 0 ? getTableActions(filteredCompanies[0]) : []}
           onRowClick={(company) => {
             setSelectedCompany(company);
             setShowDetailsModal(true);
@@ -491,7 +490,6 @@ const Companies = () => {
           stickyHeader={true}
           size="small"
           hover={true}
-          maxVisibleActions={4}
           emptyIcon={<BusinessIcon />}
           emptyTitle={
             activeTab === 0 
