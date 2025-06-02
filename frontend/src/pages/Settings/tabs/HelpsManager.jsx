@@ -230,6 +230,11 @@ function HelpsManager() {
     const [loading, setLoading] = useState(false);
     const [records, setRecords] = useState([]);
     const [searchTerm, setSearchTerm] = useState('');
+    const [debouncedSearchTerm, setDebouncedSearchTerm] = useState(searchTerm);
+    useEffect(() => {
+      const handler = setTimeout(() => { setDebouncedSearchTerm(searchTerm); }, 300);
+      return () => { clearTimeout(handler); };
+    }, [searchTerm]);
     const [selectedHelp, setSelectedHelp] = useState(null);
     const [isEditing, setIsEditing] = useState(false);
     

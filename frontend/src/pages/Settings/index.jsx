@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { Suspense, useState, useEffect, useCallback } from "react";
 import {
   Box,
   Alert,
@@ -27,13 +27,16 @@ import { i18n } from "../../translate/i18n";
 import { toast } from "../../helpers/toast";
 
 // Componentes de configurações
-import Options from "./tabs/Options";
-import SchedulesForm from "./tabs/SchedulesForm";
-import PlansManager from "./tabs/PlansManager";
-import HelpsManager from "./tabs/HelpsManager";
-import Whitelabel from "./tabs/Whitelabel";
-import PaymentGateway from "./tabs/PaymentGateway";
-import Reason from "./tabs/Reason";
+
+
+// Lazy load tab components
+const Options = React.lazy(() => import('./tabs/Options'));
+const SchedulesForm = React.lazy(() => import('./tabs/SchedulesForm'));
+const PlansManager = React.lazy(() => import('./tabs/PlansManager'));
+const HelpsManager = React.lazy(() => import('./tabs/HelpsManager'));
+const Whitelabel = React.lazy(() => import('./tabs/Whitelabel'));
+const PaymentGateway = React.lazy(() => import('./tabs/PaymentGateway'));
+const Reason = React.lazy(() => import('./tabs/Reason'));
 
 const Settings = () => {
   // Estados
@@ -349,6 +352,7 @@ const Settings = () => {
     >
       {/* Aba de Configurações Gerais */}
       {tab === "options" && (
+        <Suspense fallback={<Box sx={{ display: 'flex', justifyContent: 'center', pt: 2 }}><CircularProgress /></Box>}>
         <StandardTabContent
           title={i18n.t("settings.tabs.params") || "Configurações"}
           description="Configure as opções gerais do sistema"
@@ -362,10 +366,12 @@ const Settings = () => {
             pendingChanges={pendingChanges}
           />
         </StandardTabContent>
+        </Suspense>
       )}
 
       {/* Aba de Horários */}
       {tab === "schedules" && (
+        <Suspense fallback={<Box sx={{ display: 'flex', justifyContent: 'center', pt: 2 }}><CircularProgress /></Box>}>
         <StandardTabContent
           title={i18n.t("settings.tabs.schedules") || "Horários"}
           description="Configure os horários de funcionamento da empresa"
@@ -380,10 +386,12 @@ const Settings = () => {
             labelSaveButton={i18n.t("settings.saveButton") || "Salvar"}
           />
         </StandardTabContent>
+        </Suspense>
       )}
 
       {/* Aba de Planos */}
       {tab === "plans" && data.currentUser?.super && (
+        <Suspense fallback={<Box sx={{ display: 'flex', justifyContent: 'center', pt: 2 }}><CircularProgress /></Box>}>
         <StandardTabContent
           title={i18n.t("settings.tabs.plans") || "Planos"}
           description="Gerencie os planos de assinatura do sistema"
@@ -392,10 +400,12 @@ const Settings = () => {
         >
           <PlansManager />
         </StandardTabContent>
+        </Suspense>
       )}
 
       {/* Aba de Ajuda */}
       {tab === "helps" && data.currentUser?.super && (
+        <Suspense fallback={<Box sx={{ display: 'flex', justifyContent: 'center', pt: 2 }}><CircularProgress /></Box>}>
         <StandardTabContent
           title={i18n.t("settings.tabs.helps") || "Ajuda"}
           description="Configure as mensagens de ajuda e documentação"
@@ -404,10 +414,12 @@ const Settings = () => {
         >
           <HelpsManager />
         </StandardTabContent>
+        </Suspense>
       )}
 
       {/* Aba de Whitelabel */}
       {tab === "whitelabel" && showWhiteLabel && (
+        <Suspense fallback={<Box sx={{ display: 'flex', justifyContent: 'center', pt: 2 }}><CircularProgress /></Box>}>
         <StandardTabContent
           title="Whitelabel"
           description="Personalize a aparência e marca do sistema"
@@ -416,10 +428,12 @@ const Settings = () => {
         >
           <Whitelabel settings={Array.isArray(data.settings) ? data.settings : []} />
         </StandardTabContent>
+        </Suspense>
       )}
 
       {/* Aba de Gateway de Pagamento */}
       {tab === "paymentGateway" && data.currentUser?.super && (
+        <Suspense fallback={<Box sx={{ display: 'flex', justifyContent: 'center', pt: 2 }}><CircularProgress /></Box>}>
         <StandardTabContent
           title="Gateway de Pagamento"
           description="Configure os métodos de pagamento disponíveis"
@@ -428,10 +442,12 @@ const Settings = () => {
         >
           <PaymentGateway settings={Array.isArray(data.settings) ? data.settings : []} />
         </StandardTabContent>
+        </Suspense>
       )}
 
       {/* Aba de Motivos de Encerramento */}
       {tab === "closureReasons" && reasonEnabled === "enabled" && (
+        <Suspense fallback={<Box sx={{ display: 'flex', justifyContent: 'center', pt: 2 }}><CircularProgress /></Box>}>
         <StandardTabContent
           title="Motivos de Encerramento"
           description="Configure os motivos disponíveis para encerramento de tickets"
@@ -440,6 +456,7 @@ const Settings = () => {
         >
           <Reason />
         </StandardTabContent>
+        </Suspense>
       )}
 
       {/* Botão para salvar alterações pendentes */}

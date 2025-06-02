@@ -501,7 +501,7 @@ const PlanForm = ({
                                 variant="contained"
                                 color="primary"
                                 startIcon={<SaveIcon />}
-                                disabled={loading || isSubmitting || !isValid || (!dirty && !isEditing)}
+                                disabled={loading || isSubmitting || !isValid}
                                 sx={{ 
                                     borderRadius: { xs: 3, sm: 2 },
                                     minHeight: { xs: 48, sm: 40 }
