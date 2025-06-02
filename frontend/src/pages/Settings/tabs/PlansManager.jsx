@@ -900,6 +900,15 @@ export default function PlansManager() {
                         variant={isMobile ? "fullWidth" : "standard"}
                     >
                         <Tab 
+                            icon={<ListIcon />} 
+                            label="Planos" 
+                            iconPosition="start"
+                            sx={{ 
+                                minHeight: isMobile ? 56 : 48,
+                                fontSize: isMobile ? '0.9rem' : '0.875rem' 
+                            }}
+                        />
+                        <Tab 
                             icon={<AssignmentIcon />} 
                             label={isEditing ? "Editar Plano" : "Novo Plano"} 
                             iconPosition="start"
@@ -908,44 +917,15 @@ export default function PlansManager() {
                                 fontSize: isMobile ? '0.9rem' : '0.875rem' 
                             }}
                         />
-                        <Tab 
-                            icon={<ListIcon />} 
-                            label="Listar Planos" 
-                            iconPosition="start"
-                            sx={{ 
-                                minHeight: isMobile ? 56 : 48,
-                                fontSize: isMobile ? '0.9rem' : '0.875rem' 
-                            }}
-                        />
+
                     </Tabs>
                 </Box>
             </Paper>
 
             {/* Conteúdo das Abas */}
+
             {activeTab === 0 && (
                 <Box>
-                    <PlanForm
-                        initialValues={formValues}
-                        onSubmit={handleSubmit}
-                        onCancel={handleCancel}
-                        onDelete={handleDelete}
-                        loading={loading}
-                        isEditing={isEditing}
-                    />
-                </Box>
-            )}
-
-            {activeTab === 1 && (
-                <Box>
-                    <SectionTitle>
-                        <AssignmentIcon />
-                        Planos Cadastrados
-                    </SectionTitle>
-                    
-                    <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-                        Lista de todos os planos de assinatura disponíveis
-                    </Typography>
-
                     {/* Estatísticas */}
                     <Box sx={{ 
                         display: 'flex', 
@@ -995,6 +975,21 @@ export default function PlansManager() {
                     )}
                 </Box>
             )}
+
+            {activeTab === 1 && (
+                <Box>
+                    <PlanForm
+                        initialValues={formValues}
+                        onSubmit={handleSubmit}
+                        onCancel={handleCancel}
+                        onDelete={handleDelete}
+                        loading={loading}
+                        isEditing={isEditing}
+                    />
+                </Box>
+            )}
+
+
 
             {/* Modal de Confirmação - Excluir */}
             <StandardModal
