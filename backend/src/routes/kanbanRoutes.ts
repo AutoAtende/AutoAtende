@@ -7,15 +7,28 @@ import KanbanCardController from "../controllers/KanbanCardController";
 import KanbanChecklistController from "../controllers/KanbanChecklistController";
 import KanbanMetricsController from "../controllers/KanbanMetricsController";
 import KanbanTicketController from "../controllers/KanbanTicketController";
-
+import KanbanTicketIntegrationController from "../controllers/KanbanTicketIntegrationController";
 
 const routes = Router();
 
 //-------------------------------------------------------------------------
-// Rotas para Quadros (Boards)
+// ROTA PRINCIPAL PARA TICKETS NO KANBAN (COMPATIBILIDADE COM SISTEMA ANTIGO)
 //-------------------------------------------------------------------------
 
+// Buscar tickets formatados para Kanban (substitui o endpoint antigo)
+routes.get("/kanban", isAuth, KanbanTicketController.index);
+
+// Mover ticket entre lanes
+routes.post("/kanban/tickets/:ticketId/move", isAuth, KanbanTicketController.moveTicket);
+
+//-------------------------------------------------------------------------
+// Rotas para Métricas
+//-------------------------------------------------------------------------
 routes.get("/kanban/metrics/boards", isAuth, KanbanMetricsController.getBoardMetrics);
+
+//-------------------------------------------------------------------------
+// Rotas para Quadros (Boards)
+//-------------------------------------------------------------------------
 
 // Listar todos os quadros
 routes.get("/kanban/boards", isAuth, KanbanBoardController.index);
@@ -32,29 +45,27 @@ routes.put("/kanban/boards/:boardId", isAuth, KanbanBoardController.update);
 // Remover um quadro
 routes.delete("/kanban/boards/:boardId", isAuth, KanbanBoardController.remove);
 
-
 //-------------------------------------------------------------------------
-// Rotas para Integração Kanban-Ticket
+// Rotas para Integração Kanban-Ticket (NOVO SISTEMA)
 //-------------------------------------------------------------------------
 
 // Criar cartão a partir de ticket
-routes.post("/kanban/tickets/create-card", isAuth, KanbanTicketController.createCardFromTicket);
+routes.post("/kanban/tickets/create-card", isAuth, KanbanTicketIntegrationController.createCardFromTicket);
 
 // Criação automática em lote
-routes.post("/kanban/tickets/auto-create", isAuth, KanbanTicketController.autoCreateCards);
+routes.post("/kanban/tickets/auto-create", isAuth, KanbanTicketIntegrationController.autoCreateCards);
 
 // Processar tickets importados (criados via FindOrCreateTicketService com importing=true)
-routes.post("/kanban/tickets/process-imported", isAuth, KanbanTicketController.processImportedTickets);
+routes.post("/kanban/tickets/process-imported", isAuth, KanbanTicketIntegrationController.processImportedTickets);
 
 // Sincronizar status ticket com lane
-routes.post("/kanban/tickets/:cardId/sync", isAuth, KanbanTicketController.syncTicketStatus);
+routes.post("/kanban/tickets/:cardId/sync", isAuth, KanbanTicketIntegrationController.syncTicketStatus);
 
 // Atualizar cartão a partir do ticket
-routes.put("/kanban/tickets/:ticketId/update-card", isAuth, KanbanTicketController.updateCardFromTicket);
+routes.put("/kanban/tickets/:ticketId/update-card", isAuth, KanbanTicketIntegrationController.updateCardFromTicket);
 
 // Arquivar cartão quando ticket for fechado
-routes.delete("/kanban/tickets/:ticketId/archive-card", isAuth, KanbanTicketController.archiveCardFromTicket);
-
+routes.delete("/kanban/tickets/:ticketId/archive-card", isAuth, KanbanTicketIntegrationController.archiveCardFromTicket);
 
 //-------------------------------------------------------------------------
 // Rotas para Colunas (Lanes)
@@ -130,11 +141,5 @@ routes.delete("/kanban/checklist-items/:itemId", isAuth, KanbanChecklistControll
 
 // Reordenar itens de checklist
 routes.post("/kanban/cards/:cardId/reorder-checklist-items", isAuth, KanbanChecklistController.reorderChecklistItems);
-
-//-------------------------------------------------------------------------
-// Rotas para Métricas
-//-------------------------------------------------------------------------
-// Obter métricas de um quadro
-
 
 export default routes;
