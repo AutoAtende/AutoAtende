@@ -33,6 +33,7 @@ import StandardModal from "../../components/shared/StandardModal";
 import KanbanView from "./KanbanView";
 import ListView from "./ListView";
 import CalendarView from "./CalendarView";
+import KanbanTicketsView from "./KanbanTicketsView";
 import BoardSelector from "./components/BoardSelector";
 import BoardSettingsModal from "./components/BoardSettingsModal";
 import KanbanMetrics from "./components/KanbanMetrics";
@@ -45,7 +46,7 @@ const Kanban = () => {
   const { boardId } = useParams();
   const { Loading } = useLoading();
   
-  const [viewType, setViewType] = useState('kanban');
+  const [viewType, setViewType] = useState('kanbanTickets');
   const [boards, setBoards] = useState([]);
   const [selectedBoard, setSelectedBoard] = useState(null);
   const [lanes, setLanes] = useState([]);
@@ -218,6 +219,31 @@ const Kanban = () => {
 
   const handleViewChange = (event, newView) => {
     setViewType(newView);
+  };
+
+  const renderView = () => {
+    switch (viewType) {
+      case 'kanban':
+        return (
+          <KanbanView
+            lanes={lanes}
+            loading={loading}
+            selectedBoard={selectedBoard}
+            onCardMove={handleCardMove}
+            onCardClick={handleCardClick}
+            onAddCard={handleAddCard}
+            onRefresh={fetchData}
+          />
+        );
+      case 'list':
+        return <ListView tickets={tickets} loading={loading} />;
+      case 'calendar':
+        return <CalendarView events={events} />;
+      case 'kanbanTickets':
+        return <KanbanTicketsView />;
+      default:
+        return null;
+    }
   };
 
   const handleRefresh = () => {
@@ -467,29 +493,35 @@ const Kanban = () => {
           
           {selectedBoard && (
             <Box sx={{ display: 'flex', alignItems: 'center' }}>
-              <Tabs 
-                value={viewType} 
+              <Tabs
+                value={viewType}
                 onChange={handleViewChange}
-                indicatorColor="primary"
-                textColor="primary"
+                aria-label="view type tabs"
+                sx={{ minHeight: 48 }}
               >
                 <Tab 
                   icon={<KanbanViewIcon />} 
-                  label="Kanban" 
                   value="kanban" 
-                  iconPosition="start"
+                  label="Kanban" 
+                  sx={{ minHeight: 48 }}
+                />
+                <Tab 
+                  icon={<KanbanViewIcon />} 
+                  value="kanbanTickets" 
+                  label="Kanban Tickets" 
+                  sx={{ minHeight: 48 }}
                 />
                 <Tab 
                   icon={<ListViewIcon />} 
-                  label="Lista" 
                   value="list" 
-                  iconPosition="start"
+                  label="Lista" 
+                  sx={{ minHeight: 48 }}
                 />
                 <Tab 
                   icon={<CalendarViewIcon />} 
-                  label="Calendário" 
                   value="calendar" 
-                  iconPosition="start"
+                  label="Calendário" 
+                  sx={{ minHeight: 48 }}
                 />
               </Tabs>
               

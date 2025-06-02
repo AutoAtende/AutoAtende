@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useContext, useCallback } from "react";
 import { useTheme } from "@mui/material/styles";
+import useSettings from "../../hooks/useSettings";
 import {
   Box,
   Paper,
@@ -58,7 +59,8 @@ const KanbanTicketsView = () => {
   const [queues, setQueues] = useState([]);
   const [selectedQueue, setSelectedQueue] = useState('');
   const [viewType, setViewType] = useState('active');
-  const [enableValueAndSku, setEnableValueAndSku] = useState(false);
+  const { settings, updateSetting } = useSettings();
+  const enableValueAndSku = settings.find(s => s.key === "enableTicketValueAndSku")?.value === "enabled";
   
   // Estados de filtro
   const [searchQuery, setSearchQuery] = useState("");
@@ -102,12 +104,7 @@ const KanbanTicketsView = () => {
         : queueData.filter((queue) => user.queues.some((q) => q.id === queue.id));
       setQueues(userQueues);
 
-      // Carregar configurações
-      const { data: settings } = await api.get("/settings");
-      if (Array.isArray(settings)) {
-        const enableSetting = settings.find(s => s.key === "enableTicketValueAndSku");
-        setEnableValueAndSku(enableSetting?.value === "enabled");
-      }
+      // As configurações são carregadas automaticamente pelo hook useSettings
     } catch (error) {
       console.error("Erro ao carregar dados iniciais:", error);
       toast.error("Erro ao carregar dados iniciais");
@@ -358,8 +355,13 @@ const KanbanTicketsView = () => {
     setSelectedTicket(null);
   };
 
-  const handleQueueChange = (event) => {
-    setSelectedQueue(event.target.value);
+  const handleToggleValueAndSku = async (event) => {
+    try {
+      await updateSetting("enableTicketValueAndSku", event.target.checked ? "enabled" : "disabled");
+    } catch (error) {
+      console.error("Erro ao atualizar configuração:", error);
+      toast.error("Erro ao atualizar configuração");
+    }
   };
 
   const handleViewTypeChange = (event) => {

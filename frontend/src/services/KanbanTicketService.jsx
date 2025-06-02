@@ -1,6 +1,7 @@
 // services/KanbanTicketService.js
 import api from './api';
 import { toast } from '../helpers/toast';
+import { useSettings } from '../hooks/useSettings';
 
 class KanbanTicketService {
   /**
@@ -135,45 +136,34 @@ class KanbanTicketService {
   }
 
   /**
-   * Configurações da integração automática
+   * Hook para obter as configurações de criação automática
+   * Deve ser usado dentro de um componente React
    */
-  static async getAutoCreateSettings() {
-    try {
-      const { data } = await api.request({
-        url: '/settings/kanbanAutoCreateCards',
-        method: 'get'
-      });
-      
-      return data.value === 'enabled';
-    } catch (error) {
-      return false;
-    }
-  }
-
-  static async setAutoCreateSettings(enabled) {
-    try {
-      const { data } = await api.request({
-        url: '/settings/kanbanAutoCreateCards',
-        method: 'post',
-        data: {
-          value: enabled ? 'enabled' : 'disabled'
-        }
-      });
-      
-      return data;
-    } catch (error) {
-      console.error('Erro ao configurar criação automática:', error);
-      throw error;
-    }
+  static useAutoCreateSettings() {
+    const { settings, updateSetting, loading } = useSettings();
+    
+    const autoCreateEnabled = settings.find(s => s.key === 'kanbanAutoCreateCards')?.value === 'enabled';
+    
+    const setAutoCreateSettings = async (enabled) => {
+      try {
+        await updateSetting('kanbanAutoCreateCards', enabled ? 'enabled' : 'disabled');
+        return { success: true };
+      } catch (error) {
+        console.error('Erro ao configurar criação automática:', error);
+        throw error;
+      }
+    };
+    
+    return { autoCreateEnabled, setAutoCreateSettings, loading };
   }
 
   /**
    * Hook para eventos de ticket (para usar em componentes)
    */
   static createTicketEventHandler() {
+    const { autoCreateEnabled } = this.useAutoCreateSettings();
+    
     const handleTicketCreated = async (ticket) => {
-      const autoCreateEnabled = await this.getAutoCreateSettings();
-      
       if (autoCreateEnabled && ['pending', 'open'].includes(ticket.status)) {
         try {
           await this.createCardFromTicket(ticket.id);
