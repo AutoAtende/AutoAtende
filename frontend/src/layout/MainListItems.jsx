@@ -15,7 +15,6 @@ import {
   Search,
   RateReviewOutlined,
   PasswordOutlined,
-  SettingsOutlined,
   MonitorHeart,
   PeopleAltOutlined,
   SupervisedUserCircle,
