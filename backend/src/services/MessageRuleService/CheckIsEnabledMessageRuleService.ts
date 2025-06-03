@@ -29,7 +29,7 @@ export const CheckIsEnabledMessageRuleService = async ({
       try {
         await Setting.create({
           key: "enableMessageRules",
-          value: "disabled",
+          value: "enabled",
           companyId
         });
         

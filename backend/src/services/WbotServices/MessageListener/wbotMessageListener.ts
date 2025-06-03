@@ -812,7 +812,7 @@ export const handleMessage = async (
      * de atendimento. Isso garante que as mensagens recebidas fora do horário de funcionamento
      * sejam tratadas adequadamente.
      */
-    const currentSchedule = await VerifyCurrentSchedule({companyId});
+    const currentSchedule = await VerifyCurrentSchedule({ companyId });
     const scheduleType = await Setting.findOne({
       where: {
         companyId,
@@ -942,85 +942,85 @@ export const handleMessage = async (
         }
 
         // ENCERRA ATENDIMENTO
-       // ENCERRA ATENDIMENTO
-if (
-  bodyMessage?.toUpperCase() === "SAIR" &&
-  ticket.status != "closed" &&
-  !ticket.isGroup
-) {
-  await SendPresenceStatus(
-    wbot,
-    `${ticket.contact.number}@${ticket.isGroup ? "g.us" : "s.whatsapp.net"}`
-  );
+        // ENCERRA ATENDIMENTO
+        if (
+          bodyMessage?.toUpperCase() === "SAIR" &&
+          ticket.status != "closed" &&
+          !ticket.isGroup
+        ) {
+          await SendPresenceStatus(
+            wbot,
+            `${ticket.contact.number}@${ticket.isGroup ? "g.us" : "s.whatsapp.net"}`
+          );
 
-  const sentMessage = await wbot.sendMessage(
-    `${ticket.contact.number}@${ticket.isGroup ? "g.us" : "s.whatsapp.net"}`,
-    {
-      text: "*Você encerrou este atendimento usando o comando SAIR*.\n\n\nSe você finalizou o atendimento *ANTES* de receber um retorno do operador, ele *NÃO* irá visualizar sua solicitação!\n\nVocê deve aguardar o retorno do operador e que ele encerre seu atendimento quando necessário.\n\nUse a opção *SAIR* somente em casos de emergência ou se ficou preso em algum setor.\n\n\nPara iniciar um novo atendimento basta enviar uma nova mensagem!"
-    }
-  );
+          const sentMessage = await wbot.sendMessage(
+            `${ticket.contact.number}@${ticket.isGroup ? "g.us" : "s.whatsapp.net"}`,
+            {
+              text: "*Você encerrou este atendimento usando o comando SAIR*.\n\n\nSe você finalizou o atendimento *ANTES* de receber um retorno do operador, ele *NÃO* irá visualizar sua solicitação!\n\nVocê deve aguardar o retorno do operador e que ele encerre seu atendimento quando necessário.\n\nUse a opção *SAIR* somente em casos de emergência ou se ficou preso em algum setor.\n\n\nPara iniciar um novo atendimento basta enviar uma nova mensagem!"
+            }
+          );
 
-  
 
-  // Buscar todas execuções ativas do FlowBuilder para este contato
-  const activeExecutions = await FlowBuilderExecution.findAll({
-    where: {
-      contactId: contact.id,
-      companyId: ticket.companyId,
-      status: "active"
-    }
-  });
 
-  // Finalizar todas as execuções encontradas
-  if (activeExecutions.length > 0) {
-    logger.info(`[SAIR_COMMAND] Finalizando ${activeExecutions.length} execuções de fluxo para o contato ${contact.id}`);
-    
-    // Importar o serviço de finalização de fluxo
-    const { default: FinishFlowService } = await import(
-      "../../FlowBuilderService/FinishFlowService"
-    );
-    
-    for (const execution of activeExecutions) {
-      await FinishFlowService({
-        ticketId: ticket.id,
-        companyId: ticket.companyId,
-        executionId: execution.id,
-        ticketStatus: "closed",
-        flowStatus: "completed"
-      });
-      
-      // Marcando na execução que foi finalizada pelo comando SAIR
-      await execution.update({
-        variables: {
-          ...execution.variables,
-          __terminatedBySairCommand: true
+          // Buscar todas execuções ativas do FlowBuilder para este contato
+          const activeExecutions = await FlowBuilderExecution.findAll({
+            where: {
+              contactId: contact.id,
+              companyId: ticket.companyId,
+              status: "active"
+            }
+          });
+
+          // Finalizar todas as execuções encontradas
+          if (activeExecutions.length > 0) {
+            logger.info(`[SAIR_COMMAND] Finalizando ${activeExecutions.length} execuções de fluxo para o contato ${contact.id}`);
+
+            // Importar o serviço de finalização de fluxo
+            const { default: FinishFlowService } = await import(
+              "../../FlowBuilderService/FinishFlowService"
+            );
+
+            for (const execution of activeExecutions) {
+              await FinishFlowService({
+                ticketId: ticket.id,
+                companyId: ticket.companyId,
+                executionId: execution.id,
+                ticketStatus: "closed",
+                flowStatus: "completed"
+              });
+
+              // Marcando na execução que foi finalizada pelo comando SAIR
+              await execution.update({
+                variables: {
+                  ...execution.variables,
+                  __terminatedBySairCommand: true
+                }
+              });
+            }
+          }
+
+          ticket.set({
+            typebotSessionId: null,
+            flowExecutionId: null  // Garantir que o flowExecutionId seja limpo
+          });
+
+          await UpdateTicketService({
+            ticketData: {
+              queueId: ticket.queueId,
+              status: "closed",
+              useIntegration: false,
+              integrationId: null,
+              flowExecutionId: null,  // Explicitamente definir como null
+              appointmentMode: false  // Desativar modo de agendamento também
+            },
+            ticketId: ticket.id,
+            companyId: ticket.companyId,
+            userCurrentId: ticket.userId
+          });
+          await verifyMessage(sentMessage, ticket, ticket.contact);
+          await ticket.reload();
+          return;
         }
-      });
-    }
-  }
-
-  ticket.set({
-    typebotSessionId: null,
-    flowExecutionId: null  // Garantir que o flowExecutionId seja limpo
-  });
-
-  await UpdateTicketService({
-    ticketData: {
-      queueId: ticket.queueId,
-      status: "closed",
-      useIntegration: false,
-      integrationId: null,
-      flowExecutionId: null,  // Explicitamente definir como null
-      appointmentMode: false  // Desativar modo de agendamento também
-    },
-    ticketId: ticket.id,
-    companyId: ticket.companyId,
-    userCurrentId: ticket.userId
-  });
-  await verifyMessage(sentMessage, ticket, ticket.contact);
-  await ticket.reload();
-  return;
-}
       }
     } catch (e) {
       console.log("Erro ao salvar mensagem!");
@@ -1028,6 +1028,23 @@ if (
 
 
     }
+
+        /**
+     * @description Verifica se a mensagem foi enviada pelo usuário e se não está em modo de importação.
+     * Se a mensagem foi enviada pelo usuário e não está em modo de importação, chama a função
+     * ProcessMessageWithRules para processar a mensagem com as regras de atendimento.
+     */
+        //const isEnabledMessageRules = await CheckIsEnabledMessageRuleService({ companyId, whatsappId: ticket.whatsappId });
+        // if (isEnabledMessageRules) {
+          if (!importing && !isGroup) {
+            await ProcessMessageWithRules({
+              body: bodyMessage,
+              ticket,
+              companyId
+            });
+          }
+        //}
+    
 
     /**
      * @description Atualiza o ticket se a última mensagem foi enviada pelo bot.
@@ -1062,21 +1079,6 @@ if (
       await verifyMessage(msg, ticket, contact); // Processa a mensagem normal
     }
 
-    /**
-     * @description Verifica se a mensagem foi enviada pelo usuário e se não está em modo de importação.
-     * Se a mensagem foi enviada pelo usuário e não está em modo de importação, chama a função
-     * ProcessMessageWithRules para processar a mensagem com as regras de atendimento.
-     */
-    const isEnabledMessageRules = await CheckIsEnabledMessageRuleService({ companyId, whatsappId: ticket.whatsappId });
-    if (isEnabledMessageRules) {
-      if (!msg.key.fromMe && !importing && !isGroup) {
-        await ProcessMessageWithRules({
-          body: bodyMessage,
-          ticket,
-          companyId
-        });
-      }
-    }
 
     if (!msg.key.fromMe && scheduleType && !importing) {
       await handleOutOfHour(
@@ -1139,7 +1141,7 @@ if (
         ticket.integrationId,
         companyId
       );
-    
+
       // Se não encontrar integração mas integrationId existe, pode ser assistente direto
       if (!integration) {
         // Verificar se é um assistente pelo ID
@@ -1150,18 +1152,18 @@ if (
             companyId: ticket.companyId
           }
         });
-    
+
         if (assistant) {
           logger.info(`Continuando processamento com assistente direto: ${assistant.name} (${assistant.id})`);
           const assistantProcessed = await handleAssistantChat(assistant, msg, wbot, ticket, contact);
-    
+
           if (assistantProcessed) {
             return;
           }
         }
       } else if (integration && integration.type === "assistant") {
         const assistantId = integration.assistantId || integration.jsonContent;
-    
+
         if (assistantId) {
           const assistant = await Assistant.findOne({
             where: {
@@ -1170,11 +1172,11 @@ if (
               companyId: ticket.companyId
             }
           });
-    
+
           if (assistant) {
             logger.info(`Continuando processamento com assistente de integração: ${assistant.name} (${assistant.id})`);
             const assistantProcessed = await handleAssistantChat(assistant, msg, wbot, ticket, contact);
-    
+
             if (assistantProcessed) {
               return;
             }
@@ -1378,22 +1380,22 @@ if (
     if (ticket.queue?.queueIntegrations?.type === "assistant") {
       const assistantId = ticket.queue.queueIntegrations.assistantId ||
         ticket.queue.queueIntegrations.jsonContent;
-    
+
       if (assistantId) {
         const assistant = await Assistant.findOne({
           where: { id: assistantId, active: true, companyId }
         });
-    
+
         if (assistant) {
           // VERIFICAÇÃO: Só processa se não tem usuário E não está em outra integração
-          if (!ticket.userId && !ticket.useIntegration && !msg.key.fromMe && 
-              ticket.status !== "open" && ticket.status !== "closed") {
+          if (!ticket.userId && !ticket.useIntegration && !msg.key.fromMe &&
+            ticket.status !== "open" && ticket.status !== "closed") {
             logger.info(
               `Iniciando processamento com assistente de fila: ${ticket.queue.name}, assistantId: ${assistantId}`
             );
-    
+
             const assistantProcessed = await handleAssistantChat(assistant, msg, wbot, ticket, contact);
-    
+
             if (assistantProcessed) {
               return;
             }
@@ -1427,15 +1429,15 @@ if (
      */
     if (whatsapp.queues.length == 1 && ticket.queue && !importing) {
       const hasAssistantIntegration = ticket.queue.queueIntegrations?.type === "assistant";
-      
-      if (ticket.chatbot && !msg.key.fromMe && !ticket.userId && !verifyRating(ticketTraking) && 
-          !hasAssistantIntegration && !ticket.useIntegration) {
+
+      if (ticket.chatbot && !msg.key.fromMe && !ticket.userId && !verifyRating(ticketTraking) &&
+        !hasAssistantIntegration && !ticket.useIntegration) {
         await handleChatbot(ticket, msg, wbot, whatsapp, dontReadTheFirstQuestion, greetingMessageControl, outOfHourMessageControl);
       }
     }
     if (whatsapp.queues.length > 1 && ticket.queue && !importing) {
       const hasAssistantIntegration = ticket.queue.queueIntegrations?.type === "assistant";
-      
+
       if (ticket.chatbot && !msg.key.fromMe && !ticket.userId && !hasAssistantIntegration && !ticket.useIntegration) {
         await handleChatbot(
           ticket,
@@ -1501,10 +1503,10 @@ export const wbotMessageListener = async (
           return;
         }
         await verifyCampaignMessageAndCloseTicket(message, companyId);
-        
+
       }
 
-      
+
     }); // Fechamento correto do forEach
   });
 
