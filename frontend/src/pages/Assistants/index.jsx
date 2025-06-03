@@ -89,7 +89,7 @@ const Assistants = () => {
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [count, setCount] = useState(0);
   const [activeTab, setActiveTab] = useState(0);
-
+  const [helpModalOpen, setHelpModalOpen] = useState(false);
   // Buscar assistentes com todos os filtros aplicados
   const fetchAssistants = useCallback(async () => {
     setLoading(true);
@@ -222,11 +222,10 @@ const Assistants = () => {
     {
       label: i18n.t("assistants.buttons.help"),
       icon: <HelpIcon />,
-      onClick: () => {},
+      onClick: () => setHelpModalOpen(true),
       variant: "outlined",
       color: "primary",
-      tooltip: i18n.t("assistants.buttons.help"),
-      component: <AssistantsHelpButton key="help-button" />
+      tooltip: i18n.t("assistants.buttons.help")
     },
     {
       label: i18n.t("assistants.buttons.new"),
@@ -560,6 +559,11 @@ const Assistants = () => {
         open={importModalOpen}
         onClose={() => setImportModalOpen(false)}
         onImportComplete={handleImportComplete}
+      />
+
+      <AssistantsHelpModal 
+        open={helpModalOpen} 
+        onClose={() => setHelpModalOpen(false)} 
       />
     </>
   );
