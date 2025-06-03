@@ -226,14 +226,15 @@ const StandardPageLayout = ({
   children,
   loading = false,
   emptyState,
-  showEmptyState = false
+  showEmptyState = false,
+  containerProps = {}
 }) => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const isXs = useMediaQuery(theme.breakpoints.only('xs'));
 
   return (
-    <PageContainer>
+    <PageContainer {...containerProps}>
       {/* Cabeçalho da Página */}
       <PageHeader>
         <Box sx={{ flex: 1, minWidth: 0 }}>
@@ -425,7 +426,8 @@ StandardPageLayout.propTypes = {
   children: PropTypes.node.isRequired,
   loading: PropTypes.bool,
   emptyState: PropTypes.node,
-  showEmptyState: PropTypes.bool
+  showEmptyState: PropTypes.bool,
+  containerProps: PropTypes.object
 };
 
 export default StandardPageLayout;
