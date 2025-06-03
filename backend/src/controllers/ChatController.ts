@@ -17,6 +17,7 @@ import UnblockUserService from "../services/ChatService/UnblockUserService";
 import { generatePdf } from "../helpers/pdfGenerator";
 import AppError from "../errors/AppError";
 import User from "../models/User";
+import { logger } from "../utils/logger";  
 
 interface MessageRequest extends Request {
   file?: Express.Multer.File;
@@ -305,9 +306,9 @@ export const saveMessage = async (req: MessageRequest, res: Response): Promise<R
     const messageSchema = Yup.object().shape({
       message: Yup.string().nullable(),
       messageType: Yup.string()
-        .oneOf(['text', 'image', 'video', 'audio'])
+        .oneOf(['text', 'image', 'video', 'audio', 'file'])
         .default('text'),
-      typeArch: Yup.string().default('internalChat')
+      typeArch: Yup.string().default('chat')
     });
 
     await messageSchema.validate(req.body);
@@ -317,45 +318,64 @@ export const saveMessage = async (req: MessageRequest, res: Response): Promise<R
       throw new AppError("É necessário enviar uma mensagem ou um arquivo");
     }
 
-    // Garante que typeArch seja sempre definido
-    if (!req.body.typeArch) {
-      req.body.typeArch = 'internalChat';
-    }
-
-    const { message, messageType = "text", typeArch = "internalChat" } = req.body;
+    const { message, messageType = "text", typeArch = "chat" } = req.body;
     const { id: chatId } = req.params;
     const senderId = +req.user.id;
     const { companyId } = req.user;
 
-    console.log("Dados de mensagem:", {
+    logger.info("Processando mensagem de chat", {
       chatId,
       senderId,
-      message: message || "",
-      mediaFile: req.file ? req.file.filename : "No file",
-      messageType: req.file ? undefined : messageType,
-      typeArch
+      hasFile: !!req.file,
+      fileInfo: req.file ? {
+        originalname: req.file.originalname,
+        mimetype: req.file.mimetype,
+        size: req.file.size
+      } : null,
+      messageType
     });
 
-    // Usa o serviço existente para criar a mensagem
+    // Determinar o tipo de mídia com base no arquivo
+    let finalMessageType = messageType;
+    if (req.file) {
+      if (req.file.mimetype.startsWith('image/')) {
+        finalMessageType = 'image';
+      } else if (req.file.mimetype.startsWith('video/')) {
+        finalMessageType = 'video';
+      } else if (req.file.mimetype.startsWith('audio/')) {
+        finalMessageType = 'audio';
+      } else {
+        finalMessageType = 'file';
+      }
+    }
+
+    // Criar a mensagem
     const newMessage = await CreateMessageService({
       chatId: +chatId,
       senderId,
       message: message || "",
       mediaFile: req.file,
-      messageType: req.file ? undefined : messageType,
+      messageType: finalMessageType,
       typeArch
     }) as ChatMessageWithSender;
 
-    console.log("Nova mensagem criada:", {
-      id: newMessage.id,
-      mediaUrl: newMessage.mediaUrl,
-      mediaType: newMessage.mediaType,
-      typeArch
+    logger.info("Mensagem criada com sucesso", {
+      messageId: newMessage.id,
+      mediaPath: newMessage.mediaPath,
+      mediaType: finalMessageType
     });
 
-    // Notifica os usuários via socket
+    // Construir URL completa para o arquivo de mídia
+    if (newMessage.mediaPath) {
+      const baseUrl = process.env.BACKEND_URL || `${req.protocol}://${req.get('host')}`;
+      newMessage.mediaUrl = `${baseUrl}/public/${newMessage.mediaPath}`.replace(/\\/g, '/');
+    }
+
+    // Notificar os usuários via socket
     const io = getIO();
-    io.to(`company-${companyId}-chat-${chatId}`).emit(`company-${companyId}-chat-${chatId}`, {
+    const room = `company-${companyId}-chat-${chatId}`;
+    
+    io.to(room).emit(room, {
       action: "new-message",
       message: newMessage
     });
@@ -363,8 +383,16 @@ export const saveMessage = async (req: MessageRequest, res: Response): Promise<R
     return res.json(newMessage);
     
   } catch (err) {
-    console.error(err);
-    throw new AppError(err.message);
+    logger.error("Erro ao salvar mensagem", {
+      error: err.message,
+      stack: err.stack
+    });
+    
+    if (err instanceof Yup.ValidationError) {
+      throw new AppError(err.errors.join(", "));
+    }
+    
+    throw new AppError(err.message || "Erro ao enviar mensagem");
   }
 };
 

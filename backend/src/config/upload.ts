@@ -12,10 +12,52 @@ if (!fs.existsSync(publicFolder)) {
   fs.mkdirSync(publicFolder, { recursive: true });
 }
 
+// Tipos de mídia permitidos
+const ALLOWED_MIME_TYPES = [
+  // Imagens
+  'image/jpeg',
+  'image/pjpeg',
+  'image/png',
+  'image/gif',
+  'image/webp',
+  'image/svg+xml',
+  
+  // Vídeos
+  'video/mp4',
+  'video/webm',
+  'video/quicktime',
+  'video/x-msvideo',
+  'video/x-ms-wmv',
+  'video/x-matroska',
+  'video/3gpp',
+  'video/3gpp2',
+  
+  // Áudios
+  'audio/mpeg',
+  'audio/wav',
+  'audio/ogg',
+  'audio/webm',
+  'audio/aac',
+  'audio/mp4',
+  'audio/x-m4a',
+  'audio/mp3',
+  'audio/x-wav',
+  
+  // Documentos
+  'application/pdf',
+  'text/plain',
+  'application/msword',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  'application/vnd.ms-excel',
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  'application/vnd.ms-powerpoint',
+  'application/vnd.openxmlformats-officedocument.presentationml.presentation'
+];
+
 // Configuração principal
 export default {
   directory: publicFolder,
-  fileSize: 16 * 1024 * 1024, // 16MB para suportar diferentes tipos de mídia
+  fileSize: 50 * 1024 * 1024, // 50MB para suportar vídeos
   storage: multer.diskStorage({
     destination: async function (req, file, cb) {
       try {
@@ -60,7 +102,19 @@ export default {
         // Determinar o diretório de destino
         let folder = companyPath;
 
-        // CORREÇÃO: Verificar se é um upload de Landing Page
+        // Verificar se é um upload de Chat
+        if (typeArch === "chat" || req.path.includes("/chats/")) {
+          const chatDir = path.resolve(companyPath, "chats");
+          if (!fs.existsSync(chatDir)) {
+            fs.mkdirSync(chatDir, { recursive: true });
+            fs.chmodSync(chatDir, 0o755);
+          }
+          folder = chatDir;
+          logger.info(`[UPLOAD DESTINATION] Destino final para chat: ${folder}`);
+          return cb(null, folder);
+        }
+        
+        // Verificar se é um upload de Landing Page
         if (typeArch === "landingPage" || 
             req.path.includes("/landing-pages/") && 
             req.path.includes("/media/upload")) {
@@ -213,24 +267,5 @@ export default {
         cb(err, null);
       }
     }
-  }),
-  
-  // Filtros de arquivo para Landing Pages
-  fileFilter: (req: any, file: any, cb: any) => {
-    // Para landing pages, permitir apenas imagens
-    if (req.path.includes("/landing-pages/") && req.path.includes("/media/upload")) {
-      const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp', 'image/svg+xml'];
-      
-      if (allowedTypes.includes(file.mimetype)) {
-        logger.info(`[UPLOAD FILTER] Arquivo de imagem aceito: ${file.mimetype}`);
-        cb(null, true);
-      } else {
-        logger.error(`[UPLOAD FILTER] Tipo de arquivo não permitido para landing page: ${file.mimetype}`);
-        cb(new Error(`Tipo de arquivo não permitido. Tipos aceitos: ${allowedTypes.join(', ')}`), false);
-      }
-    } else {
-      // Para outros tipos de upload, permitir tudo
-      cb(null, true);
-    }
-  }
-};
+  })
+}
