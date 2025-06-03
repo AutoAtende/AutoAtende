@@ -41,7 +41,7 @@ import {
 import StandardPageLayout from "../../components/StandardPageLayout";
 import api from "../../services/api";
 import AssistantModal from "./components/AssistantModal";
-import VoiceSettingsButton from './components/VoiceSettingsButton';
+import VoiceSettingsModal from "./components/VoiceSettingsModal";
 import ImportAssistantsModal from "./components/ImportAssistantsModal";
 import AssistantsHelpModal from "./components/AssistantsHelpModal";
 import ConfirmationModal from "../../components/ConfirmationModal";
@@ -242,9 +242,11 @@ const Assistants = () => {
     },
     {
       icon: <VolumeUpIcon />,
-      onClick: () => {},
+      onClick: () => setVoiceSettingsModalOpen(true),
       variant: "outlined",
-      component: <VoiceSettingsButton key="voice-settings-button" />
+      color: "primary",
+      component: <VoiceSettingsButton key="voice-settings-button" />,
+      tooltip: i18n.t("assistants.buttons.voiceSettings")
     }
   ];
 
@@ -564,6 +566,11 @@ const Assistants = () => {
       <AssistantsHelpModal 
         open={helpModalOpen} 
         onClose={() => setHelpModalOpen(false)} 
+      />
+
+      <VoiceSettingsModal 
+        open={voiceSettingsModalOpen} 
+        onClose={() => setVoiceSettingsModalOpen(false)} 
       />
     </>
   );
