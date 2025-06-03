@@ -55,7 +55,7 @@ const Contacts = () => {
   // Refs
   const isMounted = useRef(true);
   const observerRef = useRef();
-  const lastContactElementRef = useRef();
+  const loadMoreTriggerRef = useRef(); // Nova ref para trigger do scroll infinito
 
   // States
   const [loading, setLoading] = useState(false);
@@ -150,9 +150,7 @@ const Contacts = () => {
 
         setContactsTotal(data?.count || 0);
         setHasMore(normalizedContacts.length === 100);
-        if (normalizedContacts.length > 0) {
-          setPageNumber(page);
-        }
+        setPageNumber(page);
       }
     } catch (err) {
       if (isMounted.current) {
@@ -178,27 +176,44 @@ const Contacts = () => {
     fetchContacts(1, true);
   }, [searchParam, tagFilter, makeRequest]);
 
-  // Infinite scroll observer
+  // Intersection Observer para scroll infinito - CORRIGIDO
   useEffect(() => {
-    if (loading || loadingMore || !hasMore) return;
+    // Limpar observer anterior
+    if (observerRef.current) {
+      observerRef.current.disconnect();
+    }
 
+    // Não criar observer se não há mais dados ou está carregando
+    if (!hasMore || loading || loadingMore) return;
+
+    // Criar novo observer
     const observer = new IntersectionObserver(
-      entries => {
-        if (entries[0].isIntersecting && hasMore && !loading && !loadingMore) {
+      (entries) => {
+        const target = entries[0];
+        if (target.isIntersecting && hasMore && !loading && !loadingMore) {
+          console.log('Carregando mais contatos...', pageNumber + 1);
           fetchContacts(pageNumber + 1);
         }
       },
-      { threshold: 1.0 }
+      { 
+        threshold: 0.1,
+        rootMargin: '20px'
+      }
     );
 
-    if (lastContactElementRef.current) {
-      observer.observe(lastContactElementRef.current);
+    observerRef.current = observer;
+
+    // Observar o elemento trigger
+    if (loadMoreTriggerRef.current) {
+      observer.observe(loadMoreTriggerRef.current);
     }
 
     return () => {
-      observer.disconnect();
+      if (observerRef.current) {
+        observerRef.current.disconnect();
+      }
     };
-  }, [loading, loadingMore, hasMore, pageNumber, fetchContacts]);
+  }, [hasMore, loading, loadingMore, pageNumber, fetchContacts]);
 
   // Handlers
   const handleSearchChange = useCallback((event) => {
@@ -502,7 +517,7 @@ const Contacts = () => {
     }
   ];
 
-  // Ações da tabela - CORRIGIDO
+  // Ações da tabela
   const getTableActions = useCallback((contact) => {
     const actions = [];
     const normalizedContact = normalizeContactData(contact);
@@ -609,22 +624,8 @@ const Contacts = () => {
       : baseText;
   };
 
-  // Renderizar contatos com infinite scroll
-  const renderContacts = () => {
-    const contactsWithRef = contacts.map((contact, index) => {
-      const isLast = index === contacts.length - 1;
-      return {
-        ...contact,
-        ref: isLast ? lastContactElementRef : null
-      };
-    });
-
-    return contactsWithRef;
-  };
-
   return (
     <>
-
       <StandardPageLayout
         title="Contatos"
         subtitle={formattedCounter()}
@@ -638,13 +639,13 @@ const Contacts = () => {
           sx: {
             display: 'flex',
             flexDirection: 'column',
-            height: '100vh', // Agora definimos a altura aqui
-            overflow: 'hidden' // E controlamos o overflow aqui
+            height: '100vh',
+            overflow: 'hidden'
           }
         }}
       >
         {/* Filtro de tags */}
-        <Box sx={{ mb: 3, maxWidth: 300 }}>
+        <Box sx={{ mb: 3, maxWidth: 300, flexShrink: 0 }}>
           <TagFilterComponent
             onFilterChange={handleTagFilterChange}
             size="small"
@@ -652,7 +653,13 @@ const Contacts = () => {
           />
         </Box>
 
-        <Box sx={{ flex: 1, overflow: 'auto' }}> {/* Esta Box vai conter a tabela e permitir rolagem */}
+        {/* Container da tabela com overflow controlado */}
+        <Box sx={{ 
+          flex: 1, 
+          overflow: 'auto',
+          display: 'flex',
+          flexDirection: 'column'
+        }}>
           <StandardDataTable
             data={contacts}
             columns={columns}
@@ -672,35 +679,51 @@ const Contacts = () => {
             onEmptyActionClick={handleOpenContactModal}
             containerProps={{
               sx: {
-                height: '100%',
+                flex: 1,
                 overflow: 'visible'
               }
             }}
-            customRowRenderer={(item, index, columns) => {
-              const isLast = index === contacts.length - 1;
-              return (
-                <>
-                  {columns.map((column, colIndex) => (
-                    <TableCell
-                      key={column.id || colIndex}
-                      align={column.align || 'left'}
-                      ref={isLast ? lastContactElementRef : null}
-                    >
-                      {column.render
-                        ? column.render(item, index)
-                        : item[column.field] || '-'
-                      }
-                    </TableCell>
-                  ))}
-                </>
-              );
-            }}
           />
+
+          {/* Elemento trigger para scroll infinito */}
+          {hasMore && contacts.length > 0 && (
+            <Box
+              ref={loadMoreTriggerRef}
+              sx={{
+                height: '1px',
+                width: '100%',
+                backgroundColor: 'transparent'
+              }}
+            />
+          )}
 
           {/* Loading indicator para infinite scroll */}
           {loadingMore && (
-            <Box sx={{ display: 'flex', justifyContent: 'center', p: 2 }}>
+            <Box sx={{ 
+              display: 'flex', 
+              justifyContent: 'center', 
+              alignItems: 'center',
+              padding: 2,
+              flexShrink: 0
+            }}>
               <CircularProgress size={24} />
+              <Typography variant="body2" sx={{ ml: 1 }}>
+                Carregando mais contatos...
+              </Typography>
+            </Box>
+          )}
+
+          {/* Indicador de fim dos dados */}
+          {!hasMore && contacts.length > 0 && (
+            <Box sx={{ 
+              display: 'flex', 
+              justifyContent: 'center', 
+              padding: 2,
+              flexShrink: 0
+            }}>
+              <Typography variant="body2" color="textSecondary">
+                Todos os contatos foram carregados
+              </Typography>
             </Box>
           )}
         </Box>
