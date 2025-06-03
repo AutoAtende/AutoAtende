@@ -671,7 +671,7 @@ const Contacts = () => {
             stickyHeader={true}
             size="small"
             hover={true}
-            maxVisibleActions={6}
+            maxVisibleActions={1}
             emptyIcon={<ContactIcon />}
             emptyTitle="Nenhum contato encontrado"
             emptyDescription="Não há contatos cadastrados para os filtros selecionados."
