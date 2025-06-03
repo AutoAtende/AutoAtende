@@ -626,77 +626,87 @@ const Contacts = () => {
 
   return (
     <>
-      <StandardPageLayout
-        title="Contatos"
-        subtitle={formattedCounter()}
-        searchValue={searchParam}
-        onSearchChange={handleSearchChange}
-        searchPlaceholder="Buscar contatos..."
-        showSearch={true}
-        actions={[...pageActions, ...bulkActions]}
-        loading={loading}
-      >
-        {/* Filtro de tags */}
-        <Box sx={{ mb: 3, maxWidth: 300 }}>
-          <TagFilterComponent 
-            onFilterChange={handleTagFilterChange} 
-            size="small"
-            placeholder="Filtrar por tags..."
-          />
-        </Box>
 
-        <StandardDataTable
-          data={renderContacts()}
-          columns={columns}
-          loading={loading}
-          selectable={true}
-          selectedItems={selectedContacts}
-          onSelectionChange={setSelectedContacts}
-          actions={getTableActions}
-          stickyHeader={true}
-          size="small"
-          hover={true}
-          maxVisibleActions={3}
-          emptyIcon={<ContactIcon />}
-          emptyTitle="Nenhum contato encontrado"
-          emptyDescription="Não há contatos cadastrados para os filtros selecionados."
-          emptyActionLabel="Adicionar Contato"
-          onEmptyActionClick={handleOpenContactModal}
-          containerProps={{
-            sx: {
-              height: '100%',
-              maxHeight: 'calc(100vh - 300px)',
-              overflow: 'auto'
-            }
-          }}
-          customRowRenderer={(item, index, columns) => {
-            const isLast = index === contacts.length - 1;
-            return (
-              <>
-                {columns.map((column, colIndex) => (
-                  <TableCell
-                    key={column.id || colIndex}
-                    align={column.align || 'left'}
-                    ref={isLast && colIndex === 0 ? lastContactElementRef : null}
-                  >
-                    {column.render 
-                      ? column.render(item, index)
-                      : item[column.field] || '-'
-                    }
-                  </TableCell>
-                ))}
-              </>
-            );
-          }}
-        />
-        
-        {/* Loading indicator para infinite scroll */}
-        {loadingMore && (
-          <Box sx={{ display: 'flex', justifyContent: 'center', p: 2 }}>
-            <CircularProgress size={24} />
-          </Box>
-        )}
-      </StandardPageLayout>
+<StandardPageLayout
+  title="Contatos"
+  subtitle={formattedCounter()}
+  searchValue={searchParam}
+  onSearchChange={handleSearchChange}
+  searchPlaceholder="Buscar contatos..."
+  showSearch={true}
+  actions={[...pageActions, ...bulkActions]}
+  loading={loading}
+  containerProps={{
+    sx: {
+      display: 'flex',
+      flexDirection: 'column',
+      height: '100vh', // Agora definimos a altura aqui
+      overflow: 'hidden' // E controlamos o overflow aqui
+    }
+  }}
+>
+  {/* Filtro de tags */}
+  <Box sx={{ mb: 3, maxWidth: 300 }}>
+    <TagFilterComponent 
+      onFilterChange={handleTagFilterChange} 
+      size="small"
+      placeholder="Filtrar por tags..."
+    />
+  </Box>
+
+  <Box sx={{ flex: 1, overflow: 'auto' }}> {/* Esta Box vai conter a tabela e permitir rolagem */}
+    <StandardDataTable
+      data={renderContacts()}
+      columns={columns}
+      loading={loading}
+      selectable={true}
+      selectedItems={selectedContacts}
+      onSelectionChange={setSelectedContacts}
+      actions={getTableActions}
+      stickyHeader={true}
+      size="small"
+      hover={true}
+      maxVisibleActions={6}
+      emptyIcon={<ContactIcon />}
+      emptyTitle="Nenhum contato encontrado"
+      emptyDescription="Não há contatos cadastrados para os filtros selecionados."
+      emptyActionLabel="Adicionar Contato"
+      onEmptyActionClick={handleOpenContactModal}
+      containerProps={{
+        sx: {
+          height: '100%',
+          overflow: 'visible' // Remove overflow do container da tabela
+        }
+      }}
+      customRowRenderer={(item, index, columns) => {
+        const isLast = index === contacts.length - 1;
+        return (
+          <>
+            {columns.map((column, colIndex) => (
+              <TableCell
+                key={column.id || colIndex}
+                align={column.align || 'left'}
+                ref={isLast && colIndex === 0 ? lastContactElementRef : null}
+              >
+                {column.render 
+                  ? column.render(item, index)
+                  : item[column.field] || '-'
+                }
+              </TableCell>
+            ))}
+          </>
+        );
+      }}
+    />
+    
+    {/* Loading indicator para infinite scroll */}
+    {loadingMore && (
+      <Box sx={{ display: 'flex', justifyContent: 'center', p: 2 }}>
+        <CircularProgress size={24} />
+      </Box>
+    )}
+  </Box>
+</StandardPageLayout>
 
       {/* Modais */}
       {newTicketModalOpen && (
