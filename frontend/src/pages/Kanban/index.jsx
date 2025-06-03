@@ -165,66 +165,119 @@ const Kanban = () => {
     }
   };
 
+  // Função auxiliar para converter valor para número
+  const parseTicketValue = (value) => {
+    if (value === null || value === undefined || value === '') {
+      return 0;
+    }
+    
+    const numValue = typeof value === 'string' ? parseFloat(value) : Number(value);
+    return isNaN(numValue) ? 0 : numValue;
+  };
+
+  // Função auxiliar para calcular valor total dos tickets
+  const calculateTotalValue = (tickets) => {
+    if (!Array.isArray(tickets) || tickets.length === 0) {
+      return 0;
+    }
+    
+    const total = tickets.reduce((sum, ticket) => {
+      const ticketValue = parseTicketValue(ticket.value);
+      return sum + ticketValue;
+    }, 0);
+    
+    return parseFloat(total.toFixed(2));
+  };
+
+  // Função auxiliar para formatar valor monetário
+  const formatCurrency = (value) => {
+    const numValue = parseTicketValue(value);
+    return numValue.toLocaleString('pt-BR', {
+      style: 'currency',
+      currency: 'BRL'
+    });
+  };
+
   const formatBoardData = () => {
     if (!lanes.length) {
       setBoardData({ lanes: [] });
       return;
     }
 
-    const formattedLanes = lanes.map(lane => ({
-      id: lane.id,
-      title: (
-        <div style={{ width: '100%', textAlign: 'center' }}>
-          <div style={{
-            backgroundColor: lane.color,
-            padding: "12px",
-            marginBottom: "8px",
-            borderRadius: "8px",
-            fontSize: "16px",
-            fontWeight: "bold",
-            color: "white",
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center"
-          }}>
-            <span>{lane.name}</span>
-            <Badge badgeContent={lane.tickets.length} color="secondary" />
+    const formattedLanes = lanes.map(lane => {
+      // Garantir que lane.tickets é um array
+      const laneTickets = Array.isArray(lane.tickets) ? lane.tickets : [];
+      const totalValue = calculateTotalValue(laneTickets);
+
+      return {
+        id: lane.id,
+        title: (
+          <div style={{ width: '100%', textAlign: 'center' }}>
+            <div style={{
+              backgroundColor: lane.color,
+              padding: "12px",
+              marginBottom: "8px",
+              borderRadius: "8px",
+              fontSize: "16px",
+              fontWeight: "bold",
+              color: "white",
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center"
+            }}>
+              <span>{lane.name}</span>
+              <Badge badgeContent={laneTickets.length} color="secondary" />
+            </div>
+            <div style={{ 
+              color: "#666", 
+              fontSize: "12px", 
+              display: "flex", 
+              justifyContent: "space-between",
+              padding: "0 8px" 
+            }}>
+              <span>{laneTickets.length} tickets</span>
+              {laneTickets.length > 0 && totalValue > 0 && (
+                <span>
+                  Valor: {formatCurrency(totalValue)}
+                </span>
+              )}
+            </div>
           </div>
-          <div style={{ 
-            color: "#666", 
-            fontSize: "12px", 
-            display: "flex", 
-            justifyContent: "space-between",
-            padding: "0 8px" 
-          }}>
-            <span>{lane.tickets.length} tickets</span>
-            {lane.tickets.length > 0 && (
-              <span>
-                Valor: R$ {lane.tickets.reduce((sum, t) => sum + (t.value || 0), 0).toFixed(2)}
-              </span>
-            )}
-          </div>
-        </div>
-      ),
-      cards: lane.tickets.map(ticket => ({
-        id: ticket.id.toString(),
-        title: ticket.name || `Ticket #${ticket.id}`,
-        description: createCardDescription(ticket),
-        draggable: true,
-        metadata: { ticket }
-      })),
-      style: {
-        backgroundColor: "white",
-        width: 320,
-        borderRadius: "8px",
-        boxShadow: "0 2px 8px rgba(0,0,0,0.1)"
-      }
-    }));
+        ),
+        cards: laneTickets.map(ticket => ({
+          id: ticket.id.toString(),
+          title: ticket.name || `Ticket #${ticket.id}`,
+          description: createCardDescription(ticket),
+          draggable: true,
+          metadata: { ticket }
+        })),
+        style: {
+          backgroundColor: "white",
+          width: 320,
+          borderRadius: "8px",
+          boxShadow: "0 2px 8px rgba(0,0,0,0.1)"
+        }
+      };
+    });
 
     setBoardData({ lanes: formattedLanes });
   };
 
   const createCardDescription = (ticket) => {
+    // Garantir que o ticket tem todas as propriedades necessárias
+    const safeTicket = {
+      id: ticket.id || 0,
+      name: ticket.name || '',
+      status: ticket.status || 'pending',
+      lastMessage: ticket.lastMessage || '',
+      unreadMessages: ticket.unreadMessages || 0,
+      value: parseTicketValue(ticket.value),
+      sku: ticket.sku || '',
+      contact: ticket.contact || null,
+      user: ticket.user || null,
+      tags: Array.isArray(ticket.tags) ? ticket.tags : []
+    };
+
     return (
       <div style={{ position: "relative" }}>
         {/* Header do contato */}
@@ -237,24 +290,24 @@ const Kanban = () => {
           borderRadius: "6px"
         }}>
           <Avatar
-            src={ticket.contact?.profilePicUrl}
-            alt={ticket.contact?.name}
+            src={safeTicket.contact?.profilePicUrl}
+            alt={safeTicket.contact?.name}
             sx={{ width: 36, height: 36, mr: 1 }}
           >
-            {ticket.contact?.name?.charAt(0) || ticket.contact?.number?.charAt(0)}
+            {safeTicket.contact?.name?.charAt(0) || safeTicket.contact?.number?.charAt(0) || '?'}
           </Avatar>
           <div style={{ flex: 1, minWidth: 0 }}>
             <Typography variant="body2" fontWeight="bold" noWrap>
-              {ticket.contact?.name || ticket.contact?.number || "Contato desconhecido"}
+              {safeTicket.contact?.name || safeTicket.contact?.number || "Contato desconhecido"}
             </Typography>
             <Typography variant="caption" color="textSecondary" noWrap>
-              {ticket.contact?.number}
+              {safeTicket.contact?.number || ''}
             </Typography>
           </div>
         </div>
         
         {/* Última mensagem */}
-        {ticket.lastMessage && (
+        {safeTicket.lastMessage && (
           <div style={{ marginBottom: "8px" }}>
             <Typography variant="caption" color="textSecondary">
               Última mensagem:
@@ -267,28 +320,28 @@ const Kanban = () => {
               WebkitLineClamp: 2,
               WebkitBoxOrient: "vertical"
             }}>
-              {ticket.lastMessage.length > 80 
-                ? `${ticket.lastMessage.substring(0, 80)}...`
-                : ticket.lastMessage
+              {safeTicket.lastMessage.length > 80 
+                ? `${safeTicket.lastMessage.substring(0, 80)}...`
+                : safeTicket.lastMessage
               }
             </Typography>
           </div>
         )}
 
         {/* Mensagens não lidas */}
-        {ticket.unreadMessages > 0 && (
+        {safeTicket.unreadMessages > 0 && (
           <div style={{ marginBottom: "8px" }}>
             <Chip 
               size="small" 
               color="error" 
-              label={`${ticket.unreadMessages} não lidas`}
+              label={`${safeTicket.unreadMessages} não lidas`}
               icon={<WarningIcon fontSize="small" />}
             />
           </div>
         )}
 
         {/* Atendente */}
-        {ticket.user && (
+        {safeTicket.user && (
           <div style={{ 
             display: "flex", 
             alignItems: "center", 
@@ -299,36 +352,36 @@ const Kanban = () => {
           }}>
             <PersonIcon sx={{ fontSize: 16, mr: 0.5, color: "primary.main" }} />
             <Typography variant="caption">
-              {ticket.user.name}
+              {safeTicket.user.name}
             </Typography>
           </div>
         )}
 
         {/* Valor e SKU */}
-        {(ticket.value > 0 || ticket.sku) && (
+        {(safeTicket.value > 0 || safeTicket.sku) && (
           <div style={{ marginBottom: "8px" }}>
-            {ticket.sku && (
+            {safeTicket.sku && (
               <Typography variant="caption" display="block">
-                <strong>SKU:</strong> {ticket.sku}
+                <strong>SKU:</strong> {safeTicket.sku}
               </Typography>
             )}
-            {ticket.value > 0 && (
+            {safeTicket.value > 0 && (
               <Typography variant="caption" display="block" color="success.main">
-                <strong>Valor:</strong> R$ {ticket.value.toFixed(2).replace(".", ",")}
+                <strong>Valor:</strong> {formatCurrency(safeTicket.value)}
               </Typography>
             )}
           </div>
         )}
 
         {/* Tags */}
-        {ticket.tags && ticket.tags.length > 0 && (
+        {safeTicket.tags.length > 0 && (
           <div style={{ 
             display: "flex", 
             flexWrap: "wrap", 
             gap: "4px", 
             marginBottom: "8px" 
           }}>
-            {ticket.tags.slice(0, 3).map(tag => (
+            {safeTicket.tags.slice(0, 3).map(tag => (
               <Chip
                 key={tag.id}
                 label={tag.name}
@@ -341,9 +394,9 @@ const Kanban = () => {
                 }}
               />
             ))}
-            {ticket.tags.length > 3 && (
+            {safeTicket.tags.length > 3 && (
               <Chip
-                label={`+${ticket.tags.length - 3}`}
+                label={`+${safeTicket.tags.length - 3}`}
                 size="small"
                 variant="outlined"
                 sx={{ fontSize: "10px", height: "20px" }}
@@ -362,14 +415,14 @@ const Kanban = () => {
           marginTop: "8px"
         }}>
           <Typography variant="caption" color="textSecondary">
-            {getStatusLabel(ticket.status)} • #{ticket.id}
+            {getStatusLabel(safeTicket.status)} • #{safeTicket.id}
           </Typography>
           <div style={{ display: "flex", gap: "4px" }}>
             <IconButton
               size="small"
               onClick={(e) => {
                 e.stopPropagation();
-                handleTicketClick(ticket);
+                handleTicketClick(safeTicket);
               }}
               sx={{ color: "#1976d2" }}
             >
@@ -379,7 +432,7 @@ const Kanban = () => {
               size="small"
               onClick={(e) => {
                 e.stopPropagation();
-                handleOpenTicket(ticket);
+                handleOpenTicket(safeTicket);
               }}
               sx={{ color: "#25d366" }}
             >
@@ -438,8 +491,11 @@ const Kanban = () => {
   };
 
   const handleOpenTicket = (ticket) => {
-    if (ticket) {
+    if (ticket && ticket.uuid) {
       history.push(`/tickets/${ticket.uuid}`);
+    } else if (ticket && ticket.id) {
+      // Fallback para ID se UUID não estiver disponível
+      history.push(`/tickets/${ticket.id}`);
     }
   };
 
@@ -731,7 +787,7 @@ const Kanban = () => {
                     src={selectedTicket.contact?.profilePicUrl} 
                     sx={{ mr: 2, width: 40, height: 40 }}
                   >
-                    {selectedTicket.contact?.name?.charAt(0)}
+                    {selectedTicket.contact?.name?.charAt(0) || '?'}
                   </Avatar>
                   <Box>
                     <Typography variant="body1" fontWeight="bold">
@@ -771,10 +827,10 @@ const Kanban = () => {
                       <strong>Atualizado:</strong> {new Date(selectedTicket.updatedAt).toLocaleString()}
                     </Typography>
                   </Grid>
-                  {selectedTicket.value > 0 && (
+                  {parseTicketValue(selectedTicket.value) > 0 && (
                     <Grid item xs={6}>
                       <Typography variant="body2">
-                        <strong>Valor:</strong> R$ {selectedTicket.value.toFixed(2)}
+                        <strong>Valor:</strong> {formatCurrency(selectedTicket.value)}
                       </Typography>
                     </Grid>
                   )}
@@ -805,8 +861,8 @@ const Kanban = () => {
                 )}
               </Paper>
 
-              {/* Atribuição de usuário */}
-              {selectedTicket.status !== "closed" && (
+{/* Atribuição de usuário */}
+{selectedTicket.status !== "closed" && (
                 <Paper variant="outlined" sx={{ p: 2, mb: 2 }}>
                   <Typography variant="subtitle1" fontWeight="bold" gutterBottom>
                     Responsável pelo Atendimento
