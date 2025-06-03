@@ -43,7 +43,14 @@ import {
   DeviceHubOutlined,
   EmailRounded,
   RotateRight,
-  WebOutlined
+  WebOutlined,
+  SettingsOutlined,
+  PaletteOutlined,
+  AssignmentIndOutlined,
+  HelpCenterOutlined,
+  ScheduleOutlined,
+  PaymentsOutlined,
+  ReportProblemOutlined
 } from '@mui/icons-material';
 
 // Importações de contexto e utilitários
@@ -487,7 +494,7 @@ const MainListItems = (props) => {
   const [openIntegrationsSubmenu, setOpenIntegrationsSubmenu] = useState(true);
   const [invisibleTotalTicketsPending, setInvisibleTotalTicketsPending] = useState(true);
   const [totalTicketsPending, setTotalTicketsPending] = useState(0);
-
+  const [openSettingsSubmenu, setOpenSettingsSubmenu] = useState(false);
   const isCorrectDomain = useCorrectDomain();
 
   const [openTasksCount, setOpenTasksCount] = useState(0);
@@ -1148,15 +1155,81 @@ const MainListItems = (props) => {
                   collapsed={collapsed}
                 />
 
-                <ListItemLink
-                  to="/settings"
-                  primary={i18n.t("mainDrawer.listItems.settings")}
-                  icon={<SettingsOutlined />}
-                  tooltip={collapsed}
-                  drawerClose={drawerClose}
-                  level={1}
-                  collapsed={collapsed}
-                />
+{/* Configurações como submenu */}
+<SubCategoryItem
+  icon={<SettingsOutlined />}
+  primary={i18n.t("mainDrawer.listItems.settings.menu")}
+  open={openSettingsSubmenu}
+  onClick={() => handleToggleSubmenu(setOpenSettingsSubmenu)}
+  collapsed={collapsed}
+>
+  <ListItemLink
+    to="/settings/general"
+    primary={i18n.t("mainDrawer.listItems.settings.general")}
+    icon={<SettingsOutlined />}
+    tooltip={collapsed}
+    drawerClose={drawerClose}
+    level={2}
+    collapsed={collapsed}
+  />
+  <ListItemLink
+    to="/settings/whitelabel"
+    primary={i18n.t("mainDrawer.listItems.settings.whitelabel")}
+    icon={<PaletteOutlined />}
+    tooltip={collapsed}
+    drawerClose={drawerClose}
+    level={2}
+    collapsed={collapsed}
+  />
+  {isSuperUser && (
+    <ListItemLink
+      to="/settings/plans"
+      primary={i18n.t("mainDrawer.listItems.settings.plans")}
+      icon={<AssignmentIndOutlined />}
+      tooltip={collapsed}
+      drawerClose={drawerClose}
+      level={2}
+      collapsed={collapsed}
+      exact
+    />
+  )}
+  <ListItemLink
+    to="/settings/helps"
+    primary={i18n.t("mainDrawer.listItems.settings.helps")}
+    icon={<HelpCenterOutlined />}
+    tooltip={collapsed}
+    drawerClose={drawerClose}
+    level={2}
+    collapsed={collapsed}
+  />
+  <ListItemLink
+    to="/settings/schedules"
+    primary={i18n.t("mainDrawer.listItems.settings.schedules")}
+    icon={<ScheduleOutlined />}
+    tooltip={collapsed}
+    drawerClose={drawerClose}
+    level={2}
+    collapsed={collapsed}
+  />
+  <ListItemLink
+    to="/settings/payment-gateway"
+    primary={i18n.t("mainDrawer.listItems.settings.paymentGateway")}
+    icon={<PaymentsOutlined />}
+    tooltip={collapsed}
+    drawerClose={drawerClose}
+    level={2}
+    collapsed={collapsed}
+  />
+  <ListItemLink
+    to="/settings/closure-reasons"
+    primary={i18n.t("mainDrawer.listItems.settings.closureReasons")}
+    icon={<ReportProblemOutlined />}
+    tooltip={collapsed}
+    drawerClose={drawerClose}
+    level={2}
+    collapsed={collapsed}
+  />
+</SubCategoryItem>
 
                 {user.super && (
                   <ListItemLink

@@ -24,7 +24,13 @@ const TicketResponsiveContainer = React.lazy(() => import("../pages/TicketRespon
 const Signup = React.lazy(() => import("../pages/Signup/"));
 const Login = React.lazy(() => import("../pages/Login/"));
 const ConnectionsWrapper = React.lazy(() => import("../pages/Connections/"));
-const Settings = React.lazy(() => import("../pages/Settings/"));
+const GeneralSettings = React.lazy(() => import("../pages/Settings/GeneralSettings"));
+const WhitelabelPage = React.lazy(() => import("../pages/Settings/WhitelabelPage"));
+const PlansManagementPage = React.lazy(() => import("../pages/Settings/PlansManagementPage"));
+const HelpsManagementPage = React.lazy(() => import("../pages/Settings/HelpsManagementPage"));
+const SchedulesPage = React.lazy(() => import("../pages/Settings/SchedulesPage"));
+const PaymentGatewayPage = React.lazy(() => import("../pages/Settings/PaymentGatewayPage"));
+const ClosureReasonsPage = React.lazy(() => import("../pages/Settings/ClosureReasonsPage"));
 const Financeiro = React.lazy(() => import("../pages/Financeiro/"));
 const Users = React.lazy(() => import("../pages/Users"));
 const Contacts = React.lazy(() => import("../pages/Contacts/"));
@@ -227,12 +233,13 @@ const Routes = () => {
                           component={WrappedCompanies}
                           isPrivate
                         />
-                        <CustomRoute
-                          exact
-                          path="/settings"
-                          component={Settings}
-                          isPrivate
-                        />
+                        <CustomRoute exact path="/settings/general" component={GeneralSettings} isPrivate />
+                        <CustomRoute exact path="/settings/whitelabel" component={WhitelabelPage} isPrivate />
+                        <CustomRoute exact path="/settings/plans" component={PlansManagementPage} isPrivate />
+                        <CustomRoute exact path="/settings/helps" component={HelpsManagementPage} isPrivate />
+                        <CustomRoute exact path="/settings/schedules" component={SchedulesPage} isPrivate />
+                        <CustomRoute exact path="/settings/payment-gateway" component={PaymentGatewayPage} isPrivate />
+                        <CustomRoute exact path="/settings/closure-reasons" component={ClosureReasonsPage} isPrivate />
                         <CustomRoute exact path="/whatsapp-templates" component={WhatsappTemplates} isPrivate />
                         <CustomRoute exact path="/kanban/:boardId?" component={KanbanWithContext} isPrivate />
                         <CustomRoute
