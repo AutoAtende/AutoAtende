@@ -241,11 +241,11 @@ const Assistants = () => {
       variant: "outlined"
     },
     {
+      label: i18n.t("assistants.buttons.voiceSettings"),
       icon: <VolumeUpIcon />,
       onClick: () => setVoiceSettingsModalOpen(true),
       variant: "outlined",
       color: "primary",
-      component: <VoiceSettingsButton key="voice-settings-button" />,
       tooltip: i18n.t("assistants.buttons.voiceSettings")
     }
   ];
