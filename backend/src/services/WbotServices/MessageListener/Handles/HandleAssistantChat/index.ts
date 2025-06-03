@@ -521,7 +521,7 @@ export const handleAssistantChat = async (
     // Seguindo o mesmo padrão do FlowBuilder
     await ticket.update({
       useIntegration: true,
-      integrationId: assistant.id, // ID do assistente como referência
+      integrationId: ticket.integrationId,
       isBot: true
       // Mantém status pending mas sinalizado como "em processamento"
     });
