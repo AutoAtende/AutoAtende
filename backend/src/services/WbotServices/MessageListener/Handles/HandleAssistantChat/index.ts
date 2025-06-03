@@ -75,6 +75,96 @@ interface ImageMessage {
 
 type MessageType = TextMessage | LocationMessage | DocumentMessage | VideoMessage | ContactMessage | AudioMessage | ImageMessage;
 
+// Map para controlar threads em processamento
+const activeRuns = new Map<string, { runId: string; startTime: number; processing: boolean }>();
+
+/**
+ * Verifica se há runs ativos em uma thread e aguarda a finalização se necessário
+ */
+async function waitForActiveRuns(openai: OpenAI, threadId: string, timeout: number = 30000): Promise<boolean> {
+  try {
+    const startTime = Date.now();
+    
+    // Verificar runs ativas na thread
+    const runs = await openai.beta.threads.runs.list(threadId, { limit: 5 });
+    const activeRunsInThread = runs.data.filter(run => 
+      !["completed", "failed", "cancelled", "expired"].includes(run.status)
+    );
+
+    if (activeRunsInThread.length === 0) {
+      return true; // Nenhuma run ativa
+    }
+
+    logger.info({
+      threadId,
+      activeRunsCount: activeRunsInThread.length,
+      activeRunIds: activeRunsInThread.map(r => r.id)
+    }, "Aguardando finalização de runs ativas na thread");
+
+    // Aguardar finalização das runs ativas
+    for (const activeRun of activeRunsInThread) {
+      let runStatus = activeRun;
+      
+      while (!["completed", "failed", "cancelled", "expired"].includes(runStatus.status)) {
+        // Verificar timeout
+        if (Date.now() - startTime > timeout) {
+          logger.warn({
+            threadId,
+            runId: activeRun.id,
+            status: runStatus.status
+          }, "Timeout aguardando finalização de run ativa, tentando cancelar");
+          
+          try {
+            await openai.beta.threads.runs.cancel(threadId, activeRun.id);
+          } catch (cancelError) {
+            logger.error({
+              threadId,
+              runId: activeRun.id,
+              error: cancelError.message
+            }, "Erro ao cancelar run ativa");
+          }
+          break;
+        }
+
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        
+        try {
+          runStatus = await openai.beta.threads.runs.retrieve(threadId, activeRun.id);
+        } catch (retrieveError) {
+          logger.error({
+            threadId,
+            runId: activeRun.id,
+            error: retrieveError.message
+          }, "Erro ao verificar status da run");
+          break;
+        }
+      }
+    }
+
+    // Verificar novamente se ainda há runs ativas
+    const finalRuns = await openai.beta.threads.runs.list(threadId, { limit: 5 });
+    const stillActiveRuns = finalRuns.data.filter(run => 
+      !["completed", "failed", "cancelled", "expired"].includes(run.status)
+    );
+
+    if (stillActiveRuns.length > 0) {
+      logger.warn({
+        threadId,
+        stillActiveCount: stillActiveRuns.length
+      }, "Ainda há runs ativas após timeout");
+      return false;
+    }
+
+    return true;
+  } catch (error) {
+    logger.error({
+      threadId,
+      error: error.message
+    }, "Erro ao aguardar finalização de runs ativas");
+    return false;
+  }
+}
+
 /**
  * Verifica se o assistente deve processar a mensagem
  * Baseado nas verificações dos outros handlers
@@ -485,8 +575,7 @@ async function processAssistantResponse(
 }
 
 /**
- * Handler principal do assistente - versão corrigida
- * Agora segue o mesmo padrão dos outros handlers do sistema
+ * Handler principal do assistente - versão corrigida para lidar com runs ativas
  */
 export const handleAssistantChat = async (
   assistant: Assistant, 
@@ -495,6 +584,8 @@ export const handleAssistantChat = async (
   ticket: Ticket, 
   contact?: Contact
 ): Promise<boolean> => {
+  const threadLockKey = `thread_${ticket.id}`;
+  
   try {
     if (!assistant) {
       logger.warn(`Nenhum assistente ativo encontrado para a empresa ${ticket.companyId}`);
@@ -504,6 +595,27 @@ export const handleAssistantChat = async (
     // VERIFICAÇÃO CRÍTICA: Se não deve processar, retorna false
     if (!shouldProcessMessage(ticket, msg)) {
       return false;
+    }
+
+    // Verificar se já há um processamento em andamento para este ticket
+    if (activeRuns.has(threadLockKey)) {
+      const currentRun = activeRuns.get(threadLockKey)!;
+      
+      // Se o processamento está há mais de 2 minutos, considerar travado
+      if (Date.now() - currentRun.startTime > 120000) {
+        logger.warn({
+          ticketId: ticket.id,
+          runId: currentRun.runId,
+          age: Date.now() - currentRun.startTime
+        }, "Processamento travado detectado, removendo lock");
+        activeRuns.delete(threadLockKey);
+      } else {
+        logger.info({
+          ticketId: ticket.id,
+          currentRunId: currentRun.runId
+        }, "Já há processamento em andamento para este ticket, aguardando");
+        return false;
+      }
     }
 
     logger.info({
@@ -518,12 +630,10 @@ export const handleAssistantChat = async (
     }, "Iniciando chat com assistente");
 
     // MARCAR TICKET COMO EM PROCESSAMENTO DE INTEGRAÇÃO
-    // Seguindo o mesmo padrão do FlowBuilder
     await ticket.update({
       useIntegration: true,
       integrationId: ticket.integrationId,
       isBot: true
-      // Mantém status pending mas sinalizado como "em processamento"
     });
 
     // Verificar novamente o status do ticket para evitar condições de corrida
@@ -535,7 +645,6 @@ export const handleAssistantChat = async (
         assistantId: assistant.id
       }, "Ticket foi modificado durante o processamento, abortando assistente");
       
-      // Limpar flags se foi marcado para processamento mas não pode mais processar
       await ticket.update({
         useIntegration: false,
         integrationId: null,
@@ -566,8 +675,27 @@ export const handleAssistantChat = async (
       
       logger.info({
         ticketId: ticket.id,
-        threadId: thread.id
+        threadId: thread.threadId
       }, "Nova thread criada para ticket");
+    }
+
+    // CORREÇÃO PRINCIPAL: Verificar e aguardar runs ativas antes de adicionar mensagem
+    const canProceed = await waitForActiveRuns(openai, thread.threadId, 60000);
+    
+    if (!canProceed) {
+      logger.error({
+        ticketId: ticket.id,
+        threadId: thread.threadId
+      }, "Não foi possível finalizar runs ativas na thread, abortando");
+      
+      await ticket.update({
+        useIntegration: false,
+        integrationId: null,
+        isBot: false
+      });
+      
+      await wbot.sendPresenceUpdate('paused', `${contact.number}@${ticket.isGroup ? "g.us" : "s.whatsapp.net"}`);
+      return false;
     }
 
     // Processar mensagem de áudio se necessário
@@ -619,21 +747,53 @@ export const handleAssistantChat = async (
       return false;
     }
 
-    // Adicionar mensagem à thread
-    await openai.beta.threads.messages.create(thread.threadId, {
-      role: "user",
-      content: userMessage
-    });
+    // Adicionar mensagem à thread (agora que sabemos que não há runs ativas)
+    try {
+      await openai.beta.threads.messages.create(thread.threadId, {
+        role: "user",
+        content: userMessage
+      });
+    } catch (messageError) {
+      if (messageError.message?.includes("while a run") && messageError.message?.includes("is active")) {
+        logger.error({
+          ticketId: ticket.id,
+          threadId: thread.threadId,
+          error: messageError.message
+        }, "Ainda há run ativa mesmo após verificação, tentando novamente");
+        
+        // Aguardar mais um pouco e tentar novamente
+        await new Promise(resolve => setTimeout(resolve, 5000));
+        
+        const canProceedAgain = await waitForActiveRuns(openai, thread.threadId, 30000);
+        if (!canProceedAgain) {
+          throw new Error("Thread permanece com runs ativas após múltiplas tentativas");
+        }
+        
+        await openai.beta.threads.messages.create(thread.threadId, {
+          role: "user",
+          content: userMessage
+        });
+      } else {
+        throw messageError;
+      }
+    }
 
     // Iniciar execução
     const run = await openai.beta.threads.runs.create(thread.threadId, {
       assistant_id: assistant.assistantId
     });
 
+    // Registrar run ativa
+    activeRuns.set(threadLockKey, {
+      runId: run.id,
+      startTime: Date.now(),
+      processing: true
+    });
+
     // Monitorar execução
     let runStatus = await openai.beta.threads.runs.retrieve(thread.threadId, run.id);
     const startTime = Date.now();
-    const timeout = 60000;
+    const timeout = 120000; // Aumentado para 2 minutos
 
     while (!["completed", "failed", "cancelled", "expired"].includes(runStatus.status)) {
       // Verificar se o ticket ainda deve ser processado pelo assistente
@@ -655,7 +815,8 @@ export const handleAssistantChat = async (
           }, "Erro ao cancelar run");
         }
         
-        // Limpar flags de integração pois usuário assumiu
+        // Limpar run ativa e flags de integração
+        activeRuns.delete(threadLockKey);
         await ticket.update({
           useIntegration: false,
           integrationId: null,
@@ -692,7 +853,7 @@ export const handleAssistantChat = async (
         }
       }
 
-      await new Promise(resolve => setTimeout(resolve, 500));
+      await new Promise(resolve => setTimeout(resolve, 1000));
       runStatus = await openai.beta.threads.runs.retrieve(thread.threadId, run.id);
 
       // Verificar timeout
@@ -711,7 +872,8 @@ export const handleAssistantChat = async (
           }, "Erro ao cancelar run por timeout");
         }
         
-        // Limpar flags de integração em caso de timeout
+        // Limpar run ativa e flags de integração
+        activeRuns.delete(threadLockKey);
         await ticket.update({
           useIntegration: false,
           integrationId: null,
@@ -722,6 +884,9 @@ export const handleAssistantChat = async (
         return false;
       }
     }
+
+    // Limpar run ativa após finalização
+    activeRuns.delete(threadLockKey);
 
     // Interromper indicação de "digitando"
     await wbot.sendPresenceUpdate('paused', `${contact.number}@${ticket.isGroup ? "g.us" : "s.whatsapp.net"}`);
@@ -884,6 +1049,20 @@ export const handleAssistantChat = async (
               error: error.message,
               stack: error.stack
             }, "Erro ao enviar resposta do assistente");
+            
+            // Limpar flags em caso de erro
+            try {
+              await ticket.update({
+                useIntegration: false,
+                integrationId: null,
+                isBot: false
+              });
+            } catch (updateError) {
+              logger.error({
+                ticketId: ticket.id,
+                error: updateError.message
+              }, "Erro ao limpar flags do ticket após erro");
+            }
           }
         },
         1000,
@@ -902,8 +1081,22 @@ export const handleAssistantChat = async (
       stack: err.stack
     }, "Erro ao processar mensagem com assistente");
     
+    // Limpar run ativa em caso de erro
+    if (threadLockKey) {
+      activeRuns.delete(threadLockKey);
+    }
+    
     try {
       await wbot.sendPresenceUpdate('paused', `${contact.number}@${ticket.isGroup ? "g.us" : "s.whatsapp.net"}`);
+      
+      // Limpar flags do ticket em caso de erro
+      if (ticket) {
+        await ticket.update({
+          useIntegration: false,
+          integrationId: null,
+          isBot: false
+        });
+      }
     } catch (presenceError) {
       // Ignora erro ao atualizar presença
     }
