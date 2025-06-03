@@ -220,38 +220,32 @@ const Assistants = () => {
   // Configuração das ações do cabeçalho
   const pageActions = [
     {
-      label: "Ajuda",
+      label: i18n.t("assistants.buttons.help"),
       icon: <HelpIcon />,
-      onClick: () => {}, // AssistantsHelpButton será renderizado separadamente
+      onClick: () => {},
       variant: "outlined",
       color: "primary",
       tooltip: i18n.t("assistants.buttons.help"),
-      component: AssistantsHelpButton
+      component: <AssistantsHelpButton key="help-button" />
     },
     {
-      label: "Voz",
-      icon: <VolumeUpIcon />,
-      onClick: () => {}, // VoiceSettingsButton será renderizado separadamente
-      variant: "outlined",
-      color: "primary",
-      tooltip: "Configurações de Voz",
-      component: VoiceSettingsButton
-    },
-    {
-      label: "Importar",
-      icon: <CloudDownloadIcon />,
-      onClick: handleImportAssistants,
-      variant: "outlined",
-      color: "primary",
-      tooltip: i18n.t("assistants.buttons.import")
-    },
-    {
-      label: "Adicionar",
+      label: i18n.t("assistants.buttons.new"),
       icon: <AddIcon />,
       onClick: handleOpenAssistantModal,
       variant: "contained",
-      color: "primary",
-      tooltip: i18n.t("assistants.buttons.add")
+      color: "primary"
+    },
+    {
+      label: i18n.t("assistants.buttons.import"),
+      icon: <CloudDownloadIcon />,
+      onClick: () => setImportModalOpen(true),
+      variant: "outlined"
+    },
+    {
+      icon: <VolumeUpIcon />,
+      onClick: () => {},
+      variant: "outlined",
+      component: <VoiceSettingsButton key="voice-settings-button" />
     }
   ];
 
@@ -540,11 +534,7 @@ const Assistants = () => {
         onTabChange={handleTabChange}
         loading={loading && assistants.length === 0}
       >
-        {/* Componentes especiais para botões */}
-        <Box sx={{ position: 'absolute', top: -50, right: 100, display: 'none' }}>
-          <AssistantsHelpButton />
-          <VoiceSettingsButton />
-        </Box>
+        {/* Conteúdo principal */}
         
         {renderContent()}
       </StandardPageLayout>
