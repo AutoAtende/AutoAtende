@@ -1180,7 +1180,7 @@ const MainListItems = (props) => {
     level={2}
     collapsed={collapsed}
   />
-  {isSuperUser && (
+{user.super && (
     <ListItemLink
       to="/settings/plans"
       primary={i18n.t("mainDrawer.listItems.settings.plans")}
@@ -1192,6 +1192,7 @@ const MainListItems = (props) => {
       exact
     />
   )}
+  {user.super && (
   <ListItemLink
     to="/settings/helps"
     primary={i18n.t("mainDrawer.listItems.settings.helps")}
@@ -1201,6 +1202,7 @@ const MainListItems = (props) => {
     level={2}
     collapsed={collapsed}
   />
+  )}
   <ListItemLink
     to="/settings/schedules"
     primary={i18n.t("mainDrawer.listItems.settings.schedules")}
@@ -1210,6 +1212,7 @@ const MainListItems = (props) => {
     level={2}
     collapsed={collapsed}
   />
+  {user.super && (
   <ListItemLink
     to="/settings/payment-gateway"
     primary={i18n.t("mainDrawer.listItems.settings.paymentGateway")}
@@ -1219,6 +1222,8 @@ const MainListItems = (props) => {
     level={2}
     collapsed={collapsed}
   />
+  )}
+  
   <ListItemLink
     to="/settings/closure-reasons"
     primary={i18n.t("mainDrawer.listItems.settings.closureReasons")}
