@@ -49,7 +49,7 @@ export const index = async (req: Request, res: Response): Promise<Response> => {
     };
 
     // Filtrar por fila específica
-    if (queueId) {
+    if (queueId && queueId !== '') {
       whereCondition.queueId = Number(queueId);
     }
 
@@ -170,20 +170,26 @@ export const index = async (req: Request, res: Response): Promise<Response> => {
         canReceiveTickets: true
       });
 
-      // Lanes por filas (somente se uma fila específica foi selecionada)
-      if (queueId) {
+      // Se uma fila específica foi selecionada, adicionar lane personalizada
+      if (queueId && queueId !== '') {
         const selectedQueue = queues.find(q => q.id === Number(queueId));
         if (selectedQueue) {
+          // Criar uma lane específica para a fila selecionada
+          const queueTickets = tickets.filter(t => t.queueId === selectedQueue.id);
+          
+          // Remover tickets desta fila das lanes de status
+          lanes.forEach(lane => {
+            lane.tickets = lane.tickets.filter(t => t.queueId !== selectedQueue.id);
+          });
+
+          // Adicionar lane da fila
           lanes.push({
             id: `queue-${selectedQueue.id}`,
-            name: `${selectedQueue.name}`,
+            name: selectedQueue.name,
             color: selectedQueue.color || "#9b59b6",
-            status: "open", // Tickets nesta lane ficam como "open"
+            status: "queue-specific",
             queueId: selectedQueue.id,
-            tickets: tickets.filter(t => 
-              t.queueId === selectedQueue.id && 
-              (t.status === "open" || t.status === "pending")
-            ),
+            tickets: queueTickets,
             canReceiveTickets: true
           });
         }
@@ -250,7 +256,7 @@ export const index = async (req: Request, res: Response): Promise<Response> => {
 
 export const moveTicket = async (req: Request, res: Response): Promise<Response> => {
   const { ticketId } = req.params;
-  const { targetLaneId, userId } = req.body;
+  const { targetLaneId, sourceLaneId, position } = req.body;
   const { companyId, id: userCurrentId } = req.user;
 
   try {
@@ -276,26 +282,22 @@ export const moveTicket = async (req: Request, res: Response): Promise<Response>
     let newQueueId = ticket.queueId;
     let newUserId = ticket.userId;
 
+    logger.info(`Movendo ticket ${ticketId} de ${sourceLaneId} para ${targetLaneId}`);
+
     // Definir mudanças baseadas na lane de destino
     if (targetLaneId === "pending") {
       newStatus = "pending";
-      // Se está indo para pending, pode remover o usuário se quiser
-      if (userId === null || userId === undefined) {
-        newUserId = null;
-      } else if (userId) {
-        newUserId = Number(userId);
-      }
+      // Manter o usuário atual, mas permitir que seja nulo
     } else if (targetLaneId === "open") {
       newStatus = "open";
-      // Se está indo para open, deve ter um usuário
-      if (userId) {
-        newUserId = Number(userId);
-      } else if (!ticket.userId) {
-        throw new AppError("Tickets em atendimento devem ter um responsável", 400);
+      // Se não tem usuário, atribuir para quem está movendo
+      if (!ticket.userId) {
+        newUserId = Number(userCurrentId);
       }
     } else if (targetLaneId === "closed") {
       newStatus = "closed";
-      newUserId = Number(ticket.userId || userCurrentId); // Manter o usuário atual ou definir quem fechou
+      // Manter o usuário atual ou definir quem fechou
+      newUserId = Number(ticket.userId || userCurrentId);
     } else if (targetLaneId.startsWith("queue-")) {
       // Lane de fila específica
       const queueId = Number(targetLaneId.replace("queue-", ""));
@@ -310,15 +312,36 @@ export const moveTicket = async (req: Request, res: Response): Promise<Response>
       }
 
       newQueueId = queueId;
-      newStatus = "open"; // Tickets em filas específicas ficam como "open"
-      
-      if (userId) {
-        newUserId = Number(userId);
+      // Manter status atual ou definir como open se estava pending
+      if (ticket.status === "pending") {
+        newStatus = "open";
+        // Se não tem usuário, atribuir para quem está movendo
+        if (!ticket.userId) {
+          newUserId = Number(userCurrentId);
+        }
       }
     }
 
+    // Verificar se houve mudanças
+    const hasChanges = newStatus !== ticket.status || 
+                      newQueueId !== ticket.queueId || 
+                      newUserId !== ticket.userId;
+
+    if (!hasChanges) {
+      return res.status(200).json({
+        success: true,
+        message: "Ticket já está na posição correta",
+        ticket: {
+          id: ticket.id,
+          status: ticket.status,
+          queueId: ticket.queueId,
+          userId: ticket.userId
+        }
+      });
+    }
+
     // Atualizar o ticket usando o serviço existente
-    await UpdateTicketService({
+    const updatedTicket = await UpdateTicketService({
       ticketId: ticket.id,
       ticketData: {
         status: newStatus,
@@ -336,10 +359,14 @@ export const moveTicket = async (req: Request, res: Response): Promise<Response>
       action: "move-ticket",
       ticketId: Number(ticketId),
       targetLaneId,
+      sourceLaneId,
       oldStatus: ticket.status,
       newStatus,
-      userId: newUserId
+      userId: newUserId,
+      queueId: newQueueId
     });
+
+    logger.info(`Ticket ${ticketId} movido com sucesso de ${ticket.status} para ${newStatus}`);
 
     return res.status(200).json({
       success: true,
@@ -369,7 +396,11 @@ export const assignUser = async (req: Request, res: Response): Promise<Response>
   try {
     // Buscar o ticket
     const ticket = await Ticket.findOne({
-      where: { id: Number(ticketId), companyId }
+      where: { id: Number(ticketId), companyId },
+      include: [
+        { model: User, as: "user" },
+        { model: Queue, as: "queue" }
+      ]
     });
 
     if (!ticket) {
@@ -381,18 +412,42 @@ export const assignUser = async (req: Request, res: Response): Promise<Response>
       throw new AppError("Não é possível atribuir usuário a ticket fechado", 400);
     }
 
+    // Verificar se o usuário existe (se userId foi fornecido)
+    if (userId) {
+      const userExists = await User.findOne({
+        where: { id: Number(userId), companyId }
+      });
+
+      if (!userExists) {
+        throw new AppError("Usuário não encontrado", 404);
+      }
+    }
+
     // Se está atribuindo usuário, ticket deve ir para "open"
+    // Se está removendo usuário, ticket vai para "pending"
     const newStatus = userId ? "open" : "pending";
+    const newUserId = userId ? Number(userId) : null;
 
     await UpdateTicketService({
       ticketId: ticket.id,
       ticketData: {
-        userId: userId ? Number(userId) : null,
+        userId: newUserId,
         status: newStatus
       },
       companyId,
       userCurrentId: Number(userCurrentId)
     });
+
+    // Emitir evento via socket
+    const io = getIO();
+    io.to(`company-${companyId}-mainchannel`).emit(`company-${companyId}-kanban`, {
+      action: "assign-user",
+      ticketId: Number(ticketId),
+      userId: newUserId,
+      status: newStatus
+    });
+
+    logger.info(`Usuário ${userId ? `${userId} atribuído` : 'removido'} do ticket ${ticketId}`);
 
     return res.status(200).json({
       success: true,
@@ -415,11 +470,14 @@ export const getStats = async (req: Request, res: Response): Promise<Response> =
   try {
     const whereCondition: any = { companyId };
     
-    if (queueId) {
+    if (queueId && queueId !== '') {
       whereCondition.queueId = Number(queueId);
     }
 
-    const [pendingCount, openCount, closedTodayCount] = await Promise.all([
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const [pendingCount, openCount, closedTodayCount, totalActiveCount] = await Promise.all([
       Ticket.count({ where: { ...whereCondition, status: "pending" } }),
       Ticket.count({ where: { ...whereCondition, status: "open" } }),
       Ticket.count({
@@ -427,9 +485,15 @@ export const getStats = async (req: Request, res: Response): Promise<Response> =
           ...whereCondition,
           status: "closed",
           updatedAt: {
-            [Op.gte]: new Date(new Date().setHours(0, 0, 0, 0))
+            [Op.gte]: today
           }
         }
+      }),
+      Ticket.count({ 
+        where: { 
+          ...whereCondition, 
+          status: { [Op.in]: ["pending", "open"] } 
+        } 
       })
     ]);
 
@@ -437,7 +501,7 @@ export const getStats = async (req: Request, res: Response): Promise<Response> =
       pending: pendingCount,
       open: openCount,
       closedToday: closedTodayCount,
-      total: pendingCount + openCount
+      total: totalActiveCount
     });
 
   } catch (error) {

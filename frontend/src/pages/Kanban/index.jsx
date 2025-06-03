@@ -20,7 +20,6 @@ import {
   Grid,
   Card,
   CardContent,
-  CardHeader,
   Tooltip,
   Badge
 } from "@mui/material";
@@ -212,50 +211,68 @@ const Kanban = () => {
       return {
         id: lane.id,
         title: (
-          <div style={{ width: '100%', textAlign: 'center' }}>
-            <div style={{
-              backgroundColor: lane.color,
-              padding: "12px",
-              marginBottom: "8px",
-              borderRadius: "8px",
+          <Box sx={{ width: '100%', textAlign: 'center', minWidth: 300 }}>
+            <Box sx={{
+              backgroundColor: lane.color || '#666',
+              padding: "16px",
+              marginBottom: "12px",
+              borderRadius: "12px",
               fontSize: "16px",
               fontWeight: "bold",
               color: "white",
               display: "flex",
               justifyContent: "space-between",
-              alignItems: "center"
+              alignItems: "center",
+              minHeight: "50px"
             }}>
-              <span>{lane.name}</span>
-              <Badge badgeContent={laneTickets.length} color="secondary" />
-            </div>
-            <div style={{ 
+              <Typography variant="h6" sx={{ color: "white", fontWeight: "bold", flex: 1 }}>
+                {lane.name}
+              </Typography>
+              <Badge 
+                badgeContent={laneTickets.length} 
+                color="secondary"
+                sx={{
+                  '& .MuiBadge-badge': {
+                    backgroundColor: 'white',
+                    color: lane.color || '#666'
+                  }
+                }}
+              />
+            </Box>
+            <Box sx={{ 
               color: "#666", 
               fontSize: "12px", 
               display: "flex", 
               justifyContent: "space-between",
-              padding: "0 8px" 
+              padding: "0 8px",
+              flexWrap: "wrap",
+              gap: 1
             }}>
-              <span>{laneTickets.length} tickets</span>
+              <Typography variant="caption">
+                {laneTickets.length} ticket{laneTickets.length !== 1 ? 's' : ''}
+              </Typography>
               {laneTickets.length > 0 && totalValue > 0 && (
-                <span>
-                  Valor: {formatCurrency(totalValue)}
-                </span>
+                <Typography variant="caption" sx={{ fontWeight: 'bold', color: 'success.main' }}>
+                  {formatCurrency(totalValue)}
+                </Typography>
               )}
-            </div>
-          </div>
+            </Box>
+          </Box>
         ),
         cards: laneTickets.map(ticket => ({
-          id: ticket.id.toString(),
+          id: String(ticket.id),
           title: ticket.name || `Ticket #${ticket.id}`,
           description: createCardDescription(ticket),
           draggable: true,
           metadata: { ticket }
         })),
         style: {
-          backgroundColor: "white",
-          width: 320,
-          borderRadius: "8px",
-          boxShadow: "0 2px 8px rgba(0,0,0,0.1)"
+          backgroundColor: "#f8f9fa",
+          width: 340,
+          minWidth: 340,
+          borderRadius: "12px",
+          boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
+          margin: "0 8px"
         }
       };
     });
@@ -267,6 +284,7 @@ const Kanban = () => {
     // Garantir que o ticket tem todas as propriedades necessárias
     const safeTicket = {
       id: ticket.id || 0,
+      uuid: ticket.uuid || '',
       name: ticket.name || '',
       status: ticket.status || 'pending',
       lastMessage: ticket.lastMessage || '',
@@ -275,41 +293,43 @@ const Kanban = () => {
       sku: ticket.sku || '',
       contact: ticket.contact || null,
       user: ticket.user || null,
-      tags: Array.isArray(ticket.tags) ? ticket.tags : []
+      tags: Array.isArray(ticket.tags) ? ticket.tags : [],
+      createdAt: ticket.createdAt,
+      updatedAt: ticket.updatedAt
     };
 
     return (
-      <div style={{ position: "relative" }}>
+      <Box sx={{ position: "relative", p: 1 }}>
         {/* Header do contato */}
-        <div style={{ 
+        <Box sx={{ 
           display: "flex", 
           alignItems: "center", 
-          marginBottom: "12px",
-          padding: "8px",
-          backgroundColor: "#f8f9fa",
-          borderRadius: "6px"
+          mb: 2,
+          p: 1.5,
+          backgroundColor: "#f5f5f5",
+          borderRadius: "8px"
         }}>
           <Avatar
             src={safeTicket.contact?.profilePicUrl}
             alt={safeTicket.contact?.name}
-            sx={{ width: 36, height: 36, mr: 1 }}
+            sx={{ width: 40, height: 40, mr: 1.5 }}
           >
             {safeTicket.contact?.name?.charAt(0) || safeTicket.contact?.number?.charAt(0) || '?'}
           </Avatar>
-          <div style={{ flex: 1, minWidth: 0 }}>
+          <Box sx={{ flex: 1, minWidth: 0 }}>
             <Typography variant="body2" fontWeight="bold" noWrap>
               {safeTicket.contact?.name || safeTicket.contact?.number || "Contato desconhecido"}
             </Typography>
             <Typography variant="caption" color="textSecondary" noWrap>
               {safeTicket.contact?.number || ''}
             </Typography>
-          </div>
-        </div>
+          </Box>
+        </Box>
         
         {/* Última mensagem */}
         {safeTicket.lastMessage && (
-          <div style={{ marginBottom: "8px" }}>
-            <Typography variant="caption" color="textSecondary">
+          <Box sx={{ mb: 1.5 }}>
+            <Typography variant="caption" color="textSecondary" fontWeight="bold">
               Última mensagem:
             </Typography>
             <Typography variant="body2" sx={{ 
@@ -318,70 +338,76 @@ const Kanban = () => {
               textOverflow: "ellipsis",
               display: "-webkit-box",
               WebkitLineClamp: 2,
-              WebkitBoxOrient: "vertical"
+              WebkitBoxOrient: "vertical",
+              mt: 0.5,
+              p: 1,
+              bgcolor: "#f9f9f9",
+              borderRadius: 1,
+              border: "1px solid #e0e0e0"
             }}>
-              {safeTicket.lastMessage.length > 80 
-                ? `${safeTicket.lastMessage.substring(0, 80)}...`
+              {safeTicket.lastMessage.length > 100 
+                ? `${safeTicket.lastMessage.substring(0, 100)}...`
                 : safeTicket.lastMessage
               }
             </Typography>
-          </div>
+          </Box>
         )}
 
         {/* Mensagens não lidas */}
         {safeTicket.unreadMessages > 0 && (
-          <div style={{ marginBottom: "8px" }}>
+          <Box sx={{ mb: 1.5 }}>
             <Chip 
               size="small" 
               color="error" 
-              label={`${safeTicket.unreadMessages} não lidas`}
+              label={`${safeTicket.unreadMessages} não lida${safeTicket.unreadMessages > 1 ? 's' : ''}`}
               icon={<WarningIcon fontSize="small" />}
+              sx={{ fontSize: "11px" }}
             />
-          </div>
+          </Box>
         )}
 
         {/* Atendente */}
         {safeTicket.user && (
-          <div style={{ 
+          <Box sx={{ 
             display: "flex", 
             alignItems: "center", 
-            marginBottom: "8px",
-            padding: "4px 8px",
+            mb: 1.5,
+            p: 1,
             backgroundColor: "#e3f2fd",
-            borderRadius: "4px"
+            borderRadius: "6px"
           }}>
             <PersonIcon sx={{ fontSize: 16, mr: 0.5, color: "primary.main" }} />
-            <Typography variant="caption">
+            <Typography variant="caption" fontWeight="bold">
               {safeTicket.user.name}
             </Typography>
-          </div>
+          </Box>
         )}
 
         {/* Valor e SKU */}
         {(safeTicket.value > 0 || safeTicket.sku) && (
-          <div style={{ marginBottom: "8px" }}>
+          <Box sx={{ mb: 1.5, p: 1, bgcolor: "#f0f8f0", borderRadius: 1 }}>
             {safeTicket.sku && (
-              <Typography variant="caption" display="block">
+              <Typography variant="caption" display="block" sx={{ mb: 0.5 }}>
                 <strong>SKU:</strong> {safeTicket.sku}
               </Typography>
             )}
             {safeTicket.value > 0 && (
-              <Typography variant="caption" display="block" color="success.main">
+              <Typography variant="caption" display="block" color="success.main" fontWeight="bold">
                 <strong>Valor:</strong> {formatCurrency(safeTicket.value)}
               </Typography>
             )}
-          </div>
+          </Box>
         )}
 
         {/* Tags */}
         {safeTicket.tags.length > 0 && (
-          <div style={{ 
+          <Box sx={{ 
             display: "flex", 
             flexWrap: "wrap", 
-            gap: "4px", 
-            marginBottom: "8px" 
+            gap: 0.5, 
+            mb: 1.5 
           }}>
-            {safeTicket.tags.slice(0, 3).map(tag => (
+            {safeTicket.tags.slice(0, 2).map(tag => (
               <Chip
                 key={tag.id}
                 label={tag.name}
@@ -390,57 +416,61 @@ const Kanban = () => {
                   backgroundColor: tag.color,
                   color: "white",
                   fontSize: "10px",
-                  height: "20px"
+                  height: "22px"
                 }}
               />
             ))}
-            {safeTicket.tags.length > 3 && (
+            {safeTicket.tags.length > 2 && (
               <Chip
-                label={`+${safeTicket.tags.length - 3}`}
+                label={`+${safeTicket.tags.length - 2}`}
                 size="small"
                 variant="outlined"
-                sx={{ fontSize: "10px", height: "20px" }}
+                sx={{ fontSize: "10px", height: "22px" }}
               />
             )}
-          </div>
+          </Box>
         )}
 
         {/* Footer com ações */}
-        <div style={{ 
+        <Box sx={{ 
           display: "flex", 
           justifyContent: "space-between", 
           alignItems: "center",
           borderTop: "1px solid #e0e0e0",
-          paddingTop: "8px",
-          marginTop: "8px"
+          pt: 1.5,
+          mt: 1.5
         }}>
           <Typography variant="caption" color="textSecondary">
             {getStatusLabel(safeTicket.status)} • #{safeTicket.id}
           </Typography>
-          <div style={{ display: "flex", gap: "4px" }}>
-            <IconButton
-              size="small"
-              onClick={(e) => {
-                e.stopPropagation();
-                handleTicketClick(safeTicket);
-              }}
-              sx={{ color: "#1976d2" }}
-            >
-              <AssignmentIcon fontSize="small" />
-            </IconButton>
-            <IconButton
-              size="small"
-              onClick={(e) => {
-                e.stopPropagation();
-                handleOpenTicket(safeTicket);
-              }}
-              sx={{ color: "#25d366" }}
-            >
-              <WhatsAppIcon fontSize="small" />
-            </IconButton>
-          </div>
-        </div>
-      </div>
+          <Box sx={{ display: "flex", gap: 0.5 }}>
+            <Tooltip title="Ver detalhes">
+              <IconButton
+                size="small"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleTicketClick(safeTicket);
+                }}
+                sx={{ color: "#1976d2" }}
+              >
+                <AssignmentIcon fontSize="small" />
+              </IconButton>
+            </Tooltip>
+            <Tooltip title="Abrir conversa">
+              <IconButton
+                size="small"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleOpenTicket(safeTicket);
+                }}
+                sx={{ color: "#25d366" }}
+              >
+                <WhatsAppIcon fontSize="small" />
+              </IconButton>
+            </Tooltip>
+          </Box>
+        </Box>
+      </Box>
     );
   };
 
@@ -464,29 +494,31 @@ const Kanban = () => {
     }
   };
 
-  const handleCardMove = async (cardId, sourceLaneId, targetLaneId) => {
+  const handleCardMove = async (cardId, sourceLaneId, targetLaneId, position, cardDetails) => {
     if (sourceLaneId === targetLaneId) return;
 
     try {
-      setLoading(true);
+      console.log('Movendo card:', { cardId, sourceLaneId, targetLaneId, position });
       
       await api.post(`/kanban/tickets/${cardId}/move`, {
-        targetLaneId
+        targetLaneId: targetLaneId,
+        sourceLaneId: sourceLaneId,
+        position: position
       });
 
       toast.success("Ticket movido com sucesso!");
       
-      // Recarregar dados
-      await fetchKanbanData();
+      // Recarregar dados após um pequeno delay
+      setTimeout(() => {
+        fetchKanbanData();
+      }, 500);
       
     } catch (error) {
       console.error("Erro ao mover ticket:", error);
       toast.error(error.response?.data?.error || "Erro ao mover ticket");
       
       // Recarregar para reverter mudança visual
-      await fetchKanbanData();
-    } finally {
-      setLoading(false);
+      fetchKanbanData();
     }
   };
 
@@ -624,9 +656,9 @@ const Kanban = () => {
           </Grid>
         </Grid>
 
-        {/* Filtros */}
+        {/* Filtros - Layout Melhorado */}
         <Grid container spacing={2} alignItems="center">
-          <Grid item xs={12} sm={6} md={2}>
+          <Grid item xs={12} sm={6} md={3} lg={2}>
             <FormControl variant="outlined" fullWidth size="small">
               <InputLabel>Setor</InputLabel>
               <Select
@@ -644,31 +676,32 @@ const Kanban = () => {
             </FormControl>
           </Grid>
 
-          <Grid item xs={12} sm={6} md={2}>
+          <Grid item xs={12} sm={6} md={3} lg={2}>
             <TextField
               placeholder="Pesquisar..."
               size="small"
               fullWidth
               value={searchQuery}
               onChange={handleSearchChange}
+              variant="outlined"
             />
           </Grid>
 
           {(user.profile === "admin" || user.profile === "superv") && (
             <>
-              <Grid item xs={12} sm={6} md={2}>
+              <Grid item xs={12} sm={6} md={3} lg={2}>
                 <Box sx={{ minWidth: "100%" }}>
                   <UsersFilter onFiltered={onFiltered} />
                 </Box>
               </Grid>
               
-              <Grid item xs={6} sm={3} md={1}>
+              <Grid item xs={6} sm={3} md={2} lg={1.5}>
                 <DatePickerMoment
                   label="De"
                   getDate={(value) => handleSelectedDate(value, "from")}
                 />
               </Grid>
-              <Grid item xs={6} sm={3} md={1}>
+              <Grid item xs={6} sm={3} md={2} lg={1.5}>
                 <DatePickerMoment
                   label="Até"
                   getDate={(value) => handleSelectedDate(value, "until")}
@@ -677,7 +710,7 @@ const Kanban = () => {
             </>
           )}
 
-          <Grid item xs={6} sm={3} md={2}>
+          <Grid item xs={6} sm={3} md={2} lg={1.5}>
             <FormControlLabel
               control={
                 <Switch
@@ -690,15 +723,16 @@ const Kanban = () => {
             />
           </Grid>
 
-          <Grid item xs={6} sm={3} md={2}>
+          <Grid item xs={6} sm={3} md={2} lg={1.5}>
             <Button
               variant="outlined"
               startIcon={<RefreshIcon />}
               onClick={handleRefresh}
               disabled={loading}
               fullWidth
+              size="small"
             >
-              {loading ? <CircularProgress size={20} /> : "Atualizar"}
+              {loading ? <CircularProgress size={16} /> : "Atualizar"}
             </Button>
           </Grid>
         </Grid>
@@ -744,16 +778,33 @@ const Kanban = () => {
           )}
         </Box>
       ) : (
-        <Box sx={{ flex: 1, overflow: "hidden" }}>
+        <Box sx={{ 
+          flex: 1, 
+          overflow: "auto",
+          '& .react-trello-board': {
+            padding: '20px',
+            backgroundColor: '#f5f5f5',
+            minHeight: 'calc(100vh - 300px)',
+          },
+          '& .react-trello-lane': {
+            margin: '0 8px',
+            backgroundColor: 'transparent',
+            border: 'none',
+            borderRadius: '12px'
+          }
+        }}>
           <Board
             data={boardData}
             onCardMoveAcrossLanes={handleCardMove}
             onCardClick={handleCardClick}
             draggable
+            laneDraggable={false}
+            cardDraggable={true}
             style={{
               backgroundColor: "#f5f5f5",
               width: "100%",
               height: "100%",
+              fontFamily: theme.typography.fontFamily
             }}
           />
         </Box>
@@ -861,8 +912,8 @@ const Kanban = () => {
                 )}
               </Paper>
 
-{/* Atribuição de usuário */}
-{selectedTicket.status !== "closed" && (
+              {/* Atribuição de usuário */}
+              {selectedTicket.status !== "closed" && (
                 <Paper variant="outlined" sx={{ p: 2, mb: 2 }}>
                   <Typography variant="subtitle1" fontWeight="bold" gutterBottom>
                     Responsável pelo Atendimento
