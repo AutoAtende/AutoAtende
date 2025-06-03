@@ -1,20 +1,25 @@
-import {subHours} from "date-fns";
-import {Op} from "sequelize";
+import { subHours } from "date-fns";
+import { Op } from "sequelize";
+import { getIO } from "../../libs/socket";
 import Company from "../../models/Company";
 import Contact from "../../models/Contact";
 import Ticket from "../../models/Ticket";
-import { logger } from "../../utils/logger";
-import KanbanCard from "../../models/KanbanCard";
 import ShowTicketService from "./ShowTicketService";
 import FindOrCreateATicketTrakingService from "./FindOrCreateATicketTrakingService";
 import Setting from "../../models/Setting";
 import Whatsapp from "../../models/Whatsapp";
 import TicketTraking from "../../models/TicketTraking";
 import User from "../../models/User";
-import KanbanTicketIntegrationService from "../KanbanServices/KanbanTicketIntegrationService";
-import ListSettingsServiceOne from "../SettingServices/ListSettingsServiceOne";
+import { notifyUpdate } from "./UpdateTicketService";
 
-
+/**
+ * Interface para os dados do ticket
+ * @interface TicketData
+ * @property {string} [status] - Status do ticket
+ * @property {number} [companyId] - ID da empresa
+ * @property {number} [unreadMessages] - Número de mensagens não lidas
+ * @property {number} [value] - Valor do ticket
+ */
 interface TicketData {
   status?: string;
   companyId?: number;
@@ -23,73 +28,19 @@ interface TicketData {
 }
 
 /**
- * NOVA FUNÇÃO: Gerenciar integração Kanban após criação/atualização do ticket
+ * Encontra ou cria um ticket com base nos parâmetros fornecidos
+ * @param {Contact} contact - Contato associado ao ticket
+ * @param {number} whatsappId - ID do WhatsApp associado
+ * @param {number} unreadMessages - Número de mensagens não lidas
+ * @param {number} companyId - ID da empresa
+ * @param {number} [value] - Valor do ticket (opcional)
+ * @param {Contact} [groupContact] - Contato do grupo (opcional)
+ * @param {boolean} [importing] - Se o ticket está sendo importado (opcional)
+ * @param {boolean} [keepClosed] - Manter ticket fechado (opcional)
+ * @param {boolean} [isApi] - Se a requisição veio da API (opcional)
+ * @returns {Promise<Ticket>} - Retorna o ticket encontrado ou criado
+ * @throws {Error} - Lança erro em caso de falha na criação/atualização do ticket
  */
-const handleKanbanIntegration = async (
-  ticket: Ticket,
-  wasCreated: boolean,
-  oldStatus?: string,
-  companyId?: number
-): Promise<void> => {
-  try {
-    // Verificar se integração Kanban está habilitada
-    const autoCreateSetting = await ListSettingsServiceOne({
-      companyId: companyId || ticket.companyId,
-      key: "kanbanAutoCreateCards"
-    });
-
-    if (autoCreateSetting?.value !== "enabled") {
-      return; // Integração desabilitada
-    }
-
-    // Se ticket foi criado pela primeira vez
-    if (wasCreated && (ticket.status === "pending" || ticket.status === "open")) {
-      
-      // Verificar se existe quadro padrão configurado
-      const defaultBoardSetting = await ListSettingsServiceOne({
-        companyId: ticket.companyId,
-        key: "kanbanDefaultBoardId"
-      });
-
-      const boardId = defaultBoardSetting?.value && defaultBoardSetting.value !== '' ? 
-        parseInt(defaultBoardSetting.value) : undefined;
-
-      // Criar cartão automaticamente
-      await KanbanTicketIntegrationService.createCardFromTicket({
-        ticketId: ticket.id,
-        boardId,
-        companyId: ticket.companyId,
-        userId: ticket.userId
-      });
-
-      logger.info(`[KANBAN] Cartão criado automaticamente para novo ticket ${ticket.id}`);
-    }
-    
-    // Se ticket foi reaberto (status mudou de closed para pending/open)
-    else if (!wasCreated && oldStatus === 'closed' && 
-             (ticket.status === 'pending' || ticket.status === 'open')) {
-      
-      await KanbanTicketIntegrationService.createCardFromTicket({
-        ticketId: ticket.id,
-        companyId: ticket.companyId,
-        userId: ticket.userId
-      });
-
-      logger.info(`[KANBAN] Cartão recriado para ticket reaberto ${ticket.id}`);
-    }
-    
-    // Para outras atualizações, apenas sincronizar dados
-    else if (!wasCreated) {
-      await KanbanTicketIntegrationService.updateCardFromTicket(ticket.id, ticket.companyId);
-      logger.info(`[KANBAN] Cartão atualizado para ticket ${ticket.id}`);
-    }
-
-  } catch (error) {
-    // Log do erro mas não interrompe o fluxo principal do ticket
-    logger.error(`[KANBAN] Erro na integração para ticket ${ticket.id}:`, error);
-  }
-};
-
 const FindOrCreateTicketService = async (
   contact: Contact,
   whatsappId: number,
@@ -102,81 +53,55 @@ const FindOrCreateTicketService = async (
   isApi?: boolean
 ): Promise<Ticket> => {
 
-
   let ticket: Ticket = null;
-  let wasTicketCreated = false;
-  let oldTicketStatus: string | undefined;
 
-    ticket = await Ticket.findOne({
-      where: {
-        status: {
-          [Op.or]: ["open", "pending", "closed"]
-        },
-        contactId: groupContact ? groupContact.id : contact.id,
-        companyId,
-        whatsappId
+  // Primeiro, procura por tickets abertos ou pendentes
+  ticket = await Ticket.findOne({
+    where: {
+      status: {
+        [Op.or]: ["open", "pending"]
       },
-      include: [
-        {
-          model: User,
-          as: 'user',
-          attributes: ['id', 'name', 'ramal', 'profilePic']  // incluindo o ramal aqui
-        },
-        {
-          model: Company,
-          as: 'company',
-          attributes: ['id', 'name', 'urlPBX']  // incluindo o urlPBX aqui
-        }
-      ],
-      order: [["id", "DESC"]]
-    });
+      contactId: groupContact ? groupContact.id : contact.id,
+      companyId,
+      whatsappId
+    },
+    include: [
+      {
+        model: User,
+        as: 'user',
+        attributes: ['id', 'name', 'ramal', 'profilePic']
+      },
+      {
+        model: Company,
+        as: 'company',
+        attributes: ['id', 'name', 'urlPBX']
+      }
+    ],
+    order: [["id", "DESC"]]
+  });
 
   if (ticket) {
-    if (ticket.status === "closed" && !keepClosed) {
-      const ticketTraking = await TicketTraking.findOne({
-        where: {
-          ticketId : ticket.id,
-          finishedAt: {
-            [Op.is]: null
-          }
-        }
-      });
-      if (ticketTraking &&
-        ticketTraking.finishedAt === null &&
-        ticketTraking.userId !== null &&
-        ticketTraking.ratingAt !== null){
-        await ticket.update({
-          unreadMessages,
-          whatsappId,
-          typebotSessionId: null,
-          useIntegration: false,
-          integrationId: null,
-          queueId: null,
-          userId: null,
-          imported: importing ? new Date() : null,
-          value
-        });
-      } else {
-        await ticket.update({
-          unreadMessages,
-          whatsappId,
-          useIntegration: false,
-          integrationId: null,
-          typebotSessionId: null,
-          queueId: null,
-          userId: null,
-          status: "pending",
-          imported: importing ? new Date() : null,
-          value
-        });
-      }
-
-         ticket.reload();
-    } else {
-      await ticket.update({unreadMessages, whatsappId, imported: importing ? new Date() : null, value});
-    }
+    // Atualiza o ticket existente com os novos dados
+    await ticket.update({ 
+      unreadMessages, 
+      whatsappId, 
+      imported: importing ? new Date() : null, 
+      value 
+    });
+    
+    // Emitir evento de atualização no formato esperado pelo frontend
+    const io = getIO();
+    notifyUpdate(
+      io,
+      ticket,
+      ticket.id,
+      ticket.companyId
+    );
+    
+    return ticket;
   }
 
+  // Para tickets de grupo, sempre procura um ticket existente (qualquer status)
   if (!ticket && groupContact) {
     ticket = await Ticket.findOne({
       where: {
@@ -188,30 +113,88 @@ const FindOrCreateTicketService = async (
     });
 
     if (ticket) {
-      await ticket.update({
-        status: "pending",
-        imported: importing ? new Date() : null,
-        userId: null,
-        unreadMessages,
-        isGroup: contact.isGroup,
-        whatsappId: whatsappId,
-        queueId: null,
-        companyId
-      });
+      // Se o ticket estava fechado, verifica o tracking antes de reabrir
+      if (ticket.status === "closed" && !keepClosed) {
+        const ticketTraking = await TicketTraking.findOne({
+          where: {
+            ticketId: ticket.id,
+            finishedAt: {
+              [Op.is]: null
+            }
+          }
+        });
+
+        if (ticketTraking &&
+          ticketTraking.finishedAt === null &&
+          ticketTraking.userId !== null &&
+          ticketTraking.ratingAt !== null) {
+          // Atualiza sem mudar status se já foi avaliado
+          await ticket.update({
+            unreadMessages,
+            whatsappId,
+            typebotSessionId: null,
+            useIntegration: false,
+            integrationId: null,
+            queueId: null,
+            userId: null,
+            imported: importing ? new Date() : null,
+            value
+          });
+        } else {
+          // Reabre o ticket para pending
+          await ticket.update({
+            status: "pending",
+            imported: importing ? new Date() : null,
+            userId: null,
+            unreadMessages,
+            isGroup: contact.isGroup,
+            whatsappId: whatsappId,
+            queueId: null,
+            companyId,
+            typebotSessionId: null,
+            useIntegration: false,
+            integrationId: null,
+            value
+          });
+        }
+      } else {
+        // Ticket não estava fechado, apenas atualiza
+        await ticket.update({
+          status: "pending",
+          imported: importing ? new Date() : null,
+          userId: null,
+          unreadMessages,
+          isGroup: contact.isGroup,
+          whatsappId: whatsappId,
+          queueId: null,
+          companyId,
+          value
+        });
+      }
+      
+      await ticket.reload();
+      
+      // Emitir evento de atualização do ticket
+      const io = getIO();
+      notifyUpdate(
+        io,
+        ticket,
+        ticket.id,
+        ticket.companyId
+      );
+      
       await FindOrCreateATicketTrakingService({
         ticketId: ticket.id,
         companyId,
         whatsappId: ticket.whatsappId,
         userId: ticket.userId
       });
+      
+      return ticket;
     }
-    const msgIsGroupBlock = await Setting.findOne({
-      where: {key: "timeCreateNewTicket"}
-    });
-
-    const value = msgIsGroupBlock ? parseInt(msgIsGroupBlock.value, 10) : 7200;
   }
 
+  // Para contatos individuais (não grupos), verifica tickets recentes
   if (!ticket && !groupContact) {
     ticket = await Ticket.findOne({
       where: {
@@ -225,150 +208,124 @@ const FindOrCreateTicketService = async (
     });
 
     if (ticket) {
-      await ticket.update({
-        status: "pending",
+      const updateData: any = {
+        status: isApi ? "closed" : "pending",
+        unreadMessages,
+        whatsappId,
+        companyId,
+        value,
         imported: importing ? new Date() : null,
         userId: null,
         isGroup: contact.isGroup,
-        unreadMessages,
-        whatsappId: whatsappId,
-        queueId: null,
-        companyId
-      });
+        queueId: null
+      };
+      
+      if (isApi) {
+        const adminUser = await User.findOne({ where: { companyId, profile: 'admin' } });
+        updateData.userId = adminUser?.id || null;
+      }
+      
+      await ticket.update(updateData);
+      
+      // Emitir evento de atualização do ticket
+      const io = getIO();
+      notifyUpdate(
+        io,
+        ticket,
+        ticket.id,
+        ticket.companyId
+      );
+      
       await FindOrCreateATicketTrakingService({
         ticketId: ticket.id,
         companyId,
         whatsappId: ticket.whatsappId,
         userId: ticket.userId
       });
+      
+      return ticket;
     }
   }
 
+  // Se ainda não tem ticket, cria um novo (apenas para contatos individuais)
   if (!ticket) {
-    // Ticket será criado
-    wasTicketCreated = true;
-
     const whatsapp = await Whatsapp.findOne({
-      where: {id: whatsappId}
+      where: { id: whatsappId }
     });
 
-    let user: User = null
+    let user: User = null;
     if (isApi) {
       user = await User.findOne({
         where: {
           companyId,
           profile: 'admin'
         }
-      })
+      });
     }
 
-    const [_ticket] = await Ticket.findOrCreate({
-      where: {
-        whatsappId,
-        companyId,
-        contactId: groupContact ? groupContact.id : contact.id,
-      },
-      defaults: {
-        imported: importing ? new Date() : null,
-        contactId: groupContact ? groupContact.id : contact.id,
-        status: isApi ? "closed" : "pending",
-        isGroup: !!groupContact || contact.isGroup,
-        unreadMessages,
-        whatsappId,
-        companyId,
-        value,
-        userId: isApi ? user.id : null
+    try {
+      const [_ticket] = await Ticket.findOrCreate({
+        where: {
+          whatsappId,
+          companyId,
+          contactId: groupContact ? groupContact.id : contact.id,
+        },
+        defaults: {
+          imported: importing ? new Date() : null,
+          contactId: groupContact ? groupContact.id : contact.id,
+          status: isApi ? "closed" : "pending",
+          isGroup: !!groupContact || contact.isGroup,
+          unreadMessages,
+          whatsappId,
+          companyId,
+          value,
+          userId: isApi && user ? user.id : null
+        }
+      });
+
+      if (!_ticket?.id) return null;
+
+      await _ticket.$set("whatsapp", whatsapp);
+      
+      // Atualizar o ticket com os dados mais recentes
+      ticket = await ShowTicketService(_ticket.id, companyId);
+
+      // Emitir evento de criação de ticket
+      const io = getIO();
+      io.to(`company-${companyId}`).emit(`company-${companyId}-ticket`, {
+        action: 'create',
+        ticketId: ticket.id,
+        ticket: ticket.get({ plain: true })
+      });
+
+      // Notificar usuário específico se for uma atribuição direta
+      if (isApi && user) {
+        io.to(`user-${user.id}`).emit(`company-${companyId}-appMessage`, {
+          action: 'ticketAssigned',
+          ticketId: ticket.id,
+          userId: user.id,
+          companyId
+        });
       }
-    });
 
-    await _ticket.$set("whatsapp", whatsapp);
-    
-    if (!_ticket?.id) return null
-
-    ticket = _ticket
-
-    await FindOrCreateATicketTrakingService({
-      ticketId: ticket.id,
-      companyId,
-      whatsappId,
-      userId: ticket.userId
-    });
+      await FindOrCreateATicketTrakingService({
+        ticketId: ticket.id,
+        companyId,
+        whatsappId,
+        userId: ticket.userId
+      });
+      
+      return ticket;
+    } catch (error) {
+      console.error('Error in ticket creation:', error);
+      throw error;
+    }
   }
 
+  // Garantir que o ticket retornado tenha todos os dados atualizados
   ticket = await ShowTicketService(ticket.id, companyId);
 
-  if (!importing && !isApi) {
-    await handleKanbanIntegration(ticket, wasTicketCreated, oldTicketStatus, companyId);
-  }
-
   return ticket;
-};
-
-export const processKanbanIntegrationForImportedTickets = async (companyId: number): Promise<number> => {
-  try {
-    logger.info(`[KANBAN] Iniciando processamento de tickets importados para empresa ${companyId}`);
-
-    // Verificar se integração está habilitada
-    const autoCreateSetting = await ListSettingsServiceOne({
-      companyId,
-      key: "kanbanAutoCreateCards"
-    });
-
-    if (autoCreateSetting?.value !== "enabled") {
-      logger.info(`[KANBAN] Integração desabilitada para empresa ${companyId}`);
-      return 0;
-    }
-
-    // Buscar tickets criados nas últimas 24h sem cartão Kanban
-    const recentTickets = await Ticket.findAll({
-      where: {
-        companyId,
-        status: { [Op.in]: ['pending', 'open'] },
-        createdAt: {
-          [Op.gte]: new Date(Date.now() - 24 * 60 * 60 * 1000) // últimas 24h
-        }
-      },
-      include: [
-        {
-          model: Contact,
-          as: 'contact'
-        }
-      ]
-    });
-
-    let processedCount = 0;
-
-    for (const ticket of recentTickets) {
-      try {
-        // Verificar se já existe cartão para este ticket
-        const existingCard = await KanbanCard.findOne({
-          where: { 
-            ticketId: ticket.id,
-            isArchived: false
-          }
-        });
-
-        if (!existingCard) {
-          await KanbanTicketIntegrationService.createCardFromTicket({
-            ticketId: ticket.id,
-            companyId,
-            userId: ticket.userId
-          });
-          processedCount++;
-        }
-
-      } catch (error) {
-        logger.error(`[KANBAN] Erro ao processar ticket ${ticket.id}:`, error);
-      }
-    }
-
-    logger.info(`[KANBAN] Processados ${processedCount} tickets importados para empresa ${companyId}`);
-    return processedCount;
-
-  } catch (error) {
-    logger.error(`[KANBAN] Erro no processamento em lote:`, error);
-    throw error;
-  }
 };
 
 export default FindOrCreateTicketService;
