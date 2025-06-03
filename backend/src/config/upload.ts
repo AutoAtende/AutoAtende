@@ -267,5 +267,23 @@ export default {
         cb(err, null);
       }
     }
-  })
+  }),
+      // Filtros de arquivo para Landing Pages
+      fileFilter: (req: any, file: any, cb: any) => {
+        // Para landing pages, permitir apenas imagens
+        if (req.path.includes("/landing-pages/") && req.path.includes("/media/upload")) {
+          const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp', 'image/svg+xml'];
+          
+          if (allowedTypes.includes(file.mimetype)) {
+            logger.info(`[UPLOAD FILTER] Arquivo de imagem aceito: ${file.mimetype}`);
+            cb(null, true);
+          } else {
+            logger.error(`[UPLOAD FILTER] Tipo de arquivo não permitido para landing page: ${file.mimetype}`);
+            cb(new Error(`Tipo de arquivo não permitido. Tipos aceitos: ${allowedTypes.join(', ')}`), false);
+          }
+        } else {
+          // Para outros tipos de upload, permitir tudo
+          cb(null, true);
+        }
+      }
 }
