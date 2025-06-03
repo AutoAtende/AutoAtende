@@ -19,7 +19,12 @@ export const ProcessMessageWithRules = async ({
   companyId
 }: ProcessMessageParams): Promise<void> => {
   try {
-    logger.info(`[MESSAGE-RULES] Iniciando processamento de regras para o ticket #${ticket.id} - Contato: ${ticket.contact.name} (${ticket.contact.number})`);
+    // Verificação de segurança para os dados do ticket
+    const ticketInfo = ticket?.contact 
+      ? `#${ticket.id} - Contato: ${ticket.contact.name} (${ticket.contact.number})`
+      : `#${ticket.id} - Contato: não carregado`;
+    
+    logger.info(`[MESSAGE-RULES] Iniciando processamento de regras para o ticket ${ticketInfo}`);
 
     // Buscar todas as regras ativas para esta empresa e conexão
     logger.info(`[MESSAGE-RULES] Buscando regras ativas para companyId ${companyId} e whatsappId ${ticket.whatsappId}`);
