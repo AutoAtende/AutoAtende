@@ -51,7 +51,7 @@ const Contacts = () => {
   const { user } = useContext(AuthContext);
   const { Loading } = useLoading();
   const { makeRequest, setMakeRequest } = useContext(GlobalContext);
-  
+
   // Refs
   const isMounted = useRef(true);
   const observerRef = useRef();
@@ -67,7 +67,7 @@ const Contacts = () => {
   const [tagFilter, setTagFilter] = useState([]);
   const [hasMore, setHasMore] = useState(true);
   const [pageNumber, setPageNumber] = useState(1);
-  
+
   // Modal states
   const [selectedContactId, setSelectedContactId] = useState(null);
   const [contactModalOpen, setContactModalOpen] = useState(false);
@@ -118,8 +118,8 @@ const Contacts = () => {
   };
 
   const fetchContacts = useCallback(async (page = 1, isNewSearch = false) => {
-    if (!isMounted.current || (loading && !loadingMore)) return;
-    
+    if (!isMounted.current || loading || loadingMore) return;
+
     try {
       if (page === 1) {
         setLoading(true);
@@ -136,21 +136,23 @@ const Contacts = () => {
           limit: 20
         },
       });
-      
+
       if (isMounted.current) {
-        const normalizedContacts = Array.isArray(data?.contacts) 
+        const normalizedContacts = Array.isArray(data?.contacts)
           ? data.contacts.map(normalizeContactData)
           : [];
-        
+
         if (page === 1 || isNewSearch) {
           setContacts(normalizedContacts);
         } else {
           setContacts(prev => [...prev, ...normalizedContacts]);
         }
-        
+
         setContactsTotal(data?.count || 0);
         setHasMore(normalizedContacts.length === 20);
-        setPageNumber(page);
+        if (normalizedContacts.length > 0) {
+          setPageNumber(page);
+        }
       }
     } catch (err) {
       if (isMounted.current) {
@@ -180,9 +182,7 @@ const Contacts = () => {
   useEffect(() => {
     if (loading || loadingMore || !hasMore) return;
 
-    if (observerRef.current) observerRef.current.disconnect();
-
-    observerRef.current = new IntersectionObserver(
+    const observer = new IntersectionObserver(
       entries => {
         if (entries[0].isIntersecting && hasMore && !loading && !loadingMore) {
           fetchContacts(pageNumber + 1);
@@ -192,15 +192,13 @@ const Contacts = () => {
     );
 
     if (lastContactElementRef.current) {
-      observerRef.current.observe(lastContactElementRef.current);
+      observer.observe(lastContactElementRef.current);
     }
 
     return () => {
-      if (observerRef.current) {
-        observerRef.current.disconnect();
-      }
+      observer.disconnect();
     };
-  }, [contacts, hasMore, loading, loadingMore, pageNumber, fetchContacts]);
+  }, [loading, loadingMore, hasMore, pageNumber, fetchContacts]);
 
   // Handlers
   const handleSearchChange = useCallback((event) => {
@@ -244,7 +242,7 @@ const Contacts = () => {
 
   const handleDeleteContact = useCallback(async (contactId) => {
     if (!contactId) return;
-    
+
     try {
       Loading.turnOn();
       await api.delete(`/contacts/${contactId}`);
@@ -262,17 +260,17 @@ const Contacts = () => {
 
   const handleBlockUnblockContact = useCallback(async (contactId, active) => {
     if (!contactId) return;
-    
+
     try {
       Loading.turnOn();
       const { data } = await api.put(`/contacts/toggle-block/${contactId}`, { active });
-      
-      setContacts(prevContacts => 
-        prevContacts.map(contact => 
-          contact.id === contactId ? {...contact, active: data.active} : contact
+
+      setContacts(prevContacts =>
+        prevContacts.map(contact =>
+          contact.id === contactId ? { ...contact, active: data.active } : contact
         )
       );
-      
+
       toast.success(data.active ? "Contato desbloqueado" : "Contato bloqueado");
     } catch (err) {
       console.error("Erro ao alterar status:", err);
@@ -294,16 +292,16 @@ const Contacts = () => {
 
     try {
       Loading.turnOn();
-      
+
       const contactIds = selectedContacts
         .filter(contact => contact && contact.id)
         .map(contact => contact.id);
-      
+
       if (contactIds.length === 0) {
         toast.error("Nenhum contato válido selecionado");
         return;
       }
-      
+
       switch (bulkActionType) {
         case 'block':
           await api.post("/contacts/bulk-block", {
@@ -328,7 +326,7 @@ const Contacts = () => {
         default:
           toast.error("Ação desconhecida");
       }
-      
+
       setSelectedContacts([]);
       setMakeRequest(Math.random());
     } catch (err) {
@@ -343,7 +341,7 @@ const Contacts = () => {
   // Função auxiliar para renderizar ID seguro
   const renderContactId = (contact) => {
     if (!contact || !contact.id) return 'N/A';
-    
+
     const idString = String(contact.id);
     return idString.length > 8 ? idString.substr(0, 8) + '...' : idString;
   };
@@ -352,14 +350,14 @@ const Contacts = () => {
   const renderContactNumber = (contact) => {
     try {
       if (!contact || contact.number === undefined || contact.number === null) return "N/A";
-      
+
       const number = String(contact.number).trim();
       if (!number) return "N/A";
-      
+
       if (user?.isTricked === "enabled") {
         return formatSerializedId(number);
       }
-      
+
       return number.length > 4 ? `${number.slice(0, -4)}****` : number;
     } catch (error) {
       console.error("Erro ao formatar número do contato:", error);
@@ -381,7 +379,7 @@ const Contacts = () => {
       const validTags = contact.tags
         .filter(tag => tag && typeof tag === 'object' && tag.id && tag.name)
         .slice(0, 3);
-      
+
       if (validTags.length === 0) {
         return (
           <Typography variant="caption" color="textSecondary">
@@ -417,8 +415,8 @@ const Contacts = () => {
               label={`+${validTags.length - 2}`}
               size="small"
               variant="outlined"
-              sx={{ 
-                height: 20, 
+              sx={{
+                height: 20,
                 fontSize: '0.7rem',
                 maxWidth: '50px'
               }}
@@ -452,7 +450,7 @@ const Contacts = () => {
       minWidth: 200,
       render: (contact) => {
         const normalizedContact = normalizeContactData(contact);
-        
+
         return (
           <Box display="flex" alignItems="center" gap={1}>
             <Avatar
@@ -491,7 +489,7 @@ const Contacts = () => {
       width: 120,
       render: (contact) => {
         const normalizedContact = normalizeContactData(contact);
-        
+
         return (
           <Chip
             label={normalizedContact.active ? 'Ativo' : 'Bloqueado'}
@@ -519,12 +517,12 @@ const Contacts = () => {
     }
 
     if (user?.profile !== 'user' && !normalizedContact.isGroup) {
-    actions.push({
-      label: "Editar",
-      icon: <EditIcon />,
-      onClick: () => handleEditContact(normalizedContact),
-      color: "primary"
-    });
+      actions.push({
+        label: "Editar",
+        icon: <EditIcon />,
+        onClick: () => handleEditContact(normalizedContact),
+        color: "primary"
+      });
     }
 
     if (user?.profile !== 'user' && !normalizedContact.isGroup) {
@@ -540,17 +538,17 @@ const Contacts = () => {
     }
 
     if (user?.profile !== 'user' && !normalizedContact.isGroup) {
-    actions.push({
-      label: "Excluir",
-      icon: <DeleteIcon />,
-      onClick: () => {
-        setDeletingContact(normalizedContact);
-        setConfirmOpen(true);
-      },
-      color: "error"
-    });
+      actions.push({
+        label: "Excluir",
+        icon: <DeleteIcon />,
+        onClick: () => {
+          setDeletingContact(normalizedContact);
+          setConfirmOpen(true);
+        },
+        color: "error"
+      });
     }
-    
+
     return actions;
   }, [user, handleStartChat, handleEditContact]);
 
@@ -606,7 +604,7 @@ const Contacts = () => {
   const formattedCounter = () => {
     const selectedCount = Array.isArray(selectedContacts) ? selectedContacts.length : 0;
     const baseText = `${contacts.length} de ${contactsTotal} contatos`;
-    return selectedCount > 0 
+    return selectedCount > 0
       ? `${baseText} (${selectedCount} selecionados)`
       : baseText;
   };
@@ -627,86 +625,86 @@ const Contacts = () => {
   return (
     <>
 
-<StandardPageLayout
-  title="Contatos"
-  subtitle={formattedCounter()}
-  searchValue={searchParam}
-  onSearchChange={handleSearchChange}
-  searchPlaceholder="Buscar contatos..."
-  showSearch={true}
-  actions={[...pageActions, ...bulkActions]}
-  loading={loading}
-  containerProps={{
-    sx: {
-      display: 'flex',
-      flexDirection: 'column',
-      height: '100vh', // Agora definimos a altura aqui
-      overflow: 'hidden' // E controlamos o overflow aqui
-    }
-  }}
->
-  {/* Filtro de tags */}
-  <Box sx={{ mb: 3, maxWidth: 300 }}>
-    <TagFilterComponent 
-      onFilterChange={handleTagFilterChange} 
-      size="small"
-      placeholder="Filtrar por tags..."
-    />
-  </Box>
+      <StandardPageLayout
+        title="Contatos"
+        subtitle={formattedCounter()}
+        searchValue={searchParam}
+        onSearchChange={handleSearchChange}
+        searchPlaceholder="Buscar contatos..."
+        showSearch={true}
+        actions={[...pageActions, ...bulkActions]}
+        loading={loading}
+        containerProps={{
+          sx: {
+            display: 'flex',
+            flexDirection: 'column',
+            height: '100vh', // Agora definimos a altura aqui
+            overflow: 'hidden' // E controlamos o overflow aqui
+          }
+        }}
+      >
+        {/* Filtro de tags */}
+        <Box sx={{ mb: 3, maxWidth: 300 }}>
+          <TagFilterComponent
+            onFilterChange={handleTagFilterChange}
+            size="small"
+            placeholder="Filtrar por tags..."
+          />
+        </Box>
 
-  <Box sx={{ flex: 1, overflow: 'auto' }}> {/* Esta Box vai conter a tabela e permitir rolagem */}
-    <StandardDataTable
-      data={renderContacts()}
-      columns={columns}
-      loading={loading}
-      selectable={true}
-      selectedItems={selectedContacts}
-      onSelectionChange={setSelectedContacts}
-      actions={getTableActions}
-      stickyHeader={true}
-      size="small"
-      hover={true}
-      maxVisibleActions={6}
-      emptyIcon={<ContactIcon />}
-      emptyTitle="Nenhum contato encontrado"
-      emptyDescription="Não há contatos cadastrados para os filtros selecionados."
-      emptyActionLabel="Adicionar Contato"
-      onEmptyActionClick={handleOpenContactModal}
-      containerProps={{
-        sx: {
-          height: '100%',
-          overflow: 'visible' // Remove overflow do container da tabela
-        }
-      }}
-      customRowRenderer={(item, index, columns) => {
-        const isLast = index === contacts.length - 1;
-        return (
-          <>
-            {columns.map((column, colIndex) => (
-              <TableCell
-                key={column.id || colIndex}
-                align={column.align || 'left'}
-                ref={isLast && colIndex === 0 ? lastContactElementRef : null}
-              >
-                {column.render 
-                  ? column.render(item, index)
-                  : item[column.field] || '-'
-                }
-              </TableCell>
-            ))}
-          </>
-        );
-      }}
-    />
-    
-    {/* Loading indicator para infinite scroll */}
-    {loadingMore && (
-      <Box sx={{ display: 'flex', justifyContent: 'center', p: 2 }}>
-        <CircularProgress size={24} />
-      </Box>
-    )}
-  </Box>
-</StandardPageLayout>
+        <Box sx={{ flex: 1, overflow: 'auto' }}> {/* Esta Box vai conter a tabela e permitir rolagem */}
+          <StandardDataTable
+            data={contacts}
+            columns={columns}
+            loading={loading}
+            selectable={true}
+            selectedItems={selectedContacts}
+            onSelectionChange={setSelectedContacts}
+            actions={getTableActions}
+            stickyHeader={true}
+            size="small"
+            hover={true}
+            maxVisibleActions={6}
+            emptyIcon={<ContactIcon />}
+            emptyTitle="Nenhum contato encontrado"
+            emptyDescription="Não há contatos cadastrados para os filtros selecionados."
+            emptyActionLabel="Adicionar Contato"
+            onEmptyActionClick={handleOpenContactModal}
+            containerProps={{
+              sx: {
+                height: '100%',
+                overflow: 'visible'
+              }
+            }}
+            customRowRenderer={(item, index, columns) => {
+              const isLast = index === contacts.length - 1;
+              return (
+                <>
+                  {columns.map((column, colIndex) => (
+                    <TableCell
+                      key={column.id || colIndex}
+                      align={column.align || 'left'}
+                      ref={isLast ? lastContactElementRef : null}
+                    >
+                      {column.render
+                        ? column.render(item, index)
+                        : item[column.field] || '-'
+                      }
+                    </TableCell>
+                  ))}
+                </>
+              );
+            }}
+          />
+
+          {/* Loading indicator para infinite scroll */}
+          {loadingMore && (
+            <Box sx={{ display: 'flex', justifyContent: 'center', p: 2 }}>
+              <CircularProgress size={24} />
+            </Box>
+          )}
+        </Box>
+      </StandardPageLayout>
 
       {/* Modais */}
       {newTicketModalOpen && (
@@ -752,7 +750,7 @@ const Contacts = () => {
           open={confirmBlockOpen}
           onClose={() => setConfirmBlockOpen(false)}
           onConfirm={() => handleBlockUnblockContact(
-            blockingContact.id, 
+            blockingContact.id,
             !blockingContact.active
           )}
         >
