@@ -90,6 +90,7 @@ const Assistants = () => {
   const [count, setCount] = useState(0);
   const [activeTab, setActiveTab] = useState(0);
   const [helpModalOpen, setHelpModalOpen] = useState(false);
+  const [voiceSettingsModalOpen, setVoiceSettingsModalOpen] = useState(false);
   // Buscar assistentes com todos os filtros aplicados
   const fetchAssistants = useCallback(async () => {
     setLoading(true);
