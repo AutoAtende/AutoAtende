@@ -146,7 +146,7 @@ const AssistantSchema = Yup.object().shape({
     .required(i18n.t("assistants.validation.required")),
   instructions: Yup.string()
     .min(2, i18n.t("assistants.validation.tooShort"))
-    .max(1000, i18n.t("assistants.validation.tooLong"))
+    .max(10000, i18n.t("assistants.validation.tooLong"))
     .required(i18n.t("assistants.validation.required")),
   model: Yup.string().required(i18n.t("assistants.validation.required")),
   active: Yup.boolean()

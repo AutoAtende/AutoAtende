@@ -68,7 +68,7 @@ const TaskKanbanView = React.lazy(() => import("../pages/Tasks/components/TaskBo
 // Lazy Loading - Flow Builder
 const FlowBuilderList = React.lazy(() => import("../pages/FlowBuilder/List"));
 const FlowBuilder = React.lazy(() => import("../pages/FlowBuilder"));
-const KanbanWithContext = React.lazy(() => import("../pages/Kanban/KanbanWithContext"));
+const Kanban = React.lazy(() => import("../pages/Kanban"));
 
 // Componente de fallback otimizado
 const PageLoadingFallback = () => <AutoAtendeLoading />;
@@ -186,6 +186,12 @@ const Routes = () => {
                         />
                         <CustomRoute
                           exact
+                          path="/kanban"
+                          component={Kanban}
+                          isPrivate
+                        />
+                        <CustomRoute
+                          exact
                           path="/schedules"
                           component={Schedules}
                           isPrivate
@@ -241,7 +247,6 @@ const Routes = () => {
                         <CustomRoute exact path="/settings/payment-gateway" component={PaymentGatewayPage} isPrivate />
                         <CustomRoute exact path="/settings/closure-reasons" component={ClosureReasonsPage} isPrivate />
                         <CustomRoute exact path="/whatsapp-templates" component={WhatsappTemplates} isPrivate />
-                        <CustomRoute exact path="/kanban/:boardId?" component={KanbanWithContext} isPrivate />
                         <CustomRoute
                           exact
                           path="/financeiro"

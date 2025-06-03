@@ -133,7 +133,7 @@ const Contacts = () => {
           typeContact: "private",
           tagIds: Array.isArray(tagFilter) && tagFilter.length > 0 ? tagFilter.join(',') : undefined,
           page: page,
-          limit: 20
+          limit: 100
         },
       });
 
@@ -149,7 +149,7 @@ const Contacts = () => {
         }
 
         setContactsTotal(data?.count || 0);
-        setHasMore(normalizedContacts.length === 20);
+        setHasMore(normalizedContacts.length === 100);
         if (normalizedContacts.length > 0) {
           setPageNumber(page);
         }

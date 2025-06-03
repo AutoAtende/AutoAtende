@@ -48,7 +48,7 @@ type IndexGetContactQuery = {
 export const index = async (req: Request, res: Response): Promise<Response> => {
   try {
     const pageNumber = parseInt(req.query.pageNumber as string) || 1;
-    const pageSize = parseInt(req.query.pageSize as string) || 20;
+    const pageSize = parseInt(req.query.pageSize as string) || 100;
     const searchParam = (req.query.searchParam as string) || "";
     const tagIds = req.query.tagIds as string; // Recebe os IDs das tags como string
     const { companyId } = req.user;
@@ -74,11 +74,6 @@ export const index = async (req: Request, res: Response): Promise<Response> => {
 
     logger.info(`Found ${count} contacts for company ${companyId}`);
     
-    // Log para exibir os números dos contatos retornados
-    contacts.forEach(contact => {
-      logger.info(`Contact ID: ${contact.id}, Number: ${contact.number}, Name: ${contact.name}`);
-    });
-
     return res.status(200).json({
       contacts,
       count,
