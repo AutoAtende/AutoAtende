@@ -41,9 +41,9 @@ import {
 import StandardPageLayout from "../../components/StandardPageLayout";
 import api from "../../services/api";
 import AssistantModal from "./components/AssistantModal";
-import AssistantsHelpButton from './components/AssistantsHelpButton';
 import VoiceSettingsButton from './components/VoiceSettingsButton';
 import ImportAssistantsModal from "./components/ImportAssistantsModal";
+import AssistantsHelpModal from "./components/AssistantsHelpModal";
 import ConfirmationModal from "../../components/ConfirmationModal";
 import { toast } from "../../helpers/toast";
 import { i18n } from "../../translate/i18n";
