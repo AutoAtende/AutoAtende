@@ -37,8 +37,10 @@ import LabelIcon from '@mui/icons-material/Label';
 import LockIcon from '@mui/icons-material/Lock';
 import { Can } from "../Can";
 import useSettings from "../../hooks/useSettings";
+import useUserQueues from "../../hooks/useUserQueues";
 import ReasonSelectionModal from "./reasonSelectionModal";
 import QueueSelectionModal from "../QueueSelectionModal";
+import QueueSelectionAcceptModal from "../QueueSelectionAcceptModal";
 import TagsSelectionModal from "../TagsSelectionModal";
 import { GlobalContext } from "../../context/GlobalContext";
 import TagsModal from "./TagsModal";
@@ -379,6 +381,9 @@ const TicketListItem = ({ ticket, handleClose, setTabOpen }) => {
     const [queueModalOpen, setQueueModalOpen] = useState(false);
     const [tagsSelectionModalOpen, setTagsSelectionModalOpen] = useState(false);
     
+    // Novo estado para o modal de seleção de fila ao aceitar
+    const [queueAcceptModalOpen, setQueueAcceptModalOpen] = useState(false);
+    
     // Estado para o popover de tags
     const [tagsAnchorEl, setTagsAnchorEl] = useState(null);
     const openTagsPopover = Boolean(tagsAnchorEl);
@@ -395,11 +400,21 @@ const TicketListItem = ({ ticket, handleClose, setTabOpen }) => {
     const { settings } = useSettings();
     const history = useHistory();
 
+    // Hook para gerenciar filas do usuário
+    const { 
+        queues: userQueues, 
+        loading: loadingUserQueues,
+        hasAllTicketAccess,
+        reloadQueues 
+    } = useUserQueues(true);
+
     const displayContactInfo = settings?.displayContactInfo;
     const enableReasonWhenCloseTicket = settings?.enableReasonWhenCloseTicket;
     const enableQueueWhenClosingTicket = settings?.enableQueueWhenCloseTicket;
     const enableTagsWhenClosingTicket = settings?.enableTagsWhenCloseTicket;
     const sendGreetingAccepted = settings?.sendGreetingAccepted;
+    const requireQueueOnAccept = settings?.requireQueueOnAccept; // Nova configuração
+    
     const theme = useTheme();
     const isSmallScreen = useMediaQuery(theme.breakpoints.down('sm'));
 
@@ -590,28 +605,47 @@ const TicketListItem = ({ ticket, handleClose, setTabOpen }) => {
         }
     };
 
-    const handleAcepptTicket = async (id) => {
+    /**
+     * Função para aceitar o ticket com possível seleção de fila
+     */
+    const handleAcceptTicket = async (selectedQueueId = null) => {
         if (setTabOpen) {
             setTabOpen("open");
         }
 
         setLoading(true);
         try {
-            await api.put(`/tickets/${id}`, {
+            // Determinar qual fila usar
+            let queueIdToUse = ticket?.queue?.id;
+            
+            if (selectedQueueId) {
+                queueIdToUse = selectedQueueId;
+            }
+
+            await api.put(`/tickets/${ticket.id}`, {
                 status: "open",
                 userId: user?.id,
-                queueId: ticket?.queue?.id
+                queueId: queueIdToUse
             });
-            setMakeRequestTagTotalTicketPending(Math.random())
-            setMakeRequestTicketList(Math.random())
+            
+            setMakeRequestTagTotalTicketPending(Math.random());
+            setMakeRequestTicketList(Math.random());
+            
+            toast.success("Ticket aceito com sucesso!");
+            
         } catch (err) {
             setLoading(false);
-            toast.error(err);
+            console.error("Erro ao aceitar ticket:", err);
+            toast.error("Erro ao aceitar o ticket: " + (err.response?.data?.error || err.message));
+            return;
         }
+        
         if (isMounted.current) {
             setLoading(false);
         }
         
+        // Fechar modal se estiver aberto
+        setQueueAcceptModalOpen(false);
 
         if (sendGreetingAccepted === "enabled" && !ticket?.isGroup) {
             handleSendMessage(ticket?.id);
@@ -624,6 +658,33 @@ const TicketListItem = ({ ticket, handleClose, setTabOpen }) => {
             history.push(`/tickets/${ticket?.uuid}`);
         } else {
             history.push(`/tickets`);
+        }
+    };
+
+    /**
+     * Função principal para iniciar o processo de aceitar ticket
+     */
+    const handleAcepptTicket = async (id) => {
+        // Verificar se a configuração de exigir fila está ativa
+        const needsQueueSelection = requireQueueOnAccept === "enabled" && !ticket?.queue?.id;
+        
+        if (needsQueueSelection) {
+            // Se não tem fila definida e a configuração está ativa, abrir modal
+            if (userQueues.length === 0 && !loadingUserQueues) {
+                toast.error("Você não tem acesso a nenhuma fila. Entre em contato com o administrador.");
+                return;
+            }
+            
+            if (userQueues.length === 1) {
+                // Se tem apenas uma fila, usar automaticamente
+                await handleAcceptTicket(userQueues[0].id);
+            } else {
+                // Se tem múltiplas filas, abrir modal para seleção
+                setQueueAcceptModalOpen(true);
+            }
+        } else {
+            // Processo normal de aceitar ticket
+            await handleAcceptTicket();
         }
     };
 
@@ -664,8 +725,6 @@ const TicketListItem = ({ ticket, handleClose, setTabOpen }) => {
             {text}
         </StandardBadgeStyled>
     );
-
-
 
     // Renderizar tags para o popover
     const renderTagsForPopover = () => {
@@ -746,32 +805,32 @@ const TicketListItem = ({ ticket, handleClose, setTabOpen }) => {
                 </BadgesRow>
 
                 <Popover
-    id="tags-popover"
-    open={openTagsPopover}
-    anchorEl={tagsAnchorEl}
-    onClose={handleTagsHoverClose}
-    disableRestoreFocus
-    anchorOrigin={{
-        vertical: 'bottom',
-        horizontal: 'left',
-    }}
-    transformOrigin={{
-        vertical: 'top',
-        horizontal: 'left',
-    }}
-    PaperProps={{
-        onMouseLeave: handleTagsHoverClose,
-        sx: { 
-            borderRadius: 2,
-            boxShadow: '0 4px 20px rgba(0,0,0,0.15)',
-            overflow: 'visible' // Para permitir que a borda fique visível
-        }
-    }}
->
-    <TagsPopoverContent>
-        {renderTagsForPopover()}
-    </TagsPopoverContent>
-</Popover>
+                    id="tags-popover"
+                    open={openTagsPopover}
+                    anchorEl={tagsAnchorEl}
+                    onClose={handleTagsHoverClose}
+                    disableRestoreFocus
+                    anchorOrigin={{
+                        vertical: 'bottom',
+                        horizontal: 'left',
+                    }}
+                    transformOrigin={{
+                        vertical: 'top',
+                        horizontal: 'left',
+                    }}
+                    PaperProps={{
+                        onMouseLeave: handleTagsHoverClose,
+                        sx: { 
+                            borderRadius: 2,
+                            boxShadow: '0 4px 20px rgba(0,0,0,0.15)',
+                            overflow: 'visible' // Para permitir que a borda fique visível
+                        }
+                    }}
+                >
+                    <TagsPopoverContent>
+                        {renderTagsForPopover()}
+                    </TagsPopoverContent>
+                </Popover>
 
                 <ActionButtons>
                     {ticket.status === "open" && (
@@ -831,7 +890,7 @@ const TicketListItem = ({ ticket, handleClose, setTabOpen }) => {
                                     </Tooltip>
                                 )}
                             />
-</>
+                        </>
                     )}
                 </ActionButtons>
             </>
@@ -845,6 +904,17 @@ const TicketListItem = ({ ticket, handleClose, setTabOpen }) => {
                 onClose={() => setReasonModalOpen(false)}
                 onConfirm={handleConfirmReason}
             />}
+            
+            {/* Modal para seleção de fila ao aceitar ticket */}
+            <QueueSelectionAcceptModal
+                open={queueAcceptModalOpen}
+                onClose={() => setQueueAcceptModalOpen(false)}
+                onConfirm={handleAcceptTicket}
+                ticket={ticket}
+                userQueues={userQueues}
+                loading={loading}
+            />
+            
             <TicketMessagesDialog
                 open={openTicketMessageDialog}
                 handleClose={() => setOpenTicketMessageDialog(false)}
@@ -886,7 +956,7 @@ const TicketListItem = ({ ticket, handleClose, setTabOpen }) => {
                             }
                         }}
                     >
-                        <Avatar
+<Avatar
                             imgProps={{ loading: "lazy" }}
                             sx={{
                                 backgroundColor: generateColor(ticket?.contact?.number),

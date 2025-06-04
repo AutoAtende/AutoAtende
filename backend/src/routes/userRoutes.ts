@@ -4,6 +4,7 @@ import isAuth from "../middleware/isAuth";
 import isSuper from "../middleware/isSuper";
 import upload from "../config/upload";
 import * as UserController from "../controllers/UserController";
+import * as UserQueueController from "../controllers/UserQueueController";
 
 const userRoutes = Router();
 
@@ -51,5 +52,9 @@ userRoutes.get("/users/stats/:userId", isAuth, UserController.stats);
 
 // Em userRoutes.ts
 userRoutes.get("/users/simple-list", isAuth, UserController.userList);
+
+userRoutes.get("/users/:userId/queues", isAuth, UserQueueController.getUserQueues);
+userRoutes.get("/users/:userId/queues/check/:queueId", isAuth, UserQueueController.checkUserQueueAccess);
+userRoutes.get("/users/me/queues", isAuth, UserQueueController.getCurrentUserQueues);
 
 export default userRoutes;

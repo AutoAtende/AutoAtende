@@ -655,7 +655,6 @@ const MainListItems = (props) => {
   // Monitor de chats
   useEffect(() => {
     const companyId = localStorage.getItem("companyId");
-    if (!socketManager?.GetSocket) return;
 
     const socket = socketManager.GetSocket(companyId);
 

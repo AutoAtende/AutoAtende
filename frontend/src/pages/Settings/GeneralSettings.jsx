@@ -373,6 +373,7 @@ const GeneralSettings = () => {
       enableQueueWhenCloseTicket: "disabled",
       enableTagsWhenCloseTicket: "disabled",
       enableSatisfactionSurvey: "disabled",
+      requireQueueOnAccept: "disabled",
 
       // Integrações
       enableUPSix: "disabled",

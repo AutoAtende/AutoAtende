@@ -27,6 +27,7 @@ import { sendMessageNotificationToFrontend } from "../SocketEventMessageNotifica
 import Contact from "../../models/Contact";
 import { verifyMessage } from "../WbotServices/MessageListener/Verifiers/VerifyMessage";
 import ListUsersService from "../UserServices/ListUsersService";
+import { CheckUserQueueAccessService } from "../UserServices/GetUserQueuesService";
 
 export interface TicketData {
   status?: string;
@@ -185,6 +186,56 @@ const checkUserWhatsappConnection = async (
   return null;
 };
 
+/**
+ * Verifica se o usuário tem acesso à fila quando necessário
+ * @param {number} userId - ID do usuário
+ * @param {number} queueId - ID da fila
+ * @param {number} companyId - ID da empresa
+ * @param {string} status - Status do ticket
+ * @returns {Promise<string | null>} - Retorna mensagem de erro ou null se válido
+ */
+const checkUserQueueAccess = async (
+  userId: number,
+  queueId: number,
+  companyId: number,
+  status: string
+): Promise<string | null> => {
+  // Só verifica para tickets sendo aceitos (status open)
+  if (status !== "open" || !userId || !queueId) {
+    return null;
+  }
+
+  try {
+    // Buscar configuração para verificar se é necessário validar acesso à fila
+    const requireQueueSetting = await Setting.findOne({
+      where: {
+        companyId,
+        key: "requireQueueOnAccept"
+      }
+    });
+
+    // Se a configuração não está ativa, não precisa validar
+    if (requireQueueSetting?.value !== "enabled") {
+      return null;
+    }
+
+    // Verificar se o usuário tem acesso à fila
+    const hasAccess = await CheckUserQueueAccessService(userId, queueId);
+
+    if (!hasAccess) {
+      const user = await User.findByPk(userId);
+      const queue = await Queue.findByPk(queueId);
+      
+      return `O usuário ${user?.name} não tem acesso à fila ${queue?.name}. Verifique as permissões do usuário.`;
+    }
+
+    return null;
+  } catch (error) {
+    console.error("Erro ao verificar acesso à fila:", error);
+    return "Erro ao verificar permissões de acesso à fila.";
+  }
+};
+
 const getStatusTicket = (status: string) => {
   if (status === "open") return "aberto";
   if (status === "pending") return "pendente";
@@ -302,6 +353,28 @@ const UpdateTicketService = async ({
         );
       }
       return;
+    }
+
+    // Nova validação: Verificar acesso à fila quando necessário
+    if (userId && queueId) {
+      const resultCheckUserQueueAccess = await checkUserQueueAccess(
+        userId,
+        queueId,
+        companyId,
+        status
+      );
+      
+      if (resultCheckUserQueueAccess) {
+        if (userCurrentId) {
+          sendMessageNotificationToFrontend(
+            userCurrentId,
+            companyId,
+            resultCheckUserQueueAccess,
+            "ERROR"
+          );
+        }
+        throw new AppError(resultCheckUserQueueAccess, 403);
+      }
     }
 
     if (isTransfer) {
@@ -812,6 +885,7 @@ const UpdateTicketService = async ({
     return { ticket, oldStatus, oldUserId };
   } catch (err) {
     console.trace(err);
+    throw err; // Re-throw para que o erro seja tratado adequadamente
   }
 };
 

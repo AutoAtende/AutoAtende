@@ -555,10 +555,6 @@ const HelpsManagementPage = () => {
 
       {/* Lista de Ajudas */}
       <StandardTabContent
-        title="Ajudas Cadastradas"
-        description="Lista de todas as ajudas disponíveis no sistema"
-        icon={<HelpIcon />}
-        stats={stats}
         variant="default"
       >
         {loading && !initialLoadComplete ? (

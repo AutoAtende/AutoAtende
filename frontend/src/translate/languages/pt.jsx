@@ -2159,6 +2159,10 @@ const messages = {
         selectedCount: "{{count}} selecionados",
       },
       tickets: {
+        acceptWithoutQueue: "Aceitar sem fila definida",
+        selectQueueToAccept: "Selecionar fila para aceitar",
+        queueRequired: "Fila obrigatória",
+        noQueueDefined: "Sem fila definida",
         inbox: {
           closeAll: "Fechar todos os tickets",
           confirmCloseTitle: "Fechar tickets",
@@ -2359,7 +2363,7 @@ const messages = {
             whitelabel: "Personalização",
             plans: "Planos",
             helps: "Ajudas",
-            schedules: "Agendamentos",
+            schedules: "Expediente",
             paymentGateway: "Pagamentos",
             closureReasons: "Motivos de Encerramento",
           },
@@ -2417,6 +2421,23 @@ const messages = {
             language_short: "BR",
           },
         },
+      },
+      queueSelectionAcceptModal: {
+        title: "Selecionar Fila do Atendimento",
+        subtitle: "Este ticket não possui uma fila definida",
+        description: "Selecione uma fila para aceitar o atendimento.",
+        contactLabel: "Contato:",
+        numberLabel: "Número:",
+        selectQueueLabel: "Selecione uma fila",
+        noQueuesAvailable: "Nenhuma fila disponível. Verifique suas permissões ou entre em contato com o administrador.",
+        cancelButton: "Cancelar",
+        acceptButton: "Aceitar Atendimento",
+        acceptingButton: "Aceitando...",
+        queuesAvailable: "fila(s) disponível(is)",
+        errorSelectQueue: "Selecione uma fila para prosseguir",
+        errorAcceptTicket: "Erro ao aceitar o ticket. Tente novamente.",
+        successAcceptTicket: "Ticket aceito com sucesso!",
+        noQueueAccess: "Você não tem acesso a nenhuma fila. Entre em contato com o administrador."
       },
       tagsFilter: {
         title: "Filtrar",
@@ -5028,6 +5049,12 @@ const messages = {
           cancel: "Cancelar",
           forward: "Encaminhar",
         },
+      },
+      errors: {
+        queueAccessDenied: "Você não tem acesso à fila selecionada",
+        queueRequired: "É necessário selecionar uma fila para este ticket",
+        invalidQueueId: "ID da fila inválido",
+        userNotFound: "Usuário não encontrado"
       },
       inputErrors: {
         tooShort: "Muito curto",
@@ -8495,7 +8522,8 @@ const messages = {
         displayBusinessInfoHelp: "Define se os dados comerciais (empresa e cargo) serão exibidos na tela de atendimento. Útil para personalizar o atendimento com base no perfil profissional do contato.",
         trialExpiration: "Dias para teste gratuito",
         trialExpirationHelp: "Define o número de dias disponíveis para teste gratuito do sistema. Crucial para atrair novos clientes, proporcionando uma experiência completa do sistema antes da contratação.",
-
+        requireQueueOnAccept: "Exigir Seleção de Fila ao Aceitar Ticket",
+        requireQueueOnAcceptHelp: "Quando ativado, exige que o atendente selecione uma fila ao aceitar tickets que não possuem fila definida. Útil para garantir que todos os tickets sejam adequadamente categorizados.",
         // Integrações
         enableMetaPixel: "Ativar Pixel da Meta",
         enableMetaPixelHelp: "Ativa o uso do Pixel da Meta para todas as empresas",
@@ -8546,6 +8574,13 @@ const messages = {
         smtpHelp: "Configurações do servidor SMTP para envio de e-mails pelo sistema.",
         days: "dias"
       },
+      userQueues: {
+        loadError: "Erro ao carregar filas disponíveis",
+        noQueuesFound: "Nenhuma fila encontrada",
+        accessDenied: "Acesso negado à fila selecionada",
+        queueNotFound: "Fila não encontrada"
+      },
+
       campaignsConfig: {
         title: "Configurações de Campanhas",
 
