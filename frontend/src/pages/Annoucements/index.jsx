@@ -35,7 +35,7 @@ import { AuthContext } from "../../context/Auth/AuthContext";
 import { useHistory } from "react-router-dom";
 
 // Componentes
-import StandardPageLayout from "../../components/StandardPageLayout";
+import StandardPageLayout from "../../components/shared/StandardPageLayout";
 import AnnouncementDialog from "./components/AnnouncementDialog";
 import AnnouncementModal from "./components/AnnouncementModal";
 import ConfirmationModal from "../../components/ConfirmationModal";

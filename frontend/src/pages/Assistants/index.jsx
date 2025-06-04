@@ -38,7 +38,7 @@ import {
 } from "@mui/icons-material";
 
 // Componentes
-import StandardPageLayout from "../../components/StandardPageLayout";
+import StandardPageLayout from "../../components/shared/StandardPageLayout";
 import api from "../../services/api";
 import AssistantModal from "./components/AssistantModal";
 import VoiceSettingsModal from "./components/VoiceSettingsModal";
