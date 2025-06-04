@@ -89,6 +89,7 @@ export const ProcessMessageWithRules = async ({
         
         // Preparar dados para atualização do ticket
         const ticketData: any = {};
+        
         let shouldUpdate = false;
 
         // Verificar cada campo da regra e definir status adequadamente
@@ -98,11 +99,6 @@ export const ProcessMessageWithRules = async ({
           
           ticketData.userId = rule.userId;
           ticketData.status = "open"; // Se userId for definido, status muda para "open"
-          ticketData.useIntegration = false;
-          ticketData.chatbot = false;
-          ticketData.integrationId = null;
-          ticketData.flowExecutionId = null;
-          ticketData.amountUsedBotQueues = 0;
 
           shouldUpdate = true;
           
@@ -140,6 +136,12 @@ export const ProcessMessageWithRules = async ({
           console.log(`[MESSAGE-RULES] Atualizando ticket com dados: ${JSON.stringify(ticketData)}`);
           
           try {
+            ticketData.useIntegration = false;
+            ticketData.chatbot = false;
+            ticketData.integrationId = null;
+            ticketData.flowExecutionId = null;
+            ticketData.amountUsedBotQueues = 0;
+
             // Usar o serviço existente para atualizar o ticket
             const result = await UpdateTicketService({
               ticketData,
