@@ -98,6 +98,29 @@ const ImagePreviewBox = styled(Box)(({ theme }) => ({
   }
 }));
 
+const SectionTitle = styled(Typography)(({ theme }) => ({
+  marginTop: theme.spacing(3),
+  marginBottom: theme.spacing(2),
+  fontWeight: 600,
+  color: theme.palette.primary.main,
+  display: "flex",
+  alignItems: "center",
+  gap: theme.spacing(1),
+  fontSize: '1.125rem',
+  [theme.breakpoints.down('sm')]: {
+    fontSize: '1rem',
+    marginTop: theme.spacing(2)
+  }
+}));
+
+const CategoryDivider = styled(Box)(({ theme }) => ({
+  marginTop: theme.spacing(3),
+  marginBottom: theme.spacing(2),
+  display: 'flex',
+  alignItems: 'center',
+  width: '100%',
+}));
+
 // Configurações
 const colorSettings = {
   "Cores do Tema": [
@@ -155,13 +178,16 @@ const WhitelabelPage = () => {
   const [colorPickerAnchor, setColorPickerAnchor] = useState(null);
   const [selectedColorKey, setSelectedColorKey] = useState("");
   const [selectedColorValue, setSelectedColorValue] = useState("");
-  const [tempColorValue, setTempColorValue] = useState(""); // Para preview temporário
+  const [tempColorValue, setTempColorValue] = useState("");
   
   const fileInputRefs = useRef({});
+
+  console.log("🔄 WhitelabelPage - Componente renderizando");
 
   // Carregar configurações
   const loadSettings = useCallback(async () => {
     try {
+      console.log("🔧 WhitelabelPage - Iniciando carregamento");
       setLoading(true);
       const companyId = user?.companyId || localStorage.getItem("companyId");
       const settingsData = await getAll(companyId);
@@ -211,44 +237,49 @@ const WhitelabelPage = () => {
       setGeneralSettings(newGeneral);
       
       // Aplicar cores ao tema
-      Object.entries(newColors).forEach(([key, value]) => {
-        if (value && colorMode) {
-          const setterFunction = colorMode[`set${key.charAt(0).toUpperCase() + key.slice(1)}`];
-          if (typeof setterFunction === "function") {
-            setterFunction(value);
+      if (colorMode) {
+        Object.entries(newColors).forEach(([key, value]) => {
+          if (value) {
+            const setterFunction = colorMode[`set${key.charAt(0).toUpperCase() + key.slice(1)}`];
+            if (typeof setterFunction === "function") {
+              console.log(`🎨 Aplicando cor ${key}: ${value}`);
+              setterFunction(value);
+            }
           }
-        }
-      });
+        });
+      }
       
       // Aplicar imagens ao tema
-      Object.entries(newImages).forEach(([key, value]) => {
-        if (value && colorMode) {
-          const fullUrl = `${process.env.REACT_APP_BACKEND_URL}/public/${value}`;
-          const setterFunction = colorMode[`set${key.charAt(0).toUpperCase() + key.slice(1)}`];
-          if (typeof setterFunction === "function") {
-            setterFunction(fullUrl);
+      if (colorMode) {
+        Object.entries(newImages).forEach(([key, value]) => {
+          if (value) {
+            const fullUrl = `${process.env.REACT_APP_BACKEND_URL}/public/${value}`;
+            const setterFunction = colorMode[`set${key.charAt(0).toUpperCase() + key.slice(1)}`];
+            if (typeof setterFunction === "function") {
+              console.log(`🖼️ Aplicando imagem ${key}: ${fullUrl}`);
+              setterFunction(fullUrl);
+            }
           }
-        }
-      });
+        });
+      }
       
     } catch (error) {
       console.error("❌ WhitelabelPage - Erro ao carregar:", error);
       toast.error("Erro ao carregar configurações");
     } finally {
       setLoading(false);
+      console.log("✅ WhitelabelPage - Carregamento finalizado");
     }
   }, [user?.companyId, getAll, colorMode]);
 
   useEffect(() => {
+    console.log("🔄 WhitelabelPage - useEffect executando");
     loadSettings();
   }, [loadSettings]);
 
   // Handler para abrir color picker
   const handleColorClick = useCallback((event, colorKey) => {
-    const currentColor = colors[colorKey] || 
-      colorSettings[Object.keys(colorSettings).find(group => 
-        colorSettings[group].some(c => c.key === colorKey)
-      )]?.find(c => c.key === colorKey)?.default || "#000000";
+    const currentColor = colors[colorKey] || "#000000";
     
     console.log(`🎨 Abrindo picker para ${colorKey}:`, currentColor);
     
@@ -367,6 +398,37 @@ const WhitelabelPage = () => {
     }
   }, [user?.companyId, update, colorMode]);
 
+  // Handler para mudanças nas configurações gerais
+  const handleGeneralChange = useCallback((field, value) => {
+    setGeneralSettings(prev => ({
+      ...prev,
+      [field]: value
+    }));
+  }, []);
+
+  // Salvar configurações gerais
+  const handleGeneralSave = useCallback(async () => {
+    try {
+      setSaving(true);
+      const companyId = user?.companyId || localStorage.getItem("companyId");
+      
+      console.log("💾 Salvando configurações gerais:", generalSettings);
+      
+      const promises = Object.entries(generalSettings).map(([key, value]) =>
+        update({ key, value, companyId })
+      );
+      
+      await Promise.all(promises);
+      
+      toast.success("Configurações gerais salvas com sucesso!");
+    } catch (error) {
+      console.error("❌ Erro ao salvar configurações gerais:", error);
+      toast.error("Erro ao salvar configurações");
+    } finally {
+      setSaving(false);
+    }
+  }, [generalSettings, user?.companyId, update]);
+
   // Upload de imagem
   const handleImageUpload = useCallback(async (event, imageKey) => {
     const file = event.target.files?.[0];
@@ -469,37 +531,6 @@ const WhitelabelPage = () => {
     }
   }, [images, user?.companyId, update, colorMode]);
 
-  // Salvar configurações gerais
-  const handleGeneralSave = useCallback(async () => {
-    try {
-      setSaving(true);
-      const companyId = user?.companyId || localStorage.getItem("companyId");
-      
-      console.log("💾 Salvando configurações gerais:", generalSettings);
-      
-      const promises = Object.entries(generalSettings).map(([key, value]) =>
-        update({ key, value, companyId })
-      );
-      
-      await Promise.all(promises);
-      
-      toast.success("Configurações gerais salvas com sucesso!");
-    } catch (error) {
-      console.error("❌ Erro ao salvar configurações gerais:", error);
-      toast.error("Erro ao salvar configurações");
-    } finally {
-      setSaving(false);
-    }
-  }, [generalSettings, user?.companyId, update]);
-
-  // Handler para mudanças nas configurações gerais
-  const handleGeneralChange = useCallback((field, value) => {
-    setGeneralSettings(prev => ({
-      ...prev,
-      [field]: value
-    }));
-  }, []);
-
   // Preparar estatísticas
   const stats = useMemo(() => [
     {
@@ -514,7 +545,10 @@ const WhitelabelPage = () => {
     }
   ], [colors, images]);
 
+  console.log("🎨 WhitelabelPage - Estados atuais:", { loading, colors, images, generalSettings });
+
   if (loading) {
+    console.log("⏳ WhitelabelPage - Mostrando loading");
     return (
       <MainContainer>
         <Box sx={{ display: "flex", justifyContent: "center", alignItems: "center", height: "100vh" }}>
@@ -524,26 +558,36 @@ const WhitelabelPage = () => {
     );
   }
 
+  console.log("🎨 WhitelabelPage - Renderizando interface principal");
+
   return (
     <StandardPageLayout
       title="Personalização Whitelabel"
       subtitle="Configure a aparência, cores, logos e informações do sistema"
+      actions={[
+        {
+          label: 'Salvar Configurações',
+          icon: saving ? <CircularProgress size={20} /> : <Save />,
+          onClick: handleGeneralSave,
+          variant: 'contained',
+          color: 'primary',
+          disabled: saving,
+          primary: true
+        }
+      ]}
       showSearch={false}
     >
-      {/* Configurações Gerais */}
       <StandardTabContent
+        icon={<Settings />}
+        stats={stats}
         variant="default"
-        actions={
-          <Button
-            variant="contained"
-            startIcon={saving ? <CircularProgress size={20} /> : <Save />}
-            onClick={handleGeneralSave}
-            disabled={saving}
-          >
-            Salvar Configurações
-          </Button>
-        }
       >
+        {/* CONFIGURAÇÕES GERAIS */}
+        <SectionTitle variant="h6">
+          <Settings />
+          Configurações Gerais
+        </SectionTitle>
+
         <Grid container spacing={3}>
           <Grid item xs={12} md={6}>
             <TextField
@@ -610,22 +654,28 @@ const WhitelabelPage = () => {
             />
           </Grid>
         </Grid>
-      </StandardTabContent>
 
-      {/* Personalização de Cores */}
-      <StandardTabContent
-        variant="default"
-        actions={
+        <CategoryDivider>
+          <Chip
+            icon={<Palette />}
+            label="Personalização de Cores"
+            color="primary"
+            variant="outlined"
+            sx={{ fontWeight: 'bold', px: 2 }}
+          />
+          <Divider sx={{ flexGrow: 1, ml: 2 }} />
           <Button
             variant="outlined"
             startIcon={<Refresh />}
             onClick={handleResetColors}
             disabled={saving}
+            size="small"
           >
             Restaurar Padrões
           </Button>
-        }
-      >
+        </CategoryDivider>
+
+        {/* PERSONALIZAÇÃO DE CORES */}
         {Object.entries(colorSettings).map(([groupName, colorConfigs]) => (
           <Box key={groupName} sx={{ mb: 4 }}>
             <Typography variant="h6" sx={{ mb: 2, fontWeight: 600, color: "primary.main" }}>
@@ -667,42 +717,18 @@ const WhitelabelPage = () => {
           </Box>
         ))}
 
-        {/* Color Picker Popover */}
-        <Popover
-          open={Boolean(colorPickerAnchor)}
-          anchorEl={colorPickerAnchor}
-          onClose={handleColorCancel}
-          anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
-          transformOrigin={{ vertical: "top", horizontal: "center" }}
-        >
-          <Box sx={{ p: 2 }}>
-            <ChromePicker
-              color={tempColorValue}
-              onChange={handleColorChange}
-              disableAlpha
-            />
-            <Stack direction="row" spacing={1} sx={{ mt: 2 }}>
-              <Button 
-                variant="outlined" 
-                onClick={handleColorCancel}
-                disabled={saving}
-              >
-                Cancelar
-              </Button>
-              <Button 
-                variant="contained" 
-                onClick={handleColorSave} 
-                disabled={saving || !tempColorValue}
-              >
-                {saving ? <CircularProgress size={20} /> : "Aplicar"}
-              </Button>
-            </Stack>
-          </Box>
-        </Popover>
-      </StandardTabContent>
+        <CategoryDivider>
+          <Chip
+            icon={<Image />}
+            label="Logos e Imagens"
+            color="primary"
+            variant="outlined"
+            sx={{ fontWeight: 'bold', px: 2 }}
+          />
+          <Divider sx={{ flexGrow: 1, ml: 2 }} />
+        </CategoryDivider>
 
-      {/* Logos e Imagens */}
-      <StandardTabContent variant="default">
+        {/* LOGOS E IMAGENS */}
         <Grid container spacing={3}>
           {imageSettings.map((imgConfig) => {
             const currentImage = images[imgConfig.key]
@@ -762,6 +788,39 @@ const WhitelabelPage = () => {
             );
           })}
         </Grid>
+
+        {/* Color Picker Popover */}
+        <Popover
+          open={Boolean(colorPickerAnchor)}
+          anchorEl={colorPickerAnchor}
+          onClose={handleColorCancel}
+          anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
+          transformOrigin={{ vertical: "top", horizontal: "center" }}
+        >
+          <Box sx={{ p: 2 }}>
+            <ChromePicker
+              color={tempColorValue}
+              onChange={handleColorChange}
+              disableAlpha
+            />
+            <Stack direction="row" spacing={1} sx={{ mt: 2 }}>
+              <Button 
+                variant="outlined" 
+                onClick={handleColorCancel}
+                disabled={saving}
+              >
+                Cancelar
+              </Button>
+              <Button 
+                variant="contained" 
+                onClick={handleColorSave} 
+                disabled={saving || !tempColorValue}
+              >
+                {saving ? <CircularProgress size={20} /> : "Aplicar"}
+              </Button>
+            </Stack>
+          </Box>
+        </Popover>
       </StandardTabContent>
     </StandardPageLayout>
   );
