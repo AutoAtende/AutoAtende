@@ -26,10 +26,6 @@ routes.post(
   VoiceController.generateSpeech
 );
 
-// Configurações de voz
-routes.get('/voice/config', isAuth, VoiceController.getVoiceConfig);
-routes.put('/voice/config', isAuth, isAdmin, VoiceController.updateVoiceConfig);
-
 // Histórico de mensagens de voz
 routes.get(
   '/tickets/:ticketId/voice-messages',
