@@ -169,14 +169,6 @@ const PlansManagementPage = () => {
   const [modalOpen, setModalOpen] = useState(false);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
 
-  // Verificar se é super admin
-  useEffect(() => {
-    if (!user?.super) {
-      toast.error("Acesso restrito a super administradores");
-      // Redirecionar se necessário
-    }
-  }, [user]);
-
   // Carregar planos
   const loadPlans = useCallback(async () => {
     setLoading(true);
@@ -658,18 +650,6 @@ const PlansManagementPage = () => {
       )}
     </Formik>
   );
-
-  if (!user?.super) {
-    return (
-      <MainContainer>
-        <Box sx={{ display: "flex", justifyContent: "center", alignItems: "center", height: "100vh" }}>
-          <Alert severity="error">
-            Acesso restrito a super administradores
-          </Alert>
-        </Box>
-      </MainContainer>
-    );
-  }
 
   return (
     <StandardPageLayout

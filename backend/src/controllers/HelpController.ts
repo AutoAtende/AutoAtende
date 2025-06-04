@@ -45,7 +45,7 @@ export const store = async (req: Request, res: Response): Promise<Response> => {
 
   try {
     await schema.validate(data);
-  } catch (err) {
+  } catch (err: any) {
     throw new AppError(err.message);
   }
 
@@ -85,7 +85,7 @@ export const update = async (
 
   try {
     await schema.validate(data);
-  } catch (err) {
+  } catch (err: any) {
     throw new AppError(err.message);
   }
 
@@ -135,4 +135,38 @@ export const findList = async (
   const records: Help[] = await FindService();
 
   return res.status(200).json(records);
+};
+
+// Nova função para remover todas as ajudas
+export const removeAll = async (
+  req: Request,
+  res: Response
+): Promise<Response> => {
+  const { companyId } = req.user;
+
+  try {
+    // Buscar todas as ajudas primeiro
+    const allHelps: Help[] = await FindService();
+    
+    // Remover uma por uma para garantir que os logs sejam gerados
+    for (const help of allHelps) {
+      await DeleteService(help.id.toString());
+    }
+
+    const io = getIO();
+    io
+      .to(`company-${companyId}-mainchannel`)
+      .emit(`company-${companyId}-help`, {
+      action: "deleteAll",
+      count: allHelps.length
+    });
+
+    return res.status(200).json({ 
+      message: `${allHelps.length} ajudas foram removidas com sucesso`,
+      count: allHelps.length
+    });
+  } catch (error: any) {
+    console.error('Erro ao remover todas as ajudas:', error);
+    throw new AppError('Erro interno do servidor ao remover todas as ajudas');
+  }
 };

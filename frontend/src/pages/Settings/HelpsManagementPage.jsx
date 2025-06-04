@@ -115,45 +115,64 @@ const HelpsManagementPage = () => {
   const [selectedHelp, setSelectedHelp] = useState(null);
   const [isEditing, setIsEditing] = useState(false);
   const [formValues, setFormValues] = useState(initialFormValues);
+  const [initialLoadComplete, setInitialLoadComplete] = useState(false);
   
   // Estados de modais
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [deleteAllModalOpen, setDeleteAllModalOpen] = useState(false);
 
-  // Verificar se é super admin
+  // Verificar se é super admin - apenas uma vez
   useEffect(() => {
-    if (!user?.super) {
+    if (user && user.super === false) {
       toast.error("Acesso restrito a super administradores");
     }
-  }, [user]);
+  }, [user?.super]);
 
-  // Carregar ajudas
+  // Carregar ajudas - com controle de carregamento inicial
   const loadHelps = useCallback(async () => {
+    if (loading) return; // Evita múltiplas chamadas simultâneas
+    
     setLoading(true);
     try {
+      console.log('[HelpsManagementPage] Iniciando carregamento de helps');
       const helpList = await list();
-      setHelps(Array.isArray(helpList) ? helpList : []);
+      console.log('[HelpsManagementPage] Helps carregadas:', helpList);
+      
+      const safeHelpList = Array.isArray(helpList) ? helpList : [];
+      setHelps(safeHelpList);
+      setInitialLoadComplete(true);
     } catch (error) {
       console.error('Erro ao carregar ajudas:', error);
       toast.error('Erro ao carregar lista de ajudas');
       setHelps([]);
+      setInitialLoadComplete(true);
     } finally {
       setLoading(false);
     }
-  }, [list]);
+  }, [list]); // Dependência fixa
 
+  // Carregar uma única vez na inicialização
   useEffect(() => {
-    loadHelps();
-  }, [loadHelps]);
+    if (!initialLoadComplete && user?.super) {
+      loadHelps();
+    }
+  }, [loadHelps, initialLoadComplete, user?.super]);
 
-  // Filtrar ajudas
+  // Filtrar ajudas - otimizado
   const filteredHelps = useMemo(() => {
-    if (!searchTerm) return helps;
+    if (!Array.isArray(helps) || helps.length === 0) return [];
     
-    return helps.filter(help =>
-      help?.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      help?.description?.toLowerCase().includes(searchTerm.toLowerCase())
-    );
+    if (!searchTerm.trim()) return helps;
+    
+    const term = searchTerm.toLowerCase().trim();
+    return helps.filter(help => {
+      if (!help) return false;
+      
+      const title = help.title?.toLowerCase() || '';
+      const description = help.description?.toLowerCase() || '';
+      
+      return title.includes(term) || description.includes(term);
+    });
   }, [helps, searchTerm]);
 
   // Função para obter URL do YouTube
@@ -163,18 +182,26 @@ const HelpsManagementPage = () => {
 
   // Handlers
   const handleSubmit = async (values, { resetForm, setSubmitting }) => {
+    if (loading) return;
+    
     try {
       setLoading(true);
       
-      if (isEditing && selectedHelp) {
-        await update({ ...values, id: selectedHelp.id });
+      const submitData = {
+        title: values.title?.trim() || '',
+        description: values.description?.trim() || '',
+        video: values.video?.trim() || ''
+      };
+      
+      if (isEditing && selectedHelp?.id) {
+        await update({ ...submitData, id: selectedHelp.id });
         toast.success('Ajuda atualizada com sucesso!');
       } else {
-        await save(values);
+        await save(submitData);
         toast.success('Ajuda criada com sucesso!');
       }
       
-      await refreshCache(); // Atualizar cache
+      // Recarregar dados
       await loadHelps();
       
       if (!isEditing) {
@@ -193,27 +220,30 @@ const HelpsManagementPage = () => {
   };
 
   const handleEdit = useCallback((help) => {
+    if (!help) return;
+    
     setSelectedHelp(help);
     setFormValues({
-      title: help?.title || '',
-      description: help?.description || '',
-      video: help?.video || ''
+      title: help.title || '',
+      description: help.description || '',
+      video: help.video || ''
     });
     setIsEditing(true);
   }, []);
 
   const handleDelete = useCallback((help) => {
+    if (!help?.id) return;
+    
     setSelectedHelp(help);
     setDeleteModalOpen(true);
   }, []);
 
   const confirmDelete = async () => {
-    if (!selectedHelp?.id) return;
+    if (!selectedHelp?.id || loading) return;
     
     setLoading(true);
     try {
       await remove(selectedHelp.id);
-      await refreshCache();
       await loadHelps();
       toast.success('Ajuda removida com sucesso!');
       setDeleteModalOpen(false);
@@ -227,18 +257,19 @@ const HelpsManagementPage = () => {
   };
 
   const handleDeleteAll = useCallback(() => {
-    if (helps.length === 0) {
+    if (!Array.isArray(helps) || helps.length === 0) {
       toast.info('Não há ajudas para remover');
       return;
     }
     setDeleteAllModalOpen(true);
-  }, [helps.length]);
+  }, [helps]);
 
   const confirmDeleteAll = async () => {
+    if (loading) return;
+    
     setLoading(true);
     try {
       await removeAll();
-      await refreshCache();
       await loadHelps();
       toast.success('Todas as ajudas foram removidas');
       setDeleteAllModalOpen(false);
@@ -257,6 +288,8 @@ const HelpsManagementPage = () => {
   }, []);
 
   const handleRefreshCache = useCallback(async () => {
+    if (loading) return;
+    
     setLoading(true);
     try {
       await refreshCache();
@@ -268,24 +301,31 @@ const HelpsManagementPage = () => {
     } finally {
       setLoading(false);
     }
-  }, [refreshCache, loadHelps]);
+  }, [refreshCache, loadHelps, loading]);
 
-  // Preparar estatísticas
-  const stats = [
-    {
-      label: `${helps.length} ajudas cadastradas`,
-      icon: <HelpIcon />,
-      color: 'primary'
-    },
-    {
-      label: `${helps.filter(h => h?.video).length} com vídeo`,
-      icon: <YouTubeIcon />,
-      color: 'error'
-    }
-  ];
+  // Preparar estatísticas - seguro
+  const stats = useMemo(() => {
+    const helpsCount = Array.isArray(helps) ? helps.length : 0;
+    const videosCount = Array.isArray(helps) 
+      ? helps.filter(h => h?.video?.trim()).length 
+      : 0;
+    
+    return [
+      {
+        label: `${helpsCount} ajudas cadastradas`,
+        icon: <HelpIcon />,
+        color: 'primary'
+      },
+      {
+        label: `${videosCount} com vídeo`,
+        icon: <YouTubeIcon />,
+        color: 'error'
+      }
+    ];
+  }, [helps]);
 
   // Preparar colunas da tabela
-  const columns = [
+  const columns = useMemo(() => [
     {
       field: 'title',
       label: 'Título',
@@ -311,7 +351,7 @@ const HelpsManagementPage = () => {
       label: 'Vídeo',
       align: 'center',
       render: (help) => (
-        help?.video ? (
+        help?.video?.trim() ? (
           <Box display="flex" alignItems="center" justifyContent="center" gap={1}>
             <YouTubeIcon fontSize="small" color="error" />
             <StyledLink 
@@ -345,10 +385,10 @@ const HelpsManagementPage = () => {
         </Typography>
       )
     }
-  ];
+  ], [getYouTubeUrl]);
 
   // Ações da tabela
-  const tableActions = [
+  const tableActions = useMemo(() => [
     {
       label: 'Editar',
       icon: <EditIcon />,
@@ -362,8 +402,9 @@ const HelpsManagementPage = () => {
       color: 'error',
       divider: true
     }
-  ];
+  ], [handleEdit, handleDelete]);
 
+  // Verificação de acesso
   if (!user?.super) {
     return (
       <MainContainer>
@@ -387,7 +428,8 @@ const HelpsManagementPage = () => {
           onClick: handleRefreshCache,
           variant: 'outlined',
           color: 'primary',
-          tooltip: 'Força atualização do cache de ajudas'
+          tooltip: 'Força atualização do cache de ajudas',
+          disabled: loading
         },
         {
           label: 'Limpar Todas',
@@ -395,7 +437,7 @@ const HelpsManagementPage = () => {
           onClick: handleDeleteAll,
           variant: 'outlined',
           color: 'error',
-          disabled: helps.length === 0,
+          disabled: loading || !Array.isArray(helps) || helps.length === 0,
           tooltip: 'Remove todas as ajudas cadastradas'
         }
       ]}
@@ -522,11 +564,11 @@ const HelpsManagementPage = () => {
         stats={stats}
         variant="default"
       >
-        {loading && helps.length === 0 ? (
+        {loading && !initialLoadComplete ? (
           <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
             <CircularProgress />
           </Box>
-        ) : helps.length === 0 ? (
+        ) : !Array.isArray(helps) || helps.length === 0 ? (
           <StandardEmptyState
             type="default"
             title="Nenhuma ajuda cadastrada"
@@ -534,7 +576,10 @@ const HelpsManagementPage = () => {
             primaryAction={{
               label: 'Criar primeira ajuda',
               icon: <AddIcon />,
-              onClick: () => setFormValues(initialFormValues)
+              onClick: () => {
+                setFormValues(initialFormValues);
+                setIsEditing(false);
+              }
             }}
           />
         ) : (
@@ -605,7 +650,7 @@ const HelpsManagementPage = () => {
           </Typography>
         </Alert>
         <Typography>
-          Tem certeza que deseja remover <strong>todas as {helps.length} ajudas</strong> cadastradas?
+          Tem certeza que deseja remover <strong>todas as {Array.isArray(helps) ? helps.length : 0} ajudas</strong> cadastradas?
         </Typography>
         <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
           Todos os vídeos e documentações serão perdidos permanentemente.
@@ -614,5 +659,7 @@ const HelpsManagementPage = () => {
     </StandardPageLayout>
   );
 };
+
+HelpsManagementPage.propTypes = {};
 
 export default HelpsManagementPage;

@@ -18,4 +18,7 @@ routes.put("/helps/:id", isAuth, isSuper, HelpController.update);
 
 routes.delete("/helps/:id", isAuth, isSuper, HelpController.remove);
 
+// Nova rota para remover todas as ajudas
+routes.delete("/helps/all/clear", isAuth, isSuper, HelpController.removeAll);
+
 export default routes;
