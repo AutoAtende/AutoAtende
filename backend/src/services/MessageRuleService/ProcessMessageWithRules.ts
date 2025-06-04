@@ -250,7 +250,6 @@ export const ProcessMessageWithRules = async ({
         break;
       } else {
         logger.info(`[MESSAGE-RULES] ❌ Regra "${rule.name}" não coincide com o conteúdo da mensagem`);
-        console.log(`[MESSAGE-RULES] ❌ Regra "${rule.name}" não coincide com o conteúdo da mensagem`);
       }
     }
 
@@ -259,19 +258,15 @@ export const ProcessMessageWithRules = async ({
       console.log(`[MESSAGE-RULES] ✅ Processamento de regras concluído com sucesso para o ticket #${ticket.id}`);
     } else {
       logger.info(`[MESSAGE-RULES] ⚠️ Nenhuma regra aplicável encontrada para o ticket #${ticket.id}`);
-      console.log(`[MESSAGE-RULES] ⚠️ Nenhuma regra aplicável encontrada para o ticket #${ticket.id}`);
     }
   } catch (error) {
     logger.error(`[MESSAGE-RULES] ❌ Erro ao processar regras de mensagem para o ticket #${ticket?.id || 'desconhecido'}: ${error}`);
-    console.error(`[MESSAGE-RULES] ❌ Erro ao processar regras de mensagem para o ticket #${ticket?.id || 'desconhecido'}: ${error}`);
     
     // Log detalhado do erro
     if (error instanceof Error) {
       logger.error(`[MESSAGE-RULES] Detalhes do erro: ${error.stack}`);
-      console.error(`[MESSAGE-RULES] Detalhes do erro: ${error.stack}`);
     }
   } finally {
     logger.info(`[MESSAGE-RULES] Finalizando processamento de regras de mensagem`);
-    console.log(`[MESSAGE-RULES] Finalizando processamento de regras de mensagem`);
   }
 };
