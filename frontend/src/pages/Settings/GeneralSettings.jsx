@@ -60,11 +60,10 @@ import {
 } from "@fortawesome/free-solid-svg-icons";
 
 import MainContainer from "../../components/MainContainer";
-import MainHeader from "../../components/MainHeader";
-import Title from "../../components/Title";
+
 import StandardPageLayout from "../../components/shared/StandardPageLayout";
 import StandardTabContent from "../../components/shared/StandardTabContent";
-import OnlyForSuperUser from "../../components/OnlyForSuperUser";
+
 import useAuth from "../../hooks/useAuth";
 import useSettings from "../../hooks/useSettings";
 import api from "../../services/api";
@@ -82,6 +81,23 @@ const openAiModels = [
   { value: "gpt-4", label: "GPT-4" },
   { value: "gpt-3.5-turbo", label: "GPT-3.5 Turbo" }
 ];
+
+// Mapeamento de chaves frontend -> backend
+const KEY_MAPPING = {
+  'openAiModel': 'openaiModel',
+  'smtpauthType': 'smtpauth',
+  'usersmtpauthType': 'usersmtpauth',
+  'clientsecretsmtpauthType': 'clientsecretsmtpauth',
+  'smtpPortType': 'smtpport',
+  'waSuportType': 'wasuport',
+  'msgSuportType': 'msgsuport',
+  'settingsTransfTicket': 'SettingsTransfTicket'
+};
+
+// Mapeamento reverso backend -> frontend
+const REVERSE_KEY_MAPPING = Object.fromEntries(
+  Object.entries(KEY_MAPPING).map(([k, v]) => [v, k])
+);
 
 // Styled Components
 const StyledPaper = styled(Paper)(({ theme }) => ({
@@ -338,6 +354,19 @@ const GeneralSettings = () => {
   const [snackbarOpen, setSnackbarOpen] = useState(false);
   const [snackbarMessage, setSnackbarMessage] = useState("");
 
+  // Refs para evitar closures obsoletos
+  const settingsRef = useRef(settings);
+  const pendingChangesRef = useRef(pendingChanges);
+
+  // Atualizar refs sempre que o estado mudar
+  useEffect(() => {
+    settingsRef.current = settings;
+  }, [settings]);
+
+  useEffect(() => {
+    pendingChangesRef.current = pendingChanges;
+  }, [pendingChanges]);
+
   // Estado inicial das configurações completo
   const getInitialConfigState = useCallback(() => {
     return {
@@ -409,21 +438,8 @@ const GeneralSettings = () => {
       if (Array.isArray(settingsData)) {
         settingsData.forEach(setting => {
           if (setting?.key) {
-            // Mapeamento de chaves do backend para frontend
-            const keyMapping = {
-              'openaiModel': 'openAiModel',
-              'smtpauth': 'smtpauthType',
-              'usersmtpauth': 'usersmtpauthType',
-              'clientsecretsmtpauth': 'clientsecretsmtpauthType',
-              'smtpport': 'smtpPortType',
-              'wasuport': 'waSuportType',
-              'msgsuport': 'msgSuportType',
-              'SettingsTransfTicket': 'settingsTransfTicket'
-            };
-
-            const frontendKey = Object.keys(keyMapping).find(k => k === setting.key)
-              ? keyMapping[setting.key]
-              : setting.key;
+            // Aplicar mapeamento reverso de chaves do backend para frontend
+            const frontendKey = REVERSE_KEY_MAPPING[setting.key] || setting.key;
 
             if (settingsObj.hasOwnProperty(frontendKey)) {
               settingsObj[frontendKey] = String(setting.value || settingsObj[frontendKey] || "");
@@ -432,7 +448,9 @@ const GeneralSettings = () => {
         });
       }
 
+      console.log("Configurações carregadas:", settingsObj);
       setSettings(settingsObj);
+      setPendingChanges({}); // Limpar mudanças pendentes ao recarregar
     } catch (error) {
       console.error("Erro ao carregar configurações:", error);
       toast.error("Erro ao carregar configurações");
@@ -445,25 +463,26 @@ const GeneralSettings = () => {
     loadSettings();
   }, [loadSettings]);
 
-  // Handler para mudanças nas configurações
+  // Handler para mudanças nas configurações - CORRIGIDO
   const handleSettingChange = useCallback((key, value, notifyBackend = true) => {
-    setSettings(prev => ({ ...prev, [key]: value }));
+    console.log(`Alterando configuração: ${key} = ${value}`);
+    
+    // Atualizar estado local imediatamente
+    setSettings(prevSettings => {
+      const newSettings = { ...prevSettings, [key]: value };
+      console.log("Novo estado de configurações:", newSettings);
+      return newSettings;
+    });
 
     if (notifyBackend) {
-      // Mapeamento de chaves do frontend para backend
-      const keyMapping = {
-        'openAiModel': 'openaiModel',
-        'smtpauthType': 'smtpauth',
-        'usersmtpauthType': 'usersmtpauth',
-        'clientsecretsmtpauthType': 'clientsecretsmtpauth',
-        'smtpPortType': 'smtpport',
-        'waSuportType': 'wasuport',
-        'msgSuportType': 'msgsuport',
-        'settingsTransfTicket': 'SettingsTransfTicket'
-      };
-
-      const backendKey = keyMapping[key] || key;
-      setPendingChanges(prev => ({ ...prev, [backendKey]: value }));
+      // Aplicar mapeamento de chaves do frontend para backend
+      const backendKey = KEY_MAPPING[key] || key;
+      
+      setPendingChanges(prevChanges => {
+        const newChanges = { ...prevChanges, [backendKey]: value };
+        console.log("Novas mudanças pendentes:", newChanges);
+        return newChanges;
+      });
 
       if (!snackbarOpen) {
         setSnackbarMessage("Alterações pendentes. Clique em Salvar para aplicar.");
@@ -472,7 +491,7 @@ const GeneralSettings = () => {
     }
   }, [snackbarOpen]);
 
-  // Handler para opções mutuamente exclusivas
+  // Handler para opções mutuamente exclusivas - CORRIGIDO
   const handleMutuallyExclusiveOption = useCallback((enabledKey, value) => {
     if (value === "enabled") {
       const exclusiveOptions = {
@@ -486,7 +505,8 @@ const GeneralSettings = () => {
       if (exclusiveOptions[enabledKey]) {
         const optionsToDisable = exclusiveOptions[enabledKey];
         optionsToDisable.forEach(key => {
-          if (settings[key] === "enabled") {
+          const currentSettings = settingsRef.current;
+          if (currentSettings[key] === "enabled") {
             handleSettingChange(key, "disabled");
           }
         });
@@ -498,16 +518,18 @@ const GeneralSettings = () => {
     }
 
     handleSettingChange(enabledKey, value);
-  }, [settings, handleSettingChange]);
+  }, [handleSettingChange]);
 
   // Validação para números
   const numberValidation = useCallback((value) => {
     return value === "" || /^[0-9\b]+$/.test(value);
   }, []);
 
-  // Salvar todas as alterações
+  // Salvar todas as alterações - CORRIGIDO
   const handleSaveAll = useCallback(async () => {
-    if (Object.keys(pendingChanges).length === 0) {
+    const currentPendingChanges = pendingChangesRef.current;
+    
+    if (Object.keys(currentPendingChanges).length === 0) {
       toast.info("Não há alterações para salvar");
       return;
     }
@@ -516,10 +538,13 @@ const GeneralSettings = () => {
       setSaving(true);
       const companyId = user?.companyId || localStorage.getItem("companyId");
 
+      console.log("Salvando alterações:", currentPendingChanges);
+
       // Salvar cada configuração alterada
-      const promises = Object.entries(pendingChanges).map(([key, value]) =>
-        update({ key, value, companyId })
-      );
+      const promises = Object.entries(currentPendingChanges).map(([key, value]) => {
+        console.log(`Salvando: ${key} = ${value}`);
+        return update({ key, value, companyId });
+      });
 
       await Promise.all(promises);
 
@@ -528,17 +553,20 @@ const GeneralSettings = () => {
       toast.success("Configurações salvas com sucesso!");
 
       // Recarregar para garantir sincronização
-      await loadSettings();
+      setTimeout(() => {
+        loadSettings();
+      }, 500);
+      
     } catch (error) {
       console.error("Erro ao salvar configurações:", error);
       toast.error("Erro ao salvar configurações");
     } finally {
       setSaving(false);
     }
-  }, [pendingChanges, user?.companyId, update, loadSettings]);
+  }, [user?.companyId, update, loadSettings]);
 
   // Preparar estatísticas
-  const stats = [
+  const stats = useMemo(() => [
     {
       label: `${Object.keys(pendingChanges).length} alterações pendentes`,
       icon: <TuneIcon />,
@@ -549,7 +577,7 @@ const GeneralSettings = () => {
       icon: <PersonIcon />,
       color: user?.super ? 'secondary' : 'primary'
     }
-  ];
+  ], [pendingChanges, user?.super]);
 
   if (loading) {
     return (
@@ -1162,9 +1190,7 @@ const GeneralSettings = () => {
             />
           </Grid>
 
-          {settings.callSuport === "enabled" && (
-            <OnlyForSuperUser
-              yes={() => (
+          {settings.callSuport === "enabled" && user.super && (
                 <>
                   <Grid item xs={12} md={6}>
                     <SettingTextField
@@ -1191,8 +1217,6 @@ const GeneralSettings = () => {
                     />
                   </Grid>
                 </>
-              )}
-            />
           )}
         </Grid>
 

@@ -40,8 +40,6 @@ import {
 } from "@mui/icons-material";
 
 import MainContainer from "../../components/MainContainer";
-import MainHeader from "../../components/MainHeader";
-import Title from "../../components/Title";
 import StandardPageLayout from "../../components/shared/StandardPageLayout";
 import StandardTabContent from "../../components/shared/StandardTabContent";
 import { toast } from "../../helpers/toast";
@@ -158,13 +156,33 @@ const WhitelabelPage = () => {
   const [selectedColorValue, setSelectedColorValue] = useState("");
   
   const fileInputRefs = useRef({});
+  
+  // Refs para evitar closures obsoletos
+  const colorsRef = useRef(colors);
+  const imagesRef = useRef(images);
+  const generalSettingsRef = useRef(generalSettings);
 
-  // Carregar configurações
+  // Atualizar refs sempre que o estado mudar
+  useEffect(() => {
+    colorsRef.current = colors;
+  }, [colors]);
+
+  useEffect(() => {
+    imagesRef.current = images;
+  }, [images]);
+
+  useEffect(() => {
+    generalSettingsRef.current = generalSettings;
+  }, [generalSettings]);
+
+  // Carregar configurações - CORRIGIDO
   const loadSettings = useCallback(async () => {
     try {
       setLoading(true);
       const companyId = user?.companyId || localStorage.getItem("companyId");
       const settingsData = await getAll(companyId);
+      
+      console.log("Dados recebidos do servidor:", settingsData);
       
       // Converter array para objeto
       const settingsObj = {};
@@ -176,28 +194,46 @@ const WhitelabelPage = () => {
         });
       }
       
+      console.log("Settings convertidas:", settingsObj);
+      
       // Separar configurações por tipo
       const newColors = {};
       const newImages = {};
-      const newGeneral = { ...generalSettings };
+      const newGeneral = {
+        appName: "",
+        copyright: "",
+        privacy: "",
+        terms: "",
+        loginPosition: "right",
+        signupPosition: "right"
+      };
+      
+      // Aplicar valores padrão para cores
+      Object.values(colorSettings).flat().forEach(colorConfig => {
+        newColors[colorConfig.key] = colorConfig.default;
+      });
       
       Object.entries(settingsObj).forEach(([key, value]) => {
         // Cores
         if (Object.values(colorSettings).flat().some(c => c.key === key)) {
-          newColors[key] = value;
-          // Aplicar cor ao tema
+          newColors[key] = value || newColors[key]; // Manter padrão se valor vazio
+          
+          // Aplicar cor ao tema imediatamente
           const setterFunction = colorMode[`set${key.charAt(0).toUpperCase() + key.slice(1)}`];
           if (typeof setterFunction === "function") {
-            setterFunction(value);
+            console.log(`Aplicando cor ${key}: ${value || newColors[key]}`);
+            setterFunction(value || newColors[key]);
           }
         }
         // Imagens
         else if (imageSettings.some(img => img.key === key)) {
           newImages[key] = value;
+          
           // Aplicar imagem ao tema
           const imagePath = value ? `${process.env.REACT_APP_BACKEND_URL}/public/${value}` : "";
           const setterFunction = colorMode[`set${key.charAt(0).toUpperCase() + key.slice(1)}`];
           if (typeof setterFunction === "function") {
+            console.log(`Aplicando imagem ${key}: ${imagePath}`);
             setterFunction(imagePath);
           }
         }
@@ -206,6 +242,10 @@ const WhitelabelPage = () => {
           newGeneral[key] = value;
         }
       });
+      
+      console.log("Cores finais:", newColors);
+      console.log("Imagens finais:", newImages);
+      console.log("Configurações gerais finais:", newGeneral);
       
       setColors(newColors);
       setImages(newImages);
@@ -217,43 +257,63 @@ const WhitelabelPage = () => {
     } finally {
       setLoading(false);
     }
-  }, [user?.companyId, getAll, colorMode, generalSettings]);
+  }, [user?.companyId, getAll, colorMode]);
 
   useEffect(() => {
     loadSettings();
+  }, [loadSettings]);
+
+  // Handlers de cores - CORRIGIDO
+  const handleColorClick = useCallback((event, colorKey) => {
+    const currentColors = colorsRef.current;
+    const currentColor = currentColors[colorKey];
+    
+    console.log(`Abrindo picker para ${colorKey}, cor atual: ${currentColor}`);
+    
+    setSelectedColorKey(colorKey);
+    setSelectedColorValue(currentColor || "");
+    setColorPickerAnchor(event.currentTarget);
   }, []);
 
-  // Handlers de cores
-  const handleColorClick = useCallback((event, colorKey) => {
-    setSelectedColorKey(colorKey);
-    setSelectedColorValue(colors[colorKey] || "");
-    setColorPickerAnchor(event.currentTarget);
-  }, [colors]);
-
   const handleColorChange = useCallback((color) => {
+    console.log("Cor alterada no picker:", color.hex);
     setSelectedColorValue(color.hex);
   }, []);
 
   const handleColorSave = useCallback(async () => {
-    if (!selectedColorKey || !selectedColorValue) return;
+    if (!selectedColorKey || !selectedColorValue) {
+      console.log("Chave ou valor da cor não definidos");
+      return;
+    }
     
     try {
       setSaving(true);
       const companyId = user?.companyId || localStorage.getItem("companyId");
       
+      console.log(`Salvando cor ${selectedColorKey}: ${selectedColorValue}`);
+      
+      // Salvar no backend
       await update({ key: selectedColorKey, value: selectedColorValue, companyId });
       
-      // Atualizar estado local
-      setColors(prev => ({ ...prev, [selectedColorKey]: selectedColorValue }));
+      // Atualizar estado local IMEDIATAMENTE
+      setColors(prevColors => {
+        const newColors = { ...prevColors, [selectedColorKey]: selectedColorValue };
+        console.log("Estado de cores atualizado:", newColors);
+        return newColors;
+      });
       
-      // Aplicar ao tema
+      // Aplicar ao tema IMEDIATAMENTE
       const setterFunction = colorMode[`set${selectedColorKey.charAt(0).toUpperCase() + selectedColorKey.slice(1)}`];
       if (typeof setterFunction === "function") {
+        console.log(`Aplicando cor ao tema: ${selectedColorKey} = ${selectedColorValue}`);
         setterFunction(selectedColorValue);
       }
       
       toast.success("Cor atualizada com sucesso!");
       setColorPickerAnchor(null);
+      setSelectedColorKey("");
+      setSelectedColorValue("");
+      
     } catch (error) {
       console.error("Erro ao salvar cor:", error);
       toast.error("Erro ao salvar cor");
@@ -262,7 +322,7 @@ const WhitelabelPage = () => {
     }
   }, [selectedColorKey, selectedColorValue, user?.companyId, update, colorMode]);
 
-  // Resetar cores para padrão
+  // Resetar cores para padrão - CORRIGIDO
   const handleResetColors = useCallback(async () => {
     try {
       setSaving(true);
@@ -273,6 +333,8 @@ const WhitelabelPage = () => {
         defaultColors[color.key] = color.default;
       });
       
+      console.log("Resetando cores para padrões:", defaultColors);
+      
       // Salvar todas as cores padrão
       const promises = Object.entries(defaultColors).map(([key, value]) =>
         update({ key, value, companyId })
@@ -280,11 +342,13 @@ const WhitelabelPage = () => {
       
       await Promise.all(promises);
       
-      // Atualizar estado e tema
+      // Atualizar estado e tema IMEDIATAMENTE
       setColors(defaultColors);
+      
       Object.entries(defaultColors).forEach(([key, value]) => {
         const setterFunction = colorMode[`set${key.charAt(0).toUpperCase() + key.slice(1)}`];
         if (typeof setterFunction === "function") {
+          console.log(`Resetando cor no tema: ${key} = ${value}`);
           setterFunction(value);
         }
       });
@@ -298,10 +362,12 @@ const WhitelabelPage = () => {
     }
   }, [user?.companyId, update, colorMode]);
 
-  // Upload de imagem
+  // Upload de imagem - CORRIGIDO
   const handleImageUpload = useCallback(async (event, imageKey) => {
     const file = event.target.files?.[0];
     if (!file) return;
+    
+    console.log(`Fazendo upload da imagem para ${imageKey}`);
     
     const formData = new FormData();
     formData.append("file", file);
@@ -322,21 +388,34 @@ const WhitelabelPage = () => {
       const { data } = await api.post(endpoint, formData);
       const imagePath = data;
       
+      console.log(`Upload concluído, caminho: ${imagePath}`);
+      
       // Salvar no banco
       const companyId = user?.companyId || localStorage.getItem("companyId");
       await update({ key: imageKey, value: imagePath, companyId });
       
-      // Atualizar estado
-      setImages(prev => ({ ...prev, [imageKey]: imagePath }));
+      // Atualizar estado IMEDIATAMENTE
+      setImages(prevImages => {
+        const newImages = { ...prevImages, [imageKey]: imagePath };
+        console.log("Estado de imagens atualizado:", newImages);
+        return newImages;
+      });
       
-      // Aplicar ao tema
+      // Aplicar ao tema IMEDIATAMENTE
       const fullUrl = `${process.env.REACT_APP_BACKEND_URL}/public/${imagePath}`;
       const setterFunction = colorMode[`set${imageKey.charAt(0).toUpperCase() + imageKey.slice(1)}`];
       if (typeof setterFunction === "function") {
+        console.log(`Aplicando imagem ao tema: ${imageKey} = ${fullUrl}`);
         setterFunction(fullUrl);
       }
       
       toast.success("Imagem atualizada com sucesso!");
+      
+      // Limpar input
+      if (event.target) {
+        event.target.value = "";
+      }
+      
     } catch (error) {
       console.error("Erro no upload:", error);
       toast.error("Erro ao fazer upload da imagem");
@@ -345,27 +424,35 @@ const WhitelabelPage = () => {
     }
   }, [user?.companyId, update, colorMode]);
 
-  // Remover imagem
+  // Remover imagem - CORRIGIDO
   const handleImageRemove = useCallback(async (imageKey) => {
     try {
       setSaving(true);
       const companyId = user?.companyId || localStorage.getItem("companyId");
+      const currentImages = imagesRef.current;
+      
+      console.log(`Removendo imagem ${imageKey}`);
       
       // Se for background, deletar do servidor
-      if (imageKey.includes("Background") && images[imageKey]) {
-        const filename = images[imageKey].split("/").pop();
+      if (imageKey.includes("Background") && currentImages[imageKey]) {
+        const filename = currentImages[imageKey].split("/").pop();
         await api.delete(`/settings/backgrounds/${filename}?companyId=${companyId}`);
       }
       
       // Limpar no banco
       await update({ key: imageKey, value: "", companyId });
       
-      // Atualizar estado
-      setImages(prev => ({ ...prev, [imageKey]: "" }));
+      // Atualizar estado IMEDIATAMENTE
+      setImages(prevImages => {
+        const newImages = { ...prevImages, [imageKey]: "" };
+        console.log("Estado de imagens após remoção:", newImages);
+        return newImages;
+      });
       
-      // Limpar no tema
+      // Limpar no tema IMEDIATAMENTE
       const setterFunction = colorMode[`set${imageKey.charAt(0).toUpperCase() + imageKey.slice(1)}`];
       if (typeof setterFunction === "function") {
+        console.log(`Removendo imagem do tema: ${imageKey}`);
         setterFunction("");
       }
       
@@ -376,15 +463,18 @@ const WhitelabelPage = () => {
     } finally {
       setSaving(false);
     }
-  }, [images, user?.companyId, update, colorMode]);
+  }, [user?.companyId, update, colorMode]);
 
-  // Salvar configurações gerais
+  // Salvar configurações gerais - CORRIGIDO
   const handleGeneralSave = useCallback(async () => {
     try {
       setSaving(true);
       const companyId = user?.companyId || localStorage.getItem("companyId");
+      const currentGeneral = generalSettingsRef.current;
       
-      const promises = Object.entries(generalSettings).map(([key, value]) =>
+      console.log("Salvando configurações gerais:", currentGeneral);
+      
+      const promises = Object.entries(currentGeneral).map(([key, value]) =>
         update({ key, value, companyId })
       );
       
@@ -397,10 +487,19 @@ const WhitelabelPage = () => {
     } finally {
       setSaving(false);
     }
-  }, [generalSettings, user?.companyId, update]);
+  }, [user?.companyId, update]);
+
+  // Handler para mudanças nas configurações gerais
+  const handleGeneralChange = useCallback((field, value) => {
+    console.log(`Alterando configuração geral: ${field} = ${value}`);
+    setGeneralSettings(prev => ({
+      ...prev,
+      [field]: value
+    }));
+  }, []);
 
   // Preparar estatísticas
-  const stats = [
+  const stats = useMemo(() => [
     {
       label: `${Object.keys(colors).filter(k => colors[k]).length} cores personalizadas`,
       icon: <Palette />,
@@ -411,7 +510,7 @@ const WhitelabelPage = () => {
       icon: <Image />,
       color: 'secondary'
     }
-  ];
+  ], [colors, images]);
 
   if (loading) {
     return (
@@ -449,7 +548,7 @@ const WhitelabelPage = () => {
               fullWidth
               label="Nome do Sistema"
               value={generalSettings.appName}
-              onChange={(e) => setGeneralSettings(prev => ({ ...prev, appName: e.target.value }))}
+              onChange={(e) => handleGeneralChange('appName', e.target.value)}
               variant="outlined"
             />
           </Grid>
@@ -458,7 +557,7 @@ const WhitelabelPage = () => {
               fullWidth
               label="Copyright"
               value={generalSettings.copyright}
-              onChange={(e) => setGeneralSettings(prev => ({ ...prev, copyright: e.target.value }))}
+              onChange={(e) => handleGeneralChange('copyright', e.target.value)}
               variant="outlined"
             />
           </Grid>
@@ -467,7 +566,7 @@ const WhitelabelPage = () => {
               <InputLabel>Posição do Formulário de Login</InputLabel>
               <Select
                 value={generalSettings.loginPosition}
-                onChange={(e) => setGeneralSettings(prev => ({ ...prev, loginPosition: e.target.value }))}
+                onChange={(e) => handleGeneralChange('loginPosition', e.target.value)}
                 label="Posição do Formulário de Login"
               >
                 <MenuItem value="left">Esquerda</MenuItem>
@@ -481,7 +580,7 @@ const WhitelabelPage = () => {
               <InputLabel>Posição do Formulário de Cadastro</InputLabel>
               <Select
                 value={generalSettings.signupPosition}
-                onChange={(e) => setGeneralSettings(prev => ({ ...prev, signupPosition: e.target.value }))}
+                onChange={(e) => handleGeneralChange('signupPosition', e.target.value)}
                 label="Posição do Formulário de Cadastro"
               >
                 <MenuItem value="left">Esquerda</MenuItem>
@@ -495,7 +594,7 @@ const WhitelabelPage = () => {
               fullWidth
               label="Link da Política de Privacidade"
               value={generalSettings.privacy}
-              onChange={(e) => setGeneralSettings(prev => ({ ...prev, privacy: e.target.value }))}
+              onChange={(e) => handleGeneralChange('privacy', e.target.value)}
               variant="outlined"
             />
           </Grid>
@@ -504,7 +603,7 @@ const WhitelabelPage = () => {
               fullWidth
               label="Link dos Termos de Uso"
               value={generalSettings.terms}
-              onChange={(e) => setGeneralSettings(prev => ({ ...prev, terms: e.target.value }))}
+              onChange={(e) => handleGeneralChange('terms', e.target.value)}
               variant="outlined"
             />
           </Grid>
@@ -525,29 +624,33 @@ const WhitelabelPage = () => {
           </Button>
         }
       >
-        {Object.entries(colorSettings).map(([groupName, colors]) => (
+        {Object.entries(colorSettings).map(([groupName, colorConfigs]) => (
           <Box key={groupName} sx={{ mb: 4 }}>
             <Typography variant="h6" sx={{ mb: 2, fontWeight: 600, color: "primary.main" }}>
               {groupName}
             </Typography>
             <Grid container spacing={2}>
-              {colors.map((colorConfig) => (
-                <Grid item xs={12} sm={6} md={3} key={colorConfig.key}>
-                  <StyledPaper elevation={2}>
-                    <Typography variant="caption" sx={{ display: "block", mb: 1 }}>
-                      {colorConfig.label}
-                    </Typography>
-                    <ColorBox
-                      sx={{ backgroundColor: colors[colorConfig.key] || colorConfig.default }}
-                      onClick={(e) => handleColorClick(e, colorConfig.key)}
-                    >
-                      <Typography variant="caption" sx={{ color: "white", textShadow: "0 0 2px rgba(0,0,0,0.5)" }}>
-                        {colors[colorConfig.key] || colorConfig.default}
+              {colorConfigs.map((colorConfig) => {
+                const currentColor = colors[colorConfig.key] || colorConfig.default;
+                
+                return (
+                  <Grid item xs={12} sm={6} md={3} key={colorConfig.key}>
+                    <StyledPaper elevation={2}>
+                      <Typography variant="caption" sx={{ display: "block", mb: 1 }}>
+                        {colorConfig.label}
                       </Typography>
-                    </ColorBox>
-                  </StyledPaper>
-                </Grid>
-              ))}
+                      <ColorBox
+                        sx={{ backgroundColor: currentColor }}
+                        onClick={(e) => handleColorClick(e, colorConfig.key)}
+                      >
+                        <Typography variant="caption" sx={{ color: "white", textShadow: "0 0 2px rgba(0,0,0,0.5)" }}>
+                          {currentColor}
+                        </Typography>
+                      </ColorBox>
+                    </StyledPaper>
+                  </Grid>
+                );
+              })}
             </Grid>
           </Box>
         ))}
@@ -556,7 +659,11 @@ const WhitelabelPage = () => {
         <Popover
           open={Boolean(colorPickerAnchor)}
           anchorEl={colorPickerAnchor}
-          onClose={() => setColorPickerAnchor(null)}
+          onClose={() => {
+            setColorPickerAnchor(null);
+            setSelectedColorKey("");
+            setSelectedColorValue("");
+          }}
           anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
           transformOrigin={{ vertical: "top", horizontal: "center" }}
         >
@@ -567,11 +674,22 @@ const WhitelabelPage = () => {
               disableAlpha
             />
             <Stack direction="row" spacing={1} sx={{ mt: 2 }}>
-              <Button variant="outlined" onClick={() => setColorPickerAnchor(null)}>
+              <Button 
+                variant="outlined" 
+                onClick={() => {
+                  setColorPickerAnchor(null);
+                  setSelectedColorKey("");
+                  setSelectedColorValue("");
+                }}
+              >
                 Cancelar
               </Button>
-              <Button variant="contained" onClick={handleColorSave} disabled={saving}>
-                Aplicar
+              <Button 
+                variant="contained" 
+                onClick={handleColorSave} 
+                disabled={saving}
+              >
+                {saving ? <CircularProgress size={20} /> : "Aplicar"}
               </Button>
             </Stack>
           </Box>
@@ -579,9 +697,7 @@ const WhitelabelPage = () => {
       </StandardTabContent>
 
       {/* Logos e Imagens */}
-      <StandardTabContent
-        variant="default"
-      >
+      <StandardTabContent variant="default">
         <Grid container spacing={3}>
           {imageSettings.map((imgConfig) => {
             const currentImage = images[imgConfig.key]
@@ -621,8 +737,9 @@ const WhitelabelPage = () => {
                         onClick={() => fileInputRefs.current[imgConfig.key]?.click()}
                         size="small"
                         fullWidth
+                        disabled={saving}
                       >
-                        Upload
+                        {saving ? <CircularProgress size={16} /> : "Upload"}
                       </Button>
                       {images[imgConfig.key] && (
                         <IconButton
