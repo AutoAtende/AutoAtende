@@ -24,64 +24,57 @@ import {
     timestamps: true
   })
   class GroupSeries extends Model<GroupSeries> {
+    @Column(DataType.INTEGER)
     @PrimaryKey
     @AutoIncrement
-    @Column(DataType.INTEGER)
     id: number;
   
-    @AllowNull(false)
     @Column(DataType.STRING)
-    @Comment('Nome identificador da série')
+    @AllowNull(false)
     name: string;
   
-    @AllowNull(false)
     @Column(DataType.STRING)
-    @Comment('Nome base para grupos da série')
+    @AllowNull(false)
     baseGroupName: string;
   
     @Column(DataType.TEXT)
-    @Comment('Descrição base para grupos da série')
     description: string;
   
+    @Column(DataType.INTEGER)
     @Default(256)
     @AllowNull(false)
-    @Column(DataType.INTEGER)
-    @Comment('Limite máximo de participantes por grupo')
     maxParticipants: number;
   
+    @Column(DataType.DECIMAL(5, 2))
     @Default(95.0)
     @AllowNull(false)
-    @Column(DataType.DECIMAL(5, 2))
-    @Comment('Porcentagem que dispara criação do próximo grupo')
     thresholdPercentage: number;
   
+    @Column(DataType.BOOLEAN)
     @Default(true)
     @AllowNull(false)
-    @Column(DataType.BOOLEAN)
-    @Comment('Se a criação automática está habilitada')
     autoCreateEnabled: boolean;
   
     @Column(DataType.INTEGER)
-    @Comment('ID do grupo atualmente ativo para novos participantes')
     currentActiveGroupId: number;
   
+    @Column(DataType.INTEGER)
     @Default(2)
     @AllowNull(false)
-    @Column(DataType.INTEGER)
-    @Comment('Próximo número sequencial a ser usado')
     nextGroupNumber: number;
   
+    
     @ForeignKey(() => Company)
-    @AllowNull(false)
     @Column(DataType.INTEGER)
+    @AllowNull(false)
     companyId: number;
   
     @BelongsTo(() => Company)
     company: Company;
   
     @ForeignKey(() => Whatsapp)
-    @AllowNull(false)
     @Column(DataType.INTEGER)
+    @AllowNull(false)
     whatsappId: number;
   
     @BelongsTo(() => Whatsapp)
@@ -89,7 +82,6 @@ import {
   
     @ForeignKey(() => LandingPage)
     @Column(DataType.INTEGER)
-    @Comment('Landing page associada a esta série (opcional)')
     landingPageId: number;
   
     @BelongsTo(() => LandingPage)

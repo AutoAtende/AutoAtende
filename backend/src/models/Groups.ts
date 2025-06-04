@@ -30,17 +30,17 @@ interface GroupParticipant {
   timestamps: true
 })
 class Groups extends Model<Groups> {
+  @Column(DataType.INTEGER)
   @PrimaryKey
   @AutoIncrement
-  @Column(DataType.INTEGER)
   id: number;
 
-  @AllowNull(false)
   @Column(DataType.STRING)
+  @AllowNull(false)
   jid: string;
 
-  @AllowNull(false)
   @Column(DataType.STRING)
+  @AllowNull(false)
   subject: string;
 
   @Column(DataType.TEXT)
@@ -73,56 +73,47 @@ class Groups extends Model<Groups> {
   @Column(DataType.DATE)
   lastSync: Date;
 
-  @Default("synced")
   @Column(DataType.STRING)
+  @Default("synced")
   syncStatus: string;
 
-  // Novas colunas para gerenciamento automático
+  @Column(DataType.BOOLEAN)
   @Default(false)
   @AllowNull(false)
-  @Column(DataType.BOOLEAN)
-  @Comment('Indica se o grupo faz parte de um gerenciamento automático')
   isManaged: boolean;
 
   @Column(DataType.STRING)
-  @Comment('Identificador da série de grupos')
   groupSeries: string;
 
   @Column(DataType.INTEGER)
-  @Comment('Número sequencial do grupo na série')
   groupNumber: number;
 
+  @Column(DataType.INTEGER)
   @Default(256)
   @AllowNull(false)
-  @Column(DataType.INTEGER)
-  @Comment('Número máximo de participantes para este grupo')
   maxParticipants: number;
 
+  @Column(DataType.BOOLEAN)
   @Default(true)
   @AllowNull(false)
-  @Column(DataType.BOOLEAN)
-  @Comment('Indica se o grupo está ativo para receber novos participantes')
   isActive: boolean;
 
   @Column(DataType.STRING)
-  @Comment('Nome base para grupos da série')
   baseGroupName: string;
 
+  @Column(DataType.BOOLEAN)
   @Default(false)
   @AllowNull(false)
-  @Column(DataType.BOOLEAN)
-  @Comment('Se deve criar automaticamente o próximo grupo da série')
   autoCreateNext: boolean;
 
+  @Column(DataType.DECIMAL(5, 2))
   @Default(95.0)
   @AllowNull(false)
-  @Column(DataType.DECIMAL(5, 2))
-  @Comment('Porcentagem de ocupação que dispara a criação do próximo grupo')
   thresholdPercentage: number;
 
   @ForeignKey(() => Company)
-  @AllowNull(false)
   @Column(DataType.INTEGER)
+  @AllowNull(false)
   companyId: number;
 
   @BelongsTo(() => Company)

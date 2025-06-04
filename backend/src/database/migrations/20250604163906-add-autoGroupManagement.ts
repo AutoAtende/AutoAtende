@@ -21,7 +21,6 @@ export default {
         type: DataTypes.BOOLEAN,
         defaultValue: false,
         allowNull: false,
-        comment: "Indica se o grupo faz parte de um gerenciamento automático",
       });
     }
 
@@ -29,7 +28,6 @@ export default {
       await queryInterface.addColumn(tabelaGroups, "groupSeries", {
         type: DataTypes.STRING,
         allowNull: true,
-        comment: "Identificador da série de grupos (ex: 'landing-page-promocao')",
       });
     }
 
@@ -37,7 +35,6 @@ export default {
       await queryInterface.addColumn(tabelaGroups, "groupNumber", {
         type: DataTypes.INTEGER,
         allowNull: true,
-        comment: "Número sequencial do grupo na série (1, 2, 3...)",
       });
     }
 
@@ -46,7 +43,6 @@ export default {
         type: DataTypes.INTEGER,
         defaultValue: 256,
         allowNull: false,
-        comment: "Número máximo de participantes para este grupo",
       });
     }
 
@@ -55,7 +51,6 @@ export default {
         type: DataTypes.BOOLEAN,
         defaultValue: true,
         allowNull: false,
-        comment: "Indica se o grupo está ativo para receber novos participantes",
       });
     }
 
@@ -63,7 +58,6 @@ export default {
       await queryInterface.addColumn(tabelaGroups, "baseGroupName", {
         type: DataTypes.STRING,
         allowNull: true,
-        comment: "Nome base para grupos da série (sem numeração)",
       });
     }
 
@@ -72,7 +66,6 @@ export default {
         type: DataTypes.BOOLEAN,
         defaultValue: false,
         allowNull: false,
-        comment: "Se deve criar automaticamente o próximo grupo da série",
       });
     }
 
@@ -81,7 +74,6 @@ export default {
         type: DataTypes.DECIMAL(5, 2),
         defaultValue: 95.0,
         allowNull: false,
-        comment: "Porcentagem de ocupação que dispara a criação do próximo grupo",
       });
     }
 
@@ -115,35 +107,29 @@ export default {
         name: {
           type: DataTypes.STRING,
           allowNull: false,
-          comment: "Nome identificador da série (ex: 'landing-page-promocao')",
         },
         baseGroupName: {
           type: DataTypes.STRING,
           allowNull: false,
-          comment: "Nome base para grupos da série",
         },
         description: {
           type: DataTypes.TEXT,
           allowNull: true,
-          comment: "Descrição base para grupos da série",
         },
         maxParticipants: {
           type: DataTypes.INTEGER,
           defaultValue: 256,
           allowNull: false,
-          comment: "Limite máximo de participantes por grupo",
         },
         thresholdPercentage: {
           type: DataTypes.DECIMAL(5, 2),
           defaultValue: 95.0,
           allowNull: false,
-          comment: "Porcentagem que dispara criação do próximo grupo",
         },
         autoCreateEnabled: {
           type: DataTypes.BOOLEAN,
           defaultValue: true,
           allowNull: false,
-          comment: "Se a criação automática está habilitada",
         },
         currentActiveGroupId: {
           type: DataTypes.INTEGER,
@@ -152,13 +138,11 @@ export default {
             model: "Groups",
             key: "id",
           },
-          comment: "ID do grupo atualmente ativo para novos participantes",
         },
         nextGroupNumber: {
           type: DataTypes.INTEGER,
           defaultValue: 2,
           allowNull: false,
-          comment: "Próximo número sequencial a ser usado",
         },
         companyId: {
           type: DataTypes.INTEGER,
@@ -189,7 +173,6 @@ export default {
           },
           onUpdate: "CASCADE",
           onDelete: "SET NULL",
-          comment: "Landing page associada a esta série (opcional)",
         },
         createdAt: {
           type: DataTypes.DATE,
