@@ -66,7 +66,7 @@ import { AuthContext } from '../../context/Auth/AuthContext';
 import api from '../../services/api';
 import { toast } from '../../helpers/toast';
 import { i18n } from '../../translate/i18n';
-import StandardPageLayout from '../../components/StandardPageLayout';
+import StandardPageLayout from '../../components/shared/StandardPageLayout';
 import ConfirmationModal from '../../components/ConfirmationModal';
 import FlowPreviewModal from './components/FlowPreviewModal';
 

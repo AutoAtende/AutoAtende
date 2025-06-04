@@ -14,7 +14,7 @@ import {
 import { DeleteOutline, Edit, Add as AddIcon } from "@mui/icons-material";
 import { toast } from "../../helpers/toast";
 
-import StandardPageLayout from "../../components/StandardPageLayout";
+import StandardPageLayout from "../../components/shared/StandardPageLayout";
 import ConfirmationModal from "../../components/ConfirmationModal";
 import PromptModal from "../../components/PromptModal";
 

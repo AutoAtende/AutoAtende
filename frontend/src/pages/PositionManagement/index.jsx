@@ -18,7 +18,7 @@ import {
   Assessment as StatsIcon
 } from '@mui/icons-material';
 import { toast } from "../../helpers/toast";
-import StandardPageLayout from '../../components/StandardPageLayout';
+import StandardPageLayout from '../../components/shared/StandardPageLayout';
 import BaseModal from '../../components/shared/BaseModal';
 import api from '../../services/api';
 

@@ -26,7 +26,7 @@ import {
 } from "@mui/icons-material";
 
 // Componentes
-import StandardPageLayout from "../../components/StandardPageLayout";
+import StandardPageLayout from "../../components/shared/StandardPageLayout";
 
 // Tabs
 import CampaignsList from "./tabs/CampaignsList";

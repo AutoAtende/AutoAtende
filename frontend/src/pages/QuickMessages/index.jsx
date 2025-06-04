@@ -39,7 +39,7 @@ import CustomAudioPlayer from "../../components/Audio/CustomAudioPlayer";
 import formatTextWithLimit from "../../helpers/formatTextWithLimit";
 import { getProfileType } from "../../helpers/getProfileType";
 
-import StandardPageLayout from "../../components/StandardPageLayout";
+import StandardPageLayout from "../../components/shared/StandardPageLayout";
 import QuickMessageDialog from "../../components/QuickMessageDialog";
 import ConfirmationModal from "../../components/ConfirmationModal";
 

@@ -18,7 +18,7 @@ import {
 } from '@mui/icons-material';
 
 // Componentes
-import StandardPageLayout from '../../components/StandardPageLayout';
+import StandardPageLayout from '../../components/shared/StandardPageLayout';
 import { usePasswords } from '../../hooks/usePasswords';
 import { useEmployers } from '../../hooks/useEmployers';
 import { useTags } from '../../hooks/useTags';

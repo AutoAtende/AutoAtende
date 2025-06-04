@@ -31,7 +31,7 @@ import {
 import { useTheme } from '@mui/material/styles';
 
 // Componentes
-import StandardPageLayout from '../../components/StandardPageLayout';
+import StandardPageLayout from '../../components/shared/StandardPageLayout';
 import { i18n } from '../../translate/i18n';
 import MessageRuleModal from './components/MessageRuleModal';
 import ConfirmationModal from '../../components/ConfirmationModal';

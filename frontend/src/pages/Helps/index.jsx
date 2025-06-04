@@ -19,7 +19,7 @@ import {
   Api as ApiIcon
 } from "@mui/icons-material";
 
-import StandardPageLayout from "../../components/StandardPageLayout";
+import StandardPageLayout from "../../components/shared/StandardPageLayout";
 import { i18n } from "../../translate/i18n";
 import useHelps from "../../hooks/useHelps";
 import SwaggerUIBundle from "swagger-ui-dist/swagger-ui-bundle";

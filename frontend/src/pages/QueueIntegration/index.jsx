@@ -27,7 +27,7 @@ import {
 import { useSpring, animated } from "react-spring";
 
 // Componentes
-import StandardPageLayout from "../../components/StandardPageLayout";
+import StandardPageLayout from "../../components/shared/StandardPageLayout";
 import TableRowSkeleton from "../../components/TableRowSkeleton";
 import IntegrationModal from "../../components/QueueIntegrationModal";
 import ConfirmationModal from "../../components/ConfirmationModal";

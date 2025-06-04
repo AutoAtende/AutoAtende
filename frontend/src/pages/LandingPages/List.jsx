@@ -31,7 +31,7 @@ import {
   ViewModule as ViewModuleIcon
 } from '@mui/icons-material';
 
-import StandardPageLayout from '../../components/StandardPageLayout';
+import StandardPageLayout from '../../components/shared/StandardPageLayout';
 import ConfirmationModal from '../../components/ConfirmationModal';
 import QRCodeDialog from '../../components/QrCodeDialog';
 import { toast } from "../../helpers/toast";

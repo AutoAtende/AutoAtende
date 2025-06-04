@@ -54,7 +54,7 @@ import {
 } from "@mui/icons-material";
 
 // Componentes
-import StandardPageLayout from "../../components/StandardPageLayout";
+import StandardPageLayout from "../../components/shared/StandardPageLayout";
 import TableRowSkeleton from "../../components/TableRowSkeleton";
 import WhatsAppModal from "./components/WhatsAppModal";
 import QrcodeModal from "./components/QRCodeModal";

@@ -14,7 +14,7 @@ import {
 import { useTheme } from "@mui/material/styles";
 import { DeleteOutline, Edit, Add as AddIcon } from "@mui/icons-material";
 
-import StandardPageLayout from "../../components/StandardPageLayout";
+import StandardPageLayout from "../../components/shared/StandardPageLayout";
 import ConfirmationModal from "../../components/ConfirmationModal";
 import QueueModal from "../../components/QueueModal";
 import { i18n } from "../../translate/i18n";
