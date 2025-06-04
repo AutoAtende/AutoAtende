@@ -349,6 +349,108 @@ const WhitelabelPage = () => {
     }
   };
 
+  // Upload de imagem
+  const handleImageUpload = async (event, imageKey) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    
+    console.log(`📤 Upload da imagem para ${imageKey}`);
+    
+    const formData = new FormData();
+    formData.append("file", file);
+    formData.append("companyId", user?.companyId?.toString() || "");
+    
+    try {
+      setSaving(true);
+      let endpoint = "";
+      
+      if (imageKey.includes("Background")) {
+        formData.append("page", imageKey.replace("Background", ""));
+        endpoint = "/settings/background";
+      } else {
+        formData.append("mode", imageKey);
+        endpoint = "/settings/logo";
+      }
+      
+      const { data } = await api.post(endpoint, formData);
+      const imagePath = data;
+      
+      console.log(`✅ Upload concluído: ${imagePath}`);
+      
+      // Salvar no banco
+      const companyId = user?.companyId || localStorage.getItem("companyId");
+      await update({ key: imageKey, value: imagePath, companyId });
+      
+      // Atualizar estado
+      setImages(prevImages => ({
+        ...prevImages,
+        [imageKey]: imagePath
+      }));
+      
+      // Aplicar ao tema
+      if (colorMode) {
+        const fullUrl = `${process.env.REACT_APP_BACKEND_URL}/public/${imagePath}`;
+        const setterFunction = colorMode[`set${imageKey.charAt(0).toUpperCase() + imageKey.slice(1)}`];
+        if (typeof setterFunction === "function") {
+          setterFunction(fullUrl);
+        }
+      }
+      
+      toast.success("Imagem atualizada com sucesso!");
+      
+      // Limpar input
+      if (event.target) {
+        event.target.value = "";
+      }
+      
+    } catch (error) {
+      console.error("❌ Erro no upload:", error);
+      toast.error("Erro ao fazer upload da imagem");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  // Remover imagem
+  const handleImageRemove = async (imageKey) => {
+    try {
+      setSaving(true);
+      const companyId = user?.companyId || localStorage.getItem("companyId");
+      
+      console.log(`🗑️ Removendo imagem ${imageKey}`);
+      
+      // Se for background, deletar do servidor
+      if (imageKey.includes("Background") && images[imageKey]) {
+        const filename = images[imageKey].split("/").pop();
+        await api.delete(`/settings/backgrounds/${filename}?companyId=${companyId}`);
+      }
+      
+      // Limpar no banco
+      await update({ key: imageKey, value: "", companyId });
+      
+      // Atualizar estado
+      setImages(prevImages => ({
+        ...prevImages,
+        [imageKey]: ""
+      }));
+      
+      // Limpar no tema
+      if (colorMode) {
+        const setterFunction = colorMode[`set${imageKey.charAt(0).toUpperCase() + imageKey.slice(1)}`];
+        if (typeof setterFunction === "function") {
+          setterFunction("");
+        }
+      }
+      
+      toast.success("Imagem removida com sucesso!");
+    } catch (error) {
+      console.error("❌ Erro ao remover imagem:", error);
+      toast.error("Erro ao remover imagem");
+    } finally {
+      setSaving(false);
+    }
+  };
+
   // Preparar estatísticas
   const stats = [
     {
@@ -532,6 +634,78 @@ const WhitelabelPage = () => {
             </Grid>
           </Box>
         ))}
+
+        <Box sx={{ mb: 3, display: 'flex', alignItems: 'center', width: '100%' }}>
+          <Chip
+            icon={<Image />}
+            label="Logos e Imagens"
+            color="primary"
+            variant="outlined"
+            sx={{ fontWeight: 'bold', px: 2 }}
+          />
+          <Divider sx={{ flexGrow: 1, ml: 2 }} />
+        </Box>
+
+        {/* SEÇÃO DE IMAGENS */}
+        <Grid container spacing={3} sx={{ mb: 4 }}>
+          {imageSettings.map((imgConfig) => {
+            const currentImage = images[imgConfig.key]
+              ? `${process.env.REACT_APP_BACKEND_URL}/public/${images[imgConfig.key]}`
+              : imgConfig.default;
+              
+            return (
+              <Grid item xs={12} sm={6} md={4} key={imgConfig.key}>
+                <Card>
+                  <CardContent>
+                    <Typography variant="subtitle2" gutterBottom fontWeight={600}>
+                      {imgConfig.label}
+                    </Typography>
+                    <ImagePreviewBox sx={{ mb: 2 }}>
+                      {currentImage && (
+                        <img
+                          src={currentImage}
+                          alt={imgConfig.label}
+                          onError={(e) => {
+                            e.target.onerror = null;
+                            e.target.src = imgConfig.default;
+                          }}
+                        />
+                      )}
+                    </ImagePreviewBox>
+                    <Stack direction="row" spacing={1}>
+                      <input
+                        type="file"
+                        ref={(el) => fileInputRefs.current[imgConfig.key] = el}
+                        style={{ display: "none" }}
+                        onChange={(e) => handleImageUpload(e, imgConfig.key)}
+                        accept="image/*"
+                      />
+                      <Button
+                        variant="outlined"
+                        startIcon={<CloudUpload />}
+                        onClick={() => fileInputRefs.current[imgConfig.key]?.click()}
+                        size="small"
+                        fullWidth
+                        disabled={saving}
+                      >
+                        {saving ? <CircularProgress size={16} /> : "Upload"}
+                      </Button>
+                      {images[imgConfig.key] && (
+                        <IconButton
+                          color="error"
+                          onClick={() => handleImageRemove(imgConfig.key)}
+                          disabled={saving}
+                        >
+                          <Delete />
+                        </IconButton>
+                      )}
+                    </Stack>
+                  </CardContent>
+                </Card>
+              </Grid>
+            );
+          })}
+        </Grid>
 
         {/* Color Picker Popover */}
         <Popover
