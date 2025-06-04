@@ -35,12 +35,12 @@ class Groups extends Model<Groups> {
   @Column(DataType.INTEGER)
   id: number;
 
-  @Column(DataType.STRING)
   @AllowNull(false)
+  @Column(DataType.STRING)
   jid: string;
 
-  @Column(DataType.STRING)
   @AllowNull(false)
+  @Column(DataType.STRING)
   subject: string;
 
   @Column(DataType.TEXT)
@@ -73,13 +73,13 @@ class Groups extends Model<Groups> {
   @Column(DataType.DATE)
   lastSync: Date;
 
-  @Column(DataType.STRING)
   @Default("synced")
+  @Column(DataType.STRING)
   syncStatus: string;
 
-  @Column(DataType.BOOLEAN)
   @Default(false)
   @AllowNull(false)
+  @Column(DataType.BOOLEAN)
   isManaged: boolean;
 
   @Column(DataType.STRING)
@@ -88,32 +88,32 @@ class Groups extends Model<Groups> {
   @Column(DataType.INTEGER)
   groupNumber: number;
 
-  @Column(DataType.INTEGER)
   @Default(256)
   @AllowNull(false)
+  @Column(DataType.INTEGER)
   maxParticipants: number;
 
-  @Column(DataType.BOOLEAN)
   @Default(true)
   @AllowNull(false)
+  @Column(DataType.BOOLEAN)
   isActive: boolean;
 
   @Column(DataType.STRING)
   baseGroupName: string;
 
-  @Column(DataType.BOOLEAN)
   @Default(false)
   @AllowNull(false)
+  @Column(DataType.BOOLEAN)
   autoCreateNext: boolean;
 
-  @Column(DataType.DECIMAL(5, 2))
   @Default(95.0)
   @AllowNull(false)
+  @Column(DataType.DECIMAL(5, 2))
   thresholdPercentage: number;
 
   @ForeignKey(() => Company)
-  @Column(DataType.INTEGER)
   @AllowNull(false)
+  @Column(DataType.INTEGER)
   companyId: number;
 
   @BelongsTo(() => Company)
