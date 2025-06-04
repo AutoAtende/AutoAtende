@@ -40,7 +40,7 @@ import useSettings from "../../hooks/useSettings";
 import useUserQueues from "../../hooks/useUserQueues";
 import ReasonSelectionModal from "./reasonSelectionModal";
 import QueueSelectionModal from "../QueueSelectionModal";
-import QueueSelectionAcceptModal from "../QueueSelectionAcceptModal";
+import QueueSelectionAcceptModal from "./QueueSelectionAcceptModal";
 import TagsSelectionModal from "../TagsSelectionModal";
 import { GlobalContext } from "../../context/GlobalContext";
 import TagsModal from "./TagsModal";
