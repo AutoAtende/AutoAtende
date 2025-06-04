@@ -52,10 +52,12 @@ const Contacts = () => {
   const { Loading } = useLoading();
   const { makeRequest, setMakeRequest } = useContext(GlobalContext);
 
-  // Refs
+  // Refs para scroll infinito
   const isMounted = useRef(true);
   const observerRef = useRef();
-  const loadMoreTriggerRef = useRef(); // Nova ref para trigger do scroll infinito
+  const containerRef = useRef(); // Ref para o container principal
+  const sentinelRef = useRef(); // Ref para o elemento sentinela
+  const lastRequestRef = useRef(""); // Para evitar requisições duplicadas
 
   // States
   const [loading, setLoading] = useState(false);
@@ -86,6 +88,9 @@ const Contacts = () => {
   useEffect(() => {
     return () => {
       isMounted.current = false;
+      if (observerRef.current) {
+        observerRef.current.disconnect();
+      }
     };
   }, []);
 
@@ -117,19 +122,38 @@ const Contacts = () => {
     };
   };
 
+  // CORRIGIDA: Função fetchContacts com melhor controle de estado
   const fetchContacts = useCallback(async (page = 1, isNewSearch = false) => {
-    if (!isMounted.current || loading || loadingMore) return;
+    if (!isMounted.current) return;
+
+    // Evita requisições duplicadas
+    const requestKey = `${searchParam}-${tagFilter.join(',')}-${page}`;
+    if (lastRequestRef.current === requestKey && !isNewSearch) {
+      console.log('Requisição duplicada evitada:', requestKey);
+      return;
+    }
+
+    // Evita carregar mais se já está carregando ou não há mais dados
+    if ((page > 1 && (loading || loadingMore)) || (page > 1 && !hasMore)) {
+      console.log('Carregamento evitado - Estado:', { loading, loadingMore, hasMore, page });
+      return;
+    }
 
     try {
+      console.log(`🔄 Carregando contatos - Página: ${page}, Search: "${searchParam}", Tags: [${tagFilter.join(',')}]`);
+
+      lastRequestRef.current = requestKey;
+
       if (page === 1) {
         setLoading(true);
+        setContacts([]); // Limpa dados anteriores
       } else {
         setLoadingMore(true);
       }
 
       const { data } = await api.get("/contacts/", {
         params: {
-          searchParam,
+          searchParam: searchParam.trim(),
           typeContact: "private",
           tagIds: Array.isArray(tagFilter) && tagFilter.length > 0 ? tagFilter.join(',') : undefined,
           page: page,
@@ -142,75 +166,117 @@ const Contacts = () => {
           ? data.contacts.map(normalizeContactData)
           : [];
 
+        console.log(`✅ Dados recebidos - Página: ${page}, Contatos: ${normalizedContacts.length}, Total: ${data?.count || 0}`);
+
         if (page === 1 || isNewSearch) {
           setContacts(normalizedContacts);
+          setPageNumber(1);
         } else {
-          setContacts(prev => [...prev, ...normalizedContacts]);
+          setContacts(prev => {
+            // Evita duplicatas baseado no ID
+            const existingIds = new Set(prev.map(c => c.id));
+            const newContacts = normalizedContacts.filter(c => !existingIds.has(c.id));
+            console.log(`📝 Adicionando ${newContacts.length} novos contatos (${normalizedContacts.length - newContacts.length} duplicatas evitadas)`);
+            return [...prev, ...newContacts];
+          });
+          setPageNumber(page);
         }
 
         setContactsTotal(data?.count || 0);
-        setHasMore(normalizedContacts.length === 100);
-        setPageNumber(page);
+        
+        // Atualiza hasMore baseado na quantidade de dados recebidos
+        const receivedCount = normalizedContacts.length;
+        const newHasMore = receivedCount === 100; // Se recebeu exatamente 100, pode haver mais
+        setHasMore(newHasMore);
+        
+        console.log(`📊 Estado atualizado - HasMore: ${newHasMore}, Página atual: ${page}`);
       }
     } catch (err) {
       if (isMounted.current) {
-        console.error("Erro ao buscar contatos:", err);
+        console.error("❌ Erro ao buscar contatos:", err);
         toast.error("Erro ao carregar contatos");
         if (page === 1) {
           setContacts([]);
           setContactsTotal(0);
+          setHasMore(false);
         }
       }
     } finally {
       if (isMounted.current) {
         setLoading(false);
         setLoadingMore(false);
+        // Limpa a chave da requisição após um delay para permitir novas requisições
+        setTimeout(() => {
+          if (lastRequestRef.current === requestKey) {
+            lastRequestRef.current = "";
+          }
+        }, 1000);
       }
     }
-  }, [searchParam, tagFilter, loading, loadingMore]);
+  }, [searchParam, tagFilter, loading, loadingMore, hasMore]);
 
-  // Effect para carregar contatos iniciais
+  // Effect para carregar contatos iniciais - MELHORADO
   useEffect(() => {
+    console.log('🔄 Recarregando dados devido a mudança nos filtros');
     setPageNumber(1);
     setHasMore(true);
+    setContacts([]); // Limpa imediatamente
+    lastRequestRef.current = ""; // Reseta controle de duplicatas
     fetchContacts(1, true);
   }, [searchParam, tagFilter, makeRequest]);
 
-  // Intersection Observer para scroll infinito - CORRIGIDO
+  // CORRIGIDO: Intersection Observer para scroll infinito
   useEffect(() => {
     // Limpar observer anterior
     if (observerRef.current) {
       observerRef.current.disconnect();
+      observerRef.current = null;
     }
 
-    // Não criar observer se não há mais dados ou está carregando
-    if (!hasMore || loading || loadingMore) return;
+    // Não criar observer se não há elemento sentinela ou não há mais dados
+    if (!sentinelRef.current || !hasMore || loading) {
+      console.log('🚫 Observer não criado:', { 
+        hasSentinel: !!sentinelRef.current, 
+        hasMore, 
+        loading 
+      });
+      return;
+    }
 
-    // Criar novo observer
+    console.log('👁️ Criando novo Intersection Observer');
+
+    // Criar novo observer com configuração otimizada
     const observer = new IntersectionObserver(
       (entries) => {
-        const target = entries[0];
-        if (target.isIntersecting && hasMore && !loading && !loadingMore) {
-          console.log('Carregando mais contatos...', pageNumber + 1);
-          fetchContacts(pageNumber + 1);
+        const entry = entries[0];
+        console.log('👁️ Observer trigger:', { 
+          isIntersecting: entry.isIntersecting,
+          hasMore,
+          loading,
+          loadingMore,
+          pageNumber
+        });
+
+        if (entry.isIntersecting && hasMore && !loading && !loadingMore) {
+          const nextPage = pageNumber + 1;
+          console.log(`🚀 Carregando próxima página: ${nextPage}`);
+          fetchContacts(nextPage);
         }
       },
       { 
+        root: null, // Usar viewport como root
         threshold: 0.1,
-        rootMargin: '20px'
+        rootMargin: '100px' // Carregar com 100px de antecedência
       }
     );
 
     observerRef.current = observer;
-
-    // Observar o elemento trigger
-    if (loadMoreTriggerRef.current) {
-      observer.observe(loadMoreTriggerRef.current);
-    }
+    observer.observe(sentinelRef.current);
 
     return () => {
       if (observerRef.current) {
         observerRef.current.disconnect();
+        observerRef.current = null;
       }
     };
   }, [hasMore, loading, loadingMore, pageNumber, fetchContacts]);
@@ -218,17 +284,16 @@ const Contacts = () => {
   // Handlers
   const handleSearchChange = useCallback((event) => {
     const value = event?.target?.value || '';
+    console.log('🔍 Mudança de busca:', value);
     setSearchParam(value.toLowerCase());
     setSelectedContacts([]);
-    setPageNumber(1);
-    setHasMore(true);
   }, []);
 
   const handleTagFilterChange = useCallback((selectedTagIds) => {
     const normalizedTagIds = Array.isArray(selectedTagIds) ? selectedTagIds : [];
+    console.log('🏷️ Mudança de filtro de tags:', normalizedTagIds);
     setTagFilter(normalizedTagIds);
-    setPageNumber(1);
-    setHasMore(true);
+    setSelectedContacts([]);
   }, []);
 
   const handleOpenContactModal = useCallback(() => {
@@ -636,6 +701,7 @@ const Contacts = () => {
         actions={[...pageActions, ...bulkActions]}
         loading={loading}
         containerProps={{
+          ref: containerRef,
           sx: {
             display: 'flex',
             flexDirection: 'column',
@@ -668,7 +734,7 @@ const Contacts = () => {
             selectedItems={selectedContacts}
             onSelectionChange={setSelectedContacts}
             actions={getTableActions}
-            stickyHeader={true}
+            stickyHeader={false} // Desabilitado para melhor compatibilidade
             size="small"
             hover={true}
             maxVisibleActions={1}
@@ -685,16 +751,27 @@ const Contacts = () => {
             }}
           />
 
-          {/* Elemento trigger para scroll infinito */}
+          {/* CORRIGIDO: Elemento sentinela para scroll infinito */}
           {hasMore && contacts.length > 0 && (
             <Box
-              ref={loadMoreTriggerRef}
+              ref={sentinelRef}
               sx={{
-                height: '1px',
+                height: '20px',
                 width: '100%',
-                backgroundColor: 'transparent'
+                backgroundColor: 'transparent',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                margin: '10px 0'
               }}
-            />
+            >
+              {/* Elemento visível para debug (remover em produção) */}
+              {process.env.NODE_ENV === 'development' && (
+                <Typography variant="caption" color="textSecondary">
+                  Sentinela - HasMore: {hasMore ? 'true' : 'false'}
+                </Typography>
+              )}
+            </Box>
           )}
 
           {/* Loading indicator para infinite scroll */}
@@ -722,8 +799,29 @@ const Contacts = () => {
               flexShrink: 0
             }}>
               <Typography variant="body2" color="textSecondary">
-                Todos os contatos foram carregados
+                Todos os contatos foram carregados ({contacts.length} de {contactsTotal})
               </Typography>
+            </Box>
+          )}
+
+          {/* Debug info (remover em produção) */}
+          {process.env.NODE_ENV === 'development' && (
+            <Box sx={{ 
+              position: 'fixed',
+              top: 10,
+              right: 10,
+              background: 'rgba(0,0,0,0.8)',
+              color: 'white',
+              padding: 1,
+              borderRadius: 1,
+              fontSize: '0.75rem',
+              zIndex: 9999
+            }}>
+              <div>Contatos: {contacts.length}/{contactsTotal}</div>
+              <div>Página: {pageNumber}</div>
+              <div>HasMore: {hasMore ? 'true' : 'false'}</div>
+              <div>Loading: {loading ? 'true' : 'false'}</div>
+              <div>LoadingMore: {loadingMore ? 'true' : 'false'}</div>
             </Box>
           )}
         </Box>
