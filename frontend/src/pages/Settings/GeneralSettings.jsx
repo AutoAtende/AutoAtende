@@ -41,7 +41,8 @@ import {
   SettingsApplications as AppSettingsIcon,
   Timeline as TimelineIcon,
   FileCopy as FileCopyIcon,
-  WhatsApp as WhatsAppIcon
+  WhatsApp as WhatsAppIcon,
+  AddToQueue as QueueIcon
 } from "@mui/icons-material";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
