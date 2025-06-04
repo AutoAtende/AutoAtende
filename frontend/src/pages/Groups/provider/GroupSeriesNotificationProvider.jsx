@@ -36,7 +36,7 @@ export const useGroupSeriesNotifications = () => {
   return context;
 };
 
-const GroupSeriesNotificationProvider = ({ children }) => {
+export const GroupSeriesNotificationProvider = ({ children }) => {
   const { user } = useContext(AuthContext);
   const socketManager = useContext(SocketContext);
   
