@@ -151,38 +151,22 @@ const WhitelabelPage = () => {
     signupPosition: "right"
   });
   
+  // Estados para o color picker
   const [colorPickerAnchor, setColorPickerAnchor] = useState(null);
   const [selectedColorKey, setSelectedColorKey] = useState("");
   const [selectedColorValue, setSelectedColorValue] = useState("");
+  const [tempColorValue, setTempColorValue] = useState(""); // Para preview temporário
   
   const fileInputRefs = useRef({});
-  
-  // Refs para evitar closures obsoletos
-  const colorsRef = useRef(colors);
-  const imagesRef = useRef(images);
-  const generalSettingsRef = useRef(generalSettings);
 
-  // Atualizar refs sempre que o estado mudar
-  useEffect(() => {
-    colorsRef.current = colors;
-  }, [colors]);
-
-  useEffect(() => {
-    imagesRef.current = images;
-  }, [images]);
-
-  useEffect(() => {
-    generalSettingsRef.current = generalSettings;
-  }, [generalSettings]);
-
-  // Carregar configurações - CORRIGIDO
+  // Carregar configurações
   const loadSettings = useCallback(async () => {
     try {
       setLoading(true);
       const companyId = user?.companyId || localStorage.getItem("companyId");
       const settingsData = await getAll(companyId);
       
-      console.log("Dados recebidos do servidor:", settingsData);
+      console.log("🔧 WhitelabelPage - Dados do servidor:", settingsData);
       
       // Converter array para objeto
       const settingsObj = {};
@@ -194,65 +178,61 @@ const WhitelabelPage = () => {
         });
       }
       
-      console.log("Settings convertidas:", settingsObj);
-      
-      // Separar configurações por tipo
+      // Inicializar cores com valores padrão
       const newColors = {};
+      Object.values(colorSettings).flat().forEach(colorConfig => {
+        const savedValue = settingsObj[colorConfig.key];
+        newColors[colorConfig.key] = savedValue || colorConfig.default;
+      });
+      
+      // Separar imagens
       const newImages = {};
+      imageSettings.forEach(imgConfig => {
+        newImages[imgConfig.key] = settingsObj[imgConfig.key] || "";
+      });
+      
+      // Configurações gerais
       const newGeneral = {
-        appName: "",
-        copyright: "",
-        privacy: "",
-        terms: "",
-        loginPosition: "right",
-        signupPosition: "right"
+        appName: settingsObj.appName || "",
+        copyright: settingsObj.copyright || "",
+        privacy: settingsObj.privacy || "",
+        terms: settingsObj.terms || "",
+        loginPosition: settingsObj.loginPosition || "right",
+        signupPosition: settingsObj.signupPosition || "right"
       };
       
-      // Aplicar valores padrão para cores
-      Object.values(colorSettings).flat().forEach(colorConfig => {
-        newColors[colorConfig.key] = colorConfig.default;
-      });
+      console.log("🎨 WhitelabelPage - Cores carregadas:", newColors);
+      console.log("🖼️ WhitelabelPage - Imagens carregadas:", newImages);
       
-      Object.entries(settingsObj).forEach(([key, value]) => {
-        // Cores
-        if (Object.values(colorSettings).flat().some(c => c.key === key)) {
-          newColors[key] = value || newColors[key]; // Manter padrão se valor vazio
-          
-          // Aplicar cor ao tema imediatamente
-          const setterFunction = colorMode[`set${key.charAt(0).toUpperCase() + key.slice(1)}`];
-          if (typeof setterFunction === "function") {
-            console.log(`Aplicando cor ${key}: ${value || newColors[key]}`);
-            setterFunction(value || newColors[key]);
-          }
-        }
-        // Imagens
-        else if (imageSettings.some(img => img.key === key)) {
-          newImages[key] = value;
-          
-          // Aplicar imagem ao tema
-          const imagePath = value ? `${process.env.REACT_APP_BACKEND_URL}/public/${value}` : "";
-          const setterFunction = colorMode[`set${key.charAt(0).toUpperCase() + key.slice(1)}`];
-          if (typeof setterFunction === "function") {
-            console.log(`Aplicando imagem ${key}: ${imagePath}`);
-            setterFunction(imagePath);
-          }
-        }
-        // Configurações gerais
-        else if (["appName", "copyright", "privacy", "terms", "loginPosition", "signupPosition"].includes(key)) {
-          newGeneral[key] = value;
-        }
-      });
-      
-      console.log("Cores finais:", newColors);
-      console.log("Imagens finais:", newImages);
-      console.log("Configurações gerais finais:", newGeneral);
-      
+      // Atualizar estados
+      setSettings(settingsObj);
       setColors(newColors);
       setImages(newImages);
       setGeneralSettings(newGeneral);
-      setSettings(settingsObj);
+      
+      // Aplicar cores ao tema
+      Object.entries(newColors).forEach(([key, value]) => {
+        if (value && colorMode) {
+          const setterFunction = colorMode[`set${key.charAt(0).toUpperCase() + key.slice(1)}`];
+          if (typeof setterFunction === "function") {
+            setterFunction(value);
+          }
+        }
+      });
+      
+      // Aplicar imagens ao tema
+      Object.entries(newImages).forEach(([key, value]) => {
+        if (value && colorMode) {
+          const fullUrl = `${process.env.REACT_APP_BACKEND_URL}/public/${value}`;
+          const setterFunction = colorMode[`set${key.charAt(0).toUpperCase() + key.slice(1)}`];
+          if (typeof setterFunction === "function") {
+            setterFunction(fullUrl);
+          }
+        }
+      });
+      
     } catch (error) {
-      console.error("Erro ao carregar configurações:", error);
+      console.error("❌ WhitelabelPage - Erro ao carregar:", error);
       toast.error("Erro ao carregar configurações");
     } finally {
       setLoading(false);
@@ -263,26 +243,31 @@ const WhitelabelPage = () => {
     loadSettings();
   }, [loadSettings]);
 
-  // Handlers de cores - CORRIGIDO
+  // Handler para abrir color picker
   const handleColorClick = useCallback((event, colorKey) => {
-    const currentColors = colorsRef.current;
-    const currentColor = currentColors[colorKey];
+    const currentColor = colors[colorKey] || 
+      colorSettings[Object.keys(colorSettings).find(group => 
+        colorSettings[group].some(c => c.key === colorKey)
+      )]?.find(c => c.key === colorKey)?.default || "#000000";
     
-    console.log(`Abrindo picker para ${colorKey}, cor atual: ${currentColor}`);
+    console.log(`🎨 Abrindo picker para ${colorKey}:`, currentColor);
     
     setSelectedColorKey(colorKey);
-    setSelectedColorValue(currentColor || "");
+    setSelectedColorValue(currentColor);
+    setTempColorValue(currentColor);
     setColorPickerAnchor(event.currentTarget);
-  }, []);
+  }, [colors]);
 
+  // Handler para mudança no color picker
   const handleColorChange = useCallback((color) => {
-    console.log("Cor alterada no picker:", color.hex);
-    setSelectedColorValue(color.hex);
+    console.log(`🎨 Cor alterada no picker:`, color.hex);
+    setTempColorValue(color.hex);
   }, []);
 
+  // Handler para salvar cor
   const handleColorSave = useCallback(async () => {
-    if (!selectedColorKey || !selectedColorValue) {
-      console.log("Chave ou valor da cor não definidos");
+    if (!selectedColorKey || !tempColorValue) {
+      console.log("❌ Chave ou valor da cor não definidos");
       return;
     }
     
@@ -290,39 +275,57 @@ const WhitelabelPage = () => {
       setSaving(true);
       const companyId = user?.companyId || localStorage.getItem("companyId");
       
-      console.log(`Salvando cor ${selectedColorKey}: ${selectedColorValue}`);
+      console.log(`💾 Salvando cor ${selectedColorKey}: ${tempColorValue}`);
       
       // Salvar no backend
-      await update({ key: selectedColorKey, value: selectedColorValue, companyId });
+      await update({ 
+        key: selectedColorKey, 
+        value: tempColorValue, 
+        companyId 
+      });
       
-      // Atualizar estado local IMEDIATAMENTE
+      // Atualizar estado local imediatamente
       setColors(prevColors => {
-        const newColors = { ...prevColors, [selectedColorKey]: selectedColorValue };
-        console.log("Estado de cores atualizado:", newColors);
+        const newColors = { ...prevColors, [selectedColorKey]: tempColorValue };
+        console.log("✅ Estado de cores atualizado:", newColors);
         return newColors;
       });
       
-      // Aplicar ao tema IMEDIATAMENTE
-      const setterFunction = colorMode[`set${selectedColorKey.charAt(0).toUpperCase() + selectedColorKey.slice(1)}`];
-      if (typeof setterFunction === "function") {
-        console.log(`Aplicando cor ao tema: ${selectedColorKey} = ${selectedColorValue}`);
-        setterFunction(selectedColorValue);
+      // Aplicar ao tema imediatamente
+      if (colorMode) {
+        const setterFunction = colorMode[`set${selectedColorKey.charAt(0).toUpperCase() + selectedColorKey.slice(1)}`];
+        if (typeof setterFunction === "function") {
+          console.log(`🎨 Aplicando ao tema: ${selectedColorKey} = ${tempColorValue}`);
+          setterFunction(tempColorValue);
+        }
       }
       
       toast.success("Cor atualizada com sucesso!");
+      
+      // Fechar picker
       setColorPickerAnchor(null);
       setSelectedColorKey("");
       setSelectedColorValue("");
+      setTempColorValue("");
       
     } catch (error) {
-      console.error("Erro ao salvar cor:", error);
+      console.error("❌ Erro ao salvar cor:", error);
       toast.error("Erro ao salvar cor");
     } finally {
       setSaving(false);
     }
-  }, [selectedColorKey, selectedColorValue, user?.companyId, update, colorMode]);
+  }, [selectedColorKey, tempColorValue, user?.companyId, update, colorMode]);
 
-  // Resetar cores para padrão - CORRIGIDO
+  // Handler para cancelar picker
+  const handleColorCancel = useCallback(() => {
+    console.log("❌ Cancelando alteração de cor");
+    setColorPickerAnchor(null);
+    setSelectedColorKey("");
+    setSelectedColorValue("");
+    setTempColorValue("");
+  }, []);
+
+  // Resetar cores para padrão
   const handleResetColors = useCallback(async () => {
     try {
       setSaving(true);
@@ -333,7 +336,7 @@ const WhitelabelPage = () => {
         defaultColors[color.key] = color.default;
       });
       
-      console.log("Resetando cores para padrões:", defaultColors);
+      console.log("🔄 Resetando cores para padrões:", defaultColors);
       
       // Salvar todas as cores padrão
       const promises = Object.entries(defaultColors).map(([key, value]) =>
@@ -342,32 +345,34 @@ const WhitelabelPage = () => {
       
       await Promise.all(promises);
       
-      // Atualizar estado e tema IMEDIATAMENTE
+      // Atualizar estado
       setColors(defaultColors);
       
-      Object.entries(defaultColors).forEach(([key, value]) => {
-        const setterFunction = colorMode[`set${key.charAt(0).toUpperCase() + key.slice(1)}`];
-        if (typeof setterFunction === "function") {
-          console.log(`Resetando cor no tema: ${key} = ${value}`);
-          setterFunction(value);
-        }
-      });
+      // Aplicar ao tema
+      if (colorMode) {
+        Object.entries(defaultColors).forEach(([key, value]) => {
+          const setterFunction = colorMode[`set${key.charAt(0).toUpperCase() + key.slice(1)}`];
+          if (typeof setterFunction === "function") {
+            setterFunction(value);
+          }
+        });
+      }
       
       toast.success("Cores restauradas para o padrão!");
     } catch (error) {
-      console.error("Erro ao resetar cores:", error);
+      console.error("❌ Erro ao resetar cores:", error);
       toast.error("Erro ao resetar cores");
     } finally {
       setSaving(false);
     }
   }, [user?.companyId, update, colorMode]);
 
-  // Upload de imagem - CORRIGIDO
+  // Upload de imagem
   const handleImageUpload = useCallback(async (event, imageKey) => {
     const file = event.target.files?.[0];
     if (!file) return;
     
-    console.log(`Fazendo upload da imagem para ${imageKey}`);
+    console.log(`📤 Upload da imagem para ${imageKey}`);
     
     const formData = new FormData();
     formData.append("file", file);
@@ -388,25 +393,25 @@ const WhitelabelPage = () => {
       const { data } = await api.post(endpoint, formData);
       const imagePath = data;
       
-      console.log(`Upload concluído, caminho: ${imagePath}`);
+      console.log(`✅ Upload concluído: ${imagePath}`);
       
       // Salvar no banco
       const companyId = user?.companyId || localStorage.getItem("companyId");
       await update({ key: imageKey, value: imagePath, companyId });
       
-      // Atualizar estado IMEDIATAMENTE
-      setImages(prevImages => {
-        const newImages = { ...prevImages, [imageKey]: imagePath };
-        console.log("Estado de imagens atualizado:", newImages);
-        return newImages;
-      });
+      // Atualizar estado
+      setImages(prevImages => ({
+        ...prevImages,
+        [imageKey]: imagePath
+      }));
       
-      // Aplicar ao tema IMEDIATAMENTE
-      const fullUrl = `${process.env.REACT_APP_BACKEND_URL}/public/${imagePath}`;
-      const setterFunction = colorMode[`set${imageKey.charAt(0).toUpperCase() + imageKey.slice(1)}`];
-      if (typeof setterFunction === "function") {
-        console.log(`Aplicando imagem ao tema: ${imageKey} = ${fullUrl}`);
-        setterFunction(fullUrl);
+      // Aplicar ao tema
+      if (colorMode) {
+        const fullUrl = `${process.env.REACT_APP_BACKEND_URL}/public/${imagePath}`;
+        const setterFunction = colorMode[`set${imageKey.charAt(0).toUpperCase() + imageKey.slice(1)}`];
+        if (typeof setterFunction === "function") {
+          setterFunction(fullUrl);
+        }
       }
       
       toast.success("Imagem atualizada com sucesso!");
@@ -417,64 +422,62 @@ const WhitelabelPage = () => {
       }
       
     } catch (error) {
-      console.error("Erro no upload:", error);
+      console.error("❌ Erro no upload:", error);
       toast.error("Erro ao fazer upload da imagem");
     } finally {
       setSaving(false);
     }
   }, [user?.companyId, update, colorMode]);
 
-  // Remover imagem - CORRIGIDO
+  // Remover imagem
   const handleImageRemove = useCallback(async (imageKey) => {
     try {
       setSaving(true);
       const companyId = user?.companyId || localStorage.getItem("companyId");
-      const currentImages = imagesRef.current;
       
-      console.log(`Removendo imagem ${imageKey}`);
+      console.log(`🗑️ Removendo imagem ${imageKey}`);
       
       // Se for background, deletar do servidor
-      if (imageKey.includes("Background") && currentImages[imageKey]) {
-        const filename = currentImages[imageKey].split("/").pop();
+      if (imageKey.includes("Background") && images[imageKey]) {
+        const filename = images[imageKey].split("/").pop();
         await api.delete(`/settings/backgrounds/${filename}?companyId=${companyId}`);
       }
       
       // Limpar no banco
       await update({ key: imageKey, value: "", companyId });
       
-      // Atualizar estado IMEDIATAMENTE
-      setImages(prevImages => {
-        const newImages = { ...prevImages, [imageKey]: "" };
-        console.log("Estado de imagens após remoção:", newImages);
-        return newImages;
-      });
+      // Atualizar estado
+      setImages(prevImages => ({
+        ...prevImages,
+        [imageKey]: ""
+      }));
       
-      // Limpar no tema IMEDIATAMENTE
-      const setterFunction = colorMode[`set${imageKey.charAt(0).toUpperCase() + imageKey.slice(1)}`];
-      if (typeof setterFunction === "function") {
-        console.log(`Removendo imagem do tema: ${imageKey}`);
-        setterFunction("");
+      // Limpar no tema
+      if (colorMode) {
+        const setterFunction = colorMode[`set${imageKey.charAt(0).toUpperCase() + imageKey.slice(1)}`];
+        if (typeof setterFunction === "function") {
+          setterFunction("");
+        }
       }
       
       toast.success("Imagem removida com sucesso!");
     } catch (error) {
-      console.error("Erro ao remover imagem:", error);
+      console.error("❌ Erro ao remover imagem:", error);
       toast.error("Erro ao remover imagem");
     } finally {
       setSaving(false);
     }
-  }, [user?.companyId, update, colorMode]);
+  }, [images, user?.companyId, update, colorMode]);
 
-  // Salvar configurações gerais - CORRIGIDO
+  // Salvar configurações gerais
   const handleGeneralSave = useCallback(async () => {
     try {
       setSaving(true);
       const companyId = user?.companyId || localStorage.getItem("companyId");
-      const currentGeneral = generalSettingsRef.current;
       
-      console.log("Salvando configurações gerais:", currentGeneral);
+      console.log("💾 Salvando configurações gerais:", generalSettings);
       
-      const promises = Object.entries(currentGeneral).map(([key, value]) =>
+      const promises = Object.entries(generalSettings).map(([key, value]) =>
         update({ key, value, companyId })
       );
       
@@ -482,16 +485,15 @@ const WhitelabelPage = () => {
       
       toast.success("Configurações gerais salvas com sucesso!");
     } catch (error) {
-      console.error("Erro ao salvar configurações gerais:", error);
+      console.error("❌ Erro ao salvar configurações gerais:", error);
       toast.error("Erro ao salvar configurações");
     } finally {
       setSaving(false);
     }
-  }, [user?.companyId, update]);
+  }, [generalSettings, user?.companyId, update]);
 
   // Handler para mudanças nas configurações gerais
   const handleGeneralChange = useCallback((field, value) => {
-    console.log(`Alterando configuração geral: ${field} = ${value}`);
     setGeneralSettings(prev => ({
       ...prev,
       [field]: value
@@ -501,12 +503,12 @@ const WhitelabelPage = () => {
   // Preparar estatísticas
   const stats = useMemo(() => [
     {
-      label: `${Object.keys(colors).filter(k => colors[k]).length} cores personalizadas`,
+      label: `${Object.keys(colors).filter(k => colors[k] && colors[k] !== "").length} cores personalizadas`,
       icon: <Palette />,
       color: 'primary'
     },
     {
-      label: `${Object.keys(images).filter(k => images[k]).length} imagens configuradas`,
+      label: `${Object.keys(images).filter(k => images[k] && images[k] !== "").length} imagens configuradas`,
       icon: <Image />,
       color: 'secondary'
     }
@@ -631,7 +633,10 @@ const WhitelabelPage = () => {
             </Typography>
             <Grid container spacing={2}>
               {colorConfigs.map((colorConfig) => {
-                const currentColor = colors[colorConfig.key] || colorConfig.default;
+                // Usar tempColorValue se o picker estiver aberto para esta cor, senão usar valor salvo
+                const displayColor = (selectedColorKey === colorConfig.key && colorPickerAnchor) 
+                  ? tempColorValue 
+                  : colors[colorConfig.key] || colorConfig.default;
                 
                 return (
                   <Grid item xs={12} sm={6} md={3} key={colorConfig.key}>
@@ -640,11 +645,18 @@ const WhitelabelPage = () => {
                         {colorConfig.label}
                       </Typography>
                       <ColorBox
-                        sx={{ backgroundColor: currentColor }}
+                        sx={{ backgroundColor: displayColor }}
                         onClick={(e) => handleColorClick(e, colorConfig.key)}
                       >
-                        <Typography variant="caption" sx={{ color: "white", textShadow: "0 0 2px rgba(0,0,0,0.5)" }}>
-                          {currentColor}
+                        <Typography 
+                          variant="caption" 
+                          sx={{ 
+                            color: "white", 
+                            textShadow: "0 0 2px rgba(0,0,0,0.8)",
+                            fontWeight: 500
+                          }}
+                        >
+                          {displayColor}
                         </Typography>
                       </ColorBox>
                     </StyledPaper>
@@ -659,35 +671,28 @@ const WhitelabelPage = () => {
         <Popover
           open={Boolean(colorPickerAnchor)}
           anchorEl={colorPickerAnchor}
-          onClose={() => {
-            setColorPickerAnchor(null);
-            setSelectedColorKey("");
-            setSelectedColorValue("");
-          }}
+          onClose={handleColorCancel}
           anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
           transformOrigin={{ vertical: "top", horizontal: "center" }}
         >
           <Box sx={{ p: 2 }}>
             <ChromePicker
-              color={selectedColorValue}
+              color={tempColorValue}
               onChange={handleColorChange}
               disableAlpha
             />
             <Stack direction="row" spacing={1} sx={{ mt: 2 }}>
               <Button 
                 variant="outlined" 
-                onClick={() => {
-                  setColorPickerAnchor(null);
-                  setSelectedColorKey("");
-                  setSelectedColorValue("");
-                }}
+                onClick={handleColorCancel}
+                disabled={saving}
               >
                 Cancelar
               </Button>
               <Button 
                 variant="contained" 
                 onClick={handleColorSave} 
-                disabled={saving}
+                disabled={saving || !tempColorValue}
               >
                 {saving ? <CircularProgress size={20} /> : "Aplicar"}
               </Button>
