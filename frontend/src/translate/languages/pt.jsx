@@ -2361,6 +2361,7 @@ const messages = {
             helps: "Ajudas",
             schedules: "Agendamentos",
             paymentGateway: "Pagamentos",
+            closureReasons: "Motivos de Encerramento",
           },
           helps: "Ajuda e API",
           messagesAPI: "API",
