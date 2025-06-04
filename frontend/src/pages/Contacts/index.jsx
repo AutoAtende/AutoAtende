@@ -736,8 +736,8 @@ const Contacts = () => {
             actions={getTableActions}
             stickyHeader={true} // Desabilitado para melhor compatibilidade
             size="small"
-            hover={true}
-            maxVisibleActions={1}
+            hover={false}
+            maxVisibleActions={2}
             emptyIcon={<ContactIcon />}
             emptyTitle="Nenhum contato encontrado"
             emptyDescription="Não há contatos cadastrados para os filtros selecionados."
