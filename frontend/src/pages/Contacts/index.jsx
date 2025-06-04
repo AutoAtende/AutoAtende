@@ -734,7 +734,7 @@ const Contacts = () => {
             selectedItems={selectedContacts}
             onSelectionChange={setSelectedContacts}
             actions={getTableActions}
-            stickyHeader={false} // Desabilitado para melhor compatibilidade
+            stickyHeader={true} // Desabilitado para melhor compatibilidade
             size="small"
             hover={true}
             maxVisibleActions={1}
