@@ -208,11 +208,10 @@ const PlansManagementPage = () => {
     }, 300);
   }, []);
 
-  // CORRIGIDO: Handler de submit
-  const handleSubmit = async (values, { setSubmitting, resetForm }) => {
+  // CORRIGIDO: Handler de submit SEM conflito de loading
+  const handleSubmit = async (values, { resetForm }) => {
     try {
       console.log("💾 Submetendo formulário:", values);
-      setLoading(true);
       
       // Converter valor para formato aceito pelo backend
       const formattedValues = {
@@ -239,9 +238,6 @@ const PlansManagementPage = () => {
       console.error('❌ Erro ao salvar plano:', error);
       const errorMsg = error?.response?.data?.error || 'Erro ao salvar plano';
       toast.error(errorMsg);
-    } finally {
-      setLoading(false);
-      setSubmitting(false);
     }
   };
 
@@ -253,7 +249,7 @@ const PlansManagementPage = () => {
   const confirmDelete = async () => {
     if (!selectedPlan?.id) return;
     
-    setLoading(true);
+    // CORRIGIDO: Usar apenas estado local para delete
     try {
       await remove(selectedPlan.id);
       await loadPlans();
@@ -263,8 +259,6 @@ const PlansManagementPage = () => {
     } catch (error) {
       console.error('Erro ao remover plano:', error);
       toast.error('Erro ao remover plano');
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -281,10 +275,10 @@ const PlansManagementPage = () => {
   const handleExternalSubmit = useCallback(() => {
     console.log("🚀 Submit externo acionado");
     if (formikRef.current) {
-      console.log("📝 Executando handleSubmit do Formik");
-      formikRef.current.handleSubmit();
+      console.log("📝 Clicando no botão invisível do Formik");
+      formikRef.current.click(); // Clica no botão invisível
     } else {
-      console.warn("⚠️ Ref do Formik não encontrada");
+      console.warn("⚠️ Ref do botão invisível não encontrada");
     }
   }, []);
 
@@ -453,244 +447,247 @@ const PlansManagementPage = () => {
     }
   ];
 
-  // CORRIGIDO: Renderizar formulário com conexão correta ao botão externo
+  // CORRIGIDO: Renderizar formulário com botão interno
   const renderPlanForm = () => {
     const initialValues = getInitialValues(selectedPlan);
-    
-    console.log("📝 Renderizando formulário com valores:", initialValues);
     
     return (
       <Formik
         key={modalKey} // Força reset quando mudado
-        innerRef={formikRef} // REF IMPORTANTE para acesso externo
         initialValues={initialValues}
         validationSchema={planValidationSchema}
         onSubmit={handleSubmit}
         enableReinitialize={true}
         validateOnMount={true} // IMPORTANTE: valida no mount
       >
-        {({ values, errors, touched, isSubmitting, setFieldValue, isValid, dirty }) => {
-          console.log("🔍 Estado do Formik:", { isValid, dirty, isSubmitting, errors });
-          
+        {({ values, errors, touched, isSubmitting, setFieldValue, isValid, dirty, handleSubmit }) => {
           return (
-            <Form>
-              <Grid container spacing={3}>
-                {/* Informações Básicas */}
-                <Grid item xs={12}>
-                  <Typography variant="h6" gutterBottom>
-                    Informações Básicas
-                  </Typography>
-                </Grid>
-                
-                <Grid item xs={12} md={6}>
-                  <Field name="name">
-                    {({ field, meta }) => (
-                      <TextField
-                        {...field}
-                        label="Nome do Plano"
-                        fullWidth
-                        error={meta.touched && Boolean(meta.error)}
-                        helperText={meta.touched && meta.error}
-                      />
-                    )}
-                  </Field>
-                </Grid>
-                
-                <Grid item xs={12} md={6}>
-                  <Field name="value">
-                    {({ field, meta }) => (
-                      <TextField
-                        {...field}
-                        label="Valor (R$)"
-                        fullWidth
-                        error={meta.touched && Boolean(meta.error)}
-                        helperText={meta.touched && meta.error}
-                        InputProps={{
-                          startAdornment: (
-                            <InputAdornment position="start">
-                              <MoneyIcon />
-                            </InputAdornment>
-                          )
-                        }}
-                      />
-                    )}
-                  </Field>
-                </Grid>
-                
-                <Grid item xs={12}>
-                  <FormControlLabel
-                    control={
-                      <Switch
-                        checked={values.isVisible}
-                        onChange={(e) => setFieldValue("isVisible", e.target.checked)}
-                        color="primary"
-                      />
-                    }
-                    label="Plano Visível para Clientes"
-                  />
-                </Grid>
-
-                {/* Limites */}
-                <Grid item xs={12}>
-                  <Typography variant="h6" gutterBottom sx={{ mt: 2 }}>
-                    Limites de Recursos
-                  </Typography>
-                </Grid>
-                
-                <Grid item xs={12} sm={6} md={3}>
-                  <Field name="users">
-                    {({ field, meta }) => (
-                      <TextField
-                        {...field}
-                        label="Usuários"
-                        type="number"
-                        fullWidth
-                        error={meta.touched && Boolean(meta.error)}
-                        helperText={meta.touched && meta.error}
-                        InputProps={{
-                          startAdornment: (
-                            <InputAdornment position="start">
-                              <PeopleIcon />
-                            </InputAdornment>
-                          )
-                        }}
-                      />
-                    )}
-                  </Field>
-                </Grid>
-                
-                <Grid item xs={12} sm={6} md={3}>
-                  <Field name="connections">
-                    {({ field, meta }) => (
-                      <TextField
-                        {...field}
-                        label="Conexões"
-                        type="number"
-                        fullWidth
-                        error={meta.touched && Boolean(meta.error)}
-                        helperText={meta.touched && meta.error}
-                        InputProps={{
-                          startAdornment: (
-                            <InputAdornment position="start">
-                              <RouterIcon />
-                            </InputAdornment>
-                          )
-                        }}
-                      />
-                    )}
-                  </Field>
-                </Grid>
-                
-                <Grid item xs={12} sm={6} md={3}>
-                  <Field name="queues">
-                    {({ field, meta }) => (
-                      <TextField
-                        {...field}
-                        label="Filas"
-                        type="number"
-                        fullWidth
-                        error={meta.touched && Boolean(meta.error)}
-                        helperText={meta.touched && meta.error}
-                        InputProps={{
-                          startAdornment: (
-                            <InputAdornment position="start">
-                              <QueueIcon />
-                            </InputAdornment>
-                          )
-                        }}
-                      />
-                    )}
-                  </Field>
-                </Grid>
-                
-                <Grid item xs={12} sm={6} md={3}>
-                  <Field name="storageLimit">
-                    {({ field, meta }) => (
-                      <TextField
-                        {...field}
-                        label="Armazenamento (MB)"
-                        type="number"
-                        fullWidth
-                        error={meta.touched && Boolean(meta.error)}
-                        helperText={meta.touched && meta.error}
-                        InputProps={{
-                          startAdornment: (
-                            <InputAdornment position="start">
-                              <StorageIcon />
-                            </InputAdornment>
-                          )
-                        }}
-                      />
-                    )}
-                  </Field>
-                </Grid>
-
-                {/* Funcionalidades */}
-                <Grid item xs={12}>
-                  <Typography variant="h6" gutterBottom sx={{ mt: 2 }}>
-                    Funcionalidades
-                  </Typography>
-                </Grid>
-                
-                {[
-                  { key: 'useCampaigns', label: 'Campanhas' },
-                  { key: 'useSchedules', label: 'Agendamentos' },
-                  { key: 'useInternalChat', label: 'Chat Interno' },
-                  { key: 'useExternalApi', label: 'API Externa' },
-                  { key: 'useKanban', label: 'Kanban' },
-                  { key: 'useEmail', label: 'Email' },
-                  { key: 'useIntegrations', label: 'Integrações' },
-                  { key: 'whiteLabel', label: 'WhiteLabel' },
-                  { key: 'useOpenAi', label: 'OpenAI' },
-                  { key: 'useOpenAIAssistants', label: 'Agentes IA' },
-                  { key: 'useFlowBuilder', label: 'Flow Builder' },
-                  { key: 'useAPIOfficial', label: 'API Oficial' },
-                  { key: 'useChatBotRules', label: 'Regras de ChatBot' }
-                ].map((feature) => (
-                  <Grid item xs={12} sm={6} md={4} key={feature.key}>
+            <>
+              {/* Botão invisível que o modal vai clicar */}
+              <button
+                ref={formikRef}
+                type="button"
+                onClick={handleSubmit}
+                style={{ display: 'none' }}
+              />
+              
+              <Form>
+                <Grid container spacing={3}>
+                  {/* Informações Básicas */}
+                  <Grid item xs={12}>
+                    <Typography variant="h6" gutterBottom>
+                      Informações Básicas
+                    </Typography>
+                  </Grid>
+                  
+                  <Grid item xs={12} md={6}>
+                    <Field name="name">
+                      {({ field, meta }) => (
+                        <TextField
+                          {...field}
+                          label="Nome do Plano"
+                          fullWidth
+                          error={meta.touched && Boolean(meta.error)}
+                          helperText={meta.touched && meta.error}
+                        />
+                      )}
+                    </Field>
+                  </Grid>
+                  
+                  <Grid item xs={12} md={6}>
+                    <Field name="value">
+                      {({ field, meta }) => (
+                        <TextField
+                          {...field}
+                          label="Valor (R$)"
+                          fullWidth
+                          error={meta.touched && Boolean(meta.error)}
+                          helperText={meta.touched && meta.error}
+                          InputProps={{
+                            startAdornment: (
+                              <InputAdornment position="start">
+                                <MoneyIcon />
+                              </InputAdornment>
+                            )
+                          }}
+                        />
+                      )}
+                    </Field>
+                  </Grid>
+                  
+                  <Grid item xs={12}>
                     <FormControlLabel
                       control={
                         <Switch
-                          checked={values[feature.key]}
-                          onChange={(e) => setFieldValue(feature.key, e.target.checked)}
+                          checked={values.isVisible}
+                          onChange={(e) => setFieldValue("isVisible", e.target.checked)}
                           color="primary"
                         />
                       }
-                      label={feature.label}
+                      label="Plano Visível para Clientes"
                     />
                   </Grid>
-                ))}
-                
-                <Grid item xs={12}>
-                  <Field name="openAIAssistantsContentLimit">
-                    {({ field, meta }) => (
-                      <TextField
-                        {...field}
-                        label="Limite de Conteúdo IA (MB)"
-                        type="number"
-                        fullWidth
-                        error={meta.touched && Boolean(meta.error)}
-                        helperText={meta.touched && meta.error}
-                        InputProps={{
-                          startAdornment: (
-                            <InputAdornment position="start">
-                              <AIIcon />
-                            </InputAdornment>
-                          )
-                        }}
+
+                  {/* Limites */}
+                  <Grid item xs={12}>
+                    <Typography variant="h6" gutterBottom sx={{ mt: 2 }}>
+                      Limites de Recursos
+                    </Typography>
+                  </Grid>
+                  
+                  <Grid item xs={12} sm={6} md={3}>
+                    <Field name="users">
+                      {({ field, meta }) => (
+                        <TextField
+                          {...field}
+                          label="Usuários"
+                          type="number"
+                          fullWidth
+                          error={meta.touched && Boolean(meta.error)}
+                          helperText={meta.touched && meta.error}
+                          InputProps={{
+                            startAdornment: (
+                              <InputAdornment position="start">
+                                <PeopleIcon />
+                              </InputAdornment>
+                            )
+                          }}
+                        />
+                      )}
+                    </Field>
+                  </Grid>
+                  
+                  <Grid item xs={12} sm={6} md={3}>
+                    <Field name="connections">
+                      {({ field, meta }) => (
+                        <TextField
+                          {...field}
+                          label="Conexões"
+                          type="number"
+                          fullWidth
+                          error={meta.touched && Boolean(meta.error)}
+                          helperText={meta.touched && meta.error}
+                          InputProps={{
+                            startAdornment: (
+                              <InputAdornment position="start">
+                                <RouterIcon />
+                              </InputAdornment>
+                            )
+                          }}
+                        />
+                      )}
+                    </Field>
+                  </Grid>
+                  
+                  <Grid item xs={12} sm={6} md={3}>
+                    <Field name="queues">
+                      {({ field, meta }) => (
+                        <TextField
+                          {...field}
+                          label="Filas"
+                          type="number"
+                          fullWidth
+                          error={meta.touched && Boolean(meta.error)}
+                          helperText={meta.touched && meta.error}
+                          InputProps={{
+                            startAdornment: (
+                              <InputAdornment position="start">
+                                <QueueIcon />
+                              </InputAdornment>
+                            )
+                          }}
+                        />
+                      )}
+                    </Field>
+                  </Grid>
+                  
+                  <Grid item xs={12} sm={6} md={3}>
+                    <Field name="storageLimit">
+                      {({ field, meta }) => (
+                        <TextField
+                          {...field}
+                          label="Armazenamento (MB)"
+                          type="number"
+                          fullWidth
+                          error={meta.touched && Boolean(meta.error)}
+                          helperText={meta.touched && meta.error}
+                          InputProps={{
+                            startAdornment: (
+                              <InputAdornment position="start">
+                                <StorageIcon />
+                              </InputAdornment>
+                            )
+                          }}
+                        />
+                      )}
+                    </Field>
+                  </Grid>
+
+                  {/* Funcionalidades */}
+                  <Grid item xs={12}>
+                    <Typography variant="h6" gutterBottom sx={{ mt: 2 }}>
+                      Funcionalidades
+                    </Typography>
+                  </Grid>
+                  
+                  {[
+                    { key: 'useCampaigns', label: 'Campanhas' },
+                    { key: 'useSchedules', label: 'Agendamentos' },
+                    { key: 'useInternalChat', label: 'Chat Interno' },
+                    { key: 'useExternalApi', label: 'API Externa' },
+                    { key: 'useKanban', label: 'Kanban' },
+                    { key: 'useEmail', label: 'Email' },
+                    { key: 'useIntegrations', label: 'Integrações' },
+                    { key: 'whiteLabel', label: 'WhiteLabel' },
+                    { key: 'useOpenAi', label: 'OpenAI' },
+                    { key: 'useOpenAIAssistants', label: 'Agentes IA' },
+                    { key: 'useFlowBuilder', label: 'Flow Builder' },
+                    { key: 'useAPIOfficial', label: 'API Oficial' },
+                    { key: 'useChatBotRules', label: 'Regras de ChatBot' }
+                  ].map((feature) => (
+                    <Grid item xs={12} sm={6} md={4} key={feature.key}>
+                      <FormControlLabel
+                        control={
+                          <Switch
+                            checked={values[feature.key]}
+                            onChange={(e) => setFieldValue(feature.key, e.target.checked)}
+                            color="primary"
+                          />
+                        }
+                        label={feature.label}
                       />
-                    )}
-                  </Field>
+                    </Grid>
+                  ))}
+                  
+                  <Grid item xs={12}>
+                    <Field name="openAIAssistantsContentLimit">
+                      {({ field, meta }) => (
+                        <TextField
+                          {...field}
+                          label="Limite de Conteúdo IA (MB)"
+                          type="number"
+                          fullWidth
+                          error={meta.touched && Boolean(meta.error)}
+                          helperText={meta.touched && meta.error}
+                          InputProps={{
+                            startAdornment: (
+                              <InputAdornment position="start">
+                                <AIIcon />
+                              </InputAdornment>
+                            )
+                          }}
+                        />
+                      )}
+                    </Field>
+                  </Grid>
                 </Grid>
-              </Grid>
-            </Form>
+              </Form>
+            </>
           );
         }}
       </Formik>
     );
   };
-
-  console.log("🎨 Renderizando PlansManagementPage");
 
   return (
     <StandardPageLayout
@@ -732,7 +729,7 @@ const PlansManagementPage = () => {
             columns={columns}
             data={filteredPlans}
             actions={tableActions}
-            loading={loading}
+            loading={false}
             emptyState={
               <StandardEmptyState
                 type="search"
@@ -745,7 +742,7 @@ const PlansManagementPage = () => {
         )}
       </StandardTabContent>
 
-      {/* CORRIGIDO: Modal de Criação/Edição */}
+      {/* Modal de Criação/Edição */}
       <StandardModal
         open={modalOpen}
         onClose={handleCloseModal}
@@ -754,9 +751,9 @@ const PlansManagementPage = () => {
         maxWidth="md"
         primaryAction={{
           label: isEditing ? 'Atualizar' : 'Criar',
-          onClick: handleExternalSubmit, // CORRIGIDO: conectado ao Formik
-          disabled: loading,
-          icon: loading ? <CircularProgress size={20} /> : <SaveIcon />
+          onClick: handleExternalSubmit,
+          disabled: false,
+          icon: <SaveIcon />
         }}
         secondaryAction={{
           label: 'Cancelar',
@@ -775,8 +772,7 @@ const PlansManagementPage = () => {
           label: 'Excluir',
           onClick: confirmDelete,
           color: 'error',
-          disabled: loading,
-          icon: loading ? <CircularProgress size={20} /> : <DeleteIcon />
+          icon: <DeleteIcon />
         }}
         secondaryAction={{
           label: 'Cancelar',
