@@ -29,52 +29,52 @@ import {
     @Column(DataType.INTEGER)
     id: number;
   
-    @Column(DataType.STRING)
     @AllowNull(false)
+    @Column(DataType.STRING)
     name: string;
   
-    @Column(DataType.STRING)
     @AllowNull(false)
+    @Column(DataType.STRING)
     baseGroupName: string;
   
     @Column(DataType.TEXT)
     description: string;
   
-    @Column(DataType.INTEGER)
     @Default(256)
     @AllowNull(false)
+    @Column(DataType.INTEGER)
     maxParticipants: number;
   
-    @Column(DataType.DECIMAL(5, 2))
     @Default(95.0)
     @AllowNull(false)
+    @Column(DataType.DECIMAL(5, 2))
     thresholdPercentage: number;
   
-    @Column(DataType.BOOLEAN)
     @Default(true)
     @AllowNull(false)
+    @Column(DataType.BOOLEAN)
     autoCreateEnabled: boolean;
   
     @Column(DataType.INTEGER)
     currentActiveGroupId: number;
   
-    @Column(DataType.INTEGER)
     @Default(2)
     @AllowNull(false)
+    @Column(DataType.INTEGER)
     nextGroupNumber: number;
   
     
     @ForeignKey(() => Company)
-    @Column(DataType.INTEGER)
     @AllowNull(false)
+    @Column(DataType.INTEGER)
     companyId: number;
   
     @BelongsTo(() => Company)
     company: Company;
   
     @ForeignKey(() => Whatsapp)
-    @Column(DataType.INTEGER)
     @AllowNull(false)
+    @Column(DataType.INTEGER)
     whatsappId: number;
   
     @BelongsTo(() => Whatsapp)
