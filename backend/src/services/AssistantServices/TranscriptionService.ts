@@ -1,3 +1,4 @@
+// TranscriptionService.ts
 import { createReadStream } from 'fs';
 import OpenAI from 'openai';
 import { logger } from '../../utils/logger';
@@ -135,3 +136,5 @@ const TranscriptionService = async ({
     throw new AppError('Erro ao processar áudio', 500);
   }
 };
+
+export default TranscriptionService;

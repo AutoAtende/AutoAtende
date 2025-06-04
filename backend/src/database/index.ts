@@ -98,7 +98,6 @@ import Horario from "../models/Horario";
 import HorarioGroup from "../models/HorarioGroup";
 import ChatbotState from "../models/ChatbotState";
 import VoiceMessage from "../models/VoiceMessage";
-import VoiceConfig from "../models/VoiceConfig";
 import AppointmentNode from "../models/AppointmentNode";
 import InternalMessageNode from "../models/InternalMessageNode";
 import InactivityNode from "../models/InactivityNode";
@@ -212,7 +211,6 @@ const models = [
   ChatbotState,
   InactivityNode,
   VoiceMessage,
-  VoiceConfig,
   AppointmentNode,
   InternalMessageNode,
   DashboardSettings,

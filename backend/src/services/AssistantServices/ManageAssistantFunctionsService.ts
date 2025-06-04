@@ -15,6 +15,19 @@ interface Request {
   functions: FunctionDefinition[];
 }
 
+// Função para transformar tools para o formato da OpenAI
+const transformToolsForOpenAI = (tools: any[]): any[] => {
+  return tools.map(tool => {
+    if (tool.type === "function" && tool.function) {
+      return {
+        type: "function",
+        function: tool.function
+      };
+    }
+    return { type: tool.type };
+  });
+};
+
 const ManageAssistantFunctionsService = async ({ 
   assistantId, 
   companyId, 
@@ -56,10 +69,13 @@ const ManageAssistantFunctionsService = async ({
     // Combinar todas as ferramentas
     const allTools = [...otherTools, ...functionTools];
 
+    // Transformar para o formato da OpenAI antes de enviar
+    const openAITools = transformToolsForOpenAI(allTools);
+
     // Atualizar o assistente na OpenAI
     const updatedOpenAIAssistant = await openai.beta.assistants.update(
       assistant.assistantId,
-      { tools: allTools }
+      { tools: openAITools }
     );
 
     // Atualizar o registro local

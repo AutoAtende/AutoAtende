@@ -1,18 +1,19 @@
+import { Op } from 'sequelize';
+import { fn, col } from 'sequelize';
 import { Request, Response } from 'express';
 import * as Yup from 'yup';
-import multer from 'multer';
-import path from 'path';
-import fs from 'fs';
 import { logger } from '../utils/logger';
 import AppError from '../errors/AppError';
 import TranscriptionService from '../services/AssistantServices/TranscriptionService';
 import TextToSpeechService from '../services/AssistantServices/TextToSpeechService';
-import VoiceConfig from '../models/VoiceConfig';
 import Ticket from '../models/Ticket';
 import Message from '../models/Message';
 import VoiceMessage from '../models/VoiceMessage';
+import Assistant from '../models/Assistant';
+import Queue from '../models/Queue';
 import { getIO } from '../libs/socket';
 import { publicFolder } from '../config/upload';
+
 
 export const uploadAudio = async (req: Request, res: Response): Promise<Response> => {
   try {
@@ -36,7 +37,9 @@ export const uploadAudio = async (req: Request, res: Response): Promise<Response
     const message = await Message.create({
       ticketId,
       body: 'Áudio sendo processado...',
-      fromMe: false,
+      fromMe: true,
+      internalMessage: true,
+      ack: 0,
       read: true,
       mediaType: 'audio',
       mediaUrl: req.file.path,
@@ -141,7 +144,7 @@ export const generateSpeech = async (req: Request, res: Response): Promise<Respo
         io.to(`company-${companyId}-chat-${ticket.id}`).emit('speechGenerated', {
           action: 'create',
           messageId,
-          audioUrl: voiceMessage.responseAudioPath.replace(publicFolder, '/public')
+          audioUrl: voiceMessage.responseAudioPath?.replace(publicFolder, '/public')
         });
         
         logger.info({
@@ -174,26 +177,36 @@ export const generateSpeech = async (req: Request, res: Response): Promise<Respo
   }
 };
 
-export const getVoiceConfig = async (req: Request, res: Response): Promise<Response> =>{
+// Endpoint para obter configurações de voz de um assistente específico
+export const getAssistantVoiceConfig = async (req: Request, res: Response): Promise<Response> => {
   try {
+    const { assistantId } = req.params;
     const { companyId } = req.user;
     
-    let config = await VoiceConfig.findOne({
-      where: { companyId }
+    const assistant = await Assistant.findOne({
+      where: { id: assistantId, companyId },
+      attributes: { exclude: ['openaiApiKey'] }
     });
     
-    if (!config) {
-      config = await VoiceConfig.create({
-        companyId
-      });
+    if (!assistant) {
+      throw new AppError('Assistente não encontrado', 404);
     }
     
-    return res.status(200).json(config);
+    return res.status(200).json({
+      voiceConfig: assistant.voiceConfig || {
+        enableVoiceResponses: false,
+        enableVoiceTranscription: false,
+        voiceId: 'nova',
+        speed: 1.0,
+        transcriptionModel: 'whisper-1',
+        useStreaming: false
+      }
+    });
   } catch (error) {
     logger.error({
       error: error.message,
       stack: error.stack
-    }, 'Erro ao obter configurações de voz');
+    }, 'Erro ao obter configurações de voz do assistente');
     
     if (error instanceof AppError) {
       return res.status(error.statusCode).json({ error: error.message });
@@ -203,8 +216,10 @@ export const getVoiceConfig = async (req: Request, res: Response): Promise<Respo
   }
 };
 
-export const updateVoiceConfig = async (req: Request, res: Response): Promise<Response> => {
+// Endpoint para atualizar configurações de voz de um assistente específico
+export const updateAssistantVoiceConfig = async (req: Request, res: Response): Promise<Response> => {
   try {
+    const { assistantId } = req.params;
     const { companyId } = req.user;
     
     const schema = Yup.object().shape({
@@ -223,25 +238,64 @@ export const updateVoiceConfig = async (req: Request, res: Response): Promise<Re
       throw new AppError(err.message);
     }
     
-    let config = await VoiceConfig.findOne({
-      where: { companyId }
+    const assistant = await Assistant.findOne({
+      where: { id: assistantId, companyId }
     });
     
-    if (!config) {
-      config = await VoiceConfig.create({
-        companyId,
-        ...req.body
-      });
-    } else {
-      await config.update(req.body);
+    if (!assistant) {
+      throw new AppError('Assistente não encontrado', 404);
     }
     
-    return res.status(200).json(config);
+    // Mesclar configurações existentes com as novas
+    const currentVoiceConfig = assistant.voiceConfig || {
+      enableVoiceResponses: false,
+      enableVoiceTranscription: false,
+      voiceId: 'nova',
+      speed: 1.0,
+      transcriptionModel: 'whisper-1',
+      useStreaming: false
+    };
+    
+    const updatedVoiceConfig = {
+      ...currentVoiceConfig,
+      ...req.body
+    };
+    
+    await assistant.update({ voiceConfig: updatedVoiceConfig });
+    
+    // Criar resposta sem dados sensíveis - correção da tipagem
+    const {
+      id,
+      name,
+      instructions,
+      model,
+      active,
+      tools,
+      voiceConfig,
+      companyId: assistantCompanyId,
+      createdAt,
+      updatedAt
+    } = assistant;
+    
+    const response = {
+      id,
+      name,
+      instructions,
+      model,
+      active,
+      tools,
+      voiceConfig,
+      companyId: assistantCompanyId,
+      createdAt,
+      updatedAt
+    };
+    
+    return res.status(200).json(response);
   } catch (error) {
     logger.error({
       error: error.message,
       stack: error.stack
-    }, 'Erro ao atualizar configurações de voz');
+    }, 'Erro ao atualizar configurações de voz do assistente');
     
     if (error instanceof AppError) {
       return res.status(error.statusCode).json({ error: error.message });
@@ -272,6 +326,10 @@ export const getVoiceMessages = async (req: Request, res: Response): Promise<Res
         {
           model: Message,
           attributes: ['id', 'body', 'fromMe', 'createdAt']
+        },
+        {
+          model: Assistant,
+          attributes: ['id', 'name', 'voiceConfig']
         }
       ]
     });
@@ -282,6 +340,61 @@ export const getVoiceMessages = async (req: Request, res: Response): Promise<Res
       error: error.message,
       stack: error.stack
     }, 'Erro ao listar mensagens de voz');
+    
+    if (error instanceof AppError) {
+      return res.status(error.statusCode).json({ error: error.message });
+    }
+    
+    return res.status(500).json({ error: 'Erro interno do servidor' });
+  }
+};
+
+// Endpoint para obter estatísticas de uso de voz por assistente
+export const getVoiceUsageStats = async (req: Request, res: Response): Promise<Response> => {
+  try {
+    const { assistantId } = req.params;
+    const { companyId } = req.user;
+    const { startDate, endDate } = req.query;
+    
+    const assistant = await Assistant.findOne({
+      where: { id: assistantId, companyId }
+    });
+    
+    if (!assistant) {
+      throw new AppError('Assistente não encontrado', 404);
+    }
+    
+    const whereClause: any = { assistantId };
+    
+    if (startDate && endDate) {
+      whereClause.createdAt = {
+        [Op.between]: [new Date(startDate as string), new Date(endDate as string)]
+      };
+    }
+    
+    const stats = await VoiceMessage.findAll({
+      where: whereClause,
+      attributes: [
+        'processType',
+        'status',
+        [fn('COUNT', col('id')), 'count'],
+        [fn('AVG', col('metadata.processingTimeMs')), 'avgProcessingTime'],
+        [fn('SUM', col('metadata.generatedFileSize')), 'totalFileSize']
+      ],
+      group: ['processType', 'status'],
+      raw: true
+    });
+    
+    return res.status(200).json({
+      assistantId,
+      stats,
+      period: { startDate, endDate }
+    });
+  } catch (error) {
+    logger.error({
+      error: error.message,
+      stack: error.stack
+    }, 'Erro ao obter estatísticas de uso de voz');
     
     if (error instanceof AppError) {
       return res.status(error.statusCode).json({ error: error.message });

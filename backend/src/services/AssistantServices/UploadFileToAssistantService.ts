@@ -13,6 +13,19 @@ interface Request {
   toolType?: string;
 }
 
+// Função para transformar tools para o formato da OpenAI
+const transformToolsForOpenAI = (tools: any[]): any[] => {
+  return tools.map(tool => {
+    if (tool.type === "function" && tool.function) {
+      return {
+        type: "function",
+        function: tool.function
+      };
+    }
+    return { type: tool.type };
+  });
+};
+
 const UploadFileToAssistantService = async ({ 
   assistantId, 
   file, 
@@ -47,9 +60,12 @@ const UploadFileToAssistantService = async ({
         { type: toolType }
       ];
       
+      // Transformar para o formato da OpenAI antes de enviar
+      const openAITools = transformToolsForOpenAI(updatedTools);
+      
       // Atualizar o assistente na OpenAI para incluir a nova ferramenta
       await openai.beta.assistants.update(assistant.assistantId, {
-        tools: updatedTools
+        tools: openAITools
       });
       
       // Atualizar o registro local

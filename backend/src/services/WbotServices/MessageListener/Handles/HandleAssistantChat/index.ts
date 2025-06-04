@@ -6,7 +6,6 @@ import Thread from "../../../../../models/Thread";
 import Ticket from "../../../../../models/Ticket";
 import Contact from "../../../../../models/Contact";
 import Message from "../../../../../models/Message";
-import VoiceConfig from "../../../../../models/VoiceConfig";
 import VoiceMessage from "../../../../../models/VoiceMessage";
 import { getBodyMessage } from "../../Get/GetBodyMessage";
 import { verifyMessage } from "../../Verifiers/VerifyMessage";
@@ -210,8 +209,6 @@ const shouldProcessMessage = (ticket: Ticket, msg: proto.IWebMessageInfo): boole
     return false;
   }
 
-  // IMPORTANTE: Se ticket está pending E já tem integração ativa, pode processar
-  // Se ticket está pending SEM integração, é primeira mensagem, pode processar
   return true;
 };
 
@@ -575,7 +572,7 @@ async function processAssistantResponse(
 }
 
 /**
- * Handler principal do assistente - versão corrigida para lidar com runs ativas
+ * Handler principal do assistente - versão corrigida para usar configurações do assistente
  */
 export const handleAssistantChat = async (
   assistant: Assistant, 
@@ -705,11 +702,8 @@ export const handleAssistantChat = async (
     let userMessage = '';
 
     if (isAudioMessage) {
-      const voiceConfig = await VoiceConfig.findOne({
-        where: { companyId: ticket.companyId }
-      });
-
-      if (!voiceConfig || voiceConfig.enableVoiceTranscription) {
+      // Usar configurações do assistente em vez de configurações globais
+      if (assistant.voiceConfig?.enableVoiceTranscription) {
         try {
           const audioPath = await downloadAudio(msg, ticket.companyId);
           const dbMessage = await Message.findOne({
@@ -717,12 +711,12 @@ export const handleAssistantChat = async (
           });
 
           if (dbMessage) {
-            const { transcription } = await TranscriptionService({
+            const voiceMessage = await TranscriptionService({
               audioPath,
               ticket,
               messageId: msg.key.id
             });
-            userMessage = transcription;
+            userMessage = voiceMessage.transcription || "Não foi possível transcrever sua mensagem de áudio.";
           } else {
             userMessage = "Não foi possível transcrever sua mensagem de áudio.";
           }
@@ -734,7 +728,7 @@ export const handleAssistantChat = async (
           userMessage = "Não foi possível transcrever sua mensagem de áudio.";
         }
       } else {
-        userMessage = "Mensagem de áudio recebida (transcrição desabilitada).";
+        userMessage = "Mensagem de áudio recebida (transcrição desabilitada para este assistente).";
       }
     } else {
       userMessage = getBodyMessage(msg);
@@ -983,14 +977,8 @@ export const handleAssistantChat = async (
               await verifyMessage(sentMedia, ticket, contact);
             }
             
-            // Processar áudio se necessário
-            const voiceConfig = await VoiceConfig.findOne({
-              where: { companyId: ticket.companyId }
-            });
-            
-            const shouldSendVoiceResponse = voiceConfig && 
-                                            voiceConfig.enableVoiceResponses && 
-                                            isAudioMessage;
+            // Processar áudio se necessário - usando configurações do assistente
+            const shouldSendVoiceResponse = assistant.voiceConfig?.enableVoiceResponses && isAudioMessage;
             
             if (shouldSendVoiceResponse && content.trim()) {
               try {

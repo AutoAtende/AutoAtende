@@ -1,3 +1,4 @@
+// TextToSpeechService.ts
 import fs from 'fs';
 import path from 'path';
 import OpenAI from 'openai';
@@ -10,15 +11,17 @@ import Assistant from '../../models/Assistant';
 import AppError from '../../errors/AppError';
 import { publicFolder } from '../../config/upload';
 
+interface TTSRequest {
+  text: string;
+  ticket: Ticket;
+  messageId: string;
+}
+
 const TextToSpeechService = async ({
   text,
   ticket,
   messageId
-}: {
-  text: string;
-  ticket: Ticket;
-  messageId: string;
-}): Promise<VoiceMessage> => {
+}: TTSRequest): Promise<VoiceMessage> => {
   let voiceMessage: VoiceMessage | null = null;
   const startTime = Date.now();
 
