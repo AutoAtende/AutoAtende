@@ -24,9 +24,9 @@ import {
     timestamps: true
   })
   class GroupSeries extends Model<GroupSeries> {
-    @Column(DataType.INTEGER)
     @PrimaryKey
     @AutoIncrement
+    @Column(DataType.INTEGER)
     id: number;
   
     @Column(DataType.STRING)

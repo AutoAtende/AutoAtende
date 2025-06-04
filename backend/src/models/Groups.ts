@@ -30,9 +30,9 @@ interface GroupParticipant {
   timestamps: true
 })
 class Groups extends Model<Groups> {
-  @Column(DataType.INTEGER)
   @PrimaryKey
   @AutoIncrement
+  @Column(DataType.INTEGER)
   id: number;
 
   @Column(DataType.STRING)
