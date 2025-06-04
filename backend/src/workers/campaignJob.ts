@@ -17,7 +17,7 @@ import { getMessageOptions } from "../services/WbotServices/SendWhatsAppMedia";
 import { getIO } from "../libs/socket";
 import CampaignSetting from "../models/CampaignSetting";
 import { SendPresenceStatus } from "../helpers/SendPresenceStatus";
-import { getWbot } from "../libs/wbot";
+import { getWbot, Session } from "../libs/wbot";
 import formatBody from "../helpers/Mustache";
 import CreateOrUpdateContactService from "../services/ContactServices/CreateOrUpdateContactService";
 import path from "path";
@@ -25,6 +25,7 @@ import { getBullConfig } from "../config/redis";
 import UpdateTicketService from "../services/TicketServices/UpdateTicketService";
 import FindOrCreateATicketTrakingService from "../services/TicketServices/FindOrCreateATicketTrakingService";
 import { verifyMessage } from "../services/WbotServices/MessageListener/Verifiers/VerifyMessage";
+import FindOrCreateTicketService from "@services/TicketServices/FindOrCreateTicketService";
 
 
 interface ProcessCampaignData {
@@ -388,6 +389,32 @@ export default class CampaignJob {
     return baseDelay;
   }
 
+  /**
+   * CORREÇÃO: Normaliza número de telefone para o formato +DDIDDDNUMERO
+   * Remove espaços e caracteres especiais, garante formato correto
+   * 
+   * @param phoneNumber - Número de telefone de entrada
+   * @returns Número normalizado no formato +DDIDDDNUMERO
+   */
+  private normalizePhoneNumber(phoneNumber: string): string {
+    if (!phoneNumber || typeof phoneNumber !== 'string') {
+      throw new Error('Número de telefone inválido');
+    }
+
+    // Remove todos os caracteres não numéricos
+    const cleanNumber = phoneNumber.replace(/\D/g, "");
+    
+    if (cleanNumber.length < 8) {
+      throw new Error('Número de telefone muito curto');
+    }
+
+    // Adiciona código do país (55) se não tiver
+    let processedNumber = cleanNumber.startsWith('55') ? cleanNumber : '55' + cleanNumber;
+    
+    // Retorna no formato +DDIDDDNUMERO
+    return `+${processedNumber}`;
+  }
+
   private async sendCampaignFiles(wbot: any, campaign: any, chatId: string) {
     console.log(`[LOG DETALHADO] INÍCIO sendCampaignFiles - campaignId: ${campaign.id}, fileListId: ${campaign.fileListId}`);
 
@@ -641,94 +668,45 @@ export default class CampaignJob {
    * @returns Número válido no WhatsApp
    * @throws Error se número não existir no WhatsApp
    */
-  private async validateAndNormalizeWhatsAppNumber(
-    inputNumber: string,
-    wbot: any,
-    context: string = 'número'
-  ): Promise<string> {
-    
-    // Validações básicas
-    if (!inputNumber || typeof inputNumber !== 'string') {
-      throw new Error(`${context} não pode estar vazio ou deve ser uma string`);
-    }
-
-    if (!wbot) {
-      throw new Error('Instância do WhatsApp não fornecida');
-    }
-
-    // Limpar o número mantendo apenas dígitos
-    const cleanNumber = inputNumber.replace(/\D/g, "");
-    
-    if (cleanNumber.length < 8) {
-      throw new Error(`${context} muito curto: deve ter pelo menos 8 dígitos`);
-    }
-
-    // Adiciona código do país (55) se não tiver
-    let processedNumber = cleanNumber.startsWith('55') ? cleanNumber : '55' + cleanNumber;
-
-    // Função auxiliar para testar no WhatsApp
-    const testWhatsAppNumber = async (number: string): Promise<boolean> => {
-      try {
-        const chatId = `${number}@s.whatsapp.net`;
-        const result = await wbot.onWhatsApp(chatId);
-        
-        return result && Array.isArray(result) && result.length > 0 && result[0]?.exists === true;
-      } catch (error) {
-        logger.error(`Erro ao testar número ${number} no WhatsApp: ${error.message}`);
-        return false;
-      }
-    };
-
-    // Primeira tentativa: remove um '9' após o DDD e testa
-    if (processedNumber.length >= 13) {
-      const ddd = processedNumber.substring(0, 4); // Ex: 5565
-      const numberPart = processedNumber.substring(4); // Ex: 999246188
-      
-      if (numberPart.startsWith('9')) {
-        const numberWithoutNine = ddd + numberPart.substring(1); // Ex: 556599246188
-        
-        logger.info(`Testando número sem nono dígito: ${numberWithoutNine} para ${context}`);
-        if (await testWhatsAppNumber(numberWithoutNine)) {
-          logger.info(`Número validado sem nono dígito: ${numberWithoutNine}`);
-          return numberWithoutNine;
-        }
-      }
-    }
-
-    // Segunda tentativa: testa o número original
-    logger.info(`Testando número original: ${processedNumber} para ${context}`);
-    if (await testWhatsAppNumber(processedNumber)) {
-      logger.info(`Número validado como original: ${processedNumber}`);
-      return processedNumber;
-    }
-
-    // Se chegou até aqui, o número não existe no WhatsApp
-    logger.error(`Número ${processedNumber} não encontrado no WhatsApp após todas as tentativas`);
-    throw new Error(`${context} ${processedNumber} não existe no WhatsApp`);
+async validateAndNormalizeWhatsAppNumber(
+  inputNumber: string,
+  wbot: Session,
+  context: string = 'número'
+): Promise<string> {
+  if (!inputNumber || typeof inputNumber !== 'string') {
+    throw new Error(`${context} não pode estar vazio ou deve ser uma string`);
   }
 
-  /**
-   * Normaliza número de telefone removendo espaços e caracteres especiais
-   * Mantém apenas dígitos e garante formato DDIDDDNUMERO
-   * Método auxiliar para compatibilidade
-   */
-  private normalizePhoneNumber(phoneNumber: string): string {
-    if (!phoneNumber || typeof phoneNumber !== 'string') {
-      throw new Error('Número de telefone inválido');
-    }
-
-    // Remove todos os caracteres não numéricos
-    const cleanNumber = phoneNumber.replace(/\D/g, '');
-    
-    if (cleanNumber.length < 8) {
-      throw new Error('Número de telefone muito curto');
-    }
-
-    // Adiciona código do país (55) se não tiver
-    let normalizedNumber = cleanNumber.startsWith('55') ? cleanNumber : '55' + cleanNumber;
-    
-    return normalizedNumber;
+  if (!wbot) {
+    throw new Error('Instância do WhatsApp não fornecida');
   }
+
+  const cleanNumber = inputNumber.replace(/[\s\D]/g, "");
+  let processedNumber = cleanNumber.startsWith('55') ? cleanNumber : '55' + cleanNumber;
+
+  const getWhatsAppJid = async (number: string): Promise<string | null> => {
+    try {
+      const chatId = `${number}@s.whatsapp.net`;
+      const [result] = await wbot.onWhatsApp(chatId);
+      if (result.exists) {
+        console.log(`[LOGLOGLOGLOG] ${number} exists on WhatsApp, as jid: ${result.jid}`);
+        // Remove o @s.whatsapp.net do jid antes de retornar
+        return result.jid.split('@')[0];
+      }
+    } catch (error) {
+      console.error(`Erro ao verificar número no WhatsApp: ${error}`);
+      return null;
+    }
+    return null;
+  };
+
+  const jid = await getWhatsAppJid(processedNumber);
+  if (jid) {
+    return jid;
+  }
+
+  throw new Error(`${context} ${processedNumber} não existe no WhatsApp`);
+}
 
   public async handleDispatchCampaign(job) {
     try {
@@ -760,7 +738,8 @@ export default class CampaignJob {
         openTicket: campaign.openTicket,
         hasMedia: !!campaign.mediaPath,
         userId: campaign.userId,
-        queueId: campaign.queueId
+        queueId: campaign.queueId,
+        statusTicket: campaign.statusTicket || 'pending'
       }));
 
       let wbot;
@@ -825,15 +804,17 @@ export default class CampaignJob {
           return { success: false, reason: 'EMPTY_MESSAGE' };
         }
 
-        // Criar ou obter contato no sistema usando número validado
+        // CORREÇÃO: Criar ou obter contato usando formato +DDIDDDNUMERO
+        const normalizedNumber = this.normalizePhoneNumber(processedNumber);
+        
         const [contact] = await Contact.findOrCreate({
           where: {
-            number: processedNumber, // Usar número validado
+            number: normalizedNumber, // Usar formato +DDIDDDNUMERO
             companyId: campaign.companyId
           },
           defaults: {
             name: campaignShipping.contact.name,
-            number: processedNumber, // Usar número validado
+            number: normalizedNumber, // Usar formato +DDIDDDNUMERO
             email: campaignShipping.contact.email || "",
             isGroup: false,
             companyId: campaign.companyId,
@@ -874,105 +855,63 @@ export default class CampaignJob {
           }
         }
 
-        // Tratamento para integração com tickets
+        // CORREÇÃO: Tratamento para integração com tickets - SEMPRE criar NOVO ticket se configurado
         if (campaign.openTicket === "enabled") {
           try {
-            logger.info(`Iniciando criação/atualização de ticket para campanha ${campaignId}, contato ${contact.id}`, {
+            logger.info(`Criando NOVO ticket para campanha ${campaignId}, contato ${contact.id}`, {
               userId: campaign.userId || null,
               queueId: campaign.queueId || null,
-              status: campaign.statusTicket || "pending"
+              status: campaign.statusTicket || "closed"
             });
 
-            // Verificar se já existe um ticket aberto para este contato
-            const existingTicket = await Ticket.findOne({
-              where: {
-                contactId: contact.id,
-                companyId: campaign.companyId,
-                whatsappId: campaign.whatsappId,
-                status: { [Op.in]: ["open", "pending","close"] }
-              }
+            // CORREÇÃO: Criar um NOVO ticket direto no banco, não usar FindOrCreateTicketService
+            const newTicket = await Ticket.create({
+              contactId: contact.id,
+              whatsappId: wppId,
+              companyId: campaign.companyId,
+              status: campaign.statusTicket || "closed",
+              userId: campaign.userId || null,
+              queueId: campaign.queueId || null,
+              isGroup: false,
+              unreadMessages: 0,
             });
 
-            if (existingTicket) {
-              // Se o ticket já existe, atualizá-lo
-              logger.info(`Atualizando ticket existente ID=${existingTicket.id} para contato ${contact.id} da campanha ${campaignId}`);
+            logger.info(`NOVO ticket criado com ID=${newTicket.id} para campanha ${campaignId}`);
 
-              await existingTicket.update({
-                status: campaign.statusTicket || "pending",
-                userId: campaign.userId || null,
-                queueId: campaign.queueId || null,
-                whatsappId: wppId
-              });
+            // Encontrar ou criar ticket tracking
+            await FindOrCreateATicketTrakingService({
+              ticketId: newTicket.id,
+              companyId: campaign.companyId,
+              whatsappId: wppId,
+              userId: campaign.userId || null
+            });
 
-              // Encontrar ou criar ticket tracking
-              await FindOrCreateATicketTrakingService({
-                ticketId: existingTicket.id,
-                companyId: campaign.companyId,
-                whatsappId: wppId,
-                userId: campaign.userId || null
-              });
+            // Registrar a mensagem enviada no ticket
+            try {
+              const sentMessage = { 
+                text: body, 
+                key: { remoteJid: chatId },
+                messageTimestamp: Date.now()
+              };
 
-              // Registrar a mensagem enviada no ticket
-              await wbot.sendMessage(chatId, { text: body });
-              const sentMessage = { key: { remoteJid: chatId }, text: body }; // Usa a mensagem já enviada
-              await verifyMessage(sentMessage, existingTicket, contact);
-              logger.info(`Mensagem registrada no ticket ${existingTicket.id}`);
-
-              // Notificar sobre a atualização do ticket
-              const io = getIO();
-              io.to(`company-${campaign.companyId}-mainchannel`)
-                .emit(`company-${campaign.companyId}-ticket`, {
-                  action: 'update',
-                  ticket: existingTicket
-                });
-
-              logger.info(`Ticket existente ${existingTicket.id} atualizado com sucesso`);
-            } else {
-              // Criar um novo ticket
-              logger.info(`Criando novo ticket para contato ${contact.id}, campanha ${campaignId}`);
-
-              const newTicket = await Ticket.create({
-                contactId: contact.id,
-                status: "open",
-                whatsappId: wppId,
-                userId: campaign.userId || null,
-                queueId: campaign.queueId,
-                companyId: campaign.companyId,
-                isGroup: false
-              });
-
-              // Encontrar ou criar ticket tracking
-              await FindOrCreateATicketTrakingService({
-                ticketId: newTicket.id,
-                companyId: campaign.companyId,
-                whatsappId: wppId,
-                userId: campaign.userId || null
-              });
-
-              logger.info(`Novo ticket criado com ID=${newTicket.id}`);
-
-              // Registrar a mensagem enviada no ticket
-              try {
-                const sentMessage = { text: body, key: { remoteJid: chatId } };
-
-                await verifyMessage(sentMessage, newTicket, contact);
-                logger.info(`Mensagem registrada no novo ticket ${newTicket.id}`);
-              } catch (msgError) {
-                logger.error(`Erro ao registrar mensagem no novo ticket: ${msgError}`);
-              }
-
-              // Notificar sobre o novo ticket
-              const io = getIO();
-              io.to(`company-${campaign.companyId}-mainchannel`)
-                .emit(`company-${campaign.companyId}-ticket`, {
-                  action: 'update',
-                  ticket: newTicket
-                });
-
-              logger.info(`Notificação de novo ticket enviada via socket`);
+              await verifyMessage(sentMessage, newTicket, contact);
+              logger.info(`Mensagem registrada no novo ticket ${newTicket.id}`);
+            } catch (msgError) {
+              logger.error(`Erro ao registrar mensagem no novo ticket: ${msgError}`);
             }
+
+            // Notificar sobre o novo ticket
+            const io = getIO();
+            io.to(`company-${campaign.companyId}-mainchannel`)
+              .emit(`company-${campaign.companyId}-ticket`, {
+                action: 'create',
+                ticket: newTicket
+              });
+
+            logger.info(`Notificação de novo ticket enviada via socket para ticket ID: ${newTicket.id}`);
+
           } catch (ticketError) {
-            logger.error(`Error handling ticket from campaign ${campaign.id}:`, ticketError);
+            logger.error(`Error creating new ticket for campaign ${campaign.id}:`, ticketError);
             // Continuar o envio mesmo com erro no ticket
           }
         }
