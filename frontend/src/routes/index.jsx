@@ -7,6 +7,7 @@ import { TicketsContextProvider } from "../context/Tickets/TicketsContext";
 import { WhatsAppsProvider } from "../context/WhatsApp/WhatsAppsContext";
 import CustomRoute from "./CustomRoute";
 import { AutoAtendeLoading } from "../components/Loading/AutoAtendeLoading";
+import { GroupSeriesNotificationProvider } from "../pages/Groups/provider/GroupSeriesNotificationProvider";
 import { ModalGlobalComponent } from "../components/Modal";
 import { MessageNotificationProvider } from "../context/MessageNotification";
 import { DashboardProvider } from "../pages/Dashboard/context/DashboardContext";
@@ -115,178 +116,180 @@ const Routes = () => {
 
                     <WhatsAppsProvider>
                       <LoggedInLayout>
-                        <DashboardProvider>
-                          <CustomRoute exact path="/dashboard" component={Dashboard} isPrivate />
-                        </DashboardProvider>
-                        
-                        <CustomRoute
-                          exact
-                          path="/landing-pages/edit/:id"
-                          component={LandingPageEditor}
-                          isPrivate
-                        />
-                        <CustomRoute
-                          exact
-                          path="/tickets/:ticketId?"
-                          component={TicketResponsiveContainer}
-                          isPrivate
-                        />
-                        <CustomRoute
-                          exact
-                          path="/profile"
-                          component={Profile}
-                          isPrivate
-                        />
-                        <CustomRoute
-                          exact
-                          path="/connections"
-                          component={ConnectionsWrapper}
-                          isPrivate
-                        />
-                        <CustomRoute exact path="/groups" component={Groups} isPrivate />
-                        <CustomRoute exact path="/message-rules" component={MessageRules} isPrivate />
-                        <CustomRoute exact path="/agendamento" component={AgendamentoServicos} isPrivate />
-                        <CustomRoute exact path="/landing-pages" component={LandingPagesList} isPrivate />
-                        <CustomRoute
-                          exact
-                          path="/reports"
-                          component={Reports}
-                          isPrivate
-                        />
-                        <CustomRoute
-                          exact
-                          path="/quick-messages"
-                          component={QuickMessages}
-                          isPrivate
-                        />
-                        <CustomRoute
-                          exact
-                          path="/tasks"
-                          component={Tasks}
-                          isPrivate
-                        />
+                        <GroupSeriesNotificationProvider>
+                          <DashboardProvider>
+                            <CustomRoute exact path="/dashboard" component={Dashboard} isPrivate />
+                          </DashboardProvider>
+                          
+                          <CustomRoute
+                            exact
+                            path="/landing-pages/edit/:id"
+                            component={LandingPageEditor}
+                            isPrivate
+                          />
+                          <CustomRoute
+                            exact
+                            path="/tickets/:ticketId?"
+                            component={TicketResponsiveContainer}
+                            isPrivate
+                          />
+                          <CustomRoute
+                            exact
+                            path="/profile"
+                            component={Profile}
+                            isPrivate
+                          />
+                          <CustomRoute
+                            exact
+                            path="/connections"
+                            component={ConnectionsWrapper}
+                            isPrivate
+                          />
+                          <CustomRoute exact path="/groups" component={Groups} isPrivate />
+                          <CustomRoute exact path="/message-rules" component={MessageRules} isPrivate />
+                          <CustomRoute exact path="/agendamento" component={AgendamentoServicos} isPrivate />
+                          <CustomRoute exact path="/landing-pages" component={LandingPagesList} isPrivate />
+                          <CustomRoute
+                            exact
+                            path="/reports"
+                            component={Reports}
+                            isPrivate
+                          />
+                          <CustomRoute
+                            exact
+                            path="/quick-messages"
+                            component={QuickMessages}
+                            isPrivate
+                          />
+                          <CustomRoute
+                            exact
+                            path="/tasks"
+                            component={Tasks}
+                            isPrivate
+                          />
 
-                        <CustomRoute
-                          exact
-                          path="/tasks/reports"
-                          component={TaskReportsPage}
-                          isPrivate
-                        />
-                        <CustomRoute
-                          exact
-                          path="/tasks/kanban/status"
-                          component={TaskCategoryKanbanView}
-                          isPrivate
-                        />
-                        <CustomRoute
-                          exact
-                          path="/tasks/kanban/category"
-                          component={TaskKanbanView}
-                          isPrivate
-                        />
-                        <CustomRoute
-                          exact
-                          path="/kanban"
-                          component={Kanban}
-                          isPrivate
-                        />
-                        <CustomRoute
-                          exact
-                          path="/schedules"
-                          component={Schedules}
-                          isPrivate
-                        />
-                        <CustomRoute exact path="/tags" component={Tags} isPrivate />
-                        <CustomRoute
-                          exact
-                          path="/contacts"
-                          component={Contacts}
-                          isPrivate
-                        />
-                        <CustomRoute exact path="/employers" component={EmployerManagement} isPrivate />
-                        <CustomRoute exact path="/employers-pwd" component={PasswordManager} isPrivate />
-                        <CustomRoute exact path="/positions" component={PositionManagement} isPrivate />
+                          <CustomRoute
+                            exact
+                            path="/tasks/reports"
+                            component={TaskReportsPage}
+                            isPrivate
+                          />
+                          <CustomRoute
+                            exact
+                            path="/tasks/kanban/status"
+                            component={TaskCategoryKanbanView}
+                            isPrivate
+                          />
+                          <CustomRoute
+                            exact
+                            path="/tasks/kanban/category"
+                            component={TaskKanbanView}
+                            isPrivate
+                          />
+                          <CustomRoute
+                            exact
+                            path="/kanban"
+                            component={Kanban}
+                            isPrivate
+                          />
+                          <CustomRoute
+                            exact
+                            path="/schedules"
+                            component={Schedules}
+                            isPrivate
+                          />
+                          <CustomRoute exact path="/tags" component={Tags} isPrivate />
+                          <CustomRoute
+                            exact
+                            path="/contacts"
+                            component={Contacts}
+                            isPrivate
+                          />
+                          <CustomRoute exact path="/employers" component={EmployerManagement} isPrivate />
+                          <CustomRoute exact path="/employers-pwd" component={PasswordManager} isPrivate />
+                          <CustomRoute exact path="/positions" component={PositionManagement} isPrivate />
 
-                        <CustomRoute exact path="/helps" component={Helps} isPrivate />
-                        <CustomRoute exact path="/users" component={Users} isPrivate />
-                        <CustomRoute
-                          exact
-                          path="/assistants"
-                          component={Assistants}
-                          isPrivate
-                        />
-                        <CustomRoute
-                          exact
-                          path="/prompts"
-                          component={Prompts}
-                          isPrivate
-                        />
-                        <CustomRoute
-                          exact
-                          path="/queue-integration"
-                          component={QueueIntegration}
-                          isPrivate
-                        />
-                        <CustomRoute
-                          exact
-                          path="/email"
-                          component={EmailDashboard}
-                          isPrivate
-                        />
-                        <CustomRoute
-                          exact
-                          path="/companies"
-                          component={WrappedCompanies}
-                          isPrivate
-                        />
-                        <CustomRoute exact path="/settings/general" component={GeneralSettings} isPrivate />
-                        <CustomRoute exact path="/settings/whitelabel" component={WhitelabelPage} isPrivate />
-                        <CustomRoute exact path="/settings/plans" component={PlansManagementPage} isPrivate />
-                        <CustomRoute exact path="/settings/helps" component={HelpsManagementPage} isPrivate />
-                        <CustomRoute exact path="/settings/schedules" component={SchedulesPage} isPrivate />
-                        <CustomRoute exact path="/settings/payment-gateway" component={PaymentGatewayPage} isPrivate />
-                        <CustomRoute exact path="/settings/closure-reasons" component={ClosureReasonsPage} isPrivate />
-                        <CustomRoute exact path="/whatsapp-templates" component={WhatsappTemplates} isPrivate />
-                        <CustomRoute
-                          exact
-                          path="/financeiro"
-                          component={Financeiro}
-                          isPrivate
-                        />
-                        <CustomRoute exact path="/queues" component={Queues} isPrivate />
-                        <CustomRoute
-                          exact
-                          path="/announcements"
-                          component={Annoucements}
-                          isPrivate
-                        />
-                        <CustomRoute exact path="/flow-builder" component={FlowBuilderList} isPrivate />
-                        <CustomRoute exact path="/flow-builder/imonitor" component={InactivityMonitorDashboard} isPrivate />
-                        <CustomRoute exact path="/flow-builder/new" component={FlowBuilder} isPrivate />
-                        <CustomRoute exact path="/flow-builder/:id" component={FlowBuilder} isPrivate />
+                          <CustomRoute exact path="/helps" component={Helps} isPrivate />
+                          <CustomRoute exact path="/users" component={Users} isPrivate />
+                          <CustomRoute
+                            exact
+                            path="/assistants"
+                            component={Assistants}
+                            isPrivate
+                          />
+                          <CustomRoute
+                            exact
+                            path="/prompts"
+                            component={Prompts}
+                            isPrivate
+                          />
+                          <CustomRoute
+                            exact
+                            path="/queue-integration"
+                            component={QueueIntegration}
+                            isPrivate
+                          />
+                          <CustomRoute
+                            exact
+                            path="/email"
+                            component={EmailDashboard}
+                            isPrivate
+                          />
+                          <CustomRoute
+                            exact
+                            path="/companies"
+                            component={WrappedCompanies}
+                            isPrivate
+                          />
+                          <CustomRoute exact path="/settings/general" component={GeneralSettings} isPrivate />
+                          <CustomRoute exact path="/settings/whitelabel" component={WhitelabelPage} isPrivate />
+                          <CustomRoute exact path="/settings/plans" component={PlansManagementPage} isPrivate />
+                          <CustomRoute exact path="/settings/helps" component={HelpsManagementPage} isPrivate />
+                          <CustomRoute exact path="/settings/schedules" component={SchedulesPage} isPrivate />
+                          <CustomRoute exact path="/settings/payment-gateway" component={PaymentGatewayPage} isPrivate />
+                          <CustomRoute exact path="/settings/closure-reasons" component={ClosureReasonsPage} isPrivate />
+                          <CustomRoute exact path="/whatsapp-templates" component={WhatsappTemplates} isPrivate />
+                          <CustomRoute
+                            exact
+                            path="/financeiro"
+                            component={Financeiro}
+                            isPrivate
+                          />
+                          <CustomRoute exact path="/queues" component={Queues} isPrivate />
+                          <CustomRoute
+                            exact
+                            path="/announcements"
+                            component={Annoucements}
+                            isPrivate
+                          />
+                          <CustomRoute exact path="/flow-builder" component={FlowBuilderList} isPrivate />
+                          <CustomRoute exact path="/flow-builder/imonitor" component={InactivityMonitorDashboard} isPrivate />
+                          <CustomRoute exact path="/flow-builder/new" component={FlowBuilder} isPrivate />
+                          <CustomRoute exact path="/flow-builder/:id" component={FlowBuilder} isPrivate />
 
-                        <CustomRoute
-                          exact
-                          path="/subscription"
-                          component={Subscription}
-                          isPrivate
-                        />
-                        <CustomRoute
-                          exact
-                          path="/chats/:id?"
-                          component={Chat}
-                          isPrivate
-                        />
-                        {showCampaigns && (
-                          <>
-                            <CustomRoute
-                              exact
-                              path="/bulk-sender"
-                              component={BulkSender}
-                              isPrivate
-                            />
-                          </>
-                        )}
+                          <CustomRoute
+                            exact
+                            path="/subscription"
+                            component={Subscription}
+                            isPrivate
+                          />
+                          <CustomRoute
+                            exact
+                            path="/chats/:id?"
+                            component={Chat}
+                            isPrivate
+                          />
+                          {showCampaigns && (
+                            <>
+                              <CustomRoute
+                                exact
+                                path="/bulk-sender"
+                                component={BulkSender}
+                                isPrivate
+                              />
+                            </>
+                          )}
+                        </GroupSeriesNotificationProvider>
                       </LoggedInLayout>
                     </WhatsAppsProvider>
                   </Switch>

@@ -31,7 +31,11 @@ import {
   PeopleAlt as PeopleIcon,
   PersonAdd as PersonAddIcon,
   Info as InfoIcon,
-  GetApp as ExtractIcon
+  GetApp as ExtractIcon,
+  AutoAwesome as AutoIcon,
+  Dashboard as DashboardIcon,
+  Timeline as TimelineIcon,
+  FileUpload as FileUploadIcon
 } from "@mui/icons-material";
 
 // Context
@@ -50,6 +54,8 @@ import SyncGroupsModal from "./components/SyncGroupsModal";
 import ExtractContactsTab from "./components/ExtractContactsTab";
 import ImportContactsTab from "./components/ImportContactsTab";
 import ExtractContactsFromGroupModal from "./components/ExtractContactsFromGroupModal";
+import GroupSeriesTab from "./components/GroupSeriesTab";
+import GroupMonitoringDashboard from "./components/GroupMonitoringDashboard";
 
 // Services
 import api from "../../services/api";
@@ -79,6 +85,7 @@ const Groups = () => {
   const [needsSync, setNeedsSync] = useState(false);
   const [whatsappConnections, setWhatsappConnections] = useState([]);
   const [openExtractModal, setOpenExtractModal] = useState(false);
+  const [seriesStats, setSeriesStats] = useState(null);
 
   // Animation
   const fadeIn = useSpring({
@@ -124,9 +131,25 @@ const Groups = () => {
     }
   }, [whatsappConnections.length]);
 
+  const fetchSeriesStats = useCallback(async () => {
+    try {
+      const { data } = await api.get("/group-series");
+      const stats = {
+        totalSeries: data.length,
+        activeSeries: data.filter(s => s.autoCreateEnabled).length,
+        inactiveSeries: data.filter(s => !s.autoCreateEnabled).length
+      };
+      setSeriesStats(stats);
+    } catch (err) {
+      // Silently fail - not critical
+      console.log("Erro ao carregar estatísticas das séries:", err);
+    }
+  }, []);
+
   useEffect(() => {
     checkWhatsAppConnections();
-  }, []);
+    fetchSeriesStats();
+  }, [fetchSeriesStats]);
 
   useEffect(() => {
     if (whatsappConnections.length >= 0) {
@@ -163,13 +186,27 @@ const Groups = () => {
         }
       };
 
+      const handleGroupSeriesUpdate = (data) => {
+        // Atualizar estatísticas quando séries forem modificadas
+        fetchSeriesStats();
+        
+        // Mostrar notificação de grupo criado automaticamente
+        if (data.action === "new_group_created") {
+          toast.success(`Novo grupo criado automaticamente: ${data.newGroup.name}`);
+        }
+      };
+
       socket.on("group", handleGroupUpdate);
+      socket.on("group-series", handleGroupSeriesUpdate);
+      socket.on("auto-group-created", handleGroupSeriesUpdate);
 
       return () => {
         socket.off("group", handleGroupUpdate);
+        socket.off("group-series", handleGroupSeriesUpdate);
+        socket.off("auto-group-created", handleGroupSeriesUpdate);
       };
     }
-  }, [user.companyId, socketManager]);
+  }, [user.companyId, socketManager, fetchSeriesStats]);
 
   const checkWhatsAppConnections = async () => {
     try {
@@ -262,6 +299,15 @@ const Groups = () => {
             <Typography variant="caption" color="textSecondary">
               {group.jid ? group.jid.split('@')[0] : ''}
             </Typography>
+            {group.isManaged && (
+              <Chip 
+                label="Automático" 
+                size="small" 
+                color="primary" 
+                variant="outlined"
+                sx={{ ml: 1, height: 20 }}
+              />
+            )}
           </Box>
         </Box>
       )
@@ -320,6 +366,11 @@ const Groups = () => {
           />
           <Typography variant="body2">
             {getParticipantsCount(group)}
+            {group.isManaged && group.maxParticipants && (
+              <span style={{ color: 'text.secondary' }}>
+                /{group.maxParticipants}
+              </span>
+            )}
           </Typography>
         </Box>
       )
@@ -392,7 +443,8 @@ const Groups = () => {
     setRefreshing(true);
     await Promise.all([
       checkWhatsAppConnections(),
-      fetchGroups(1, searchParam, true)
+      fetchGroups(1, searchParam, true),
+      fetchSeriesStats()
     ]);
     setRefreshing(false);
   };
@@ -640,7 +692,13 @@ const Groups = () => {
           </Box>
         );
 
-      case 1: // Convites
+      case 1: // Séries de Grupos Automáticos
+        return <GroupSeriesTab />;
+
+      case 2: // Dashboard de Monitoramento
+        return <GroupMonitoringDashboard />;
+
+      case 3: // Convites
         return (
           <Box p={3} textAlign="center">
             <Typography variant="body1" mb={3}>
@@ -657,13 +715,13 @@ const Groups = () => {
           </Box>
         );
 
-      case 2: // Extração de Contatos
+      case 4: // Extração de Contatos
         return <ExtractContactsTab />;
 
-      case 3: // Importação de Contatos
+      case 5: // Importação de Contatos
         return <ImportContactsTab />;
 
-      case 4: // Solicitações
+      case 6: // Solicitações
         return (
           <Box p={3} textAlign="center">
             <Typography variant="body1">
@@ -686,10 +744,12 @@ const Groups = () => {
       return getUserRole(group) === "participant";
     }).length;
 
-    return { adminGroups, participantGroups };
+    const managedGroups = groups.filter(group => group.isManaged).length;
+
+    return { adminGroups, participantGroups, managedGroups };
   };
 
-  const { adminGroups, participantGroups } = getGroupStats();
+  const { adminGroups, participantGroups, managedGroups } = getGroupStats();
 
   // Cleanup timeout na desmontagem
   useEffect(() => {
@@ -736,20 +796,28 @@ const Groups = () => {
       icon: <GroupIcon />
     },
     {
+      label: "Séries Automáticas",
+      icon: <AutoIcon />
+    },
+    {
+      label: "Dashboard",
+      icon: <DashboardIcon />
+    },
+    {
       label: i18n.t("groups.tabs.invites"),
       icon: <AddIcon />
     },
     {
       label: "Extrair Contatos",
-      icon: <GroupIcon />
+      icon: <ExtractIcon />
     },
     {
       label: "Importar Contatos",
-      icon: <GroupIcon />
+      icon: <FileUploadIcon />
     },
     {
       label: i18n.t("groups.tabs.requests"),
-      icon: <GroupIcon />
+      icon: <PersonAddIcon />
     }
   ];
 
@@ -776,6 +844,24 @@ const Groups = () => {
                   color="default"
                   variant="outlined"
                 />
+                {managedGroups > 0 && (
+                  <Chip
+                    icon={<AutoIcon />}
+                    label={`${managedGroups} Automático`}
+                    size="small"
+                    color="primary"
+                    variant="outlined"
+                  />
+                )}
+                {seriesStats && (
+                  <Chip
+                    icon={<TimelineIcon />}
+                    label={`${seriesStats.activeSeries}/${seriesStats.totalSeries} Séries`}
+                    size="small"
+                    color="info"
+                    variant="outlined"
+                  />
+                )}
               </Box>
             )}
           </Box>
@@ -784,11 +870,11 @@ const Groups = () => {
         searchValue={searchParam}
         onSearchChange={handleSearch}
         searchPlaceholder={i18n.t("groups.searchPlaceholder")}
-        showSearch={true}
+        showSearch={tab === 0} // Só mostrar busca na aba de lista
         tabs={tabs}
         activeTab={tab}
         onTabChange={handleChangeTab}
-        loading={loading}
+        loading={loading && tab === 0}
       >
         <animated.div style={{ ...fadeIn, height: '100%' }}>
           {renderTabContent()}

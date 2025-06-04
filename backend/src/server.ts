@@ -14,6 +14,7 @@ import { logger } from "./utils/logger";
 import { StartAllWhatsAppsSessions } from "./services/WbotServices/StartAllWhatsAppsSessions";
 import Company from "./models/Company";
 import { payGatewayInitialize, checkOpenInvoices } from "./services/PaymentGatewayServices/PaymentGatewayServices";
+import GroupMonitoringService from "./services/GroupServices/GroupMonitoringService";
 import {
   initInactivityWorker,
   scheduleInactivityJobs,
@@ -22,6 +23,37 @@ import {
 
 // Variável para armazenar o servidor
 let server;
+
+/**
+ * Inicializa o sistema de monitoramento de grupos
+ */
+async function initializeGroupMonitoring() {
+  try {
+    logger.info("[INIT] Inicializando sistema de monitoramento de grupos gerenciados");
+    
+    // Aguardar um tempo para garantir que tudo está inicializado
+    setTimeout(() => {
+      // Iniciar monitoramento automático
+      GroupMonitoringService.startMonitoring();
+      
+      // Executar primeira verificação após 1 minuto
+      setTimeout(async () => {
+        try {
+          await GroupMonitoringService.runManualCheck();
+          logger.info("[INIT] Primeira verificação de grupos executada com sucesso");
+        } catch (error) {
+          logger.error(`[INIT] Erro na primeira verificação: ${error.message}`);
+        }
+      }, 60000); // 1 minuto
+      
+    }, 10000); // 10 segundos
+
+    logger.info("[INIT] Sistema de monitoramento de grupos inicializado");
+    
+  } catch (error) {
+    logger.error(`[INIT] Erro ao inicializar monitoramento de grupos: ${error.message}`);
+  }
+}
 
 // Função principal de inicialização
 const initialize = async () => {
@@ -63,6 +95,16 @@ const initialize = async () => {
     } catch (error) {
       logger.error("Erro ao inicializar sistema de monitoramento de inatividade:", error);
       logger.warn("Continuando sem o sistema de monitoramento de inatividade");
+    }
+
+    // 4.2. Inicializar sistema de monitoramento de grupos
+    logger.info("Inicializando sistema de monitoramento de grupos...");
+    try {
+      await initializeGroupMonitoring();
+      logger.info("Sistema de monitoramento de grupos inicializado com sucesso");
+    } catch (error) {
+      logger.error("Erro ao inicializar sistema de monitoramento de grupos:", error);
+      logger.warn("Continuando sem o sistema de monitoramento de grupos");
     }
 
     // 5. Só agora importamos o app, após as filas estarem inicializadas

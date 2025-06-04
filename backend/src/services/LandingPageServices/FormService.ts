@@ -14,6 +14,8 @@ import { SendPresenceStatus } from "../../helpers/SendPresenceStatus";
 import CreateOrUpdateContactService, { ExtraInfo } from "../ContactServices/CreateOrUpdateContactService";
 import GetGroupInviteCodeService from "../GroupServices/GetGroupInviteCodeService";
 import { verifyMessage } from "../WbotServices/MessageListener/Verifiers/VerifyMessage";
+import AutoGroupManagerService from "../GroupServices/AutoGroupManagerService";
+import GroupSeries from "../../models/GroupSeries";
 import { logger } from "../../utils/logger";
 import Whatsapp from "../../models/Whatsapp";
 import Groups from "../../models/Groups";
@@ -358,9 +360,177 @@ private async sendConfirmationMessage(
   }
 }
 
-/**
- * CORREÇÃO: Método para envio de convite para grupo com buffer de imagem
- */
+private async sendManagedGroupInvitation(
+  wbot: Session,
+  ticket: Ticket,
+  contact: Contact,
+  groupConfig: any,
+  landingPageTitle: string,
+  landingPageId: number,
+  companyId: number
+): Promise<boolean> {
+  try {
+    logger.info(`[GRUPO GERENCIADO] Enviando convite para contato ID: ${contact.id} via landing page ${landingPageId}`);
+
+    // Verificar se existe uma série de grupos associada à landing page
+    const groupSeries = await GroupSeries.findOne({
+      where: {
+        landingPageId: landingPageId,
+        companyId: companyId,
+        autoCreateEnabled: true
+      }
+    });
+
+    let inviteLink: string;
+    let groupName: string;
+
+    if (groupSeries) {
+      // Usar grupo da série gerenciada
+      logger.info(`[GRUPO GERENCIADO] Série encontrada: ${groupSeries.name}`);
+      
+      // Obter grupo ativo atual
+      const activeGroup = await AutoGroupManagerService.getActiveGroupForSeries(groupSeries.name, companyId);
+      
+      if (!activeGroup) {
+        throw new Error('Nenhum grupo ativo encontrado na série gerenciada');
+      }
+
+      // Verificar se o grupo está próximo da capacidade - criar novo se necessário
+      if (activeGroup.shouldCreateNextGroup()) {
+        logger.info(`[GRUPO GERENCIADO] Grupo ${activeGroup.subject} próximo da capacidade, criando próximo grupo`);
+        
+        const newGroup = await AutoGroupManagerService.forceCreateNextGroup(groupSeries.name, companyId);
+        inviteLink = newGroup.inviteLink;
+        groupName = newGroup.subject;
+        
+        logger.info(`[GRUPO GERENCIADO] Novo grupo criado: ${newGroup.subject}`);
+      } else {
+        inviteLink = activeGroup.inviteLink;
+        groupName = activeGroup.subject;
+      }
+
+    } else {
+      // Fallback para método tradicional usando advancedConfig.inviteGroupId
+      logger.info(`[GRUPO GERENCIADO] Nenhuma série encontrada, usando método tradicional`);
+      
+      const landingPage = await LandingPage.findByPk(landingPageId);
+      if (!landingPage?.advancedConfig?.inviteGroupId) {
+        throw new Error('Configuração de grupo não encontrada');
+      }
+
+      const group = await Groups.findOne({
+        where: {
+          id: landingPage.advancedConfig.inviteGroupId,
+          companyId,
+          whatsappId: ticket.whatsappId
+        }
+      });
+
+      if (!group) {
+        throw new Error('Grupo configurado não encontrado');
+      }
+
+      inviteLink = group.inviteLink;
+      groupName = group.subject;
+    }
+
+    if (!inviteLink) {
+      throw new Error('Link de convite não disponível');
+    }
+
+    logger.info(`[GRUPO GERENCIADO] Usando grupo: ${groupName}, link: ${inviteLink}`);
+
+    // Preparar mensagem personalizada ou usar padrão
+    const isConfigEnabled = groupConfig?.enabled === true;
+    const hasCustomMessage = isConfigEnabled && groupConfig?.message;
+    const hasCustomImage = isConfigEnabled && groupConfig?.imageUrl;
+
+    let message = hasCustomMessage
+      ? groupConfig.message.replace(/{nome}/g, contact.name)
+      : `Olá! Obrigado por se cadastrar em ${landingPageTitle}. Você foi convidado para participar do nosso grupo no WhatsApp: ${groupName}`;
+
+    // Adicionar link no final da mensagem
+    const fullMessage = `${message}\n\nClique no link abaixo para entrar:\n${inviteLink}`;
+
+    const contactJid = `${contact.number.replace('+', '')}@s.whatsapp.net`;
+
+    // Enviar presença para o contato antes da mensagem
+    await SendPresenceStatus(wbot, contactJid);
+
+    let sentMessage;
+    
+    // Usar buffer da imagem em vez de URL
+    if (hasCustomImage) {
+      logger.info(`[GRUPO GERENCIADO] Buscando buffer da imagem: ${groupConfig.imageUrl}`);
+      
+      const imageBuffer = await this.getImageBuffer(groupConfig.imageUrl, ticket.companyId);
+      
+      if (imageBuffer) {
+        logger.info(`[GRUPO GERENCIADO] Enviando convite com buffer de imagem: ${imageBuffer.length} bytes`);
+        
+        try {
+          sentMessage = await wbot.sendMessage(contactJid, {
+            image: imageBuffer,
+            caption: fullMessage
+          });
+          
+          logger.info(`[GRUPO GERENCIADO] Convite com imagem enviado com sucesso via buffer`);
+        } catch (imageError) {
+          logger.error(`[GRUPO GERENCIADO] Erro ao enviar imagem via buffer: ${imageError.message}`);
+          
+          // Fallback: enviar apenas texto
+          sentMessage = await wbot.sendMessage(contactJid, {
+            text: fullMessage
+          });
+        }
+      } else {
+        logger.warn(`[GRUPO GERENCIADO] Buffer da imagem não disponível, enviando apenas texto`);
+        
+        sentMessage = await wbot.sendMessage(contactJid, {
+          text: fullMessage
+        });
+      }
+    } else {
+      logger.info(`[GRUPO GERENCIADO] Enviando convite apenas com texto`);
+      
+      sentMessage = await wbot.sendMessage(contactJid, {
+        text: fullMessage
+      });
+    }
+
+    // Criar registro da mensagem no banco
+    const messageId = uuidv4();
+    const messageData = {
+      id: messageId,
+      ticketId: ticket.id,
+      body: fullMessage,
+      contactId: contact.id,
+      fromMe: true,
+      read: true,
+      mediaType: hasCustomImage ? 'image' : 'chat',
+      mediaUrl: hasCustomImage ? groupConfig.imageUrl : null,
+      internalMessage: false
+    };
+
+    await CreateMessageService({
+      messageData,
+      ticket: ticket,
+      companyId: ticket.companyId
+    });
+
+    await SetTicketMessagesAsRead(ticket);
+    await verifyMessage(sentMessage, ticket, contact);
+
+    logger.info(`[GRUPO GERENCIADO] Convite enviado com sucesso para contato ID: ${contact.id}`);
+    return true;
+    
+  } catch (error) {
+    logger.error(`[GRUPO GERENCIADO] Erro ao enviar convite: ${error.message}`);
+    logger.error(`[GRUPO GERENCIADO] Stack: ${error.stack}`);
+    return false;
+  }
+}
+
 private async sendGroupInvitation(
   wbot: Session,
   ticket: Ticket,
@@ -878,35 +1048,20 @@ private async sendGroupInvitation(
       logger.info(`[PASSO 2] Enviando convite para grupo (se configurado) via conexão ID: ${whatsapp.id}`);
       if (fullLandingPage.advancedConfig?.inviteGroupId) {
         try {
-          logger.info(`Grupo configurado ID: ${fullLandingPage.advancedConfig.inviteGroupId}, iniciando processo de convite`);
-
-          // Validar grupo antes de tentar enviar
-          const group = await Groups.findOne({
-            where: {
-              id: fullLandingPage.advancedConfig.inviteGroupId,
-              companyId,
-              whatsappId: whatsapp.id
-            }
-          });
-
-          if (!group) {
-            logger.error(`Grupo ID: ${fullLandingPage.advancedConfig.inviteGroupId} não encontrado para conexão ${whatsapp.id}`);
-            throw new Error(`Grupo não encontrado`);
-          }
-
-          logger.info(`Grupo encontrado: ${group.subject}, enviando convite`);
-
-          groupInviteSent = await this.sendGroupInvitation(
+          logger.info(`Configuração de grupo encontrada, iniciando processo de convite gerenciado`);
+      
+          groupInviteSent = await this.sendManagedGroupInvitation(
             wbot,
             ticket,
             contact,
-            group,
             fullLandingPage.advancedConfig?.groupInviteMessage,
-            fullLandingPage.title
+            fullLandingPage.title,
+            fullLandingPage.id,
+            companyId
           );
-
+      
           if (groupInviteSent) {
-            logger.info(`Convite para grupo ID: ${fullLandingPage.advancedConfig.inviteGroupId} enviado com sucesso para contato ID: ${contact.id}`);
+            logger.info(`Convite para grupo enviado com sucesso para contato ID: ${contact.id}`);
           }
         } catch (error) {
           logger.error(`Erro ao enviar convite para grupo para contato ID: ${contact.id}: ${error.message}`);
