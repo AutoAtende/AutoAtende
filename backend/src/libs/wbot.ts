@@ -47,7 +47,7 @@ loggerBaileys.level = "error";
 import * as fs from 'fs';
 import * as fsPromises from 'fs/promises';
 import path from "path";
-import GroupSeries from "@models/GroupSeries";
+import GroupSeries from "../models/GroupSeries";
 
 
 export const sessionFolder = process.env.BACKEND_SESSION_PATH;

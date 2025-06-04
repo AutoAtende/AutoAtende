@@ -25,7 +25,7 @@ import { getBullConfig } from "../config/redis";
 import UpdateTicketService from "../services/TicketServices/UpdateTicketService";
 import FindOrCreateATicketTrakingService from "../services/TicketServices/FindOrCreateATicketTrakingService";
 import { verifyMessage } from "../services/WbotServices/MessageListener/Verifiers/VerifyMessage";
-import FindOrCreateTicketService from "@services/TicketServices/FindOrCreateTicketService";
+import FindOrCreateTicketService from "../services/TicketServices/FindOrCreateTicketService";
 
 
 interface ProcessCampaignData {

@@ -14,7 +14,7 @@ import { logger } from "../../utils/logger";
 import GetDefaultWhatsApp from "../../helpers/GetDefaultWhatsApp";
 import GroupSeries from '@models/GroupSeries';
 import Whatsapp from '@models/Whatsapp';
-import AutoGroupManagerService from '@services/GroupServices/AutoGroupManagerService';
+import AutoGroupManagerService from '../GroupServices/AutoGroupManagerService';
 
 export class LandingPageService {
   private companyId: number;

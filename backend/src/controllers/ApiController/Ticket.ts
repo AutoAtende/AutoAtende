@@ -13,16 +13,16 @@ import TicketTag from "../../models/TicketTag";
 import ShowTicketService from "../../services/TicketServices/ShowTicketService";
 import UpdateTicketService from "../../services/TicketServices/UpdateTicketService";
 import ListTicketsService from "../../services/TicketServices/ListTicketsService";
-import ListTicketsWithMessagesService from "@services/TicketServices/ListTicketsWithMessagesService";
+import ListTicketsWithMessagesService from "../../services/TicketServices/ListTicketsWithMessagesService";
 import Tag from "../../models/Tag";
 import Contact from "../../models/Contact";
 import Company from "../../models/Company";
 import { returnWhatsAppIdAndCompanyIdByParams } from "../../utils/returnWhatsAppIdAndCompanyIdByParams";
-import CreateTicketService from "services/TicketServices/CreateTicketService";
+import CreateTicketService from "../../services/TicketServices/CreateTicketService";
 import CreateMessageService from "../../services/MessageServices/CreateMessageService";
 import FindOrCreateATicketTrakingService from "../../services/TicketServices/FindOrCreateATicketTrakingService";
 import GetDefaultWhatsApp from "../../helpers/GetDefaultWhatsApp";
-import CreateOrUpdateContactService from "@services/ContactServices/CreateOrUpdateContactService";
+import CreateOrUpdateContactService from "../../services/ContactServices/CreateOrUpdateContactService";
 import { clearSpecialCharactersAndLetters } from "../../helpers/clearSpecialCharactersAndLetters";
 
 // Atualizar a fila de um ticket

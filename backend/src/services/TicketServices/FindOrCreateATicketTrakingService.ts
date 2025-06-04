@@ -1,7 +1,7 @@
 import { Op, Transaction } from "sequelize";
 import TicketTraking from "../../models/TicketTraking";
 import sequelize from "../../database";
-import { toDate } from "@utils/helpers";
+import { toDate } from "../../utils/helpers";
 interface Params {
   ticketId: string | number;
   companyId: string | number;
