@@ -98,6 +98,12 @@ export const ProcessMessageWithRules = async ({
           
           ticketData.userId = rule.userId;
           ticketData.status = "open"; // Se userId for definido, status muda para "open"
+          ticketData.useIntegration = false;
+          ticketData.chatbot = false;
+          ticketData.integrationId = null;
+          ticketData.flowExecutionId = null;
+          ticketData.amountUsedBotQueues = 0;
+
           shouldUpdate = true;
           
           logger.info(`[MESSAGE-RULES] Status será alterado para "open" pois um atendente foi designado`);
