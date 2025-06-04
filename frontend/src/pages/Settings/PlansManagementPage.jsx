@@ -691,10 +691,6 @@ const PlansManagementPage = () => {
       searchPlaceholder="Buscar planos..."
     >
       <StandardTabContent
-        title="Planos Cadastrados"
-        description="Lista de todos os planos disponíveis no sistema"
-        icon={<AssignmentIcon />}
-        stats={stats}
         variant="default"
       >
         {loading && plans.length === 0 ? (
