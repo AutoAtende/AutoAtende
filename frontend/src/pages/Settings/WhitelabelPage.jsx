@@ -431,10 +431,7 @@ const WhitelabelPage = () => {
     >
       {/* Configurações Gerais */}
       <StandardTabContent
-        title="Configurações Gerais"
-        description="Informações básicas e posicionamento de elementos"
-        icon={<Settings />}
-        variant="paper"
+        variant="default"
         actions={
           <Button
             variant="contained"
@@ -516,11 +513,7 @@ const WhitelabelPage = () => {
 
       {/* Personalização de Cores */}
       <StandardTabContent
-        title="Personalização de Cores"
-        description="Customize as cores do tema para combinar com sua marca"
-        icon={<ColorLens />}
-        variant="paper"
-        stats={stats}
+        variant="default"
         actions={
           <Button
             variant="outlined"
@@ -587,10 +580,7 @@ const WhitelabelPage = () => {
 
       {/* Logos e Imagens */}
       <StandardTabContent
-        title="Logos, Ícones e Imagens de Fundo"
-        description="Personalize as imagens e logos do sistema"
-        icon={<Image />}
-        variant="paper"
+        variant="default"
       >
         <Grid container spacing={3}>
           {imageSettings.map((imgConfig) => {

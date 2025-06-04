@@ -442,10 +442,6 @@ const SchedulesPage = () => {
       showSearch={false}
     >
       <StandardTabContent
-        title="Horários de Atendimento"
-        description="Defina os horários de funcionamento para melhor organização do atendimento"
-        icon={<ScheduleIcon />}
-        stats={stats}
         variant="default"
       >
         <Alert severity="info" sx={{ mb: 3 }}>

@@ -213,13 +213,6 @@ const PaymentGatewayPage = () => {
     stripeWebhookSecret: ""
   });
 
-  // Verificar se é super admin
-  useEffect(() => {
-    if (!user?.super) {
-      toast.error("Acesso restrito a super administradores");
-    }
-  }, [user]);
-
   // Carregar configurações
   const loadSettings = useCallback(async () => {
     try {
@@ -426,18 +419,6 @@ const PaymentGatewayPage = () => {
     }
   ];
 
-  if (!user?.super) {
-    return (
-      <MainContainer>
-        <Box sx={{ display: "flex", justifyContent: "center", alignItems: "center", height: "100vh" }}>
-          <Alert severity="error">
-            Acesso restrito a super administradores
-          </Alert>
-        </Box>
-      </MainContainer>
-    );
-  }
-
   if (loading) {
     return (
       <MainContainer>
@@ -455,10 +436,6 @@ const PaymentGatewayPage = () => {
       showSearch={false}
     >
       <StandardTabContent
-        title="Seleção de Gateway"
-        description="Escolha e configure o gateway de pagamento"
-        icon={<PaymentIcon />}
-        stats={stats}
         variant="default"
       >
         <StyledPaper>
@@ -550,7 +527,7 @@ const PaymentGatewayPage = () => {
           title="Configurações do Efí (Gerencianet)"
           description="Configure as credenciais e opções do gateway Efí"
           icon={<BankIcon />}
-          variant="paper"
+          variant="default"
         >
           <Grid container spacing={3}>
             {/* Formulário */}
@@ -678,7 +655,7 @@ const PaymentGatewayPage = () => {
           title="Configurações do Stripe"
           description="Configure as credenciais e opções do gateway Stripe"
           icon={<CreditCardIcon />}
-          variant="paper"
+          variant="default"
         >
           <Grid container spacing={3}>
             {/* Formulário */}

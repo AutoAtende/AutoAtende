@@ -448,10 +448,7 @@ const HelpsManagementPage = () => {
     >
       {/* Formulário de Criação/Edição */}
       <StandardTabContent
-        title={isEditing ? "Editar Ajuda" : "Nova Ajuda"}
-        description="Configure vídeos de ajuda e documentação para os usuários"
-        icon={<HelpIcon />}
-        variant="paper"
+        variant="default"
       >
         <Formik
           enableReinitialize
