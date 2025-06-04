@@ -578,16 +578,13 @@ const GeneralSettings = () => {
       showSearch={false}
     >
       <StandardTabContent
-        title="Configurações do Sistema"
-        description="Configure o comportamento e funcionalidades completas do AutoAtende"
         icon={<SettingsIcon />}
         stats={stats}
         variant="default"
       >
         {/* CONFIGURAÇÕES DA EMPRESA - SUPER ADMIN */}
-        <OnlyForSuperUser
-          yes={() => (
-            <>
+        {user?.super && (
+          <>
               <SectionTitle variant="h6">
                 <BusinessIcon />
                 Configurações da Empresa (Super Admin)
@@ -609,43 +606,6 @@ const GeneralSettings = () => {
                     onChange={handleSettingChange}
                     helpText={i18n.t("optionsPage.trialExpirationHelp") || "Tempo de duração do período de teste"}
                     icon={<BusinessIcon color="primary" />}
-                    gridSize={{ xs: 12 }}
-                  />
-                </Grid>
-
-                <Grid item xs={12} md={4}>
-                  <SettingSelect
-                    id="maxConnections"
-                    label="Máximo de Conexões"
-                    value={settings.maxConnections || "5"}
-                    options={[
-                      { value: "1", label: "1 conexão" },
-                      { value: "3", label: "3 conexões" },
-                      { value: "5", label: "5 conexões" },
-                      { value: "10", label: "10 conexões" },
-                      { value: "20", label: "20 conexões" },
-                      { value: "50", label: "50 conexões" }
-                    ]}
-                    onChange={handleSettingChange}
-                    helpText="Número máximo de conexões WhatsApp por empresa"
-                    gridSize={{ xs: 12 }}
-                  />
-                </Grid>
-
-                <Grid item xs={12} md={4}>
-                  <SettingSelect
-                    id="maxQueues"
-                    label="Máximo de Filas"
-                    value={settings.maxQueues || "10"}
-                    options={[
-                      { value: "5", label: "5 filas" },
-                      { value: "10", label: "10 filas" },
-                      { value: "20", label: "20 filas" },
-                      { value: "50", label: "50 filas" },
-                      { value: "100", label: "100 filas" }
-                    ]}
-                    onChange={handleSettingChange}
-                    helpText="Número máximo de filas de atendimento"
                     gridSize={{ xs: 12 }}
                   />
                 </Grid>
@@ -696,7 +656,6 @@ const GeneralSettings = () => {
               </CategoryDivider>
             </>
           )}
-        />
 
         {/* CONFIGURAÇÕES GERAIS */}
         <SectionTitle variant="h6">
