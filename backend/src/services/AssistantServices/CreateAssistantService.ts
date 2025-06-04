@@ -15,6 +15,16 @@ type AssistantTool =
   | { type: "file_search" }
   | { type: "function"; function: FunctionDefinition };
 
+interface VoiceConfig {
+  enableVoiceResponses?: boolean;
+  enableVoiceTranscription?: boolean;
+  voiceId?: string;
+  speed?: number;
+  transcriptionModel?: string;
+  useStreaming?: boolean;
+  additionalSettings?: any;
+}
+
 interface Request {
   name: string;
   instructions: string;
@@ -26,6 +36,7 @@ interface Request {
     type: string;
     function?: FunctionDefinition;
   }>;
+  voiceConfig?: VoiceConfig;
 }
 
 // Função para transformar os tools do request para o formato correto esperado pela API
@@ -72,7 +83,15 @@ const CreateAssistantService = async ({
   model, 
   openaiApiKey,
   active = true,
-  tools = []
+  tools = [],
+  voiceConfig = {
+    enableVoiceResponses: false,
+    enableVoiceTranscription: false,
+    voiceId: 'nova',
+    speed: 1.0,
+    transcriptionModel: 'whisper-1',
+    useStreaming: false
+  }
 }: Request): Promise<Assistant> => {
   // Validação inicial da API key
   if (!openaiApiKey?.trim()) {
@@ -119,6 +138,17 @@ const CreateAssistantService = async ({
       tools: transformTools(toolsToUse)
     });
 
+    // Preparar configuração de voz com valores padrão
+    const finalVoiceConfig: VoiceConfig = {
+      enableVoiceResponses: voiceConfig.enableVoiceResponses || false,
+      enableVoiceTranscription: voiceConfig.enableVoiceTranscription || false,
+      voiceId: voiceConfig.voiceId || 'nova',
+      speed: voiceConfig.speed || 1.0,
+      transcriptionModel: voiceConfig.transcriptionModel || 'whisper-1',
+      useStreaming: voiceConfig.useStreaming || false,
+      additionalSettings: voiceConfig.additionalSettings || {}
+    };
+
     // Criar assistente no banco de dados local
     const assistant = await Assistant.create({
       assistantId: openaiAssistant.id,
@@ -129,13 +159,15 @@ const CreateAssistantService = async ({
       companyId,
       tools: toolsToUse,
       toolResources: openaiAssistant.tool_resources || {},
+      voiceConfig: finalVoiceConfig,
       lastSyncAt: new Date(),
       active: active
     });
 
     logger.info({
       companyId,
-      assistantId: assistant.id
+      assistantId: assistant.id,
+      voiceEnabled: finalVoiceConfig.enableVoiceResponses || finalVoiceConfig.enableVoiceTranscription
     }, "Assistente criado com sucesso");
 
     return assistant;

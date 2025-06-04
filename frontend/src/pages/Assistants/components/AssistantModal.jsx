@@ -28,7 +28,8 @@ import {
   CardContent,
   FormControl,
   InputLabel,
-  Select
+  Select,
+  Alert
 } from "@mui/material";
 import {
   Add as AddIcon,
@@ -40,7 +41,9 @@ import {
   NavigateNext as NavigateNextIcon,
   Code as CodeIcon,
   Search as SearchIcon,
-  Functions as FunctionsIcon
+  Functions as FunctionsIcon,
+  VolumeUp as VolumeUpIcon,
+  Mic as MicIcon
 } from "@mui/icons-material";
 import ToolsIcon from "@mui/icons-material/Extension";
 import { i18n } from "../../../translate/i18n";
@@ -56,6 +59,16 @@ const openAiModels = [
   { displayName: "GPT-4", modelCode: "gpt-4" },
   { displayName: "GPT-4 Turbo", modelCode: "gpt-4-turbo" },
   { displayName: "GPT-3.5 Turbo", modelCode: "gpt-3.5-turbo" }
+];
+
+// Opções de voz disponíveis
+const voiceOptions = [
+  { value: 'alloy', label: 'Alloy' },
+  { value: 'echo', label: 'Echo' },
+  { value: 'fable', label: 'Fable' },
+  { value: 'onyx', label: 'Onyx' },
+  { value: 'nova', label: 'Nova' },
+  { value: 'shimmer', label: 'Shimmer' }
 ];
 
 // TabPanel para as diferentes abas
@@ -149,7 +162,15 @@ const AssistantSchema = Yup.object().shape({
     .max(10000, i18n.t("assistants.validation.tooLong"))
     .required(i18n.t("assistants.validation.required")),
   model: Yup.string().required(i18n.t("assistants.validation.required")),
-  active: Yup.boolean()
+  active: Yup.boolean(),
+  voiceConfig: Yup.object().shape({
+    enableVoiceResponses: Yup.boolean(),
+    enableVoiceTranscription: Yup.boolean(),
+    voiceId: Yup.string(),
+    speed: Yup.number().min(0.5).max(2.0),
+    transcriptionModel: Yup.string(),
+    useStreaming: Yup.boolean()
+  })
 });
 
 const AssistantModal = ({ open, onClose, assistantId, onAssistantUpdated }) => {
@@ -160,7 +181,15 @@ const AssistantModal = ({ open, onClose, assistantId, onAssistantUpdated }) => {
     instructions: "",
     model: "",
     active: true,
-    tools: []
+    tools: [],
+    voiceConfig: {
+      enableVoiceResponses: false,
+      enableVoiceTranscription: false,
+      voiceId: 'nova',
+      speed: 1.0,
+      transcriptionModel: 'whisper-1',
+      useStreaming: false
+    }
   });
   const [files, setFiles] = useState([]);
   const [selectedFiles, setSelectedFiles] = useState([]);
@@ -191,7 +220,17 @@ const AssistantModal = ({ open, onClose, assistantId, onAssistantUpdated }) => {
       
       try {
         const { data } = await api.get(`/assistants/${assistantId}`);
-        setAssistant(data);
+        setAssistant({
+          ...data,
+          voiceConfig: data.voiceConfig || {
+            enableVoiceResponses: false,
+            enableVoiceTranscription: false,
+            voiceId: 'nova',
+            speed: 1.0,
+            transcriptionModel: 'whisper-1',
+            useStreaming: false
+          }
+        });
         
         // Configurar ferramentas habilitadas
         if (data.tools && Array.isArray(data.tools)) {
@@ -257,7 +296,15 @@ const AssistantModal = ({ open, onClose, assistantId, onAssistantUpdated }) => {
       instructions: "",
       model: "",
       active: true,
-      tools: []
+      tools: [],
+      voiceConfig: {
+        enableVoiceResponses: false,
+        enableVoiceTranscription: false,
+        voiceId: 'nova',
+        speed: 1.0,
+        transcriptionModel: 'whisper-1',
+        useStreaming: false
+      }
     });
     setFiles([]);
     setSelectedFiles([]);
@@ -485,6 +532,7 @@ const AssistantModal = ({ open, onClose, assistantId, onAssistantUpdated }) => {
                     <Tab label={i18n.t("assistants.tabs.tools")} icon={<ToolsIcon />} />
                     <Tab label={i18n.t("assistants.tabs.files")} icon={<InsertDriveFileIcon />} />
                     <Tab label={i18n.t("assistants.tabs.functions")} icon={<FunctionsIcon />} />
+                    <Tab label="Configurações de Voz" icon={<VolumeUpIcon />} />
                   </Tabs>
                   
                   {/* Aba de Configurações Básicas */}
@@ -584,80 +632,6 @@ const AssistantModal = ({ open, onClose, assistantId, onAssistantUpdated }) => {
                         </Typography>
                       </Grid>
                     </Grid>
-
-                    <Box sx={{ mt: 4 }}>
-    <Typography variant="h6" gutterBottom>
-      {i18n.t("assistants.form.voiceSettings")}
-    </Typography>
-    
-    <Grid container spacing={2}>
-      <Grid item xs={12}>
-        <FormControlLabel
-          control={
-            <Field
-              as={Switch}
-              name="enableVoiceResponses"
-              color="primary"
-              checked={values.enableVoiceResponses}
-            />
-          }
-          label={i18n.t("assistants.form.enableVoiceResponses")}
-        />
-        <Typography variant="caption" color="textSecondary">
-          {i18n.t("assistants.form.voiceResponsesHelp")}
-        </Typography>
-      </Grid>
-      
-      {values.enableVoiceResponses && (
-        <>
-          <Grid item xs={12} md={6}>
-            <Field name="voiceId">
-              {({ field }) => (
-                <TextField
-                  select
-                  label={i18n.t("assistants.form.voiceId")}
-                  variant="outlined"
-                  fullWidth
-                  margin="dense"
-                  {...field}
-                  InputLabelProps={{
-                    shrink: true,
-                  }}
-                >
-                  <MenuItem value="alloy">Alloy</MenuItem>
-                  <MenuItem value="echo">Echo</MenuItem>
-                  <MenuItem value="fable">Fable</MenuItem>
-                  <MenuItem value="onyx">Onyx</MenuItem>
-                  <MenuItem value="nova">Nova</MenuItem>
-                  <MenuItem value="shimmer">Shimmer</MenuItem>
-                </TextField>
-              )}
-            </Field>
-          </Grid>
-          
-          <Grid item xs={12} md={6}>
-            <Field name="voiceSpeed">
-              {({ field, form }) => (
-                <Box>
-                  <Typography gutterBottom>
-                    {i18n.t("assistants.form.voiceSpeed")}: {field.value}
-                  </Typography>
-                  <Slider
-                    value={field.value}
-                    min={0.5}
-                    max={2.0}
-                    step={0.1}
-                    onChange={(_, value) => form.setFieldValue('voiceSpeed', value)}
-                    valueLabelDisplay="auto"
-                  />
-                </Box>
-              )}
-            </Field>
-          </Grid>
-        </>
-      )}
-    </Grid>
-  </Box>
                   </TabPanel>
                   
                   {/* Aba de Ferramentas */}
@@ -894,6 +868,159 @@ const AssistantModal = ({ open, onClose, assistantId, onAssistantUpdated }) => {
                       </Box>
                     )}
                   </TabPanel>
+
+                  {/* Aba de Configurações de Voz */}
+                  <TabPanel value={tabValue} index={4}>
+                    <Alert severity="info" sx={{ mb: 3 }}>
+                      Configure as opções de voz para este assistente. As configurações de voz são específicas para cada assistente e permitem respostas em áudio personalizadas.
+                    </Alert>
+
+                    <Box sx={{ mb: 4 }}>
+                      <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        <MicIcon color="primary" />
+                        Transcrição de Áudio
+                      </Typography>
+                      
+                      <FormControlLabel
+                        control={
+                          <Switch
+                            checked={values.voiceConfig?.enableVoiceTranscription || false}
+                            onChange={(e) => setFieldValue('voiceConfig.enableVoiceTranscription', e.target.checked)}
+                            color="primary"
+                          />
+                        }
+                        label="Habilitar transcrição de mensagens de voz"
+                      />
+                      <Typography variant="caption" color="textSecondary" display="block">
+                        Quando habilitado, o assistente conseguirá processar e responder a mensagens de áudio dos usuários.
+                      </Typography>
+                    </Box>
+
+                    <Divider sx={{ my: 3 }} />
+
+                    <Box sx={{ mb: 4 }}>
+                      <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        <VolumeUpIcon color="primary" />
+                        Respostas em Voz
+                      </Typography>
+                      
+                      <FormControlLabel
+                        control={
+                          <Switch
+                            checked={values.voiceConfig?.enableVoiceResponses || false}
+                            onChange={(e) => setFieldValue('voiceConfig.enableVoiceResponses', e.target.checked)}
+                            color="primary"
+                          />
+                        }
+                        label="Habilitar respostas em voz"
+                      />
+                      <Typography variant="caption" color="textSecondary" display="block">
+                        Quando habilitado, o assistente enviará respostas em áudio além do texto.
+                      </Typography>
+
+                      {values.voiceConfig?.enableVoiceResponses && (
+                        <Box sx={{ mt: 3, pl: 2, borderLeft: '3px solid', borderColor: 'primary.main' }}>
+                          <Grid container spacing={3}>
+                            <Grid item xs={12} md={6}>
+                              <FormControl fullWidth variant="outlined" margin="dense">
+                                <InputLabel>Voz do Assistente</InputLabel>
+                                <Select
+                                  value={values.voiceConfig?.voiceId || 'nova'}
+                                  onChange={(e) => setFieldValue('voiceConfig.voiceId', e.target.value)}
+                                  label="Voz do Assistente"
+                                >
+                                  {voiceOptions.map(option => (
+                                    <MenuItem key={option.value} value={option.value}>
+                                      {option.label}
+                                    </MenuItem>
+                                  ))}
+                                </Select>
+                              </FormControl>
+                              <Typography variant="caption" color="textSecondary">
+                                Escolha a voz que melhor representa seu assistente
+                              </Typography>
+                            </Grid>
+                            
+                            <Grid item xs={12} md={6}>
+                              <Box>
+                                <Typography gutterBottom>
+                                  Velocidade da Fala: {(values.voiceConfig?.speed || 1.0).toFixed(1)}x
+                                </Typography>
+                                <Box display="flex" alignItems="center" gap={2}>
+                                  <Typography variant="caption">0.5x</Typography>
+                                  <Slider
+                                    value={values.voiceConfig?.speed || 1.0}
+                                    min={0.5}
+                                    max={2.0}
+                                    step={0.1}
+                                    onChange={(_, value) => setFieldValue('voiceConfig.speed', value)}
+                                    sx={{ flex: 1 }}
+                                    marks={[
+                                      { value: 0.5, label: '0.5x' },
+                                      { value: 1.0, label: '1.0x' },
+                                      { value: 1.5, label: '1.5x' },
+                                      { value: 2.0, label: '2.0x' }
+                                    ]}
+                                  />
+                                  <Typography variant="caption">2.0x</Typography>
+                                </Box>
+                                <Typography variant="caption" color="textSecondary">
+                                  Ajuste a velocidade de fala do assistente
+                                </Typography>
+                              </Box>
+                            </Grid>
+
+                            <Grid item xs={12} md={6}>
+                              <FormControl fullWidth variant="outlined" margin="dense">
+                                <InputLabel>Modelo de Transcrição</InputLabel>
+                                <Select
+                                  value={values.voiceConfig?.transcriptionModel || 'whisper-1'}
+                                  onChange={(e) => setFieldValue('voiceConfig.transcriptionModel', e.target.value)}
+                                  label="Modelo de Transcrição"
+                                >
+                                  <MenuItem value="whisper-1">Whisper v1</MenuItem>
+                                </Select>
+                              </FormControl>
+                              <Typography variant="caption" color="textSecondary">
+                                Modelo usado para converter áudio em texto
+                              </Typography>
+                            </Grid>
+
+                            <Grid item xs={12} md={6}>
+                              <FormControlLabel
+                                control={
+                                  <Switch
+                                    checked={values.voiceConfig?.useStreaming || false}
+                                    onChange={(e) => setFieldValue('voiceConfig.useStreaming', e.target.checked)}
+                                    color="primary"
+                                  />
+                                }
+                                label="Usar streaming de áudio (experimental)"
+                              />
+                              <Typography variant="caption" color="textSecondary" display="block">
+                                Permite transmissão de áudio em tempo real
+                              </Typography>
+                            </Grid>
+                          </Grid>
+                        </Box>
+                      )}
+                    </Box>
+
+                    <Box sx={{ p: 2, bgcolor: 'action.hover', borderRadius: 1 }}>
+                      <Typography variant="subtitle2" gutterBottom>
+                        💡 Dicas de Configuração:
+                      </Typography>
+                      <Typography variant="body2" component="div">
+                        • <strong>Alloy e Nova:</strong> Vozes mais naturais e amigáveis<br/>
+                        • <strong>Echo e Fable:</strong> Vozes mais expressivas<br/>
+                        • <strong>Onyx:</strong> Voz mais profunda e autoritária<br/>
+                        • <strong>Shimmer:</strong> Voz mais suave e calma<br/>
+                        • <strong>Velocidade 1.0x:</strong> Ritmo natural de conversação<br/>
+                        • <strong>Velocidade 0.8x:</strong> Melhor para informações complexas<br/>
+                        • <strong>Velocidade 1.2x:</strong> Mais dinâmico para conversas casuais
+                      </Typography>
+                    </Box>
+                  </TabPanel>
                 </DialogContent>
                 
                 <DialogActions>
@@ -911,21 +1038,22 @@ const AssistantModal = ({ open, onClose, assistantId, onAssistantUpdated }) => {
                     disabled={isSubmitting}
                     variant="contained"
                     startIcon={<SaveIcon />}
-                  >{assistantId
-                    ? i18n.t("assistants.buttons.okEdit")
-                    : i18n.t("assistants.buttons.okAdd")}
-                  {isSubmitting && (
-                    <CircularProgress size={24} sx={{ ml: 1 }} />
-                  )}
-                </Button>
-              </DialogActions>
-            </Form>
-          )}
-        </Formik>
-      </animated.div>
-    </Dialog>
-  </Root>
-);
+                  >
+                    {assistantId
+                      ? i18n.t("assistants.buttons.okEdit")
+                      : i18n.t("assistants.buttons.okAdd")}
+                    {isSubmitting && (
+                      <CircularProgress size={24} sx={{ ml: 1 }} />
+                    )}
+                  </Button>
+                </DialogActions>
+              </Form>
+            )}
+          </Formik>
+        </animated.div>
+      </Dialog>
+    </Root>
+  );
 };
 
 export default AssistantModal;

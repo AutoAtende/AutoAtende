@@ -31,17 +31,17 @@ import {
   Extension as ExtensionIcon,
   Add as AddIcon,
   HelpOutline as HelpIcon,
-  VolumeUp as VolumeUpIcon,
   SmartToy as SmartToyIcon,
   CheckCircle as ActiveIcon,
-  Cancel as InactiveIcon
+  Cancel as InactiveIcon,
+  VolumeUp as VolumeUpIcon,
+  Mic as MicIcon
 } from "@mui/icons-material";
 
 // Componentes
 import StandardPageLayout from "../../components/shared/StandardPageLayout";
 import api from "../../services/api";
 import AssistantModal from "./components/AssistantModal";
-import VoiceSettingsModal from "./components/VoiceSettingsModal";
 import ImportAssistantsModal from "./components/ImportAssistantsModal";
 import AssistantsHelpModal from "./components/AssistantsHelpModal";
 import ConfirmationModal from "../../components/ConfirmationModal";
@@ -90,7 +90,7 @@ const Assistants = () => {
   const [count, setCount] = useState(0);
   const [activeTab, setActiveTab] = useState(0);
   const [helpModalOpen, setHelpModalOpen] = useState(false);
-  const [voiceSettingsModalOpen, setVoiceSettingsModalOpen] = useState(false);
+
   // Buscar assistentes com todos os filtros aplicados
   const fetchAssistants = useCallback(async () => {
     setLoading(true);
@@ -218,7 +218,7 @@ const Assistants = () => {
     { value: "gpt-3.5-turbo", label: "GPT-3.5 Turbo" },
   ];
 
-  // Configuração das ações do cabeçalho
+  // Configuração das ações do cabeçalho (removido o botão de configurações de voz)
   const pageActions = [
     {
       label: i18n.t("assistants.buttons.help"),
@@ -240,14 +240,6 @@ const Assistants = () => {
       icon: <CloudDownloadIcon />,
       onClick: () => setImportModalOpen(true),
       variant: "outlined"
-    },
-    {
-      label: i18n.t("assistants.buttons.voiceSettings"),
-      icon: <VolumeUpIcon />,
-      onClick: () => setVoiceSettingsModalOpen(true),
-      variant: "outlined",
-      color: "primary",
-      tooltip: i18n.t("assistants.buttons.voiceSettings")
     }
   ];
 
@@ -301,6 +293,27 @@ const Assistants = () => {
       default:
         return toolType;
     }
+  };
+
+  // Renderizar indicador de configurações de voz
+  const renderVoiceIndicator = (assistant) => {
+    const hasVoiceConfig = assistant.voiceConfig && 
+      (assistant.voiceConfig.enableVoiceResponses || assistant.voiceConfig.enableVoiceTranscription);
+    
+    if (!hasVoiceConfig) return null;
+    
+    return (
+      <Tooltip title="Recursos de voz habilitados">
+        <Chip
+          icon={assistant.voiceConfig.enableVoiceResponses ? <VolumeUpIcon fontSize="small" /> : <MicIcon fontSize="small" />}
+          label={assistant.voiceConfig.enableVoiceResponses ? "Voz" : "Transcrição"}
+          size="small"
+          variant="outlined"
+          color="secondary"
+          sx={{ margin: 0.25 }}
+        />
+      </Tooltip>
+    );
   };
 
   // Renderizar conteúdo da página
@@ -458,7 +471,8 @@ const Assistants = () => {
                             />
                           </Tooltip>
                         ))}
-                        {(!assistant.tools || assistant.tools.length === 0) && (
+                        {renderVoiceIndicator(assistant)}
+                        {(!assistant.tools || assistant.tools.length === 0) && !renderVoiceIndicator(assistant) && (
                           <Typography variant="caption" color="textSecondary">
                             {i18n.t("assistants.labels.none")}
                           </Typography>
@@ -537,7 +551,6 @@ const Assistants = () => {
         loading={loading && assistants.length === 0}
       >
         {/* Conteúdo principal */}
-        
         {renderContent()}
       </StandardPageLayout>
 
@@ -567,11 +580,6 @@ const Assistants = () => {
       <AssistantsHelpModal 
         open={helpModalOpen} 
         onClose={() => setHelpModalOpen(false)} 
-      />
-
-      <VoiceSettingsModal 
-        open={voiceSettingsModalOpen} 
-        onClose={() => setVoiceSettingsModalOpen(false)} 
       />
     </>
   );

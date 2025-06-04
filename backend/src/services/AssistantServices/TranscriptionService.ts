@@ -6,9 +6,7 @@ import VoiceMessage from '../../models/VoiceMessage';
 import Message from '../../models/Message';
 import Queue from '../../models/Queue';
 import Assistant from '../../models/Assistant';
-import VoiceConfig from '../../models/VoiceConfig';
 import AppError from '../../errors/AppError';
-import path from 'path';
 import fs from 'fs';
 
 interface TranscriptionRequest {
@@ -22,107 +20,118 @@ const TranscriptionService = async ({
   ticket,
   messageId
 }: TranscriptionRequest): Promise<VoiceMessage> => {
+  let voiceMessage: VoiceMessage | null = null;
+  const startTime = Date.now();
+
   try {
-    // Obter configurações e assistente
+    // Buscar assistente
     const queue = await Queue.findByPk(ticket.queueId);
-    
-    if (!queue) {
-      throw new AppError('Fila não encontrada', 404);
-    }
+    if (!queue) throw new AppError('Fila não encontrada', 404);
     
     const assistant = await Assistant.findOne({
       where: { queueId: queue.id, active: true }
     });
+    if (!assistant) throw new AppError('Assistente não encontrado', 404);
     
-    if (!assistant) {
-      throw new AppError('Assistente não encontrado', 404);
+    // Verificar configuração de voz
+    if (!assistant.voiceConfig?.enableVoiceTranscription) {
+      throw new AppError('Transcrição desabilitada para este assistente', 400);
     }
-    
-    const voiceConfig = await VoiceConfig.findOne({
-      where: { companyId: ticket.companyId }
-    });
-    
-    // Se não houver configuração, criar padrão
-    const config = voiceConfig || await VoiceConfig.create({
-      companyId: ticket.companyId
-    });
-    
-    // Verificar se a transcrição está habilitada
-    if (!config.enableVoiceTranscription) {
-      throw new AppError('Transcrição de voz desabilitada', 400);
-    }
-    
-    // Verificar se o arquivo existe
+
+    // Verificar arquivo
     if (!fs.existsSync(audioPath)) {
       throw new AppError('Arquivo de áudio não encontrado', 404);
     }
-    
-    // Criar cliente OpenAI com a API key do assistente
-    const openai = new OpenAI({
-      apiKey: assistant.openaiApiKey
-    });
-    
-    // Realizar a transcrição
-    logger.info({
-      ticketId: ticket.id,
-      messageId,
-      audioPath
-    }, 'Iniciando transcrição de áudio');
-    
-    const transcription = await openai.audio.transcriptions.create({
-      file: createReadStream(audioPath),
-      model: config.transcriptionModel,
-      language: 'pt' // Pode ser configurável por empresa
-    });
-    
-    logger.info({
-      ticketId: ticket.id,
-      messageId,
-      transcriptionLength: transcription.text.length
-    }, 'Transcrição concluída com sucesso');
-    
-    // Obter mensagem
-    const message = await Message.findByPk(messageId);
-    
-    if (!message) {
-      throw new AppError('Mensagem não encontrada', 404);
-    }
-    
-    // Atualizar mensagem com o texto da transcrição
-    await message.update({
-      body: transcription.text
-    });
-    
-    // Calcular duração (placeholder - precisaria implementar a análise real do arquivo)
-    const duration = 0; // Implementar cálculo real
-    
-    // Criar registro de mensagem de voz
-    const voiceMessage = await VoiceMessage.create({
+
+    const fileStats = fs.statSync(audioPath);
+
+    // Criar registro inicial
+    voiceMessage = await VoiceMessage.create({
       messageId,
       ticketId: ticket.id,
-      transcription: transcription.text,
+      assistantId: assistant.id,
       audioPath,
-      duration,
+      processType: 'transcription',
+      status: 'processing',
+      duration: 0,
+      processingConfig: {
+        transcriptionModel: assistant.voiceConfig.transcriptionModel || 'whisper-1',
+        language: 'pt'
+      },
       metadata: {
-        model: config.transcriptionModel,
-        timestamp: new Date().toISOString()
+        originalFileSize: fileStats.size,
+        startTime: new Date().toISOString()
       }
     });
+
+    // Processar transcrição
+    const openai = new OpenAI({ apiKey: assistant.openaiApiKey });
     
+    logger.info({
+      ticketId: ticket.id,
+      messageId,
+      assistantId: assistant.id,
+      voiceMessageId: voiceMessage.id
+    }, 'Iniciando transcrição de áudio');
+
+    const transcription = await openai.audio.transcriptions.create({
+      file: createReadStream(audioPath),
+      model: assistant.voiceConfig.transcriptionModel || 'whisper-1',
+      language: 'pt'
+    });
+
+    const processingTime = Date.now() - startTime;
+
+    // Atualizar mensagem original
+    const message = await Message.findByPk(messageId);
+    if (message) {
+      await message.update({
+        body: transcription.text || 'Não foi possível transcrever o áudio'
+      });
+    }
+
+    // Finalizar registro
+    await voiceMessage.update({
+      transcription: transcription.text || 'Transcrição indisponível',
+      status: 'completed',
+      metadata: {
+        ...voiceMessage.metadata,
+        processingTimeMs: processingTime,
+        endTime: new Date().toISOString(),
+        confidence: transcription.text ? 0.95 : 0.1 // Estimativa
+      }
+    });
+
+    logger.info({
+      ticketId: ticket.id,
+      messageId,
+      transcriptionLength: transcription.text?.length || 0,
+      processingTime
+    }, 'Transcrição concluída');
+
     return voiceMessage;
+
   } catch (error) {
+    // Atualizar status de erro se o registro foi criado
+    if (voiceMessage) {
+      await voiceMessage.update({
+        status: 'failed',
+        metadata: {
+          ...voiceMessage.metadata,
+          errorMessage: error.message,
+          processingTimeMs: Date.now() - startTime
+        }
+      });
+    }
+
     logger.error({
       error: error.message,
-      stack: error.stack,
       ticketId: ticket.id,
       messageId,
       audioPath
-    }, 'Erro ao transcrever áudio');
-    
+    }, 'Erro na transcrição');
+
     if (error instanceof AppError) throw error;
-    
     throw new AppError('Erro ao processar áudio', 500);
   }
 };
-
-export default TranscriptionService;

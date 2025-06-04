@@ -7,134 +7,153 @@ import VoiceMessage from '../../models/VoiceMessage';
 import Message from '../../models/Message';
 import Queue from '../../models/Queue';
 import Assistant from '../../models/Assistant';
-import VoiceConfig from '../../models/VoiceConfig';
 import AppError from '../../errors/AppError';
 import { publicFolder } from '../../config/upload';
-
-interface TTSRequest {
-  text: string;
-  ticket: Ticket;
-  messageId: string;
-}
 
 const TextToSpeechService = async ({
   text,
   ticket,
   messageId
-}: TTSRequest): Promise<VoiceMessage> => {
+}: {
+  text: string;
+  ticket: Ticket;
+  messageId: string;
+}): Promise<VoiceMessage> => {
+  let voiceMessage: VoiceMessage | null = null;
+  const startTime = Date.now();
+
   try {
-    // Obter configurações e assistente
+    // Buscar assistente
     const queue = await Queue.findByPk(ticket.queueId);
-    
-    if (!queue) {
-      throw new AppError('Fila não encontrada', 404);
-    }
+    if (!queue) throw new AppError('Fila não encontrada', 404);
     
     const assistant = await Assistant.findOne({
       where: { queueId: queue.id, active: true }
     });
+    if (!assistant) throw new AppError('Assistente não encontrado', 404);
     
-    if (!assistant) {
-      throw new AppError('Assistente não encontrado', 404);
+    // Verificar configuração de voz
+    if (!assistant.voiceConfig?.enableVoiceResponses) {
+      throw new AppError('Respostas em voz desabilitadas para este assistente', 400);
     }
-    
-    const voiceConfig = await VoiceConfig.findOne({
-      where: { companyId: ticket.companyId }
+
+    // Verificar se já existe um registro (para casos de retry)
+    voiceMessage = await VoiceMessage.findOne({
+      where: { messageId }
     });
-    
-    // Se não houver configuração, criar padrão
-    const config = voiceConfig || await VoiceConfig.create({
-      companyId: ticket.companyId
-    });
-    
-    // Verificar se a síntese de voz está habilitada
-    if (!config.enableVoiceResponses) {
-      throw new AppError('Respostas em voz desabilitadas', 400);
+
+    if (!voiceMessage) {
+      // Criar registro inicial
+      voiceMessage = await VoiceMessage.create({
+        messageId,
+        ticketId: ticket.id,
+        assistantId: assistant.id,
+        transcription: text,
+        processType: 'synthesis',
+        status: 'processing',
+        duration: 0,
+        processingConfig: {
+          voiceId: assistant.voiceConfig.voiceId || 'nova',
+          speed: assistant.voiceConfig.speed || 1.0
+        },
+        metadata: {
+          textLength: text.length,
+          startTime: new Date().toISOString()
+        }
+      });
+    } else {
+      // Atualizar para reprocessamento
+      await voiceMessage.update({
+        status: 'processing',
+        metadata: {
+          ...voiceMessage.metadata,
+          retryCount: (voiceMessage.metadata?.retryCount || 0) + 1,
+          lastRetryTime: new Date().toISOString()
+        }
+      });
     }
+
+    // Gerar áudio
+    const openai = new OpenAI({ apiKey: assistant.openaiApiKey });
     
-    // Criar cliente OpenAI com a API key do assistente
-    const openai = new OpenAI({
-      apiKey: assistant.openaiApiKey
-    });
-    
-    // Criar diretório para o áudio se não existir
+    // Criar diretórios
     const companyDir = path.join(publicFolder, `company${ticket.companyId}`);
     const voiceDir = path.join(companyDir, 'voice');
     
     if (!fs.existsSync(companyDir)) {
       fs.mkdirSync(companyDir, { recursive: true });
     }
-    
     if (!fs.existsSync(voiceDir)) {
       fs.mkdirSync(voiceDir, { recursive: true });
     }
-    
-    // Gerar nome de arquivo único
+
     const fileName = `${Date.now()}-${messageId}.mp3`;
     const audioPath = path.join(voiceDir, fileName);
-    
-    // Realizar a síntese de voz
+
     logger.info({
       ticketId: ticket.id,
       messageId,
+      assistantId: assistant.id,
+      voiceMessageId: voiceMessage.id,
       textLength: text.length
     }, 'Iniciando síntese de voz');
-    
+
     const mp3 = await openai.audio.speech.create({
       model: "tts-1",
-      voice: config.voiceId,
+      voice: assistant.voiceConfig.voiceId || 'nova',
       input: text,
-      speed: config.speed
+      speed: assistant.voiceConfig.speed || 1.0
     });
-    
-    // Salvar o áudio
+
+    // Salvar arquivo
     const buffer = Buffer.from(await mp3.arrayBuffer());
     fs.writeFileSync(audioPath, buffer);
-    
+
+    const processingTime = Date.now() - startTime;
+
+    // Finalizar registro
+    await voiceMessage.update({
+      responseAudioPath: audioPath,
+      status: 'completed',
+      metadata: {
+        ...voiceMessage.metadata,
+        generatedFileSize: buffer.length,
+        processingTimeMs: processingTime,
+        endTime: new Date().toISOString()
+      }
+    });
+
     logger.info({
       ticketId: ticket.id,
       messageId,
-      audioPath
-    }, 'Síntese de voz concluída com sucesso');
-    
-    // Obter ou criar registro de mensagem de voz
-    let voiceMessage = await VoiceMessage.findOne({
-      where: { messageId }
-    });
-    
+      audioPath,
+      fileSize: buffer.length,
+      processingTime
+    }, 'Síntese de voz concluída');
+
+    return voiceMessage;
+
+  } catch (error) {
+    // Atualizar status de erro
     if (voiceMessage) {
-      // Atualizar o registro existente
       await voiceMessage.update({
-        responseAudioPath: audioPath
-      });
-    } else {
-      // Criar novo registro
-      voiceMessage = await VoiceMessage.create({
-        messageId,
-        ticketId: ticket.id,
-        transcription: text,
-        responseAudioPath: audioPath,
-        duration: 0, // Placeholder
+        status: 'failed',
         metadata: {
-          voice: config.voiceId,
-          speed: config.speed,
-          timestamp: new Date().toISOString()
+          ...voiceMessage.metadata,
+          errorMessage: error.message,
+          processingTimeMs: Date.now() - startTime
         }
       });
     }
-    
-    return voiceMessage;
-  } catch (error) {
+
     logger.error({
       error: error.message,
-      stack: error.stack,
       ticketId: ticket.id,
       messageId,
       textLength: text?.length
-    }, 'Erro ao sintetizar voz');
-    
+    }, 'Erro na síntese de voz');
+
     if (error instanceof AppError) throw error;
-    
     throw new AppError('Erro ao gerar áudio', 500);
   }
 };

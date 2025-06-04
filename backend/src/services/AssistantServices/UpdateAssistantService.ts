@@ -3,6 +3,16 @@ import Assistant from "../../models/Assistant";
 import AppError from "../../errors/AppError";
 import { logger } from "../../utils/logger";
 
+interface VoiceConfig {
+  enableVoiceResponses?: boolean;
+  enableVoiceTranscription?: boolean;
+  voiceId?: string;
+  speed?: number;
+  transcriptionModel?: string;
+  useStreaming?: boolean;
+  additionalSettings?: any;
+}
+
 interface Request {
   assistantId: string;
   assistantData: {
@@ -15,6 +25,7 @@ interface Request {
       type: string;
       function?: any;
     }>;
+    voiceConfig?: VoiceConfig;
   };
   companyId: number;
 }
@@ -58,11 +69,32 @@ const UpdateAssistantService = async ({ assistantId, assistantData, companyId }:
 
     await openai.beta.assistants.update(assistant.assistantId, updateData);
 
-    // Update assistant in local database
-    await assistant.update({
+    // Preparar dados para atualização local
+    const localUpdateData: any = {
       ...assistantData,
       tools: assistantData.tools || assistant.tools
-    });
+    };
+
+    // Processar configuração de voz se fornecida
+    if (assistantData.voiceConfig) {
+      // Mesclar com configuração existente para manter campos não fornecidos
+      const currentVoiceConfig = assistant.voiceConfig || {
+        enableVoiceResponses: false,
+        enableVoiceTranscription: false,
+        voiceId: 'nova',
+        speed: 1.0,
+        transcriptionModel: 'whisper-1',
+        useStreaming: false
+      };
+
+      localUpdateData.voiceConfig = {
+        ...currentVoiceConfig,
+        ...assistantData.voiceConfig
+      };
+    }
+
+    // Update assistant in local database
+    await assistant.update(localUpdateData);
 
     // Return assistant without sensitive data
     const updatedAssistant = assistant.toJSON() as AssistantResponse;
@@ -70,12 +102,22 @@ const UpdateAssistantService = async ({ assistantId, assistantData, companyId }:
 
     logger.info({
       companyId,
-      assistantId
+      assistantId,
+      voiceConfigUpdated: !!assistantData.voiceConfig,
+      voiceEnabled: updatedAssistant.voiceConfig?.enableVoiceResponses || updatedAssistant.voiceConfig?.enableVoiceTranscription
     }, "Assistente atualizado com sucesso");
 
     return updatedAssistant;
   } catch (error) {
-    logger.error("Error updating assistant:", error);
+    logger.error({
+      companyId,
+      assistantId,
+      error: error.message,
+      stack: error.stack
+    }, "Erro ao atualizar assistente");
+    
+    if (error instanceof AppError) throw error;
+    
     throw new AppError("Failed to update assistant", 500);
   }
 };

@@ -8,10 +8,32 @@ import {
   AllowNull,
   ForeignKey,
   BelongsTo,
-  HasMany
+  HasMany,
+  CreatedAt,
+  UpdatedAt
 } from 'sequelize-typescript';
 import Company from './Company';
 import AssistantFile from './AssistantFile';
+import VoiceMessage from './VoiceMessage';
+
+interface VoiceConfig {
+  enableVoiceResponses: boolean;
+  enableVoiceTranscription: boolean;
+  voiceId: string;
+  speed: number;
+  transcriptionModel: string;
+  useStreaming: boolean;
+  additionalSettings?: any;
+}
+
+interface ToolConfig {
+  type: string;
+  function?: {
+    name: string;
+    description: string;
+    parameters: any;
+  };
+}
 
 @Table({
   tableName: 'Assistants',
@@ -75,7 +97,7 @@ class Assistant extends Model<Assistant> {
   @Column({
     type: DataType.JSONB
   })
-  tools!: any[];
+  tools!: ToolConfig[];
 
   @AllowNull(true)
   @Column({
@@ -89,14 +111,52 @@ class Assistant extends Model<Assistant> {
   })
   active!: boolean;
 
+  // Configurações de voz específicas do assistente
+  @AllowNull(true)
+  @Default({
+    enableVoiceResponses: false,
+    enableVoiceTranscription: false,
+    voiceId: 'nova',
+    speed: 1.0,
+    transcriptionModel: 'whisper-1',
+    useStreaming: false,
+    additionalSettings: {}
+  })
+  @Column({
+    type: DataType.JSONB
+  })
+  voiceConfig!: VoiceConfig;
+
   @HasMany(() => AssistantFile)
   files!: AssistantFile[];
+
+  @HasMany(() => VoiceMessage)
+  voiceMessages!: VoiceMessage[];
 
   @AllowNull(true)
   @Column({
     type: DataType.DATE
   })
   lastSyncAt!: Date;
+
+  @CreatedAt
+  createdAt!: Date;
+
+  @UpdatedAt
+  updatedAt!: Date;
+
+  // Métodos auxiliares
+  hasVoiceCapabilities(): boolean {
+    return this.voiceConfig?.enableVoiceResponses || this.voiceConfig?.enableVoiceTranscription || false;
+  }
+
+  getEnabledTools(): string[] {
+    return this.tools?.map(tool => tool.type) || [];
+  }
+
+  hasToolEnabled(toolType: string): boolean {
+    return this.getEnabledTools().includes(toolType);
+  }
 }
 
 export default Assistant;
