@@ -42,6 +42,8 @@ landingPageRoutes.post(
   FormController.submitForm
 );
 
+landingPageRoutes.get('/landing-pages/:id/active-invite-link', isAuth, isAdmin, landingPageController.getActiveInviteLink);
+
 // Landing Pages - CRUD administrativo
 landingPageRoutes.get('/landing-pages', isAuth, isAdmin, landingPageController.index);
 landingPageRoutes.get('/landing-pages/:id', isAuth, isAdmin, landingPageController.show);

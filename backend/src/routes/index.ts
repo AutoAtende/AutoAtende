@@ -58,11 +58,13 @@ import queueTagRoutes from "./queueTagRoutes";
 import contactImportExportRoutes from "./contactImportExportRoutes";
 import passwordRoutes from "./passwordRoutes";
 import groupRoutes from "./groupRoutes";
+import groupSeriesRoutes from "./groupSeriesRoutes";
 import contactTagsRoutes from "./contactTagRoutes";
 import messageRuleRoutes from "./messageRuleRoutes";
 import flowBuilderRoutes from "./flowBuilderRoutes";
 import horarioRoutes from "./horarioRoutes";
 import voiceRoutes from "./voiceRoutes";
+import adminDashboardRoutes from "./adminDashboardRoutes";
 
 const routes = Router();
 
@@ -94,6 +96,8 @@ routes.use(contactTagsRoutes);
 routes.use(messageRoutes);
 routes.use(whatsappSessionRoutes);
 routes.use(groupRoutes);
+routes.use(groupSeriesRoutes);
+routes.use(adminDashboardRoutes);
 routes.use(queueRoutes);
 routes.use(companyRoutes);
 routes.use(planRoutes);
@@ -129,6 +133,5 @@ routes.use(flowBuilderRoutes);
 routes.use(taskRoutes);
 routes.use(horarioRoutes);
 routes.use(voiceRoutes);
-
 
 export default routes;

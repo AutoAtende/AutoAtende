@@ -26,7 +26,10 @@ import AppError from "../errors/AppError";
 import { getIO } from "./socket";
 import { extractPhoneNumber } from "../helpers/extractPhoneNumber";
 import { StartWhatsAppSession } from "../services/WbotServices/StartWhatsAppSession";
+import Groups from "../models/Groups";
 import createOrUpdateBaileysService from "../services/BaileysServices/CreateOrUpdateBaileysService";
+import GroupMonitoringService from "../services/GroupServices/GroupMonitoringService";
+import AutoGroupManagerService from "../services/GroupServices/AutoGroupManagerService";
 import DeleteBaileysService from "../services/BaileysServices/DeleteBaileysService";
 import Baileys from "../models/Baileys";
 import Contact from "../models/Contact";
@@ -44,6 +47,7 @@ loggerBaileys.level = "error";
 import * as fs from 'fs';
 import * as fsPromises from 'fs/promises';
 import path from "path";
+import GroupSeries from "@models/GroupSeries";
 
 
 export const sessionFolder = process.env.BACKEND_SESSION_PATH;
@@ -879,13 +883,217 @@ export const initWASocket = async (whatsapp: Whatsapp): Promise<Session> => {
             }
           }
 
-          // Processamento do evento groups.upsert
-          if (events['groups.upsert']) {
-            logger.debug("Received new group");
-            events['groups.upsert'].forEach(group => {
-              groupCache.set(group.id, group);
-            });
+          if (events['group-participants.update']) {
+            try {
+              const participantUpdate = events['group-participants.update'];
+              logger.debug(`Recebida atualização de participantes no grupo: ${participantUpdate.id}`);
+              
+              const event = events['group-participants.update'];
+              const metadata = await wsocket.groupMetadata(event.id);
+              groupCache.set(event.id, metadata);
+
+              // Verificar se é um grupo gerenciado
+              const managedGroup = await Groups.findOne({
+                where: {
+                  jid: participantUpdate.id,
+                  isManaged: true,
+                  companyId: whatsapp.companyId
+                }
+              });
+          
+              if (managedGroup) {
+                logger.info(`[GRUPO GERENCIADO] Atualização detectada no grupo ${managedGroup.subject}`);
+                
+                try {
+                  // Atualizar metadados do grupo
+                  const groupMetadata = await wsocket.groupMetadata(participantUpdate.id);
+                  
+                  // Enriquecer participantes
+                  const enrichedParticipants = groupMetadata.participants.map(p => ({
+                    id: p.id,
+                    number: p.id.split('@')[0],
+                    isAdmin: p.admin === 'admin' || p.admin === 'superadmin',
+                    admin: p.admin,
+                    name: null,
+                    contact: null
+                  }));
+          
+                  // Extrair administradores
+                  const adminParticipants = enrichedParticipants
+                    .filter(p => p.admin === 'admin' || p.admin === 'superadmin')
+                    .map(p => p.id);
+          
+                  // Atualizar grupo no banco
+                  await managedGroup.update({
+                    participants: JSON.stringify(groupMetadata.participants),
+                    participantsJson: enrichedParticipants,
+                    adminParticipants,
+                    lastSync: new Date()
+                  });
+          
+                  const currentCount = enrichedParticipants.length;
+                  const occupancyPercentage = (currentCount / managedGroup.maxParticipants) * 100;
+                  
+                  logger.info(`[GRUPO GERENCIADO] ${managedGroup.subject}: ${currentCount}/${managedGroup.maxParticipants} participantes (${occupancyPercentage.toFixed(1)}%)`);
+          
+                  // Verificar se precisa criar próximo grupo
+                  if (managedGroup.shouldCreateNextGroup()) {
+                    logger.info(`[GRUPO GERENCIADO] Grupo ${managedGroup.subject} atingiu limite, iniciando criação do próximo`);
+                    
+                    // Executar em background para não bloquear
+                    setImmediate(async () => {
+                      try {
+                        if (managedGroup.groupSeries) {
+                          // Verificar novamente se ainda precisa (pode ter sido criado por outro processo)
+                          const updatedGroup = await Groups.findByPk(managedGroup.id);
+                          if (updatedGroup && updatedGroup.shouldCreateNextGroup()) {
+                            
+                            // Verificar se já existe um grupo mais novo na série
+                            const newerGroup = await Groups.findOne({
+                              where: {
+                                groupSeries: managedGroup.groupSeries,
+                                companyId: managedGroup.companyId,
+                                groupNumber: {
+                                  [require('sequelize').Op.gt]: managedGroup.groupNumber
+                                }
+                              }
+                            });
+          
+                            if (!newerGroup) {
+                              const newGroup = await AutoGroupManagerService.forceCreateNextGroup(
+                                managedGroup.groupSeries,
+                                managedGroup.companyId
+                              );
+                              
+                              logger.info(`[GRUPO GERENCIADO] Novo grupo criado automaticamente: ${newGroup.subject}`);
+                              
+                              // Emitir evento via socket
+                              io.to(`company-${managedGroup.companyId}-mainchannel`).emit("auto-group-created", {
+                                action: "participant_limit_reached",
+                                trigger: "real_time_update",
+                                oldGroup: {
+                                  id: managedGroup.id,
+                                  name: managedGroup.subject,
+                                  participantCount: currentCount,
+                                  occupancyPercentage: occupancyPercentage
+                                },
+                                newGroup: {
+                                  id: newGroup.id,
+                                  name: newGroup.subject,
+                                  inviteLink: newGroup.inviteLink
+                                }
+                              });
+                            } else {
+                              logger.info(`[GRUPO GERENCIADO] Grupo mais novo já existe na série ${managedGroup.groupSeries}`);
+                            }
+                          }
+                        }
+                      } catch (createError) {
+                        logger.error(`[GRUPO GERENCIADO] Erro ao criar próximo grupo automaticamente: ${createError.message}`);
+                      }
+                    });
+                  }
+          
+                  // Desativar grupo se estiver cheio
+                  if (managedGroup.isFull() && managedGroup.isActive) {
+                    await managedGroup.update({ isActive: false });
+                    logger.info(`[GRUPO GERENCIADO] Grupo ${managedGroup.subject} desativado (cheio)`);
+                    
+                    // Emitir evento de desativação
+                    io.to(`company-${managedGroup.companyId}-mainchannel`).emit("auto-group-deactivated", {
+                      action: "group_full",
+                      group: {
+                        id: managedGroup.id,
+                        name: managedGroup.subject,
+                        participantCount: currentCount,
+                        maxParticipants: managedGroup.maxParticipants
+                      }
+                    });
+                  }
+          
+                  // Emitir estatísticas atualizadas
+                  io.to(`company-${managedGroup.companyId}-mainchannel`).emit("group-stats-update", {
+                    action: "participant_update",
+                    groupId: managedGroup.id,
+                    groupName: managedGroup.subject,
+                    participantCount: currentCount,
+                    maxParticipants: managedGroup.maxParticipants,
+                    occupancyPercentage: occupancyPercentage,
+                    isNearCapacity: managedGroup.isNearCapacity(),
+                    isFull: managedGroup.isFull(),
+                    isActive: managedGroup.isActive
+                  });
+          
+                } catch (updateError) {
+                  logger.error(`[GRUPO GERENCIADO] Erro ao atualizar grupo ${managedGroup.subject}: ${updateError.message}`);
+                }
+              }
+          
+              // Continuar com o processamento normal dos eventos (código existente)
+              try {
+                const event = events['group-participants.update'];
+                const metadata = await wsocket.groupMetadata(event.id);
+                groupCache.set(event.id, metadata);
+              } catch (error) {
+                groupCache.del(events['group-participants.update'].id);
+                logger.error(`Erro ao atualizar participantes do grupo: ${error}`);
+              }
+          
+            } catch (error) {
+              groupCache.del(events['group-participants.update'].id);
+              logger.error(`Erro ao atualizar participantes do grupo: ${error}`);
+              logger.error(`[GRUPO GERENCIADO] Erro no processamento de group-participants.update: ${error.message}`);
+            }
           }
+          
+
+          // Processamento do evento groups.upsert
+// Processamento do evento groups.upsert (ATUALIZADO)
+if (events['groups.upsert']) {
+  logger.debug("Received new group");
+  
+  for (const group of events['groups.upsert']) {
+    groupCache.set(group.id, group);
+    
+    // Verificar se é um grupo que deveria ser gerenciado
+    try {
+      const existingGroup = await Groups.findOne({
+        where: {
+          jid: group.id,
+          companyId: whatsapp.companyId
+        }
+      });
+
+      if (!existingGroup) {
+        // Verificar se foi criado por uma série gerenciada
+        const recentGroupSeries = await GroupSeries.findAll({
+          where: {
+            companyId: whatsapp.companyId,
+            whatsappId: whatsapp.id,
+            autoCreateEnabled: true
+          },
+          limit: 10
+        });
+
+        for (const series of recentGroupSeries) {
+          // Verificar se o nome do grupo corresponde ao padrão da série
+          if (group.subject && 
+              (group.subject === series.baseGroupName || 
+               group.subject.startsWith(`${series.baseGroupName} #`))) {
+            
+            logger.info(`[GRUPO GERENCIADO] Novo grupo detectado para série ${series.name}: ${group.subject}`);
+            
+            // Este grupo pode ter sido criado externamente mas corresponde à série
+            // Registrar como grupo gerenciado se apropriado
+            break;
+          }
+        }
+      }
+    } catch (error) {
+      logger.error(`[GRUPO GERENCIADO] Erro ao verificar novo grupo: ${error.message}`);
+    }
+  }
+}
 
           // Processamento do evento groups.update
           if (events['groups.update']) {
@@ -897,19 +1105,6 @@ export const initWASocket = async (whatsapp: Whatsapp): Promise<Session> => {
               } catch (error) {
                 logger.error(`Erro ao atualizar metadados do grupo: ${error}`);
               }
-            }
-          }
-
-          // Processamento do evento group-participants.update
-          if (events['group-participants.update']) {
-            logger.debug("Received group participants update");
-            try {
-              const event = events['group-participants.update'];
-              const metadata = await wsocket.groupMetadata(event.id);
-              groupCache.set(event.id, metadata);
-            } catch (error) {
-              groupCache.del(events['group-participants.update'].id);
-              logger.error(`Erro ao atualizar participantes do grupo: ${error}`);
             }
           }
         });

@@ -3,6 +3,8 @@ import LandingPageService from '../services/LandingPageServices/LandingPageServi
 import { sanitizeHtml, slugify } from '../utils/stringUtils';
 import { generateQRCode } from '../utils/qrCodeUtils';
 import AppError from '../errors/AppError';
+import LandingPage from '@models/LandingPage';
+import Company from '@models/Company';
 
 export class LandingPageController {
   /**
@@ -279,6 +281,77 @@ export class LandingPageController {
       return res.status(500).json({ available: false, error: error.message });
     }
   }
+
+  private validateId(value: any, type: string, errorMessage = 'ID inválido'): number {
+    if (value === undefined || value === null) {
+      throw new AppError(errorMessage, 400);
+    }
+
+    if (type === 'companyId') {
+      const existingCompany = Company.findOne({
+        where: {
+          id: value,
+        }
+      });
+      if (!existingCompany) {
+        throw new AppError('Empresa não encontrada', 404);
+      }
+    }
+
+    if (type === 'id') {
+      const existingPage = LandingPage.findOne({
+        where: {
+          id: value,
+        }
+      });
+      if (!existingPage) {
+        throw new AppError('Landing page não encontrada', 404);
+      }
+    }
+      
+    
+    
+    const parsedValue = parseInt(String(value), 10);
+    
+    if (isNaN(parsedValue) || parsedValue <= 0) {
+      throw new AppError(errorMessage, 400);
+    }
+    
+    return parsedValue;
+  }
+
+  /**
+ * Obtém o link de convite ativo da landing page
+ */
+async getActiveInviteLink(req: Request, res: Response) {
+  try {
+    const { id } = req.params;
+    const companyId = req.user.companyId;
+    
+    const validId = this.validateId(id, 'ID da landing page inválido');
+    const validCompanyId = this.validateId(companyId, 'ID da empresa inválido');
+    
+    const landingPageService = new LandingPageService(validCompanyId);
+    const inviteLink = await landingPageService.getActiveInviteLink(validId, validCompanyId);
+    
+    if (!inviteLink) {
+      return res.status(404).json({ 
+        error: 'Nenhum grupo ativo disponível para esta landing page' 
+      });
+    }
+    
+    return res.status(200).json({ 
+      inviteLink,
+      timestamp: new Date()
+    });
+  } catch (error) {
+    console.error('Erro ao obter link de convite ativo:', error);
+    return res.status(500).json({ 
+      error: 'Erro ao obter link de convite ativo',
+      message: error.message 
+    });
+  }
+}
   
   /**
    * Gera QR Code para a URL da landing page

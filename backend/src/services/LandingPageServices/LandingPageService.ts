@@ -1,16 +1,20 @@
 import { Op } from 'sequelize';
-import LandingPage from '../../models/LandingPage';
+import LandingPage, { AdvancedConfig } from '../../models/LandingPage';
 import DynamicForm from '../../models/DynamicForm';
 import FormSubmission from '../../models/FormSubmission';
 import { sanitizeHtml, slugify } from '../../utils/stringUtils';
 import { generateQRCode } from '../../utils/qrCodeUtils';
 import { getWbot } from "../../libs/wbot";
+import Groups from "../../models/Groups";
 import { SendPresenceStatus } from "../../helpers/SendPresenceStatus";
 import CreateOrUpdateContactService from "../ContactServices/CreateOrUpdateContactService";
 import AppError from "../../errors/AppError";
 import { verifyMessage } from "../WbotServices/MessageListener/Verifiers/VerifyMessage";
 import { logger } from "../../utils/logger";
 import GetDefaultWhatsApp from "../../helpers/GetDefaultWhatsApp";
+import GroupSeries from '@models/GroupSeries';
+import Whatsapp from '@models/Whatsapp';
+import AutoGroupManagerService from '@services/GroupServices/AutoGroupManagerService';
 
 export class LandingPageService {
   private companyId: number;
@@ -201,6 +205,154 @@ export class LandingPageService {
   }
 
   /**
+ * Método para configurar grupo gerenciado ao criar/atualizar landing page
+ */
+private async setupManagedGroupSeries(
+  landingPage: LandingPage, 
+  advancedConfig: AdvancedConfig, 
+  companyId: number, 
+  whatsappId?: number
+): Promise<void> {
+  try {
+    if (!advancedConfig.managedGroupSeries?.enabled) {
+      return;
+    }
+
+    const config = advancedConfig.managedGroupSeries;
+    
+    // Determinar nome da série
+    const seriesName = config.seriesName || `landing-${landingPage.slug}-${landingPage.id}`;
+    
+    // Verificar se já existe
+    const existingSeries = await GroupSeries.findOne({
+      where: { 
+        name: seriesName, 
+        companyId 
+      }
+    });
+
+    if (existingSeries) {
+      // Atualizar série existente se necessário
+      await existingSeries.update({
+        landingPageId: landingPage.id,
+        maxParticipants: config.maxParticipants || 256,
+        thresholdPercentage: config.thresholdPercentage || 95.0,
+        autoCreateEnabled: true
+      });
+      
+      logger.info(`[LandingPage] Série de grupos atualizada: ${seriesName}`);
+    } else if (config.autoCreate) {
+      // Criar nova série automaticamente
+      
+      // Determinar WhatsApp a usar
+      let targetWhatsappId = whatsappId;
+      
+      if (!targetWhatsappId && advancedConfig.notificationConnectionId) {
+        targetWhatsappId = advancedConfig.notificationConnectionId;
+      }
+      
+      if (!targetWhatsappId) {
+        // Buscar WhatsApp padrão da empresa
+        const defaultWhatsapp = await Whatsapp.findOne({
+          where: { 
+            companyId, 
+            status: 'CONNECTED' 
+          },
+          order: [['id', 'ASC']]
+        });
+        
+        if (defaultWhatsapp) {
+          targetWhatsappId = defaultWhatsapp.id;
+        }
+      }
+
+      if (!targetWhatsappId) {
+        throw new Error('Nenhuma conexão WhatsApp disponível para criar série de grupos');
+      }
+
+      // Criar série
+      await AutoGroupManagerService.createGroupSeries({
+        name: seriesName,
+        baseGroupName: landingPage.title,
+        description: `Grupos para landing page: ${landingPage.title}`,
+        maxParticipants: config.maxParticipants || 256,
+        thresholdPercentage: config.thresholdPercentage || 95.0,
+        companyId,
+        whatsappId: targetWhatsappId,
+        landingPageId: landingPage.id,
+        createFirstGroup: true
+      });
+
+      logger.info(`[LandingPage] Nova série de grupos criada: ${seriesName}`);
+
+      // Atualizar landing page com o nome da série
+      await landingPage.update({
+        advancedConfig: {
+          ...advancedConfig,
+          managedGroupSeries: {
+            ...config,
+            seriesName
+          }
+        }
+      });
+    }
+
+  } catch (error) {
+    logger.error(`[LandingPage] Erro ao configurar série de grupos: ${error.message}`);
+    // Não falhar a criação da landing page por causa disso
+  }
+}
+
+/**
+ * Obtém o link de convite ativo para a landing page
+ */
+async getActiveInviteLink(id: number, companyId: number): Promise<string | null> {
+  try {
+    const validId = this.validateId(id, 'ID da landing page inválido');
+    const validCompanyId = this.validateId(companyId, 'ID da empresa inválido');
+    
+    const landingPage = await this.findById(validId, validCompanyId);
+    
+    if (!landingPage) {
+      throw new AppError('Landing page não encontrada', 404);
+    }
+
+    // Verificar se usa grupos gerenciados
+    if (landingPage.advancedConfig?.managedGroupSeries?.enabled) {
+      const seriesName = landingPage.advancedConfig.managedGroupSeries.seriesName;
+      
+      if (seriesName) {
+        const activeGroup = await AutoGroupManagerService.getActiveGroupForSeries(seriesName, validCompanyId);
+        
+        if (activeGroup?.inviteLink) {
+          return activeGroup.inviteLink;
+        }
+      }
+    }
+    
+    // Fallback para configuração tradicional
+    if (landingPage.advancedConfig?.inviteGroupId) {
+      const group = await Groups.findOne({
+        where: {
+          id: landingPage.advancedConfig.inviteGroupId,
+          companyId: validCompanyId
+        }
+      });
+      
+      if (group?.inviteLink) {
+        return group.inviteLink;
+      }
+    }
+
+    return null;
+
+  } catch (error) {
+    logger.error(`Erro ao obter link de convite ativo: ${error.message}`);
+    return null;
+  }
+}
+
+  /**
    * Cria uma nova landing page
    */
   async create(data: any, companyId: number, userId: number) {
@@ -270,6 +422,14 @@ export class LandingPageService {
         ...data,
         companyId: validCompanyId
       });
+
+      if (data.advancedConfig?.managedGroupSeries?.enabled) {
+        await this.setupManagedGroupSeries(
+          landingPage, 
+          data.advancedConfig, 
+          validCompanyId
+        );
+      }
       
       // Criar formulário padrão se formConfig.showForm estiver ativado
       if (data.formConfig?.showForm) {
@@ -372,9 +532,19 @@ export class LandingPageService {
       
       // Atualizar landing page
       await landingPage.update(data);
+
+
       
       // Buscar a landing page atualizada com formulários
       const updatedLandingPage = await this.findById(validId, validCompanyId);
+
+      if (data.advancedConfig?.managedGroupSeries?.enabled) {
+        await this.setupManagedGroupSeries(
+          updatedLandingPage, 
+          data.advancedConfig, 
+          validCompanyId
+        );
+      }
       
       return updatedLandingPage;
     } catch (error) {

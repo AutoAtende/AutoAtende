@@ -33,6 +33,7 @@ import Email from "../models/Email";
 import Files from "../models/Files";
 import FilesOptions from "../models/FilesOptions";
 import Groups from "../models/Groups";
+import GroupSeries from "../models/GroupSeries";
 import Help from "../models/Help";
 import InactivityMessage from "../models/InactivityMessage";
 import InvoiceLogs from "../models/InvoiceLogs";
@@ -218,7 +219,8 @@ const models = [
   FormSubmission,
   LandingPage,
   LandingPageMedia,
-  DashboardCache
+  DashboardCache,
+  GroupSeries
 ];
 
 sequelize.addModels(models);

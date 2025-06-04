@@ -1,99 +1,139 @@
 import {
   Table,
   Column,
-  CreatedAt,
-  UpdatedAt,
   Model,
+  DataType,
   PrimaryKey,
   AutoIncrement,
-  Default,
-  BelongsTo,
-  DataType,
+  CreatedAt,
+  UpdatedAt,
   ForeignKey,
-  AllowNull
-} from "sequelize-typescript";
-import Company from "./Company";
-import Whatsapp from "./Whatsapp";
+  BelongsTo,
+  AllowNull,
+  Default,
+  Comment
+} from 'sequelize-typescript';
+import Company from './Company';
+import Whatsapp from './Whatsapp';
 
 interface GroupParticipant {
   id: string;
-  admin?: 'admin' | 'superadmin' | null;
+  number: string;
+  isAdmin: boolean;
+  admin?: string;
+  name?: string;
+  contact?: any;
 }
 
-@Table
+@Table({
+  tableName: 'Groups',
+  timestamps: true
+})
 class Groups extends Model<Groups> {
   @PrimaryKey
   @AutoIncrement
-  @Column
+  @Column(DataType.INTEGER)
   id: number;
 
-  @Default(null)
-  @Column
+  @AllowNull(false)
+  @Column(DataType.STRING)
   jid: string;
 
-  @Default(null)
-  @Column
-  profilePic: string;
-  
-  @Default(null)
-  @Column
-  profilePicOriginal: string;
-
-  @Default(null)
-  @Column
+  @AllowNull(false)
+  @Column(DataType.STRING)
   subject: string;
 
-  @Default(null)
-  @Column
-  participants: string;
-
-  @Column({
-    type: DataType.JSONB
-  })
-  participantsJson: GroupParticipant[];
-  
-  @Column({
-    type: DataType.JSONB
-  })
-  adminParticipants: [];
-  
-  @Default(null)
-  @Column
-  inviteLink: string;
-  
-  @Default(null)
   @Column(DataType.TEXT)
   description: string;
-  
-  @Column({
-    type: DataType.JSONB
-  })
-  settings: any;
 
-  // Novas colunas para melhor gerenciamento
-  @AllowNull(true)
+  @Column(DataType.TEXT)
+  participants: string;
+
+  @Column(DataType.JSONB)
+  participantsJson: GroupParticipant[];
+
+  @Column(DataType.ARRAY(DataType.STRING))
+  adminParticipants: string[];
+
+  @Column(DataType.STRING)
+  inviteLink: string;
+
+  @Column(DataType.ARRAY(DataType.STRING))
+  settings: string[];
+
+  @Column(DataType.STRING)
+  profilePic: string;
+
+  @Column(DataType.STRING)
+  profilePicOriginal: string;
+
+  @Column(DataType.STRING)
+  userRole: string;
+
+  @Column(DataType.DATE)
+  lastSync: Date;
+
+  @Default("synced")
+  @Column(DataType.STRING)
+  syncStatus: string;
+
+  // Novas colunas para gerenciamento automático
+  @Default(false)
+  @AllowNull(false)
+  @Column(DataType.BOOLEAN)
+  @Comment('Indica se o grupo faz parte de um gerenciamento automático')
+  isManaged: boolean;
+
+  @Column(DataType.STRING)
+  @Comment('Identificador da série de grupos')
+  groupSeries: string;
+
+  @Column(DataType.INTEGER)
+  @Comment('Número sequencial do grupo na série')
+  groupNumber: number;
+
+  @Default(256)
+  @AllowNull(false)
+  @Column(DataType.INTEGER)
+  @Comment('Número máximo de participantes para este grupo')
+  maxParticipants: number;
+
+  @Default(true)
+  @AllowNull(false)
+  @Column(DataType.BOOLEAN)
+  @Comment('Indica se o grupo está ativo para receber novos participantes')
+  isActive: boolean;
+
+  @Column(DataType.STRING)
+  @Comment('Nome base para grupos da série')
+  baseGroupName: string;
+
+  @Default(false)
+  @AllowNull(false)
+  @Column(DataType.BOOLEAN)
+  @Comment('Se deve criar automaticamente o próximo grupo da série')
+  autoCreateNext: boolean;
+
+  @Default(95.0)
+  @AllowNull(false)
+  @Column(DataType.DECIMAL(5, 2))
+  @Comment('Porcentagem de ocupação que dispara a criação do próximo grupo')
+  thresholdPercentage: number;
+
+  @ForeignKey(() => Company)
+  @AllowNull(false)
+  @Column(DataType.INTEGER)
+  companyId: number;
+
+  @BelongsTo(() => Company)
+  company: Company;
+
   @ForeignKey(() => Whatsapp)
-  @Column
+  @Column(DataType.INTEGER)
   whatsappId: number;
 
   @BelongsTo(() => Whatsapp)
   whatsapp: Whatsapp;
-
-  @Default("unknown")
-  @Column(DataType.ENUM("admin", "participant", "unknown"))
-  userRole: string;
-
-  @Default(true)
-  @Column(DataType.BOOLEAN)
-  isActive: boolean;
-
-  @AllowNull(true)
-  @Column(DataType.DATE)
-  lastSync: Date;
-
-  @Default("pending")
-  @Column(DataType.ENUM("pending", "syncing", "synced", "error"))
-  syncStatus: string;
 
   @CreatedAt
   createdAt: Date;
@@ -101,44 +141,52 @@ class Groups extends Model<Groups> {
   @UpdatedAt
   updatedAt: Date;
 
-  @ForeignKey(() => Company)
-  @Column
-  companyId: number;
-
-  @BelongsTo(() => Company)
-  company: Company;
-
-  // Métodos de instância para facilitar o uso
-  isUserAdmin(): boolean {
-    return this.userRole === "admin";
+  // Métodos para gerenciamento automático
+  getCurrentParticipantCount(): number {
+    return this.participantsJson ? this.participantsJson.length : 0;
   }
 
-  isUserParticipant(): boolean {
-    return this.userRole === "participant";
+  getCurrentOccupancyPercentage(): number {
+    const currentCount = this.getCurrentParticipantCount();
+    return (currentCount / this.maxParticipants) * 100;
   }
 
-  canManage(): boolean {
-    return this.userRole === "admin";
+  isNearCapacity(): boolean {
+    return this.getCurrentOccupancyPercentage() >= this.thresholdPercentage;
   }
 
-  canExtractContacts(): boolean {
-    return this.userRole === "admin" || this.userRole === "participant";
+  isFull(): boolean {
+    return this.getCurrentParticipantCount() >= this.maxParticipants;
   }
 
-  getParticipantsCount(): number {
-    if (!this.participantsJson || !Array.isArray(this.participantsJson)) {
-      return 0;
+  // Método para verificar se deve criar próximo grupo
+  shouldCreateNextGroup(): boolean {
+    return this.isManaged && 
+           this.autoCreateNext && 
+           this.isActive && 
+           this.isNearCapacity();
+  }
+
+  // Método para desativar grupo quando atingir capacidade
+  async deactivateIfFull(): Promise<void> {
+    if (this.isFull() && this.isActive) {
+      await this.update({ 
+        isActive: false,
+        syncStatus: 'full'
+      });
     }
-    return this.participantsJson.length;
   }
 
-  getAdminsCount(): number {
-    if (!this.participantsJson || !Array.isArray(this.participantsJson)) {
-      return 0;
+  // Método para gerar nome do próximo grupo na série
+  getNextGroupName(): string {
+    if (!this.groupSeries || !this.baseGroupName) {
+      return this.subject;
     }
-    return this.participantsJson.filter(p => 
-      p.admin === 'admin' || p.admin === 'superadmin'
-    ).length;
+
+    const nextNumber = (this.groupNumber || 1) + 1;
+    return nextNumber === 2 
+      ? `${this.baseGroupName} #2`
+      : `${this.baseGroupName} #${nextNumber}`;
   }
 }
 

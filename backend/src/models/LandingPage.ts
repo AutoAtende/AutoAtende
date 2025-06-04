@@ -59,7 +59,7 @@ interface NotificationConfig {
   }
 }
 
-interface AdvancedConfig {
+export interface AdvancedConfig {
   metaPixelId?: string;
   whatsAppChatButton?: {
     enabled: boolean;
@@ -67,6 +67,15 @@ interface AdvancedConfig {
     defaultMessage?: string;
   };
   inviteGroupId?: number;
+
+  managedGroupSeries?: {
+    enabled: boolean;
+    seriesName?: string;
+    autoCreate?: boolean; // Se deve criar série automaticamente
+    maxParticipants?: number;
+    thresholdPercentage?: number;
+  };
+
   // Nova configuração para personalizar o convite do grupo
   groupInviteMessage?: {
     enabled: boolean;
