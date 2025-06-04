@@ -1,7 +1,7 @@
 import { logger } from "../../utils/logger";
 import { getIO } from "../../libs/socket";
 import Groups from "../../models/Groups";
-import AutoGroupManagerService from "./AutoGroupManagerService";
+import AutoGroupManagerService from "./AutoGroupManagerService"; //feito
 import cron from "node-cron";
 
 interface MonitoringStats {
