@@ -52,12 +52,10 @@ const Contacts = () => {
   const { Loading } = useLoading();
   const { makeRequest, setMakeRequest } = useContext(GlobalContext);
 
-  // Refs para scroll infinito
+  // Refs para infinite scroll
   const isMounted = useRef(true);
   const observerRef = useRef();
-  const containerRef = useRef(); // Ref para o container principal
-  const sentinelRef = useRef(); // Ref para o elemento sentinela
-  const lastRequestRef = useRef(""); // Para evitar requisições duplicadas
+  const loadingRef = useRef(); // Elemento observado para scroll infinito
 
   // States
   const [loading, setLoading] = useState(false);
@@ -68,7 +66,7 @@ const Contacts = () => {
   const [selectedContacts, setSelectedContacts] = useState([]);
   const [tagFilter, setTagFilter] = useState([]);
   const [hasMore, setHasMore] = useState(true);
-  const [pageNumber, setPageNumber] = useState(1);
+  const [page, setPage] = useState(1);
 
   // Modal states
   const [selectedContactId, setSelectedContactId] = useState(null);
@@ -122,31 +120,17 @@ const Contacts = () => {
     };
   };
 
-  // CORRIGIDA: Função fetchContacts com melhor controle de estado
-  const fetchContacts = useCallback(async (page = 1, isNewSearch = false) => {
-    if (!isMounted.current) return;
-
-    // Evita requisições duplicadas
-    const requestKey = `${searchParam}-${tagFilter.join(',')}-${page}`;
-    if (lastRequestRef.current === requestKey && !isNewSearch) {
-      console.log('Requisição duplicada evitada:', requestKey);
-      return;
-    }
-
-    // Evita carregar mais se já está carregando ou não há mais dados
-    if ((page > 1 && (loading || loadingMore)) || (page > 1 && !hasMore)) {
-      console.log('Carregamento evitado - Estado:', { loading, loadingMore, hasMore, page });
-      return;
-    }
+  // Função fetchContacts otimizada para infinite scroll
+  const fetchContacts = useCallback(async (pageNum, isFirstLoad = false) => {
+    if (!isMounted.current || loadingMore) return;
 
     try {
-      console.log(`🔄 Carregando contatos - Página: ${page}, Search: "${searchParam}", Tags: [${tagFilter.join(',')}]`);
-
-      lastRequestRef.current = requestKey;
-
-      if (page === 1) {
+      console.log(`🔄 Carregando página ${pageNum} - First Load: ${isFirstLoad}`);
+      
+      if (isFirstLoad) {
         setLoading(true);
-        setContacts([]); // Limpa dados anteriores
+        setContacts([]);
+        setPage(1);
       } else {
         setLoadingMore(true);
       }
@@ -156,7 +140,7 @@ const Contacts = () => {
           searchParam: searchParam.trim(),
           typeContact: "private",
           tagIds: Array.isArray(tagFilter) && tagFilter.length > 0 ? tagFilter.join(',') : undefined,
-          page: page,
+          page: pageNum,
           limit: 100
         },
       });
@@ -166,36 +150,23 @@ const Contacts = () => {
           ? data.contacts.map(normalizeContactData)
           : [];
 
-        console.log(`✅ Dados recebidos - Página: ${page}, Contatos: ${normalizedContacts.length}, Total: ${data?.count || 0}`);
+        console.log(`✅ Recebidos ${normalizedContacts.length} contatos na página ${pageNum}`);
 
-        if (page === 1 || isNewSearch) {
+        if (isFirstLoad) {
           setContacts(normalizedContacts);
-          setPageNumber(1);
         } else {
-          setContacts(prev => {
-            // Evita duplicatas baseado no ID
-            const existingIds = new Set(prev.map(c => c.id));
-            const newContacts = normalizedContacts.filter(c => !existingIds.has(c.id));
-            console.log(`📝 Adicionando ${newContacts.length} novos contatos (${normalizedContacts.length - newContacts.length} duplicatas evitadas)`);
-            return [...prev, ...newContacts];
-          });
-          setPageNumber(page);
+          setContacts(prev => [...prev, ...normalizedContacts]);
         }
 
         setContactsTotal(data?.count || 0);
-        
-        // Atualiza hasMore baseado na quantidade de dados recebidos
-        const receivedCount = normalizedContacts.length;
-        const newHasMore = receivedCount === 100; // Se recebeu exatamente 100, pode haver mais
-        setHasMore(newHasMore);
-        
-        console.log(`📊 Estado atualizado - HasMore: ${newHasMore}, Página atual: ${page}`);
+        setHasMore(normalizedContacts.length === 100);
+        setPage(pageNum);
       }
     } catch (err) {
       if (isMounted.current) {
         console.error("❌ Erro ao buscar contatos:", err);
         toast.error("Erro ao carregar contatos");
-        if (page === 1) {
+        if (isFirstLoad) {
           setContacts([]);
           setContactsTotal(0);
           setHasMore(false);
@@ -205,81 +176,58 @@ const Contacts = () => {
       if (isMounted.current) {
         setLoading(false);
         setLoadingMore(false);
-        // Limpa a chave da requisição após um delay para permitir novas requisições
-        setTimeout(() => {
-          if (lastRequestRef.current === requestKey) {
-            lastRequestRef.current = "";
-          }
-        }, 1000);
       }
     }
-  }, [searchParam, tagFilter, loading, loadingMore, hasMore]);
+  }, [searchParam, tagFilter, loadingMore]);
 
-  // Effect para carregar contatos iniciais - MELHORADO
+  // Effect para carregar dados iniciais
   useEffect(() => {
-    console.log('🔄 Recarregando dados devido a mudança nos filtros');
-    setPageNumber(1);
+    console.log('🔄 Recarregando dados - filtros mudaram');
     setHasMore(true);
-    setContacts([]); // Limpa imediatamente
-    lastRequestRef.current = ""; // Reseta controle de duplicatas
     fetchContacts(1, true);
   }, [searchParam, tagFilter, makeRequest]);
 
-  // CORRIGIDO: Intersection Observer para scroll infinito
+  // Intersection Observer para infinite scroll
   useEffect(() => {
-    // Limpar observer anterior
-    if (observerRef.current) {
-      observerRef.current.disconnect();
-      observerRef.current = null;
-    }
-
-    // Não criar observer se não há elemento sentinela ou não há mais dados
-    if (!sentinelRef.current || !hasMore || loading) {
-      console.log('🚫 Observer não criado:', { 
-        hasSentinel: !!sentinelRef.current, 
-        hasMore, 
-        loading 
-      });
+    if (!hasMore || loading || loadingMore || !loadingRef.current) {
+      console.log('🚫 Observer não criado:', { hasMore, loading, loadingMore, hasRef: !!loadingRef.current });
       return;
     }
 
-    console.log('👁️ Criando novo Intersection Observer');
+    console.log('👁️ Criando Intersection Observer para página', page + 1);
 
-    // Criar novo observer com configuração otimizada
     const observer = new IntersectionObserver(
       (entries) => {
         const entry = entries[0];
-        console.log('👁️ Observer trigger:', { 
-          isIntersecting: entry.isIntersecting,
-          hasMore,
-          loading,
+        console.log('👁️ Observer disparado:', { 
+          isIntersecting: entry.isIntersecting, 
+          hasMore, 
+          loading, 
           loadingMore,
-          pageNumber
+          nextPage: page + 1
         });
 
         if (entry.isIntersecting && hasMore && !loading && !loadingMore) {
-          const nextPage = pageNumber + 1;
-          console.log(`🚀 Carregando próxima página: ${nextPage}`);
-          fetchContacts(nextPage);
+          console.log(`🚀 Carregando próxima página: ${page + 1}`);
+          fetchContacts(page + 1, false);
         }
       },
-      { 
-        root: null, // Usar viewport como root
-        threshold: 0.1,
-        rootMargin: '100px' // Carregar com 100px de antecedência
+      {
+        root: null,
+        rootMargin: '100px',
+        threshold: 0.1
       }
     );
 
+    observer.observe(loadingRef.current);
     observerRef.current = observer;
-    observer.observe(sentinelRef.current);
 
     return () => {
       if (observerRef.current) {
         observerRef.current.disconnect();
-        observerRef.current = null;
       }
     };
-  }, [hasMore, loading, loadingMore, pageNumber, fetchContacts]);
+  }, [hasMore, loading, loadingMore, page, fetchContacts]);
 
   // Handlers
   const handleSearchChange = useCallback((event) => {
@@ -613,7 +561,8 @@ const Contacts = () => {
           setBlockingContact(normalizedContact);
           setConfirmBlockOpen(true);
         },
-        color: normalizedContact.active ? 'error' : 'success'
+        color: normalizedContact.active ? 'error' : 'success',
+        divider: true // Adiciona divisor antes desta ação
       });
     }
 
@@ -689,6 +638,62 @@ const Contacts = () => {
       : baseText;
   };
 
+  // COMPONENTE CUSTOMIZADO para renderizar conteúdo após a tabela
+  const renderTableFooter = () => {
+    if (contacts.length === 0) return null;
+
+    return (
+      <>
+        {/* Elemento observado para scroll infinito */}
+        {hasMore && (
+          <Box
+            ref={loadingRef}
+            sx={{
+              display: 'flex',
+              justifyContent: 'center',
+              alignItems: 'center',
+              padding: 2,
+              minHeight: '60px',
+              width: '100%',
+              backgroundColor: 'background.paper',
+              borderTop: '1px solid',
+              borderTopColor: 'divider'
+            }}
+          >
+            {loadingMore ? (
+              <>
+                <CircularProgress size={24} />
+                <Typography variant="body2" sx={{ ml: 1 }}>
+                  Carregando mais contatos...
+                </Typography>
+              </>
+            ) : (
+              <Typography variant="body2" color="textSecondary">
+                Role para carregar mais contatos
+              </Typography>
+            )}
+          </Box>
+        )}
+
+        {/* Indicador de fim dos dados */}
+        {!hasMore && (
+          <Box sx={{ 
+            display: 'flex', 
+            justifyContent: 'center', 
+            padding: 2,
+            backgroundColor: 'background.paper',
+            borderTop: '1px solid',
+            borderTopColor: 'divider'
+          }}>
+            <Typography variant="body2" color="textSecondary">
+              Todos os contatos foram carregados ({contacts.length} de {contactsTotal})
+            </Typography>
+          </Box>
+        )}
+      </>
+    );
+  };
+
   return (
     <>
       <StandardPageLayout
@@ -700,15 +705,6 @@ const Contacts = () => {
         showSearch={true}
         actions={[...pageActions, ...bulkActions]}
         loading={loading}
-        containerProps={{
-          ref: containerRef,
-          sx: {
-            display: 'flex',
-            flexDirection: 'column',
-            height: '100vh',
-            overflow: 'hidden'
-          }
-        }}
       >
         {/* Filtro de tags */}
         <Box sx={{ mb: 3, maxWidth: 300, flexShrink: 0 }}>
@@ -719,13 +715,14 @@ const Contacts = () => {
           />
         </Box>
 
-        {/* Container da tabela com overflow controlado */}
+        {/* Container principal com scroll controlado */}
         <Box sx={{ 
-          flex: 1, 
-          overflow: 'auto',
-          display: 'flex',
-          flexDirection: 'column'
+          display: 'flex', 
+          flexDirection: 'column',
+          flex: 1,
+          minHeight: 0 // Importante para o scroll funcionar
         }}>
+          {/* Tabela de contatos */}
           <StandardDataTable
             data={contacts}
             columns={columns}
@@ -734,10 +731,10 @@ const Contacts = () => {
             selectedItems={selectedContacts}
             onSelectionChange={setSelectedContacts}
             actions={getTableActions}
-            stickyHeader={true} // Desabilitado para melhor compatibilidade
+            stickyHeader={false}
             size="small"
-            hover={false}
-            maxVisibleActions={2}
+            hover={true}
+            maxVisibleActions={2} // Mostra 1 ação direta + menu com o resto
             emptyIcon={<ContactIcon />}
             emptyTitle="Nenhum contato encontrado"
             emptyDescription="Não há contatos cadastrados para os filtros selecionados."
@@ -746,85 +743,41 @@ const Contacts = () => {
             containerProps={{
               sx: {
                 flex: 1,
-                overflow: 'visible'
+                display: 'flex',
+                flexDirection: 'column',
+                overflow: 'hidden', // Evita scroll duplo
+                '& .MuiTable-root': {
+                  flex: 1
+                }
               }
             }}
           />
 
-          {/* CORRIGIDO: Elemento sentinela para scroll infinito */}
-          {hasMore && contacts.length > 0 && (
-            <Box
-              ref={sentinelRef}
-              sx={{
-                height: '20px',
-                width: '100%',
-                backgroundColor: 'transparent',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                margin: '10px 0'
-              }}
-            >
-              {/* Elemento visível para debug (remover em produção) */}
-              {process.env.NODE_ENV === 'development' && (
-                <Typography variant="caption" color="textSecondary">
-                  Sentinela - HasMore: {hasMore ? 'true' : 'false'}
-                </Typography>
-              )}
-            </Box>
-          )}
-
-          {/* Loading indicator para infinite scroll */}
-          {loadingMore && (
-            <Box sx={{ 
-              display: 'flex', 
-              justifyContent: 'center', 
-              alignItems: 'center',
-              padding: 2,
-              flexShrink: 0
-            }}>
-              <CircularProgress size={24} />
-              <Typography variant="body2" sx={{ ml: 1 }}>
-                Carregando mais contatos...
-              </Typography>
-            </Box>
-          )}
-
-          {/* Indicador de fim dos dados */}
-          {!hasMore && contacts.length > 0 && (
-            <Box sx={{ 
-              display: 'flex', 
-              justifyContent: 'center', 
-              padding: 2,
-              flexShrink: 0
-            }}>
-              <Typography variant="body2" color="textSecondary">
-                Todos os contatos foram carregados ({contacts.length} de {contactsTotal})
-              </Typography>
-            </Box>
-          )}
-
-          {/* Debug info (remover em produção) */}
-          {process.env.NODE_ENV === 'development' && (
-            <Box sx={{ 
-              position: 'fixed',
-              top: 10,
-              right: 10,
-              background: 'rgba(0,0,0,0.8)',
-              color: 'white',
-              padding: 1,
-              borderRadius: 1,
-              fontSize: '0.75rem',
-              zIndex: 9999
-            }}>
-              <div>Contatos: {contacts.length}/{contactsTotal}</div>
-              <div>Página: {pageNumber}</div>
-              <div>HasMore: {hasMore ? 'true' : 'false'}</div>
-              <div>Loading: {loading ? 'true' : 'false'}</div>
-              <div>LoadingMore: {loadingMore ? 'true' : 'false'}</div>
-            </Box>
-          )}
+          {/* Footer da tabela com elementos do infinite scroll */}
+          {renderTableFooter()}
         </Box>
+
+        {/* Debug info (desenvolvimento) */}
+        {process.env.NODE_ENV === 'development' && (
+          <Box sx={{ 
+            position: 'fixed',
+            bottom: 10,
+            right: 10,
+            background: 'rgba(0,0,0,0.8)',
+            color: 'white',
+            padding: 1,
+            borderRadius: 1,
+            fontSize: '0.75rem',
+            zIndex: 9999
+          }}>
+            <div>📄 Página: {page}</div>
+            <div>📊 Contatos: {contacts.length}/{contactsTotal}</div>
+            <div>➡️ HasMore: {hasMore ? '✅' : '❌'}</div>
+            <div>🔄 Loading: {loading ? '✅' : '❌'}</div>
+            <div>⏳ LoadingMore: {loadingMore ? '✅' : '❌'}</div>
+            <div>👁️ Observer: {loadingRef.current ? '✅' : '❌'}</div>
+          </Box>
+        )}
       </StandardPageLayout>
 
       {/* Modais */}

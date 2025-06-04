@@ -31,7 +31,6 @@ import { styled, useTheme } from '@mui/material/styles';
 
 // Componentes
 import TableRowSkeleton from './TableRowSkeleton';
-import StandardEmptyState from './StandardEmptyState';
 
 // Styled Components - SEM altura fixa ou overflow
 const StyledTableContainer = styled(TableContainer)(({ theme }) => ({
@@ -88,8 +87,6 @@ const StyledTableRow = styled(TableRow)(({ theme }) => ({
     verticalAlign: 'middle'
   }
 }));
-
-// REMOVIDO: EmptyStateContainer com minHeight
 
 const ActionsContainer = styled(Box)(({ theme }) => ({
   display: 'flex',
@@ -159,10 +156,12 @@ const TableEmptyState = ({
   );
 };
 
-// Componente de Ações Inline - INDIVIDUAL, sem MoreVert
+// CORRIGIDO: Componente de Ações com Menu MoreVert
 const InlineActions = ({ actions = [], item, maxVisibleActions = 3 }) => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+  const [menuAnchor, setMenuAnchor] = useState(null);
+  const menuOpen = Boolean(menuAnchor);
   
   // Garantir que actions seja sempre um array e seja uma função
   const resolvedActions = typeof actions === 'function' ? actions(item) : (Array.isArray(actions) ? actions : []);
@@ -171,12 +170,41 @@ const InlineActions = ({ actions = [], item, maxVisibleActions = 3 }) => {
     return null;
   }
   
-  // NO MOBILE: mostrar apenas 2 ações principais
-  // NO DESKTOP: mostrar todas as ações individuais
-  const visibleActions = isMobile ? resolvedActions.slice(0, 2) : resolvedActions;
+  // Definir quantas ações mostrar diretamente
+  const maxDirectActions = isMobile ? 1 : Math.max(1, maxVisibleActions - 1); // Sempre deixa espaço para o menu se necessário
+  
+  // Separar ações visíveis e ações do menu
+  const hasMenuActions = resolvedActions.length > maxDirectActions;
+  const visibleActions = hasMenuActions 
+    ? resolvedActions.slice(0, maxDirectActions)
+    : resolvedActions;
+  const menuActions = hasMenuActions 
+    ? resolvedActions.slice(maxDirectActions)
+    : [];
+
+  const handleMenuOpen = (event) => {
+    event.stopPropagation();
+    setMenuAnchor(event.currentTarget);
+  };
+
+  const handleMenuClose = (event) => {
+    if (event) {
+      event.stopPropagation();
+    }
+    setMenuAnchor(null);
+  };
+
+  const handleMenuItemClick = (event, action) => {
+    event.stopPropagation();
+    handleMenuClose();
+    if (action.onClick) {
+      action.onClick(item);
+    }
+  };
 
   return (
     <ActionsContainer onClick={(e) => e.stopPropagation()}>
+      {/* Ações visíveis diretamente */}
       {visibleActions.map((action, index) => (
         <Tooltip key={index} title={action.label} arrow placement="top">
           <IconButton
@@ -217,6 +245,97 @@ const InlineActions = ({ actions = [], item, maxVisibleActions = 3 }) => {
           </IconButton>
         </Tooltip>
       ))}
+
+      {/* Botão "Mais ações" se houver ações no menu */}
+      {hasMenuActions && (
+        <>
+          <Tooltip title="Mais ações" arrow placement="top">
+            <IconButton
+              size="small"
+              onClick={handleMenuOpen}
+              sx={{
+                color: 'text.secondary',
+                '&:hover': {
+                  backgroundColor: 'action.hover',
+                  color: 'text.primary'
+                }
+              }}
+            >
+              <MoreVertIcon fontSize="small" />
+            </IconButton>
+          </Tooltip>
+
+          <Menu
+            anchorEl={menuAnchor}
+            open={menuOpen}
+            onClose={handleMenuClose}
+            onClick={(e) => e.stopPropagation()}
+            anchorOrigin={{
+              vertical: 'bottom',
+              horizontal: 'right',
+            }}
+            transformOrigin={{
+              vertical: 'top',
+              horizontal: 'right',
+            }}
+            slotProps={{
+              paper: {
+                sx: {
+                  boxShadow: theme.shadows[8],
+                  borderRadius: 2,
+                  minWidth: 160,
+                  border: `1px solid ${theme.palette.divider}`,
+                  '& .MuiMenuItem-root': {
+                    padding: theme.spacing(1, 2),
+                    minHeight: 'auto',
+                    gap: theme.spacing(1.5),
+                    '&:hover': {
+                      backgroundColor: theme.palette.action.hover,
+                    }
+                  }
+                }
+              }
+            }}
+          >
+            {menuActions.map((action, index) => (
+              <React.Fragment key={index}>
+                {action.divider && index > 0 && <Divider />}
+                <MenuItem
+                  onClick={(event) => handleMenuItemClick(event, action)}
+                  disabled={action.disabled}
+                  sx={{
+                    color: action.color === 'error' 
+                      ? 'error.main' 
+                      : action.color === 'success'
+                        ? 'success.main'
+                        : action.color === 'primary'
+                          ? 'primary.main'
+                          : 'text.primary',
+                  }}
+                >
+                  {action.icon && (
+                    <ListItemIcon 
+                      sx={{ 
+                        minWidth: 'auto',
+                        color: 'inherit'
+                      }}
+                    >
+                      {action.icon}
+                    </ListItemIcon>
+                  )}
+                  <ListItemText 
+                    primary={action.label}
+                    primaryTypographyProps={{
+                      fontSize: '0.875rem',
+                      fontWeight: action.color === 'error' ? 500 : 400
+                    }}
+                  />
+                </MenuItem>
+              </React.Fragment>
+            ))}
+          </Menu>
+        </>
+      )}
     </ActionsContainer>
   );
 };
@@ -466,7 +585,7 @@ const StandardDataTable = ({
                   ))
                 )}
 
-                {/* Ações inline */}
+                {/* Ações inline com menu */}
                 {hasActions && (
                   <TableCell align="right" sx={{ paddingRight: 2 }}>
                     <InlineActions 
