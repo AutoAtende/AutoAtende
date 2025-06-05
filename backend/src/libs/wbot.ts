@@ -872,24 +872,13 @@ export const initWASocket = async (whatsapp: Whatsapp): Promise<Session> => {
                   try {
                     const groupMetadata = await wsocket.groupMetadata(event.id);
                     
-                    // Processar participantes usando interfaces do Baileys
-                    const enrichedParticipants = groupMetadata.participants.map(p => ({
-                      id: p.id,
-                      number: p.id?.split('@')[0] || '',
-                      isAdmin: p.isAdmin || false,
-                      isSuperAdmin: p.isSuperAdmin || false,
-                      admin: p.admin || null,
-                      name: p.name || null,
-                      contact: null
-                    }));
-
                     const adminParticipants = groupMetadata.participants
                       .filter(p => p.admin === 'admin' || p.admin === 'superadmin')
                       .map(p => p.id);
 
                     await managedGroup.update({
                       participants: JSON.stringify(groupMetadata.participants || []),
-                      participantsJson: enrichedParticipants,
+                      participantsJson: groupMetadata.participants,
                       adminParticipants,
                       lastSync: new Date()
                     });
