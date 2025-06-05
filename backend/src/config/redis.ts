@@ -54,8 +54,75 @@ export const redisConfig: RedisOptions = {
   noDelay: true
 };
 
-// SOLUÇÃO: Uma única instância Redis compartilhada por toda a aplicação
+export const redisConfigWorker: RedisOptions = {
+  port: parseInt(process.env.REDIS_PORT || '6379', 10),
+  host: process.env.REDIS_HOST || 'localhost',
+  password: process.env.REDIS_PASSWORD || undefined,
+  maxRetriesPerRequest: null,
+  enableAutoPipelining: false,
+  connectTimeout: 60000,
+  enableReadyCheck: true,
+  retryStrategy(times: number) {
+    const delay = Math.min(times * 1000, 20000);
+    logger.info(`Redis connection retry attempt ${times} with delay ${delay}ms`);
+    if (times > 10) {
+      logger.error('Redis connection failed after multiple retries');
+      return null;
+    }
+    return delay;
+  },
+  commandTimeout: 0,
+  keepAlive: 30000,
+  reconnectOnError: (err) => {
+    logger.error('Redis reconnectOnError:', err);
+    const targetError = "READONLY";
+    if (err.message.includes(targetError)) {
+      return true;
+    }
+    return false;
+  },
+  lazyConnect: false,
+  noDelay: true
+};
+
 let redisClient: IORedis | null = null;
+let redisClientWorker: IORedis | null = null;
+
+export async function getRedisClientForWorker(): Promise<IORedis> {
+  if (!redisClientWorker) {
+    logger.info({
+      ...redisConfigWorker,
+      password: redisConfigWorker.password ? '[REDACTED]' : undefined,
+      msg: 'Creating Redis client for worker with config'
+    });
+    
+    redisClientWorker = new IORedis(redisConfigWorker);
+    
+    redisClientWorker.on('connect', () => {
+      logger.info('Redis client for worker connected');
+    });
+    
+    redisClientWorker.on('error', (err) => {
+      logger.error('Redis client for worker error:', err);
+    });
+    
+    // Adicionar eventos para maior observabilidade
+    redisClientWorker.on('reconnecting', () => {
+      logger.warn('Redis client for worker reconnecting');
+    });
+    
+    redisClientWorker.on('close', () => {
+      logger.warn('Redis client for worker connection closed');
+    });
+    
+    redisClientWorker.on('end', () => {
+      logger.warn('Redis client for worker connection ended');
+      // Reset para permitir nova conexão se necessário
+      redisClientWorker = null;
+    });
+  }
+  return redisClientWorker;
+}
 
 export function createRedisClient(): IORedis {
   if (!redisClient) {

@@ -1,6 +1,6 @@
 import IORedis from "ioredis";
 import { Job, Queue as BullQueue, Worker } from "bullmq";
-import { getBullConfig, getRedisClient, closeRedisConnection, BullConfig } from "./config/redis";
+import { getBullConfig, getRedisClient, getRedisClientForWorker, closeRedisConnection, BullConfig } from "./config/redis";
 import database from "./database";
 import Setting from "./models/Setting";
 import { MessageData, SendMessage } from "./helpers/SendMessage";
@@ -32,10 +32,12 @@ import AnalyzeTicketsService from "./services/AssistantServices/AnalyzeTicketsSe
 import TicketAnalysis from "./models/TicketAnalysis";
 
 let connection: IORedis;
+let connectionWorker: IORedis;
 let bullConfig: BullConfig;
 
 async function initializeRedisConnection() {
   connection = await getRedisClient();
+  connectionWorker = await getRedisClientForWorker();
 
   connection.on('error', (error) => {
     logger.error('Redis connection error:', error);
@@ -792,7 +794,7 @@ export async function startQueueProcess() {
 
     // Configuração otimizada para workers
     const defaultWorkerConfig = {
-      connection: bullConfig.connection,
+      connection: connectionWorker,
       removeOnComplete: { count: 5000 },
       removeOnFail: { count: 1000 },
       lockDuration: 120000, // 2 minutos para evitar locks prematuras

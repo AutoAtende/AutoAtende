@@ -2,7 +2,7 @@ import { Job, Queue, Worker } from "bullmq";
 import { logger } from "../utils/logger";
 import InactivityMonitorService from "../services/FlowBuilderService/InactivityMonitorService";
 import CleanupInactiveFlowsService from "../services/FlowBuilderService/CleanupInactiveFlowsService";
-import { getBullConfig } from "../config/redis";
+import { getRedisClientForWorker } from "../config/redis";
 
 interface InactivityJobData {
   type: "monitor" | "cleanup";
@@ -21,10 +21,10 @@ export const createInactivityQueue = async (): Promise<Queue<InactivityJobData>>
     return inactivityQueueInstance;
   }
 
-  const bullConfig = await getBullConfig();
+  const connection = await getRedisClientForWorker();
   
   inactivityQueueInstance = new Queue<InactivityJobData>(inactivityQueue, {
-    connection: bullConfig.connection,
+    connection,
     defaultJobOptions: {
       attempts: 3,
       backoff: {
@@ -45,7 +45,7 @@ export const initInactivityWorker = async (): Promise<Worker<InactivityJobData>>
     return inactivityWorkerInstance;
   }
 
-  const bullConfig = await getBullConfig();
+  const connection = await getRedisClientForWorker();
   
   inactivityWorkerInstance = new Worker<InactivityJobData>(
     inactivityQueue,
@@ -85,7 +85,7 @@ export const initInactivityWorker = async (): Promise<Worker<InactivityJobData>>
       }
     },
     { 
-      connection: bullConfig.connection, 
+      connection,
       concurrency: 1,
       removeOnComplete: { count: 50 },
       removeOnFail: { count: 10 }
