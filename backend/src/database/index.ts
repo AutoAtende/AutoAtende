@@ -2,8 +2,6 @@ import { Sequelize } from "sequelize-typescript";
 import ContactTags from "../models/ContactTags";
 import AgendamentoEmail from "../models/AgendamentoEmail";
 import Announcement from "../models/Announcement";
-import ApiLog from "../models/ApiLog";
-import AuditLog from "../models/AuditLog";
 import Baileys from "../models/Baileys";
 import BaileysGroups from "../models/BaileysGroups";
 import BaileysKeys from "../models/BaileysKeys";
@@ -35,7 +33,6 @@ import FilesOptions from "../models/FilesOptions";
 import Groups from "../models/Groups";
 import GroupSeries from "../models/GroupSeries";
 import Help from "../models/Help";
-import InactivityMessage from "../models/InactivityMessage";
 import InvoiceLogs from "../models/InvoiceLogs";
 import Invoices from "../models/Invoices";
 import KanbanBoard from "../models/KanbanBoard";
@@ -116,8 +113,6 @@ const models = [
   ContactTags,
   AgendamentoEmail,
   Announcement,
-  ApiLog,
-  AuditLog,
   Baileys,
   BaileysKeys,
   BaileysGroups,
@@ -144,7 +139,6 @@ const models = [
   FilesOptions,
   Groups,
   Help,
-  InactivityMessage,
   InvoiceLogs,
   Invoices,
   KanbanBoard,

@@ -1,244 +1,301 @@
-// migrations/YYYYMMDDHHMMSS-add-advanced-options-to-queue-options.ts
+// migrations/20250605180000-add-advanced-options-to-queue-options.ts
 'use strict';
 
 module.exports = {
   up: async (queryInterface, Sequelize) => {
-    const transaction = await queryInterface.sequelize.transaction();
-    
-    try {
-      // Verificar se as colunas já existem antes de adicionar
+    // Iniciar uma transação única
+    await queryInterface.sequelize.transaction(async (transaction) => {
+      // Descrever tabela para verificar colunas existentes
       const tableDescription = await queryInterface.describeTable('QueueOptions');
-      
-      // Verificar e criar ENUM optionType se não existir
+
+      //
+      // 1) optionType (ENUM) + coluna
+      //
       if (!tableDescription.optionType) {
-        // Verificar se o tipo ENUM já existe
-        const [enumExists] = await queryInterface.sequelize.query(
-          `SELECT 1 FROM pg_type WHERE typname = 'enum_QueueOptions_optionType'`,
+        // 1.1) Verificar se o tipo ENUM 'enum_QueueOptions_optionType' já existe
+        const [enumOptionExists]: any[] = await queryInterface.sequelize.query(
+          `SELECT 1
+           FROM pg_type
+           WHERE typname = 'enum_QueueOptions_optionType'`,
           { transaction }
         );
-        
-        if (enumExists.length === 0) {
-          // Criar o tipo ENUM se não existir
+
+        // 1.2) Criar o tipo ENUM caso não exista
+        if (enumOptionExists.length === 0) {
           await queryInterface.sequelize.query(
-            `CREATE TYPE "enum_QueueOptions_optionType" AS ENUM(
-              'text', 'audio', 'video', 'image', 'document', 'contact',
-              'transfer_queue', 'transfer_user', 'transfer_whatsapp',
-              'validation', 'conditional'
-            )`,
+            `CREATE TYPE "enum_QueueOptions_optionType" AS ENUM (
+              'text',
+              'audio',
+              'video',
+              'image',
+              'document',
+              'contact',
+              'transfer_queue',
+              'transfer_user',
+              'transfer_whatsapp',
+              'validation',
+              'conditional'
+            );`,
             { transaction }
           );
         }
-        
-        await queryInterface.addColumn('QueueOptions', 'optionType', {
-          type: Sequelize.ENUM(
-            'text', 'audio', 'video', 'image', 'document', 'contact',
-            'transfer_queue', 'transfer_user', 'transfer_whatsapp',
-            'validation', 'conditional'
-          ),
-          defaultValue: 'text',
-          allowNull: false
-        }, { transaction });
+
+        // 1.3) Adicionar a coluna usando SQL bruto, referenciando o ENUM existente
+        //      Utilizamos "ADD COLUMN IF NOT EXISTS" para evitar erro se for executado duas vezes
+        await queryInterface.sequelize.query(
+          `ALTER TABLE "QueueOptions"
+           ADD COLUMN IF NOT EXISTS "optionType" "enum_QueueOptions_optionType"
+           NOT NULL DEFAULT 'text';`,
+          { transaction }
+        );
       }
 
-      // Verificar e adicionar targetQueueId se não existir
+      //
+      // 2) targetQueueId (FK para Queues)
+      //
       if (!tableDescription.targetQueueId) {
-        // Verificar se a tabela Queues existe
-        const [queuesTableExists] = await queryInterface.sequelize.query(
-          `SELECT 1 FROM information_schema.tables WHERE table_name = 'Queues'`,
+        await queryInterface.addColumn(
+          'QueueOptions',
+          'targetQueueId',
+          {
+            type: Sequelize.INTEGER,
+            allowNull: true,
+            references: {
+              model: 'Queues',
+              key: 'id',
+            },
+            onUpdate: 'CASCADE',
+            onDelete: 'SET NULL',
+          },
           { transaction }
         );
-        
-        await queryInterface.addColumn('QueueOptions', 'targetQueueId', {
-          type: Sequelize.INTEGER,
-          allowNull: true,
-          references: queuesTableExists.length > 0 ? { 
-            model: 'Queues', 
-            key: 'id' 
-          } : undefined,
-          onUpdate: 'CASCADE',
-          onDelete: 'SET NULL'
-        }, { transaction });
       }
 
-      // Verificar e adicionar targetUserId se não existir
+      //
+      // 3) targetUserId (FK para Users)
+      //
       if (!tableDescription.targetUserId) {
-        // Verificar se a tabela Users existe
-        const [usersTableExists] = await queryInterface.sequelize.query(
-          `SELECT 1 FROM information_schema.tables WHERE table_name = 'Users'`,
+        await queryInterface.addColumn(
+          'QueueOptions',
+          'targetUserId',
+          {
+            type: Sequelize.INTEGER,
+            allowNull: true,
+            references: {
+              model: 'Users',
+              key: 'id',
+            },
+            onUpdate: 'CASCADE',
+            onDelete: 'SET NULL',
+          },
           { transaction }
         );
-        
-        await queryInterface.addColumn('QueueOptions', 'targetUserId', {
-          type: Sequelize.INTEGER,
-          allowNull: true,
-          references: usersTableExists.length > 0 ? { 
-            model: 'Users', 
-            key: 'id' 
-          } : undefined,
-          onUpdate: 'CASCADE',
-          onDelete: 'SET NULL'
-        }, { transaction });
       }
 
-      // Verificar e adicionar targetWhatsappId se não existir
+      //
+      // 4) targetWhatsappId (FK para Whatsapps)
+      //
       if (!tableDescription.targetWhatsappId) {
-        // Verificar se a tabela Whatsapps existe
-        const [whatsappsTableExists] = await queryInterface.sequelize.query(
-          `SELECT 1 FROM information_schema.tables WHERE table_name = 'Whatsapps'`,
+        await queryInterface.addColumn(
+          'QueueOptions',
+          'targetWhatsappId',
+          {
+            type: Sequelize.INTEGER,
+            allowNull: true,
+            references: {
+              model: 'Whatsapps',
+              key: 'id',
+            },
+            onUpdate: 'CASCADE',
+            onDelete: 'SET NULL',
+          },
           { transaction }
         );
-        
-        await queryInterface.addColumn('QueueOptions', 'targetWhatsappId', {
-          type: Sequelize.INTEGER,
-          allowNull: true,
-          references: whatsappsTableExists.length > 0 ? { 
-            model: 'Whatsapps', 
-            key: 'id' 
-          } : undefined,
-          onUpdate: 'CASCADE',
-          onDelete: 'SET NULL'
-        }, { transaction });
       }
 
-      // Verificar e adicionar contactId se não existir
+      //
+      // 5) contactId (FK para Contacts)
+      //
       if (!tableDescription.contactId) {
-        // Verificar se a tabela Contacts existe
-        const [contactsTableExists] = await queryInterface.sequelize.query(
-          `SELECT 1 FROM information_schema.tables WHERE table_name = 'Contacts'`,
+        await queryInterface.addColumn(
+          'QueueOptions',
+          'contactId',
+          {
+            type: Sequelize.INTEGER,
+            allowNull: true,
+            references: {
+              model: 'Contacts',
+              key: 'id',
+            },
+            onUpdate: 'CASCADE',
+            onDelete: 'SET NULL',
+          },
           { transaction }
         );
-        
-        await queryInterface.addColumn('QueueOptions', 'contactId', {
-          type: Sequelize.INTEGER,
-          allowNull: true,
-          references: contactsTableExists.length > 0 ? { 
-            model: 'Contacts', 
-            key: 'id' 
-          } : undefined,
-          onUpdate: 'CASCADE',
-          onDelete: 'SET NULL'
-        }, { transaction });
       }
 
-      // Verificar e criar ENUM validationType se não existir
+      //
+      // 6) validationType (ENUM) + coluna
+      //
       if (!tableDescription.validationType) {
-        // Verificar se o tipo ENUM já existe
-        const [validationEnumExists] = await queryInterface.sequelize.query(
-          `SELECT 1 FROM pg_type WHERE typname = 'enum_QueueOptions_validationType'`,
+        // 6.1) Verificar se o tipo ENUM 'enum_QueueOptions_validationType' já existe
+        const [enumValidationExists]: any[] = await queryInterface.sequelize.query(
+          `SELECT 1
+           FROM pg_type
+           WHERE typname = 'enum_QueueOptions_validationType'`,
           { transaction }
         );
-        
-        if (validationEnumExists.length === 0) {
-          // Criar o tipo ENUM se não existir
+
+        // 6.2) Criar o tipo ENUM caso não exista
+        if (enumValidationExists.length === 0) {
           await queryInterface.sequelize.query(
-            `CREATE TYPE "enum_QueueOptions_validationType" AS ENUM('cpf', 'email', 'phone', 'custom')`,
+            `CREATE TYPE "enum_QueueOptions_validationType" AS ENUM (
+              'cpf',
+              'email',
+              'phone',
+              'custom'
+            );`,
             { transaction }
           );
         }
-        
-        await queryInterface.addColumn('QueueOptions', 'validationType', {
-          type: Sequelize.ENUM('cpf', 'email', 'phone', 'custom'),
-          allowNull: true
-        }, { transaction });
+
+        // 6.3) Adicionar a coluna usando SQL bruto, referenciando o ENUM
+        await queryInterface.sequelize.query(
+          `ALTER TABLE "QueueOptions"
+           ADD COLUMN IF NOT EXISTS "validationType" "enum_QueueOptions_validationType"
+           NULL;`,
+          { transaction }
+        );
       }
 
-      // Verificar e adicionar validationRegex se não existir
+      //
+      // 7) validationRegex (TEXT)
+      //
       if (!tableDescription.validationRegex) {
-        await queryInterface.addColumn('QueueOptions', 'validationRegex', {
-          type: Sequelize.TEXT,
-          allowNull: true
-        }, { transaction });
+        await queryInterface.addColumn(
+          'QueueOptions',
+          'validationRegex',
+          {
+            type: Sequelize.TEXT,
+            allowNull: true,
+          },
+          { transaction }
+        );
       }
 
-      // Verificar e adicionar validationErrorMessage se não existir
+      //
+      // 8) validationErrorMessage (STRING)
+      //
       if (!tableDescription.validationErrorMessage) {
-        await queryInterface.addColumn('QueueOptions', 'validationErrorMessage', {
-          type: Sequelize.STRING,
-          allowNull: true
-        }, { transaction });
+        await queryInterface.addColumn(
+          'QueueOptions',
+          'validationErrorMessage',
+          {
+            type: Sequelize.STRING,
+            allowNull: true,
+          },
+          { transaction }
+        );
       }
 
-      // Verificar e adicionar conditionalLogic se não existir
+      //
+      // 9) conditionalLogic (JSONB)
+      //
       if (!tableDescription.conditionalLogic) {
-        await queryInterface.addColumn('QueueOptions', 'conditionalLogic', {
-          type: Sequelize.JSONB,
-          allowNull: true
-        }, { transaction });
+        await queryInterface.addColumn(
+          'QueueOptions',
+          'conditionalLogic',
+          {
+            type: Sequelize.JSONB,
+            allowNull: true,
+          },
+          { transaction }
+        );
       }
 
-      // Verificar e adicionar conditionalVariable se não existir
+      //
+      // 10) conditionalVariable (STRING)
+      //
       if (!tableDescription.conditionalVariable) {
-        await queryInterface.addColumn('QueueOptions', 'conditionalVariable', {
-          type: Sequelize.STRING,
-          allowNull: true
-        }, { transaction });
+        await queryInterface.addColumn(
+          'QueueOptions',
+          'conditionalVariable',
+          {
+            type: Sequelize.STRING,
+            allowNull: true,
+          },
+          { transaction }
+        );
       }
 
-      // Verificar e adicionar orderPosition se não existir
+      //
+      // 11) orderPosition (INTEGER)
+      //
       if (!tableDescription.orderPosition) {
-        await queryInterface.addColumn('QueueOptions', 'orderPosition', {
-          type: Sequelize.INTEGER,
-          defaultValue: 0,
-          allowNull: false
-        }, { transaction });
+        await queryInterface.addColumn(
+          'QueueOptions',
+          'orderPosition',
+          {
+            type: Sequelize.INTEGER,
+            allowNull: false,
+            defaultValue: 0,
+          },
+          { transaction }
+        );
       }
 
-      await transaction.commit();
-      console.log('✅ Migração executada com sucesso - Colunas avançadas adicionadas à QueueOptions');
-      
-    } catch (error) {
-      await transaction.rollback();
-      console.error('❌ Erro ao executar migração:', error.message);
-      throw error;
-    }
+      // Se chegar até aqui sem erro, a transação é commitada automaticamente.
+    });
   },
 
   down: async (queryInterface, Sequelize) => {
-    const transaction = await queryInterface.sequelize.transaction();
-    
-    try {
-      // Verificar se as colunas existem antes de remover
-      const tableDescription = await queryInterface.describeTable('QueueOptions');
-      
-      const columnsToRemove = [
-        'optionType', 'targetQueueId', 'targetUserId', 'targetWhatsappId',
-        'contactId', 'validationType', 'validationRegex', 'validationErrorMessage',
-        'conditionalLogic', 'conditionalVariable', 'orderPosition'
-      ];
+    // Reversão: remover todas as colunas adicionadas e depois os tipos ENUM
+    await queryInterface.sequelize.transaction(async (transaction) => {
+      // 1) Remover coluna 'orderPosition'
+      await queryInterface.removeColumn('QueueOptions', 'orderPosition', { transaction });
 
-      for (const column of columnsToRemove) {
-        if (tableDescription[column]) {
-          await queryInterface.removeColumn('QueueOptions', column, { transaction });
-        }
-      }
+      // 2) Remover coluna 'conditionalVariable'
+      await queryInterface.removeColumn('QueueOptions', 'conditionalVariable', { transaction });
 
-      // Remover ENUMs se existirem
-      const enumsToCheck = [
-        'enum_QueueOptions_optionType',
-        'enum_QueueOptions_validationType'
-      ];
+      // 3) Remover coluna 'conditionalLogic'
+      await queryInterface.removeColumn('QueueOptions', 'conditionalLogic', { transaction });
 
-      for (const enumName of enumsToCheck) {
-        const [enumExists] = await queryInterface.sequelize.query(
-          `SELECT 1 FROM pg_type WHERE typname = '${enumName}'`,
-          { transaction }
-        );
-        
-        if (enumExists.length > 0) {
-          await queryInterface.sequelize.query(
-            `DROP TYPE IF EXISTS "${enumName}" CASCADE`,
-            { transaction }
-          );
-        }
-      }
+      // 4) Remover coluna 'validationErrorMessage'
+      await queryInterface.removeColumn('QueueOptions', 'validationErrorMessage', { transaction });
 
-      await transaction.commit();
-      console.log('✅ Rollback executado com sucesso - Colunas avançadas removidas da QueueOptions');
-      
-    } catch (error) {
-      await transaction.rollback();
-      console.error('❌ Erro ao executar rollback:', error.message);
-      throw error;
-    }
-  }
+      // 5) Remover coluna 'validationRegex'
+      await queryInterface.removeColumn('QueueOptions', 'validationRegex', { transaction });
+
+      // 6) Remover coluna 'validationType'
+      await queryInterface.removeColumn('QueueOptions', 'validationType', { transaction });
+
+      // 7) Remover coluna 'contactId'
+      await queryInterface.removeColumn('QueueOptions', 'contactId', { transaction });
+
+      // 8) Remover coluna 'targetWhatsappId'
+      await queryInterface.removeColumn('QueueOptions', 'targetWhatsappId', { transaction });
+
+      // 9) Remover coluna 'targetUserId'
+      await queryInterface.removeColumn('QueueOptions', 'targetUserId', { transaction });
+
+      // 10) Remover coluna 'targetQueueId'
+      await queryInterface.removeColumn('QueueOptions', 'targetQueueId', { transaction });
+
+      // 11) Remover coluna 'optionType'
+      await queryInterface.sequelize.query(
+        `ALTER TABLE "QueueOptions" DROP COLUMN IF EXISTS "optionType";`,
+        { transaction }
+      );
+
+      // 12) Remover tipos ENUM, apenas se existirem
+      await queryInterface.sequelize.query(
+        `DROP TYPE IF EXISTS "enum_QueueOptions_optionType";`,
+        { transaction }
+      );
+      await queryInterface.sequelize.query(
+        `DROP TYPE IF EXISTS "enum_QueueOptions_validationType";`,
+        { transaction }
+      );
+    });
+  },
 };
