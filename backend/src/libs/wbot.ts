@@ -20,7 +20,7 @@ import {
 } from "bail-lite";
 import { Boom } from "@hapi/boom";
 import NodeCache from "@cacheable/node-cache";
-import MAIN_LOGGER from "baileys/lib/Utils/logger";
+import MAIN_LOGGER from "bail-lite/lib/Utils/logger";
 import { Op, FindOptions } from "sequelize";
 import Whatsapp from "../models/Whatsapp";
 import { logger } from "../utils/logger";
@@ -30,7 +30,7 @@ import { extractPhoneNumber } from "../helpers/extractPhoneNumber";
 import { StartWhatsAppSession } from "../services/WbotServices/StartWhatsAppSession";
 import Groups from "../models/Groups";
 import createOrUpdateBaileysService from "../services/BaileysServices/CreateOrUpdateBaileysService";
-import GroupMonitoringService from "../services/GroupServices/GroupMonitoringService";
+
 import AutoGroupManagerService from "../services/GroupServices/AutoGroupManagerService";
 import DeleteBaileysService from "../services/BaileysServices/DeleteBaileysService";
 import Baileys from "../models/Baileys";
@@ -49,7 +49,6 @@ loggerBaileys.level = "error";
 import * as fs from 'fs';
 import * as fsPromises from 'fs/promises';
 import path from "path";
-import GroupSeries from "../models/GroupSeries";
 
 export const sessionFolder = process.env.BACKEND_SESSION_PATH;
 
