@@ -57,7 +57,6 @@ import { GlobalContext } from "../../context/GlobalContext";
 import { toast } from "../../helpers/toast";
 import { debounce } from "../../utils/helpers";
 
-
 const useStyles = makeStyles(theme => ({
     tabsBadge: {
         width: 90
@@ -75,11 +74,18 @@ const useStyles = makeStyles(theme => ({
     tabsHeader: {
         flex: "none",
         backgroundColor: theme.palette.tabHeaderBackground,
+        position: "relative",
+        // Remove qualquer sombra padrão
+        boxShadow: "none",
+        borderBottom: `1px solid ${theme.palette.divider}`,
     },
 
     tabsInternal: {
         flex: "none",
-        backgroundColor: theme.palette.tabHeaderBackground
+        backgroundColor: theme.palette.tabHeaderBackground,
+        // Adiciona sombra sutil para separar as sub-abas
+        boxShadow: `0 2px 4px ${theme.palette.mode === 'dark' ? 'rgba(0,0,0,0.3)' : 'rgba(0,0,0,0.1)'}`,
+        borderBottom: `1px solid ${theme.palette.divider}`,
     },
 
     settingsIcon: {
@@ -88,31 +94,135 @@ const useStyles = makeStyles(theme => ({
         padding: 8,
     },
 
+    // Estilo principal das abas com indicador visual aprimorado
     tab: {
         minWidth: 60,
         width: 60,
-        transition: 'all 0.3s ease',
-        '&.Mui-selected': {
-            backgroundColor: theme.palette.primary.main,
-            color: theme.palette.primary.contrastText,
-            fontWeight: 'bold',
+        position: "relative",
+        transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+        borderRadius: 0,
+        margin: 0,
+        padding: '12px 16px',
+        
+        // Estado padrão
+        color: theme.palette.text.secondary,
+        backgroundColor: 'transparent',
+        
+        // Hover state
+        '&:hover': {
+            backgroundColor: theme.palette.mode === 'dark' 
+                ? 'rgba(255, 255, 255, 0.05)' 
+                : 'rgba(0, 0, 0, 0.04)',
+            color: theme.palette.text.primary,
+            
             '& .MuiSvgIcon-root': {
-                color: theme.palette.primary.contrastText,
-            },
-            '& .MuiBadge-badge': {
-                backgroundColor: theme.palette.primary.contrastText,
-                color: theme.palette.primary.main,
+                transform: 'scale(1.1)',
+                transition: 'transform 0.2s ease',
             },
         },
-        '&:hover': {
-            backgroundColor: theme.palette.action.hover,
+        
+        // Estado ativo/selecionado
+        '&.Mui-selected': {
+            backgroundColor: theme.palette.mode === 'dark'
+                ? 'rgba(255, 255, 255, 0.08)'
+                : 'rgba(0, 0, 0, 0.08)',
+            color: theme.palette.primary.main,
+            fontWeight: '600',
+            
+            // Ícones da aba selecionada
+            '& .MuiSvgIcon-root': {
+                color: theme.palette.primary.main,
+                transform: 'scale(1.1)',
+            },
+            
+            // Badge da aba selecionada
+            '& .MuiBadge-badge': {
+                backgroundColor: theme.palette.primary.main,
+                color: theme.palette.primary.contrastText,
+                fontWeight: 'bold',
+                transform: 'scale(1.05)',
+            },
+            
+            // Indicador visual - borda inferior grossa
+            '&::after': {
+                content: '""',
+                position: 'absolute',
+                bottom: 0,
+                left: '50%',
+                transform: 'translateX(-50%)',
+                width: '80%',
+                height: '4px',
+                background: `linear-gradient(90deg, 
+                    transparent 0%, 
+                    ${theme.palette.primary.main} 20%, 
+                    ${theme.palette.primary.main} 80%, 
+                    transparent 100%)`,
+                borderRadius: '2px 2px 0 0',
+                boxShadow: `0 -1px 3px ${theme.palette.primary.main}40`,
+                animation: '$slideIn 0.3s ease-out',
+            },
+        },
+        
+        // Remove outline padrão
+        '&:focus': {
+            outline: 'none',
         },
     },
 
+    // Sub-abas (internas) com estilo diferenciado
     internalTab: {
         minWidth: 60,
         width: 60,
-        padding: 5
+        padding: '8px 12px',
+        transition: 'all 0.2s ease',
+        borderRadius: 0,
+        
+        // Estado padrão
+        color: theme.palette.text.secondary,
+        backgroundColor: 'transparent',
+        
+        // Hover
+        '&:hover': {
+            backgroundColor: theme.palette.action.hover,
+            color: theme.palette.text.primary,
+        },
+        
+        // Estado selecionado para sub-abas
+        '&.Mui-selected': {
+            backgroundColor: theme.palette.primary.main,
+            color: theme.palette.primary.contrastText,
+            fontWeight: '500',
+            
+            '& .MuiBadge-badge': {
+                backgroundColor: theme.palette.primary.contrastText,
+                color: theme.palette.primary.main,
+                fontWeight: 'bold',
+            },
+            
+            // Indicador menor para sub-abas
+            '&::after': {
+                content: '""',
+                position: 'absolute',
+                bottom: 0,
+                left: 0,
+                width: '100%',
+                height: '2px',
+                backgroundColor: theme.palette.primary.contrastText,
+                animation: '$slideIn 0.2s ease-out',
+            },
+        },
+    },
+
+    // Animação do indicador
+    '@keyframes slideIn': {
+        '0%': {
+            width: '0%',
+            opacity: 0,
+        },
+        '100%': {
+            width: '80%',
+            opacity: 1,
+        },
     },
 
     ticketOptionsBox: {
@@ -121,6 +231,7 @@ const useStyles = makeStyles(theme => ({
         alignItems: "center",
         background: theme.palette.optionsBackground,
         padding: theme.spacing(1),
+        borderBottom: `1px solid ${theme.palette.divider}`,
     },
 
     ticketSearchLine: {
@@ -134,13 +245,21 @@ const useStyles = makeStyles(theme => ({
         borderRadius: 40,
         padding: 4,
         marginRight: theme.spacing(1),
+        border: `1px solid ${theme.palette.divider}`,
+        transition: 'border-color 0.2s ease',
+        
+        '&:focus-within': {
+            borderColor: theme.palette.primary.main,
+            boxShadow: `0 0 0 2px ${theme.palette.primary.main}20`,
+        },
     },
 
     searchIcon: {
-        color: "grey",
+        color: theme.palette.text.secondary,
         marginLeft: 6,
         marginRight: 6,
         alignSelf: "center",
+        transition: 'color 0.2s ease',
     },
 
     searchInput: {
@@ -148,6 +267,12 @@ const useStyles = makeStyles(theme => ({
         border: "none",
         borderRadius: 25,
         outline: "none",
+        backgroundColor: 'transparent',
+        color: theme.palette.text.primary,
+        
+        '&::placeholder': {
+            color: theme.palette.text.secondary,
+        },
     },
 
     badge: {
@@ -221,11 +346,21 @@ const useStyles = makeStyles(theme => ({
     },
     iconButton: {
         padding: 8,
+        borderRadius: '50%',
+        transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+        
         '&:hover': {
             backgroundColor: theme.palette.action.hover,
-            borderRadius: '50%',
+            transform: 'scale(1.05)',
+            
+            '& .MuiSvgIcon-root': {
+                transform: 'scale(1.1)',
+            },
         },
-        transition: 'all 0.2s ease-in-out'
+        
+        '&:active': {
+            transform: 'scale(0.95)',
+        },
     },
 }));
 
@@ -255,7 +390,6 @@ const TicketsManagerTabs = () => {
     const [groupOpenCount, setGroupOpenCount] = useState(0);
     const [groupPendingCount, setGroupPendingCount] = useState(0);
     const [pendingCount, setPendingCount] = useState(0);
-    //const [chatbotCount, setChatbotCount] = useState(0);
     const userQueueIds = user.queues.map((q) => q.id);
     const [selectedQueueIds, setSelectedQueueIds] = useState(userQueueIds || []);
     const [selectedTags, setSelectedTags] = useState([]);
@@ -299,8 +433,7 @@ const TicketsManagerTabs = () => {
             setIsShowButtonCloseAll(true)
         }
 
-    }, [selectedQueueIds, user.profile, tab]); // Dependências atualizadas para refletir todos os estados usados dentro do useEffect
-
+    }, [selectedQueueIds, user.profile, tab]);
 
     let searchTimeout;
 
@@ -315,7 +448,6 @@ const TicketsManagerTabs = () => {
         const handleTicketEvent = (data) => {
           if (data.action === "update") {
             if (data.ticket.status === "closed") {
-              // Se o ticket foi fechado, atualiza os contadores
               setMakeRequestTagTotalTicketPending(Math.random());
               setMakeRequestTicketList(Math.random());
             } else if (data.ticket.status === "open") {
@@ -326,7 +458,6 @@ const TicketsManagerTabs = () => {
             setMakeRequestTagTotalTicketPending(Math.random());
             setMakeRequestTicketList(Math.random());
           }
-            // Em qualquer caso, atualiza a lista de tickets
             setMakeRequestTagTotalTicketPending(Math.random());
             setMakeRequestTicketList(Math.random());
         };
@@ -354,7 +485,7 @@ const TicketsManagerTabs = () => {
 
     const handleSearchInput = debounce((searchedTerm) => {
         setSearchParam(searchedTerm);
-    }, 300); // 300ms de debounce
+    }, 300);
 
     const handleSearch = (e) => {
         const searchedTerm = e.target.value.toLowerCase();
@@ -386,7 +517,6 @@ const TicketsManagerTabs = () => {
         }
     };
 
-
     const handleSelectedTags = (selecteds) => {
         if (!selecteds || selecteds.length === 0) {
             setSelectedTags([]);
@@ -414,7 +544,6 @@ const TicketsManagerTabs = () => {
             {!!newTicketModalOpen && <NewTicketModal
                 modalOpen={newTicketModalOpen}
                 onClose={(ticket) => {
-
                     handleCloseOrOpenTicket(ticket);
                 }}
             />}
@@ -424,16 +553,15 @@ const TicketsManagerTabs = () => {
                     onChange={handleChangeTab}
                     variant="fullWidth"
                     indicatorColor="primary"
-                    textColor="primary"
-                    aria-label="icon label tabs example"
+                    textColor="inherit"
+                    aria-label="tickets main tabs"
                     TabIndicatorProps={{
                         style: {
-                            height: 4,
-                            borderRadius: '4px 4px 0 0'
+                            display: 'none' // Ocultamos o indicador padrão para usar nosso customizado
                         }
                     }}
                 >
-                    <Tooltip title={i18n.t("tickets.tabs.open.title")} arrow>
+                    <Tooltip title={i18n.t("tickets.tabs.open.title")} arrow placement="bottom">
                         <Tab
                             value={"open"}
                             icon={<ChatIcon />}
@@ -442,37 +570,47 @@ const TicketsManagerTabs = () => {
                                     className={classes.badge}
                                     badgeContent={openCount + pendingCount}
                                     color="primary"
+                                    max={999}
                                 >
                                 </Badge>
                             }
                             classes={{ root: classes.tab }}
+                            aria-label="Tickets abertos"
                         />
                     </Tooltip>
                     {showGroupTab && (
-                        <Tooltip title={i18n.t("tickets.tabs.group.title")} arrow>
+                        <Tooltip title={i18n.t("tickets.tabs.group.title")} arrow placement="bottom">
                             <Tab
                                 value={"group"}
                                 icon={<GroupIcon />}
                                 label={
-                                    <Badge className={classes.badge} badgeContent={groupOpenCount + groupPendingCount} color="primary">
+                                    <Badge 
+                                        className={classes.badge} 
+                                        badgeContent={groupOpenCount + groupPendingCount} 
+                                        color="primary"
+                                        max={999}
+                                    >
                                     </Badge>
                                 }
                                 classes={{ root: classes.tab }}
+                                aria-label="Tickets de grupos"
                             />
                         </Tooltip>
                     )}
-                    <Tooltip title={i18n.t("tickets.tabs.closed.title")} arrow>
+                    <Tooltip title={i18n.t("tickets.tabs.closed.title")} arrow placement="bottom">
                         <Tab
                             value={"closed"}
                             icon={<DoneAllIcon />}
                             classes={{ root: classes.tab }}
+                            aria-label="Tickets fechados"
                         />
                     </Tooltip>
-                    <Tooltip title={i18n.t("tickets.tabs.search.title")} arrow>
+                    <Tooltip title={i18n.t("tickets.tabs.search.title")} arrow placement="bottom">
                         <Tab
                             value={"search"}
                             icon={<SearchIcon />}
                             classes={{ root: classes.tab }}
+                            aria-label="Pesquisar tickets"
                         />
                     </Tooltip>
                 </Tabs>
@@ -481,13 +619,14 @@ const TicketsManagerTabs = () => {
                 <div>
                     {tab === "search" ? (
                         <div className={classes.serachInputWrapper}>
-                            <SearchIcon className={classes.searchIcon} sx={{ color: theme.palette.primary.main }}/>
+                            <SearchIcon className={classes.searchIcon}/>
                             <InputBase
                                 className={classes.searchInput}
                                 inputRef={searchInputRef}
                                 placeholder={i18n.t("tickets.search.placeholder")}
                                 type="search"
                                 onChange={handleSearch}
+                                aria-label="Pesquisar tickets"
                             />
                         </div>
                     ) : (
@@ -500,9 +639,10 @@ const TicketsManagerTabs = () => {
                                     className={classes.iconButton}
                                     onClick={handleRefreshTickets}
                                     size="large"
+                                    aria-label="Atualizar tickets"
                                 >
                                     <RefreshIcon 
-                                        className={refreshing ? classes.rotating : classes.icon} 
+                                        className={refreshing ? classes.rotating : ""} 
                                         sx={{ color: theme.palette.primary.main }}
                                     />
                                 </IconButton>
@@ -516,11 +656,12 @@ const TicketsManagerTabs = () => {
                                         className={classes.iconButton}
                                         onClick={() => setShowAllTickets(!showAllTickets)}
                                         size="large"
+                                        aria-label={showAllTickets ? "Ocultar todos os tickets" : "Ver todos os tickets"}
                                     >
                                         {showAllTickets ? (
-                                            <VisibilityIcon className={classes.icon} sx={{ color: theme.palette.primary.main }}/>
+                                            <VisibilityIcon sx={{ color: theme.palette.primary.main }}/>
                                         ) : (
-                                            <VisibilityOffIcon className={classes.icon} sx={{ color: theme.palette.primary.main }}/>
+                                            <VisibilityOffIcon sx={{ color: theme.palette.primary.main }}/>
                                         )}
                                     </IconButton>
                                 </Tooltip>
@@ -535,8 +676,10 @@ const TicketsManagerTabs = () => {
                                             onClick={() => {
                                                 setNewTicketModalOpen(true);
                                             }}
-                                            size="large">
-                                            <AddIcon className={classes.icon} sx={{ color: theme.palette.primary.main }}/>
+                                            size="large"
+                                            aria-label="Criar novo ticket"
+                                        >
+                                            <AddIcon sx={{ color: theme.palette.primary.main }}/>
                                         </IconButton>
                                     </Tooltip>
                                 )
@@ -562,38 +705,51 @@ const TicketsManagerTabs = () => {
                 />
             </Paper>
             <TabPanel value={tab} name="open" className={classes.ticketsWrapper}>
-                <Tabs
-                    value={tabOpen}
-                    onChange={handleChangeTabOpen}
-                    indicatorColor="primary"
-                    textColor="primary"
-                    variant="fullWidth"
-                >
-                    <Tab
-                        label={
-                            <Badge
-                                className={classes.badge}
-                                badgeContent={openCount}
-                                color="primary"
-                            >
-                                {i18n.t("ticketsList.assignedHeader")}
-                            </Badge>
-                        }
-                        value={"open"}
-                    />
-                    <Tab
-                        label={
-                            <Badge
-                                className={classes.badge}
-                                badgeContent={pendingCount}
-                                color="secondary"
-                            >
-                                {i18n.t("ticketsList.pendingHeader")}
-                            </Badge>
-                        }
-                        value={"pending"}
-                    />
-                </Tabs>
+                <Paper elevation={0} square className={classes.tabsInternal}>
+                    <Tabs
+                        value={tabOpen}
+                        onChange={handleChangeTabOpen}
+                        indicatorColor="primary"
+                        textColor="inherit"
+                        variant="fullWidth"
+                        TabIndicatorProps={{
+                            style: {
+                                display: 'none' // Usamos indicador customizado
+                            }
+                        }}
+                    >
+                        <Tab
+                            label={
+                                <Badge
+                                    className={classes.badge}
+                                    badgeContent={openCount}
+                                    color="primary"
+                                    max={999}
+                                >
+                                    {i18n.t("ticketsList.assignedHeader")}
+                                </Badge>
+                            }
+                            value={"open"}
+                            classes={{ root: classes.internalTab }}
+                            aria-label="Tickets atribuídos"
+                        />
+                        <Tab
+                            label={
+                                <Badge
+                                    className={classes.badge}
+                                    badgeContent={pendingCount}
+                                    color="secondary"
+                                    max={999}
+                                >
+                                    {i18n.t("ticketsList.pendingHeader")}
+                                </Badge>
+                            }
+                            value={"pending"}
+                            classes={{ root: classes.internalTab }}
+                            aria-label="Tickets pendentes"
+                        />
+                    </Tabs>
+                </Paper>
                 <Paper className={classes.ticketsWrapper}>
                     <TicketsList
                         status="open"
@@ -619,38 +775,49 @@ const TicketsManagerTabs = () => {
                 </Paper>
             </TabPanel>
             <TabPanel value={tab} name="group" className={classes.ticketsWrapper}>
-                <Tabs
-                    value={tabOpen}
-                    onChange={handleChangeTabOpen}
-                    indicatorColor="primary"
-                    textColor="primary"
-                    variant="fullWidth"
-                >
-                    <Tab
-                        label={
-                            <Badge
-                                className={classes.badge}
-                                badgeContent={groupOpenCount}
-                                color="primary"
-                            >
-                                {i18n.t("ticketsList.assignedHeader")}
-                            </Badge>
-                        }
-                        value={"open"}
-                    />
-                    <Tab
-                        label={
-                            <Badge
-                                className={classes.badge}
-                                badgeContent={groupPendingCount}
-                                color="secondary"
-                            >
-                                {i18n.t("ticketsList.pendingHeader")}
-                            </Badge>
-                        }
-                        value={"pending"}
-                    />
-                </Tabs>
+                <Paper elevation={0} square className={classes.tabsInternal}>
+                    <Tabs
+                        value={tabOpen}
+                        onChange={handleChangeTabOpen}
+                        indicatorColor="primary"
+                        textColor="inherit"
+                        variant="fullWidth"
+                        TabIndicatorProps={{
+                            style: {
+                                display: 'none'
+                            }
+                        }}
+                    >
+                        <Tab
+                            label={
+                                <Badge
+                                    className={classes.badge}
+                                    badgeContent={groupOpenCount}
+                                    color="primary"
+                                    max={999}
+                                >
+                                    {i18n.t("ticketsList.assignedHeader")}
+                                </Badge>
+                            }
+                            value={"open"}
+                            classes={{ root: classes.internalTab }}
+                        />
+                        <Tab
+                            label={
+                                <Badge
+                                    className={classes.badge}
+                                    badgeContent={groupPendingCount}
+                                    color="secondary"
+                                    max={999}
+                                >
+                                    {i18n.t("ticketsList.pendingHeader")}
+                                </Badge>
+                            }
+                            value={"pending"}
+                            classes={{ root: classes.internalTab }}
+                        />
+                    </Tabs>
+                </Paper>
                 <Paper className={classes.ticketsWrapper}>
                     <TicketsListGroup
                         status="open"
@@ -676,24 +843,33 @@ const TicketsManagerTabs = () => {
             </TabPanel>
             {(user.profile === "admin" || user.profile === "superv" || (user.profile === "user" && user.allTicket === "enabled")) && (
                 <TabPanel value={tab} name="closed" className={classes.ticketsWrapper}>
-                    <Tabs
-                        value={activeSubTab}
-                        onChange={handleChangeSubTab}
-                        indicatorColor="primary"
-                        textColor="primary"
-                        variant="fullWidth"
-                    >
-                        <Tab
-                            label={i18n.t("tickets.tabs.private.title")}
-                            value={"private"}
-                        />
-                        {showGroupTab && (
+                    <Paper elevation={0} square className={classes.tabsInternal}>
+                        <Tabs
+                            value={activeSubTab}
+                            onChange={handleChangeSubTab}
+                            indicatorColor="primary"
+                            textColor="inherit"
+                            variant="fullWidth"
+                            TabIndicatorProps={{
+                                style: {
+                                    display: 'none'
+                                }
+                            }}
+                        >
                             <Tab
-                                label={i18n.t("tickets.tabs.group.title")}
-                                value={"group"}
+                                label={i18n.t("tickets.tabs.private.title")}
+                                value={"private"}
+                                classes={{ root: classes.internalTab }}
                             />
-                        )}
-                    </Tabs>
+                            {showGroupTab && (
+                                <Tab
+                                    label={i18n.t("tickets.tabs.group.title")}
+                                    value={"group"}
+                                    classes={{ root: classes.internalTab }}
+                                />
+                            )}
+                        </Tabs>
+                    </Paper>
                     <Divider />
                     {activeSubTab === "private" && (
                         <TicketsList
