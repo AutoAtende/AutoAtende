@@ -28,7 +28,8 @@ import ScheduleMessageHandler from "./workers/handler/ScheduleMessageHandler";
 import InactivityMonitorService from "./services/FlowBuilderService/InactivityMonitorService";
 import CleanupInactiveFlowsService from "./services/FlowBuilderService/CleanupInactiveFlowsService";
 import DashboardCacheJob from "./jobs/dashboardCacheJob";
-
+import AnalyzeTicketsService from "./services/AssistantServices/AnalyzeTicketsService";
+import TicketAnalysis from "./models/TicketAnalysis";
 
 let connection: IORedis;
 let bullConfig: BullConfig;
@@ -74,6 +75,7 @@ export let messageQueue: BullQueue;
 export let queueMonitor: BullQueue;
 export let scheduleMonitor: BullQueue;
 export let campaignQueue: BullQueue;
+export let ticketAnalysisQueue: BullQueue;
 
 export function getUserMonitor(): BullQueue {
   if (!userMonitor) {
@@ -129,6 +131,14 @@ export function getCampaignQueue(): BullQueue {
   return campaignQueue;
 }
 
+export function getTicketAnalysisQueue(): BullQueue {
+  if (!ticketAnalysisQueue) {
+    throw new Error(
+      "Fila TicketAnalysisQueue não inicializada. Execute startQueueProcess primeiro."
+    );
+  }
+  return ticketAnalysisQueue;
+}
 
 const cache = new Map();
 const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
@@ -396,6 +406,7 @@ async function handleInvoiceAndCompanyStatus() {
     throw error;
   }
 }
+
 async function handleMessageJob(job) {
   const { data } = job;
   const messages = data.messages;
@@ -414,6 +425,84 @@ async function handleMessageJob(job) {
     }
   } catch (error) {
     logger.error("Error in handleMessageJob:", error);
+    throw error;
+  }
+}
+
+// Função para processar análise de tickets
+async function handleTicketAnalysisJob(job) {
+  const {
+    analysisId,
+    companyId,
+    name,
+    description,
+    assistantId,
+    filterCriteria,
+    openaiApiKey
+  } = job.data;
+
+  logger.info({
+    companyId,
+    analysisId,
+    jobId: job.id
+  }, 'Iniciando processamento de análise de tickets');
+
+  try {
+    // Atualizar status para processando
+    await TicketAnalysis.update(
+      { status: 'processing' },
+      { where: { id: analysisId } }
+    );
+
+    // Reportar progresso
+    job.updateProgress(10);
+
+    // Criar instância do serviço
+    const analyzeService = new AnalyzeTicketsService(openaiApiKey);
+
+    // Executar análise
+    const analysis = await analyzeService.execute({
+      companyId,
+      name,
+      description,
+      assistantId,
+      filterCriteria,
+      openaiApiKey
+    });
+
+    job.updateProgress(100);
+
+    logger.info({
+      companyId,
+      analysisId,
+      jobId: job.id,
+      questionsFound: analysis.frequentQuestions?.length || 0
+    }, 'Análise de tickets concluída com sucesso');
+
+    return {
+      success: true,
+      analysisId: analysis.id,
+      questionsFound: analysis.frequentQuestions?.length || 0
+    };
+
+  } catch (error) {
+    // Atualizar status para falha
+    await TicketAnalysis.update(
+      { 
+        status: 'failed',
+        errorMessage: error.message 
+      },
+      { where: { id: analysisId } }
+    );
+
+    logger.error({
+      companyId,
+      analysisId,
+      jobId: job.id,
+      error: error.message,
+      stack: error.stack
+    }, 'Erro durante processamento de análise de tickets');
+
     throw error;
   }
 }
@@ -699,6 +788,7 @@ export async function startQueueProcess() {
     queueMonitor = new BullQueue("QueueMonitor", { connection: bullConfig.connection, ...queueDefaultOptions });
     scheduleMonitor = new BullQueue("ScheduleMonitor", { connection: bullConfig.connection, ...queueDefaultOptions });
     campaignQueue = new BullQueue("CampaignQueue", { connection: bullConfig.connection, ...queueDefaultOptions });
+    ticketAnalysisQueue = new BullQueue("TicketAnalysisQueue", { connection: bullConfig.connection, ...queueDefaultOptions });
 
     // Configuração otimizada para workers
     const defaultWorkerConfig = {
@@ -849,6 +939,29 @@ export async function startQueueProcess() {
     );
     workers.push(scheduleWorker);
 
+    // NOVO: Worker para análise de tickets
+    const ticketAnalysisWorker = new Worker(
+      ticketAnalysisQueue.name,
+      async (job: Job) => {
+        try {
+          logger.info(`[StartQueueProcess] Processando job ${job.name} no ticketAnalysisWorker`);
+          if (job.name === "analyze-tickets") {
+            return handleTicketAnalysisJob(job);
+          }
+        } catch (error) {
+          logger.error(`[StartQueueProcess] Erro no ticketAnalysisWorker: ${error}`);
+          throw error;
+        }
+      },
+      {
+        ...defaultWorkerConfig,
+        concurrency: 2, // Limitado para não sobrecarregar a API da OpenAI
+      }
+    );
+    workers.push(ticketAnalysisWorker);
+
+    logger.info("[StartQueueProcess] Worker de análise de tickets (ticketAnalysisWorker) criado");
+
     // Salvar a referência dos workers no global scope para limpeza adequada
     global.__workerRefs = workers;
 
@@ -995,13 +1108,13 @@ export async function startQueueProcess() {
     // Implementar heartbeat para manter locks vivos
     const stopHeartbeat = setupHeartbeat(workers);
     
-    // Implementar monitoramento de saúde das filas
+    // Implementar monitoramento de saúde das filas (incluindo a nova fila)
     const stopHealthMonitor = setupQueueHealthMonitor([
-      userMonitor, generalMonitor, messageQueue, queueMonitor, scheduleMonitor, campaignQueue
+      userMonitor, generalMonitor, messageQueue, queueMonitor, scheduleMonitor, campaignQueue, ticketAnalysisQueue
     ]);
     
-    // Verificar e retomar filas pausadas
-    const queues = [userMonitor, generalMonitor, messageQueue, queueMonitor, scheduleMonitor, campaignQueue];
+    // Verificar e retomar filas pausadas (incluindo a nova fila)
+    const queues = [userMonitor, generalMonitor, messageQueue, queueMonitor, scheduleMonitor, campaignQueue, ticketAnalysisQueue];
     for (const queue of queues) {
       const isPaused = await queue.isPaused();
       if (isPaused) {
@@ -1097,7 +1210,7 @@ export async function shutdownQueues() {
     // Limpar jobs incompletos para evitar processamento duplicado na próxima inicialização
     try {
       logger.info("Limpando jobs incompletos das filas...");
-      const queues = [userMonitor, generalMonitor, messageQueue, queueMonitor, scheduleMonitor, campaignQueue];
+      const queues = [userMonitor, generalMonitor, messageQueue, queueMonitor, scheduleMonitor, campaignQueue, ticketAnalysisQueue];
       const cleanupPromises = queues.map(async queue => {
         try {
           await queue.clean(0, 500, 'active');
@@ -1144,7 +1257,7 @@ export async function shutdownQueues() {
 
 export async function cleanupQueues() {
   logger.info("Cleaning up queues");
-  const queues = [userMonitor, generalMonitor, messageQueue, queueMonitor, scheduleMonitor, campaignQueue];
+  const queues = [userMonitor, generalMonitor, messageQueue, queueMonitor, scheduleMonitor, campaignQueue, ticketAnalysisQueue];
 
   try {
     const cleanupPromises = queues.map(async queue => {
@@ -1167,6 +1280,98 @@ export async function cleanupQueues() {
     logger.error("Error during queue cleanup:", err);
     throw err;
   }
+}
+
+// Função auxiliar para adicionar job de análise de tickets
+export async function addTicketAnalysisJob(data: {
+  analysisId: string;
+  companyId: number;
+  name: string;
+  description?: string;
+  assistantId?: string;
+  filterCriteria: any;
+  openaiApiKey: string;
+}) {
+  if (!ticketAnalysisQueue) {
+    throw new Error("TicketAnalysisQueue não inicializada");
+  }
+
+  const job = await ticketAnalysisQueue.add('analyze-tickets', data, {
+    priority: 1, // Prioridade normal
+    delay: 1000, // Delay de 1 segundo para permitir que o registro seja commitado
+    removeOnComplete: 10,
+    removeOnFail: 50,
+    attempts: 3,
+    backoff: {
+      type: 'exponential',
+      delay: 5000
+    }
+  });
+
+  logger.info({
+    jobId: job.id,
+    companyId: data.companyId,
+    analysisId: data.analysisId
+  }, 'Job de análise de tickets adicionado à fila');
+
+  return job;
+}
+
+// Função para obter status dos jobs de análise
+export async function getTicketAnalysisJobStatus(analysisId: string) {
+  if (!ticketAnalysisQueue) {
+    return { status: 'queue_not_initialized' };
+  }
+
+  const jobs = await ticketAnalysisQueue.getJobs(['active', 'waiting', 'completed', 'failed']);
+  
+  const job = jobs.find(j => j.data.analysisId === analysisId);
+  
+  if (!job) {
+    return { status: 'not_found' };
+  }
+
+  const state = await job.getState();
+  const progress = job.progress();
+  
+  return {
+    status: state,
+    progress,
+    id: job.id,
+    processedOn: job.processedOn,
+    finishedOn: job.finishedOn,
+    failedReason: job.failedReason
+  };
+}
+
+// Função para cancelar job de análise
+export async function cancelTicketAnalysisJob(analysisId: string) {
+  if (!ticketAnalysisQueue) {
+    return false;
+  }
+
+  const jobs = await ticketAnalysisQueue.getJobs(['active', 'waiting']);
+  
+  const job = jobs.find(j => j.data.analysisId === analysisId);
+  
+  if (job) {
+    await job.remove();
+    
+    // Atualizar status da análise
+    await TicketAnalysis.update(
+      { status: 'failed', errorMessage: 'Cancelado pelo usuário' },
+      { where: { id: analysisId } }
+    );
+    
+    logger.info({
+      jobId: job.id,
+      analysisId
+    }, 'Job de análise de tickets cancelado');
+    
+    return true;
+  }
+  
+  return false;
 }
 
 export function parseToMilliseconds(seconds: number) {

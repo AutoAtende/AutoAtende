@@ -43,7 +43,8 @@ import {
   Search as SearchIcon,
   Functions as FunctionsIcon,
   VolumeUp as VolumeUpIcon,
-  Mic as MicIcon
+  Mic as MicIcon,
+  Analytics as AnalyticsIcon
 } from "@mui/icons-material";
 import ToolsIcon from "@mui/icons-material/Extension";
 import { i18n } from "../../../translate/i18n";
@@ -52,6 +53,8 @@ import { toast } from "../../../helpers/toast";
 import { AuthContext } from "../../../context/Auth/AuthContext";
 import { useSpring, animated } from "react-spring";
 import FunctionsEditor from "./FunctionsEditor";
+import TicketAnalysesList from "./TicketAnalysesList";
+import TicketAnalysisModal from "./TicketAnalysisModal";
 
 // Modelos compatíveis com a OpenAI
 const openAiModels = [
@@ -206,6 +209,8 @@ const AssistantModal = ({ open, onClose, assistantId, onAssistantUpdated }) => {
     { type: "function", enabled: false }
   ]);
   const [functions, setFunctions] = useState([]);
+  const [ticketAnalysisModalOpen, setTicketAnalysisModalOpen] = useState(false);
+  const [ticketAnalysesListOpen, setTicketAnalysesListOpen] = useState(false);
   
   const filesPerPage = 3;
   const springProps = useSpring({
@@ -533,6 +538,7 @@ const AssistantModal = ({ open, onClose, assistantId, onAssistantUpdated }) => {
                     <Tab label={i18n.t("assistants.tabs.files")} icon={<InsertDriveFileIcon />} />
                     <Tab label={i18n.t("assistants.tabs.functions")} icon={<FunctionsIcon />} />
                     <Tab label="Configurações de Voz" icon={<VolumeUpIcon />} />
+                    <Tab label="Análise de Tickets" icon={<AnalyticsIcon />} />
                   </Tabs>
                   
                   {/* Aba de Configurações Básicas */}
@@ -1021,6 +1027,98 @@ const AssistantModal = ({ open, onClose, assistantId, onAssistantUpdated }) => {
                       </Typography>
                     </Box>
                   </TabPanel>
+
+                  {/* Aba de Análise de Tickets */}
+                  <TabPanel value={tabValue} index={5}>
+                    <Alert severity="info" sx={{ mb: 3 }}>
+                      Analise tickets da sua empresa para identificar perguntas frequentes e treinar este assistente automaticamente.
+                    </Alert>
+
+                    <Grid container spacing={3}>
+                      <Grid item xs={12} md={6}>
+                        <Card variant="outlined">
+                          <CardContent>
+                            <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                              <AnalyticsIcon color="primary" />
+                              Nova Análise
+                            </Typography>
+                            <Typography variant="body2" color="textSecondary" paragraph>
+                              Crie uma nova análise dos tickets para identificar padrões e treinar o assistente.
+                            </Typography>
+                            <Button
+                              variant="contained"
+                              color="primary"
+                              startIcon={<AnalyticsIcon />}
+                              onClick={() => setTicketAnalysisModalOpen(true)}
+                              fullWidth
+                            >
+                              Iniciar Análise
+                            </Button>
+                          </CardContent>
+                        </Card>
+                      </Grid>
+
+                      <Grid item xs={12} md={6}>
+                        <Card variant="outlined">
+                          <CardContent>
+                            <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                              <SearchIcon color="secondary" />
+                              Análises Anteriores
+                            </Typography>
+                            <Typography variant="body2" color="textSecondary" paragraph>
+                              Visualize e gerencie análises já realizadas para este assistente.
+                            </Typography>
+                            <Button
+                              variant="outlined"
+                              color="secondary"
+                              startIcon={<SearchIcon />}
+                              onClick={() => setTicketAnalysesListOpen(true)}
+                              fullWidth
+                              disabled={!assistantId}
+                            >
+                              {assistantId ? "Ver Análises" : "Salve o assistente primeiro"}
+                            </Button>
+                          </CardContent>
+                        </Card>
+                      </Grid>
+                    </Grid>
+
+                    <Box sx={{ mt: 4 }}>
+                      <Typography variant="h6" gutterBottom>
+                        Como funciona a análise de tickets?
+                      </Typography>
+                      
+                      <Box sx={{ pl: 2 }}>
+                        <Typography variant="body2" component="div" sx={{ mb: 2 }}>
+                          <strong>1. Seleção de dados:</strong> Escolha o período, filas e outros critérios para filtrar os tickets que serão analisados.
+                        </Typography>
+                        
+                        <Typography variant="body2" component="div" sx={{ mb: 2 }}>
+                          <strong>2. Processamento com IA:</strong> Nossa IA analisa as conversas para identificar padrões e perguntas frequentes.
+                        </Typography>
+                        
+                        <Typography variant="body2" component="div" sx={{ mb: 2 }}>
+                          <strong>3. Revisão e edição:</strong> Você pode revisar e editar as perguntas e respostas identificadas.
+                        </Typography>
+                        
+                        <Typography variant="body2" component="div">
+                          <strong>4. Aplicação ao assistente:</strong> O treinamento é aplicado às instruções do assistente automaticamente.
+                        </Typography>
+                      </Box>
+                    </Box>
+
+                    <Box sx={{ p: 2, bgcolor: 'action.hover', borderRadius: 1, mt: 3 }}>
+                      <Typography variant="subtitle2" gutterBottom>
+                        💡 Dicas para melhores resultados:
+                      </Typography>
+                      <Typography variant="body2" component="div">
+                        • Analise tickets de períodos com maior volume de atendimento<br/>
+                        • Inclua apenas tickets resolvidos para ter respostas completas<br/>
+                        • Use um mínimo de 3-5 mensagens por ticket para conversas mais ricas<br/>
+                        • Revise as perguntas identificadas antes de aplicar ao assistente
+                      </Typography>
+                    </Box>
+                  </TabPanel>
                 </DialogContent>
                 
                 <DialogActions>
@@ -1051,6 +1149,24 @@ const AssistantModal = ({ open, onClose, assistantId, onAssistantUpdated }) => {
             )}
           </Formik>
         </animated.div>
+
+        {/* Modais de Análise de Tickets */}
+        <TicketAnalysisModal
+          open={ticketAnalysisModalOpen}
+          onClose={() => setTicketAnalysisModalOpen(false)}
+          assistantId={assistantId}
+          onAnalysisComplete={() => {
+            // Recarregar dados se necessário
+            setTicketAnalysisModalOpen(false);
+            toast.success("Análise iniciada com sucesso!");
+          }}
+        />
+
+        <TicketAnalysesList
+          open={ticketAnalysesListOpen}
+          onClose={() => setTicketAnalysesListOpen(false)}
+          assistantId={assistantId}
+        />
       </Dialog>
     </Root>
   );

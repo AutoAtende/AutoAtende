@@ -65,6 +65,7 @@ import flowBuilderRoutes from "./flowBuilderRoutes";
 import horarioRoutes from "./horarioRoutes";
 import voiceRoutes from "./voiceRoutes";
 import adminDashboardRoutes from "./adminDashboardRoutes";
+import ticketAnalysisRoutes from "./ticketAnalysisRoutes";
 
 const routes = Router();
 
@@ -94,6 +95,7 @@ routes.use(ticketRoutes);
 routes.use(whatsappRoutes);
 routes.use(contactTagsRoutes);
 routes.use(messageRoutes);
+routes.use(ticketAnalysisRoutes);
 routes.use(whatsappSessionRoutes);
 routes.use(groupRoutes);
 routes.use(groupSeriesRoutes);

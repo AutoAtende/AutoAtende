@@ -72,6 +72,7 @@ import Ticket from "../models/Ticket";
 import TicketNote from "../models/TicketNote";
 import TicketTag from "../models/TicketTag";
 import TicketTraking from "../models/TicketTraking";
+import TicketAnalysis from "../models/TicketAnalysis";
 import User from "../models/User";
 import UserQueue from "../models/UserQueue";
 import UserRating from "../models/UserRating";
@@ -181,6 +182,7 @@ const models = [
   TicketNote,
   TicketTag,
   TicketTraking,
+  TicketAnalysis,
   User,
   UserQueue,
   UserRating,

@@ -186,7 +186,6 @@ const UserModal = ({ open, onClose, userId }) => {
         setCanEditPassword(true);
         setCanEditNotifications(loggedInUser.profile === "admin" || loggedInUser.profile === "superv");
         setCanEditPermissions(loggedInUser.profile === "admin" || loggedInUser.profile === "superv");
-
         return;
       }
 
@@ -512,74 +511,31 @@ const UserModal = ({ open, onClose, userId }) => {
                 {/* Profile e Ramal na mesma linha */}
                 <FormSection>
                   <Box display="flex" gap={2} flexDirection={isMobile ? 'column' : 'row'}>
-
-                    {/* Controle de perfil com permissões adequadas */}
-                    {(loggedInUser.profile === "admin" || loggedInUser.profile === "superv") && (
-                      <FormControl fullWidth>
-                        <InputLabel>
-                          {i18n.t("userModal.form.profileT")}
-                        </InputLabel>
-                        <Select
-                          name="profile"
-                          value={values.profile}
-                          onChange={handleChange}
-                          label={i18n.t("userModal.form.profileT")}
-                          disabled={
-                            // User não pode alterar próprio perfil
-                            loggedInUser.profile === "user" ||
-                            // Superv não pode alterar perfil de admin
-                            (loggedInUser.profile === "superv" && values.profile === "admin") ||
-                            // Ninguém pode alterar próprio perfil para um nível superior
-                            (loggedInUser.id === userId && 
-                              ((loggedInUser.profile === "superv" && values.profile === "admin") ||
-                               (loggedInUser.profile === "user" && (values.profile === "admin" || values.profile === "superv"))))
-                          }
-                        >
-                          {/* Admin pode ver todas as opções */}
-                          {loggedInUser.profile === "admin" && (
-                            <>
-                              <MenuItem value="admin">
-                                {i18n.t("userModal.form.profile.admin")}
-                              </MenuItem>
-                              <MenuItem value="superv">
-                                {i18n.t("userModal.form.profile.superv")}
-                              </MenuItem>
-                              <MenuItem value="user">
-                                {i18n.t("userModal.form.profile.user")}
-                              </MenuItem>
-                            </>
-                          )}
-                          
-                          {/* Superv pode alterar apenas para user */}
-                          {loggedInUser.profile === "superv" && (
-                            <MenuItem value="user">
-                              {i18n.t("userModal.form.profile.user")}
-                            </MenuItem>
-                          )}
-                        </Select>
-                        <FormHelperText>
-                          {loggedInUser.profile === "admin" 
-                            ? i18n.t("userModal.form.profileHelp")
-                            : "Você pode alterar usuários apenas para o perfil 'Usuário'"
-                          }
-                        </FormHelperText>
-                      </FormControl>
-                    )}
-
-                    {/* Mostrar perfil atual para usuários sem permissão de edição */}
-                    {loggedInUser.profile === "user" && (
-                      <TextField
-                        fullWidth
+                    <FormControl fullWidth>
+                      <InputLabel>
+                        {i18n.t("userModal.form.profileT")}
+                      </InputLabel>
+                      <Select
+                        name="profile"
+                        value={values.profile}
+                        onChange={handleChange}
                         label={i18n.t("userModal.form.profileT")}
-                        value={
-                          values.profile === "admin" ? i18n.t("userModal.form.profile.admin") :
-                          values.profile === "superv" ? i18n.t("userModal.form.profile.superv") :
-                          i18n.t("userModal.form.profile.user")
-                        }
-                        disabled
-                        helperText="Você não tem permissão para alterar perfis"
-                      />
-                    )}
+                      >
+                        <MenuItem value="admin">
+                          {i18n.t("userModal.form.profile.admin")}
+                        </MenuItem>
+                        <MenuItem value="user">
+                          {i18n.t("userModal.form.profile.user")}
+                        </MenuItem>
+                        <MenuItem value="superv">
+                          {i18n.t("userModal.form.profile.superv")}
+                        </MenuItem>
+                      </Select>
+                      <FormHelperText>
+                        {i18n.t("userModal.form.profileHelp")}
+                      </FormHelperText>
+                    </FormControl>
+
                     <TextField
                       fullWidth
                       name="ramal"
@@ -596,7 +552,6 @@ const UserModal = ({ open, onClose, userId }) => {
                     />
                   </Box>
                 </FormSection>
-
 
                 <FormSection>
                   <Box display="flex" gap={2} flexDirection={isMobile ? 'column' : 'row'}>
