@@ -42,6 +42,8 @@ const SendWhatsAppMessage = async ({
         : `${number}@s.whatsapp.net`;
     }
 
+    console.log("[SENDMESSAGE] Enviando msg para:", number);
+
     // Handle vCard logic first
     if (vCard) {
       try {
