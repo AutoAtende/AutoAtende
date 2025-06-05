@@ -33,11 +33,11 @@ import AutoGroupManagerService from "../services/GroupServices/AutoGroupManagerS
 import DeleteBaileysService from "../services/BaileysServices/DeleteBaileysService";
 import Baileys from "../models/Baileys";
 import Contact from "../models/Contact";
-import { 
-  setupImportQueue, 
-  getImportQueue, 
-  addImportBatchToQueue, 
-  ImportQueue 
+import {
+  setupImportQueue,
+  getImportQueue,
+  addImportBatchToQueue,
+  ImportQueue
 } from "../services/WhatsappService/ImportWhatsAppMessageQueue";
 import { isValidMsg } from "../services/WbotServices/MessageListener/wbotMessageListener";
 const loggerBaileys = MAIN_LOGGER.child({});
@@ -403,34 +403,34 @@ export const initWASocket = async (whatsapp: Whatsapp): Promise<Session> => {
           if (events['messaging-history.set']) {
             try {
               const historyEvent = events['messaging-history.set'];
-              
+
               if (whatsappUpdate?.importOldMessages) {
                 // Extrair datas para filtro
                 let startImportDate = new Date(whatsappUpdate.importOldMessages).getTime();
                 let endImportDate = whatsappUpdate.importRecentMessages
                   ? new Date(whatsappUpdate.importRecentMessages).getTime()
                   : new Date().getTime();
-                
+
                 logger.warn("----------------------------------------");
                 logger.warn("[WBOT] - History sync starting");
                 logger.warn("----------------------------------------");
-                
+
                 // Atualizar status para preparação
                 await whatsappUpdate.update({
                   statusImportMessages: "preparing"
                 });
-                
+
                 // Obter a fila usando a função segura
                 const importQueue = await getImportQueue();
-                
+
                 // Processar as mensagens
                 const { messages } = historyEvent;
-                
+
                 if (messages && Array.isArray(messages)) {
                   // Filtrar mensagens conforme critérios
                   const filteredMessages = messages.filter(message => {
                     const messageDate = Math.floor(Number(message.messageTimestamp) * 1000);
-                    
+
                     if (isValidMsg(message)) {
                       if (startImportDate <= messageDate && endImportDate >= messageDate) {
                         if (!message.key?.remoteJid.includes("g.us")) {
@@ -442,17 +442,17 @@ export const initWASocket = async (whatsapp: Whatsapp): Promise<Session> => {
                     }
                     return false;
                   });
-                  
+
                   logger.info(`[WBOT] - Filtered ${filteredMessages.length} messages for import`);
-                  
+
                   // Dividir em lotes para processamento
                   const batchSize = 50;
                   const batches = [];
-                  
+
                   for (let i = 0; i < filteredMessages.length; i += batchSize) {
                     batches.push(filteredMessages.slice(i, i + batchSize));
                   }
-                  
+
                   // Verificar se há mensagens para importar
                   if (batches.length > 0) {
                     // Notificar frontend sobre início da importação
@@ -468,12 +468,12 @@ export const initWASocket = async (whatsapp: Whatsapp): Promise<Session> => {
                         }
                       }
                     );
-                    
+
                     // Atualizar status para em execução
                     await whatsappUpdate.update({
                       statusImportMessages: "Running"
                     });
-                    
+
                     // Adicionar lotes à fila usando a função específica do serviço
                     for (let batchIndex = 0; batchIndex < batches.length; batchIndex++) {
                       await addImportBatchToQueue({
@@ -483,11 +483,11 @@ export const initWASocket = async (whatsapp: Whatsapp): Promise<Session> => {
                         batchIndex,
                         totalBatches: batches.length
                       });
-                      
+
                       // Aguardar um pouco entre cada adição para evitar sobrecargas
                       await new Promise(resolve => setTimeout(resolve, 100));
                     }
-                    
+
                     logger.info(`[WBOT] - Added ${batches.length} batches to import queue`);
                   } else {
                     // Não há mensagens para importar
@@ -496,7 +496,7 @@ export const initWASocket = async (whatsapp: Whatsapp): Promise<Session> => {
                       importOldMessages: null,
                       importRecentMessages: null
                     });
-                    
+
                     io.to(`company-${whatsappUpdate.companyId}-mainchannel`).emit(
                       "importMessages-" + whatsappUpdate.companyId,
                       {
@@ -514,7 +514,7 @@ export const initWASocket = async (whatsapp: Whatsapp): Promise<Session> => {
               }
             } catch (error) {
               logger.error("[WBOT] - Error processing message history:", error);
-              
+
               // Notificar frontend sobre o erro
               io.to(`company-${whatsappUpdate.companyId}-mainchannel`).emit(
                 "importMessages-" + whatsappUpdate.companyId,
@@ -526,7 +526,7 @@ export const initWASocket = async (whatsapp: Whatsapp): Promise<Session> => {
                   }
                 }
               );
-              
+
               // Atualizar status de erro
               await whatsappUpdate.update({
                 statusImportMessages: "error"
@@ -883,11 +883,24 @@ export const initWASocket = async (whatsapp: Whatsapp): Promise<Session> => {
             }
           }
 
+          // Processamento do evento groups.update
+          if (events['groups.update']) {
+            logger.debug("Received group update");
+            for (const event of events['groups.update']) {
+              try {
+                const metadata = await wsocket.groupMetadata(event.id);
+                groupCache.set(event.id, metadata);
+              } catch (error) {
+                logger.error(`Erro ao atualizar metadados do grupo: ${error}`);
+              }
+            }
+          }
+
           if (events['group-participants.update']) {
             try {
               const participantUpdate = events['group-participants.update'];
               logger.debug(`Recebida atualização de participantes no grupo: ${participantUpdate.id}`);
-              
+
               const event = events['group-participants.update'];
               const metadata = await wsocket.groupMetadata(event.id);
               groupCache.set(event.id, metadata);
@@ -900,14 +913,14 @@ export const initWASocket = async (whatsapp: Whatsapp): Promise<Session> => {
                   companyId: whatsapp.companyId
                 }
               });
-          
+
               if (managedGroup) {
                 logger.info(`[GRUPO GERENCIADO] Atualização detectada no grupo ${managedGroup.subject}`);
-                
+
                 try {
                   // Atualizar metadados do grupo
                   const groupMetadata = await wsocket.groupMetadata(participantUpdate.id);
-                  
+
                   // Enriquecer participantes
                   const enrichedParticipants = groupMetadata.participants.map(p => ({
                     id: p.id,
@@ -917,12 +930,12 @@ export const initWASocket = async (whatsapp: Whatsapp): Promise<Session> => {
                     name: null,
                     contact: null
                   }));
-          
+
                   // Extrair administradores
                   const adminParticipants = enrichedParticipants
                     .filter(p => p.admin === 'admin' || p.admin === 'superadmin')
                     .map(p => p.id);
-          
+
                   // Atualizar grupo no banco
                   await managedGroup.update({
                     participants: JSON.stringify(groupMetadata.participants),
@@ -930,16 +943,16 @@ export const initWASocket = async (whatsapp: Whatsapp): Promise<Session> => {
                     adminParticipants,
                     lastSync: new Date()
                   });
-          
+
                   const currentCount = enrichedParticipants.length;
                   const occupancyPercentage = (currentCount / managedGroup.maxParticipants) * 100;
-                  
+
                   logger.info(`[GRUPO GERENCIADO] ${managedGroup.subject}: ${currentCount}/${managedGroup.maxParticipants} participantes (${occupancyPercentage.toFixed(1)}%)`);
-          
+
                   // Verificar se precisa criar próximo grupo
                   if (managedGroup.shouldCreateNextGroup()) {
                     logger.info(`[GRUPO GERENCIADO] Grupo ${managedGroup.subject} atingiu limite, iniciando criação do próximo`);
-                    
+
                     // Executar em background para não bloquear
                     setImmediate(async () => {
                       try {
@@ -947,7 +960,7 @@ export const initWASocket = async (whatsapp: Whatsapp): Promise<Session> => {
                           // Verificar novamente se ainda precisa (pode ter sido criado por outro processo)
                           const updatedGroup = await Groups.findByPk(managedGroup.id);
                           if (updatedGroup && updatedGroup.shouldCreateNextGroup()) {
-                            
+
                             // Verificar se já existe um grupo mais novo na série
                             const newerGroup = await Groups.findOne({
                               where: {
@@ -958,15 +971,15 @@ export const initWASocket = async (whatsapp: Whatsapp): Promise<Session> => {
                                 }
                               }
                             });
-          
+
                             if (!newerGroup) {
                               const newGroup = await AutoGroupManagerService.forceCreateNextGroup(
                                 managedGroup.groupSeries,
                                 managedGroup.companyId
                               );
-                              
+
                               logger.info(`[GRUPO GERENCIADO] Novo grupo criado automaticamente: ${newGroup.subject}`);
-                              
+
                               // Emitir evento via socket
                               io.to(`company-${managedGroup.companyId}-mainchannel`).emit("auto-group-created", {
                                 action: "participant_limit_reached",
@@ -993,12 +1006,12 @@ export const initWASocket = async (whatsapp: Whatsapp): Promise<Session> => {
                       }
                     });
                   }
-          
+
                   // Desativar grupo se estiver cheio
                   if (managedGroup.isFull() && managedGroup.isActive) {
                     await managedGroup.update({ isActive: false });
                     logger.info(`[GRUPO GERENCIADO] Grupo ${managedGroup.subject} desativado (cheio)`);
-                    
+
                     // Emitir evento de desativação
                     io.to(`company-${managedGroup.companyId}-mainchannel`).emit("auto-group-deactivated", {
                       action: "group_full",
@@ -1010,7 +1023,7 @@ export const initWASocket = async (whatsapp: Whatsapp): Promise<Session> => {
                       }
                     });
                   }
-          
+
                   // Emitir estatísticas atualizadas
                   io.to(`company-${managedGroup.companyId}-mainchannel`).emit("group-stats-update", {
                     action: "participant_update",
@@ -1023,87 +1036,61 @@ export const initWASocket = async (whatsapp: Whatsapp): Promise<Session> => {
                     isFull: managedGroup.isFull(),
                     isActive: managedGroup.isActive
                   });
-          
+
                 } catch (updateError) {
                   logger.error(`[GRUPO GERENCIADO] Erro ao atualizar grupo ${managedGroup.subject}: ${updateError.message}`);
                 }
               }
-          
-              // Continuar com o processamento normal dos eventos (código existente)
-              try {
-                const event = events['group-participants.update'];
-                const metadata = await wsocket.groupMetadata(event.id);
-                groupCache.set(event.id, metadata);
-              } catch (error) {
-                groupCache.del(events['group-participants.update'].id);
-                logger.error(`Erro ao atualizar participantes do grupo: ${error}`);
-              }
-          
             } catch (error) {
               groupCache.del(events['group-participants.update'].id);
               logger.error(`Erro ao atualizar participantes do grupo: ${error}`);
               logger.error(`[GRUPO GERENCIADO] Erro no processamento de group-participants.update: ${error.message}`);
             }
           }
-          
 
-          // Processamento do evento groups.upsert
-// Processamento do evento groups.upsert (ATUALIZADO)
-if (events['groups.upsert']) {
-  logger.debug("Received new group");
-  
-  for (const group of events['groups.upsert']) {
-    groupCache.set(group.id, group);
-    
-    // Verificar se é um grupo que deveria ser gerenciado
-    try {
-      const existingGroup = await Groups.findOne({
-        where: {
-          jid: group.id,
-          companyId: whatsapp.companyId
-        }
-      });
+          if (events['groups.upsert']) {
+            logger.debug("Received new group");
 
-      if (!existingGroup) {
-        // Verificar se foi criado por uma série gerenciada
-        const recentGroupSeries = await GroupSeries.findAll({
-          where: {
-            companyId: whatsapp.companyId,
-            whatsappId: whatsapp.id,
-            autoCreateEnabled: true
-          },
-          limit: 10
-        });
+            events['groups.upsert'].forEach(group => {
+              groupCache.set(group.id, group);
+            });
 
-        for (const series of recentGroupSeries) {
-          // Verificar se o nome do grupo corresponde ao padrão da série
-          if (group.subject && 
-              (group.subject === series.baseGroupName || 
-               group.subject.startsWith(`${series.baseGroupName} #`))) {
-            
-            logger.info(`[GRUPO GERENCIADO] Novo grupo detectado para série ${series.name}: ${group.subject}`);
-            
-            // Este grupo pode ter sido criado externamente mas corresponde à série
-            // Registrar como grupo gerenciado se apropriado
-            break;
-          }
-        }
-      }
-    } catch (error) {
-      logger.error(`[GRUPO GERENCIADO] Erro ao verificar novo grupo: ${error.message}`);
-    }
-  }
-}
+            for (const group of events['groups.upsert']) {
+              groupCache.set(group.id, group);
 
-          // Processamento do evento groups.update
-          if (events['groups.update']) {
-            logger.debug("Received group update");
-            for (const event of events['groups.update']) {
+              // Verificar se é um grupo que deveria ser gerenciado
               try {
-                const metadata = await wsocket.groupMetadata(event.id);
-                groupCache.set(event.id, metadata);
+                const existingGroup = await Groups.findOne({
+                  where: {
+                    jid: group.id,
+                    companyId: whatsapp.companyId
+                  }
+                });
+
+                if (!existingGroup) {
+                  // Verificar se foi criado por uma série gerenciada
+                  const recentGroupSeries = await GroupSeries.findAll({
+                    where: {
+                      companyId: whatsapp.companyId,
+                      whatsappId: whatsapp.id,
+                      autoCreateEnabled: true
+                    },
+                    limit: 10
+                  });
+
+                  for (const series of recentGroupSeries) {
+                    // Verificar se o nome do grupo corresponde ao padrão da série
+                    if (group.subject &&
+                      (group.subject === series.baseGroupName ||
+                        group.subject.startsWith(`${series.baseGroupName} #`))) {
+
+                      logger.info(`[GRUPO GERENCIADO] Novo grupo detectado para série ${series.name}: ${group.subject}`);
+                      break;
+                    }
+                  }
+                }
               } catch (error) {
-                logger.error(`Erro ao atualizar metadados do grupo: ${error}`);
+                logger.error(`[GRUPO GERENCIADO] Erro ao verificar novo grupo: ${error.message}`);
               }
             }
           }
@@ -1119,7 +1106,7 @@ if (events['groups.upsert']) {
   });
 };
 
-export const sendMessageWTyping = async(wbot: Session, msg: AnyMessageContent, jid: string) => {
+export const sendMessageWTyping = async (wbot: Session, msg: AnyMessageContent, jid: string) => {
   await wbot.presenceSubscribe(jid)
   await delay(500)
 
