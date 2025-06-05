@@ -20,32 +20,22 @@ interface SyncResult {
  * Valida e limpa participantes mantendo a estrutura original da Baileys
  */
 const validateParticipants = (participants: GroupParticipant[]): GroupParticipant[] => {
-  if (!Array.isArray(participants)) {
-    return [];
-  }
-  
+  if (!Array.isArray(participants)) return [];
+
   return participants
-    .filter(p => p && p.id) // Remove participantes inválidos
-    .map(p => {
-      try {
-        // Manter a estrutura original da Baileys, apenas limpar dados inválidos
-        return {
-          id: p.id,
-          lid: p.lid || undefined,
-          name: p.name || undefined,
-          notify: p.notify || undefined,
-          verifiedName: p.verifiedName || undefined,
-          imgUrl: p.imgUrl || undefined,
-          status: p.status || undefined,
-          isAdmin: p.isAdmin || false,
-          isSuperAdmin: p.isSuperAdmin || false,
-          admin: p.admin || null
-        } as GroupParticipant;
-      } catch (error) {
-        logger.warn(`[SyncGroups] Erro ao processar participante: ${error.message}`);
-        return null;
-      }
-    })
+    .filter(p => p && p.id)
+    .map(p => ({
+      id: p.id,
+      lid: p.lid || null,          // Substitua undefined por null
+      name: p.name || null,         // Substitua undefined por null
+      notify: p.notify || null,     // Substitua undefined por null
+      verifiedName: p.verifiedName || null, // Substitua undefined por null
+      imgUrl: p.imgUrl || null,     // Substitua undefined por null
+      status: p.status || null,     // Substitua undefined por null
+      isAdmin: p.isAdmin || false,
+      isSuperAdmin: p.isSuperAdmin || false,
+      admin: p.admin || null
+    }))
     .filter(p => p !== null) as GroupParticipant[];
 };
 
