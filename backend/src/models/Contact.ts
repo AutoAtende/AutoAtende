@@ -13,7 +13,9 @@ import {
   HasMany,
   ForeignKey,
   BelongsTo,
-  BelongsToMany
+  BelongsToMany,
+  BeforeCreate,
+  BeforeUpdate
 } from "sequelize-typescript";
 import ContactCustomField from "./ContactCustomField";
 import ContactEmployer from "./ContactEmployer";
@@ -124,6 +126,23 @@ export class Contact extends Model<Contact> {
 
   @BelongsToMany(() => Tag, () => ContactTags)
   tags: Tag[];
+
+  @BeforeCreate
+  @BeforeUpdate
+  static validateGroupContact(contact: Contact) {
+    // Se o número/jid indica que é um grupo, forçar isGroup = true
+    if (contact.number?.includes('@g.us') || 
+        contact.remoteJid?.endsWith('@g.us') ||
+        (contact.number && contact.number.length > 15)) {
+      contact.isGroup = true;
+    }
+    
+    // Se é definitivamente um contato individual, garantir isGroup = false
+    if (contact.number?.includes('@s.whatsapp.net')) {
+      contact.isGroup = false;
+    }
+  }
+
 }
 
 export default Contact;

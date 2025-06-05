@@ -7,9 +7,9 @@ import {
   Typography,
   CircularProgress,
   useTheme,
-  TableCell,
   IconButton,
-  Tooltip
+  Tooltip,
+  Stack
 } from "@mui/material";
 import {
   Add as AddIcon,
@@ -20,7 +20,8 @@ import {
   WhatsApp as WhatsAppIcon,
   Lock as LockIcon,
   LockOpen as LockOpenIcon,
-  ContactPhone as ContactIcon
+  ContactPhone as ContactIcon,
+  Group as GroupIcon
 } from "@mui/icons-material";
 
 // Standard Components
@@ -55,9 +56,9 @@ const Contacts = () => {
   // Refs para infinite scroll
   const isMounted = useRef(true);
   const observerRef = useRef();
-  const loadingRef = useRef(); // Elemento observado para scroll infinito
+  const loadingRef = useRef();
 
-  // States
+  // States principais
   const [loading, setLoading] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
   const [contacts, setContacts] = useState([]);
@@ -66,7 +67,10 @@ const Contacts = () => {
   const [selectedContacts, setSelectedContacts] = useState([]);
   const [tagFilter, setTagFilter] = useState([]);
   const [hasMore, setHasMore] = useState(true);
-  const [page, setPage] = useState(1);
+  const [currentPage, setCurrentPage] = useState(1);
+
+  // Tabs state
+  const [activeTab, setActiveTab] = useState(0);
 
   // Modal states
   const [selectedContactId, setSelectedContactId] = useState(null);
@@ -81,6 +85,16 @@ const Contacts = () => {
   const [blockingContact, setBlockingContact] = useState(null);
   const [confirmBulkAction, setConfirmBulkAction] = useState(false);
   const [bulkActionType, setBulkActionType] = useState('');
+
+  // Configuração das abas
+  const tabs = [
+    { label: "Contatos", icon: <ContactIcon /> },
+    { label: "Grupos", icon: <GroupIcon /> }
+  ];
+
+  // Determinar se estamos visualizando grupos ou contatos
+  const isGroupView = activeTab === 1;
+  const typeContact = isGroupView ? "group" : "private";
 
   // Cleanup no unmount
   useEffect(() => {
@@ -120,17 +134,17 @@ const Contacts = () => {
     };
   };
 
-  // Função fetchContacts otimizada para infinite scroll
+  // Função fetchContacts corrigida para paginação adequada
   const fetchContacts = useCallback(async (pageNum, isFirstLoad = false) => {
     if (!isMounted.current || loadingMore) return;
 
     try {
-      console.log(`🔄 Carregando página ${pageNum} - First Load: ${isFirstLoad}`);
+      console.log(`🔄 Carregando página ${pageNum} - First Load: ${isFirstLoad} - Type: ${typeContact}`);
       
       if (isFirstLoad) {
         setLoading(true);
         setContacts([]);
-        setPage(1);
+        setCurrentPage(1);
       } else {
         setLoadingMore(true);
       }
@@ -138,10 +152,10 @@ const Contacts = () => {
       const { data } = await api.get("/contacts/", {
         params: {
           searchParam: searchParam.trim(),
-          typeContact: "private",
+          typeContact: typeContact,
           tagIds: Array.isArray(tagFilter) && tagFilter.length > 0 ? tagFilter.join(',') : undefined,
-          page: pageNum,
-          limit: 100
+          pageNumber: pageNum, // Usar pageNumber em vez de page
+          pageSize: 100 // Definir pageSize explicitamente
         },
       });
 
@@ -151,6 +165,7 @@ const Contacts = () => {
           : [];
 
         console.log(`✅ Recebidos ${normalizedContacts.length} contatos na página ${pageNum}`);
+        console.log(`📊 Total: ${data?.count}, HasMore: ${data?.hasMore}`);
 
         if (isFirstLoad) {
           setContacts(normalizedContacts);
@@ -159,8 +174,8 @@ const Contacts = () => {
         }
 
         setContactsTotal(data?.count || 0);
-        setHasMore(normalizedContacts.length === 100);
-        setPage(pageNum);
+        setHasMore(data?.hasMore || false);
+        setCurrentPage(pageNum);
       }
     } catch (err) {
       if (isMounted.current) {
@@ -178,14 +193,14 @@ const Contacts = () => {
         setLoadingMore(false);
       }
     }
-  }, [searchParam, tagFilter, loadingMore]);
+  }, [searchParam, tagFilter, loadingMore, typeContact]);
 
-  // Effect para carregar dados iniciais
+  // Effect para carregar dados iniciais quando filtros ou aba mudam
   useEffect(() => {
-    console.log('🔄 Recarregando dados - filtros mudaram');
+    console.log('🔄 Recarregando dados - filtros ou aba mudaram');
     setHasMore(true);
     fetchContacts(1, true);
-  }, [searchParam, tagFilter, makeRequest]);
+  }, [searchParam, tagFilter, makeRequest, activeTab]);
 
   // Intersection Observer para infinite scroll
   useEffect(() => {
@@ -194,7 +209,7 @@ const Contacts = () => {
       return;
     }
 
-    console.log('👁️ Criando Intersection Observer para página', page + 1);
+    console.log('👁️ Criando Intersection Observer para página', currentPage + 1);
 
     const observer = new IntersectionObserver(
       (entries) => {
@@ -204,12 +219,12 @@ const Contacts = () => {
           hasMore, 
           loading, 
           loadingMore,
-          nextPage: page + 1
+          nextPage: currentPage + 1
         });
 
         if (entry.isIntersecting && hasMore && !loading && !loadingMore) {
-          console.log(`🚀 Carregando próxima página: ${page + 1}`);
-          fetchContacts(page + 1, false);
+          console.log(`🚀 Carregando próxima página: ${currentPage + 1}`);
+          fetchContacts(currentPage + 1, false);
         }
       },
       {
@@ -227,7 +242,7 @@ const Contacts = () => {
         observerRef.current.disconnect();
       }
     };
-  }, [hasMore, loading, loadingMore, page, fetchContacts]);
+  }, [hasMore, loading, loadingMore, currentPage, fetchContacts]);
 
   // Handlers
   const handleSearchChange = useCallback((event) => {
@@ -242,6 +257,14 @@ const Contacts = () => {
     console.log('🏷️ Mudança de filtro de tags:', normalizedTagIds);
     setTagFilter(normalizedTagIds);
     setSelectedContacts([]);
+  }, []);
+
+  const handleTabChange = useCallback((event, newValue) => {
+    console.log('📑 Mudança de aba:', newValue);
+    setActiveTab(newValue);
+    setSelectedContacts([]);
+    setSearchParam('');
+    setTagFilter([]);
   }, []);
 
   const handleOpenContactModal = useCallback(() => {
@@ -474,7 +497,7 @@ const Contacts = () => {
     {
       id: 'name',
       field: 'name',
-      label: 'Nome',
+      label: isGroupView ? 'Nome do Grupo' : 'Nome',
       minWidth: 200,
       render: (contact) => {
         const normalizedContact = normalizeContactData(contact);
@@ -487,9 +510,9 @@ const Contacts = () => {
                 width: 40,
                 height: 40
               }}
-              src={normalizedContact.profilePicUrl || ''}
+              src={!isGroupView ? normalizedContact.profilePicUrl || '' : ''}
             >
-              {getInitials(normalizedContact.name)}
+              {isGroupView ? <GroupIcon /> : getInitials(normalizedContact.name)}
             </Avatar>
             <Box>
               <Typography variant="subtitle2" fontWeight={600}>
@@ -502,48 +525,54 @@ const Contacts = () => {
           </Box>
         );
       }
-    },
-    {
+    }
+  ];
+
+  // Adicionar coluna de tags apenas para contatos individuais
+  if (!isGroupView) {
+    columns.push({
       id: 'tags',
       field: 'tags',
       label: 'Tags',
       width: 200,
       render: renderContactTags
-    },
-    {
-      id: 'status',
-      field: 'active',
-      label: 'Status',
-      width: 120,
-      render: (contact) => {
-        const normalizedContact = normalizeContactData(contact);
+    });
+  }
 
-        return (
-          <Chip
-            label={normalizedContact.active ? 'Ativo' : 'Bloqueado'}
-            size="small"
-            color={normalizedContact.active ? 'success' : 'error'}
-            variant="outlined"
-          />
-        );
-      }
+  // Adicionar coluna de status
+  columns.push({
+    id: 'status',
+    field: 'active',
+    label: 'Status',
+    width: 120,
+    render: (contact) => {
+      const normalizedContact = normalizeContactData(contact);
+
+      return (
+        <Chip
+          label={normalizedContact.active ? 'Ativo' : 'Bloqueado'}
+          size="small"
+          color={normalizedContact.active ? 'success' : 'error'}
+          variant="outlined"
+        />
+      );
     }
-  ];
+  });
 
   // Ações da tabela
   const getTableActions = useCallback((contact) => {
     const actions = [];
     const normalizedContact = normalizeContactData(contact);
 
-    if (!normalizedContact.isGroup) {
-      actions.push({
-        label: "Iniciar Chat",
-        icon: <WhatsAppIcon />,
-        onClick: () => handleStartChat(normalizedContact),
-        color: "primary"
-      });
-    }
+    // Ação de iniciar chat (para todos os tipos)
+    actions.push({
+      label: "Iniciar Chat",
+      icon: <WhatsAppIcon />,
+      onClick: () => handleStartChat(normalizedContact),
+      color: "primary"
+    });
 
+    // Ações específicas para contatos individuais
     if (user?.profile !== 'user' && !normalizedContact.isGroup) {
       actions.push({
         label: "Editar",
@@ -551,9 +580,7 @@ const Contacts = () => {
         onClick: () => handleEditContact(normalizedContact),
         color: "primary"
       });
-    }
 
-    if (user?.profile !== 'user' && !normalizedContact.isGroup) {
       actions.push({
         label: normalizedContact.active ? "Bloquear" : "Desbloquear",
         icon: normalizedContact.active ? <LockIcon /> : <LockOpenIcon />,
@@ -562,11 +589,9 @@ const Contacts = () => {
           setConfirmBlockOpen(true);
         },
         color: normalizedContact.active ? 'error' : 'success',
-        divider: true // Adiciona divisor antes desta ação
+        divider: true
       });
-    }
 
-    if (user?.profile !== 'user' && !normalizedContact.isGroup) {
       actions.push({
         label: "Excluir",
         icon: <DeleteIcon />,
@@ -584,29 +609,35 @@ const Contacts = () => {
   // Ações do header
   const pageActions = [
     {
-      label: "Adicionar",
+      label: isGroupView ? "Adicionar Grupo" : "Adicionar",
       icon: <AddIcon />,
       onClick: handleOpenContactModal,
       variant: "contained",
       color: "primary",
       primary: true
-    },
-    {
-      label: "Importar",
-      icon: <ImportIcon />,
-      onClick: () => setImportModalOpen(true),
-      variant: "outlined"
-    },
-    {
-      label: "Exportar",
-      icon: <ExportIcon />,
-      onClick: () => setExportModalOpen(true),
-      variant: "outlined"
     }
   ];
 
-  // Ações em massa
-  const bulkActions = Array.isArray(selectedContacts) && selectedContacts.length > 0 ? [
+  // Adicionar ações de importar/exportar apenas para contatos individuais
+  if (!isGroupView) {
+    pageActions.push(
+      {
+        label: "Importar",
+        icon: <ImportIcon />,
+        onClick: () => setImportModalOpen(true),
+        variant: "outlined"
+      },
+      {
+        label: "Exportar",
+        icon: <ExportIcon />,
+        onClick: () => setExportModalOpen(true),
+        variant: "outlined"
+      }
+    );
+  }
+
+  // Ações em massa (apenas para contatos individuais)
+  const bulkActions = !isGroupView && Array.isArray(selectedContacts) && selectedContacts.length > 0 ? [
     {
       label: `Bloquear (${selectedContacts.length})`,
       icon: <LockIcon />,
@@ -632,7 +663,8 @@ const Contacts = () => {
 
   const formattedCounter = () => {
     const selectedCount = Array.isArray(selectedContacts) ? selectedContacts.length : 0;
-    const baseText = `${contacts.length} de ${contactsTotal} contatos`;
+    const itemType = isGroupView ? 'grupos' : 'contatos';
+    const baseText = `${contacts.length} de ${contactsTotal} ${itemType}`;
     return selectedCount > 0
       ? `${baseText} (${selectedCount} selecionados)`
       : baseText;
@@ -664,12 +696,12 @@ const Contacts = () => {
               <>
                 <CircularProgress size={24} />
                 <Typography variant="body2" sx={{ ml: 1 }}>
-                  Carregando mais contatos...
+                  Carregando mais {isGroupView ? 'grupos' : 'contatos'}...
                 </Typography>
               </>
             ) : (
               <Typography variant="body2" color="textSecondary">
-                Role para carregar mais contatos
+                Role para carregar mais {isGroupView ? 'grupos' : 'contatos'}
               </Typography>
             )}
           </Box>
@@ -686,7 +718,7 @@ const Contacts = () => {
             borderTopColor: 'divider'
           }}>
             <Typography variant="body2" color="textSecondary">
-              Todos os contatos foram carregados ({contacts.length} de {contactsTotal})
+              Todos os {isGroupView ? 'grupos' : 'contatos'} foram carregados ({contacts.length} de {contactsTotal})
             </Typography>
           </Box>
         )}
@@ -697,55 +729,70 @@ const Contacts = () => {
   return (
     <>
       <StandardPageLayout
-        title="Contatos"
+        title={isGroupView ? "Grupos" : "Contatos"}
         subtitle={formattedCounter()}
+        showSearch={true}
         searchValue={searchParam}
         onSearchChange={handleSearchChange}
-        searchPlaceholder="Buscar contatos..."
-        showSearch={true}
+        searchPlaceholder={`Buscar ${isGroupView ? 'grupos' : 'contatos'}...`}
+        tabs={tabs}
+        activeTab={activeTab}
+        onTabChange={handleTabChange}
         actions={[...pageActions, ...bulkActions]}
         loading={loading}
       >
-        {/* Filtro de tags */}
-        <Box sx={{ mb: 3, maxWidth: 300, flexShrink: 0 }}>
-          <TagFilterComponent
-            onFilterChange={handleTagFilterChange}
-            size="small"
-            placeholder="Filtrar por tags..."
-          />
-        </Box>
+        {/* Filtros na mesma linha que a pesquisa - apenas para contatos */}
+        {!isGroupView && (
+          <Stack 
+            direction={{ xs: 'column', sm: 'row' }} 
+            spacing={2} 
+            sx={{ mb: 3, alignItems: { sm: 'center' } }}
+          >
+            {/* Filtro de tags com mesmo estilo da pesquisa */}
+            <Box sx={{ 
+              width: { xs: '100%', sm: '300px' },
+              flexShrink: 0 
+            }}>
+              <TagFilterComponent
+                onFilterChange={handleTagFilterChange}
+                size="small"
+                placeholder="Filtrar por tags..."
+              />
+            </Box>
+          </Stack>
+        )}
 
         {/* Container principal com scroll controlado */}
         <Box sx={{ 
           display: 'flex', 
           flexDirection: 'column',
           flex: 1,
-          minHeight: 0 // Importante para o scroll funcionar
+          minHeight: 0
         }}>
-          {/* Tabela de contatos */}
+          {/* Tabela de contatos/grupos */}
           <StandardDataTable
             data={contacts}
             columns={columns}
             loading={loading}
-            selectable={true}
+            selectable={!isGroupView} // Apenas contatos individuais são selecionáveis
             selectedItems={selectedContacts}
             onSelectionChange={setSelectedContacts}
             actions={getTableActions}
             stickyHeader={false}
             size="small"
             hover={true}
-            maxVisibleActions={2} // Mostra 1 ação direta + menu com o resto
-            emptyIcon={<ContactIcon />}
-            emptyTitle="Nenhum contato encontrado"
-            emptyDescription="Não há contatos cadastrados para os filtros selecionados."
-            emptyActionLabel="Adicionar Contato"
+            maxVisibleActions={2}
+            emptyIcon={isGroupView ? <GroupIcon /> : <ContactIcon />}
+            emptyTitle={`Nenhum ${isGroupView ? 'grupo' : 'contato'} encontrado`}
+            emptyDescription={`Não há ${isGroupView ? 'grupos' : 'contatos'} cadastrados para os filtros selecionados.`}
+            emptyActionLabel={`Adicionar ${isGroupView ? 'Grupo' : 'Contato'}`}
             onEmptyActionClick={handleOpenContactModal}
             containerProps={{
               sx: {
                 flex: 1,
                 display: 'flex',
                 flexDirection: 'column',
-                overflow: 'hidden', // Evita scroll duplo
+                overflow: 'hidden',
                 '& .MuiTable-root': {
                   flex: 1
                 }
@@ -770,8 +817,9 @@ const Contacts = () => {
             fontSize: '0.75rem',
             zIndex: 9999
           }}>
-            <div>📄 Página: {page}</div>
-            <div>📊 Contatos: {contacts.length}/{contactsTotal}</div>
+            <div>📑 Aba: {isGroupView ? 'Grupos' : 'Contatos'}</div>
+            <div>📄 Página: {currentPage}</div>
+            <div>📊 Items: {contacts.length}/{contactsTotal}</div>
             <div>➡️ HasMore: {hasMore ? '✅' : '❌'}</div>
             <div>🔄 Loading: {loading ? '✅' : '❌'}</div>
             <div>⏳ LoadingMore: {loadingMore ? '✅' : '❌'}</div>
@@ -794,7 +842,8 @@ const Contacts = () => {
         />
       )}
 
-      {contactModalOpen && (
+      {/* Modal de contato apenas para contatos individuais */}
+      {contactModalOpen && !isGroupView && (
         <ContactModal
           open={contactModalOpen}
           onClose={handleCloseContactModal}
@@ -845,7 +894,8 @@ const Contacts = () => {
         </ConfirmationModal>
       )}
 
-      {importModalOpen && (
+      {/* Modais de importação/exportação apenas para contatos */}
+      {importModalOpen && !isGroupView && (
         <ImportExportStepper
           open={importModalOpen}
           onClose={() => setImportModalOpen(false)}
@@ -853,7 +903,7 @@ const Contacts = () => {
         />
       )}
 
-      {exportModalOpen && (
+      {exportModalOpen && !isGroupView && (
         <ImportExportStepper
           open={exportModalOpen}
           onClose={() => setExportModalOpen(false)}

@@ -3,7 +3,7 @@ import Contact from "../../models/Contact";
 import ContactCustomField from "../../models/ContactCustomField";
 import ContactEmployer from "../../models/ContactEmployer";
 import ContactPosition from "../../models/ContactPosition";
-import CreateContactService from "./CreateContactService";
+import CreateOrUpdateContactService from "./CreateOrUpdateContactService";
 
 interface ExtraInfo extends ContactCustomField {
   name: string;
@@ -55,10 +55,12 @@ const GetContactService = async ({
   });
   
   if (!numberExists) {
-    const contact = await CreateContactService({
+    const contact = await CreateOrUpdateContactService({
       name,
       number,
-      companyId
+      companyId,
+      isGroup: false,
+      remoteJid: number
     });
 
     if (contact == null) throw new AppError("CONTACT_NOT_FIND");

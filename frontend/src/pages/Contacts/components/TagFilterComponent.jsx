@@ -17,7 +17,7 @@ import api from '../../../services/api';
 import { toast } from '../../../helpers/toast';
 import { i18n } from '../../../translate/i18n';
 
-// Styled Components seguindo padrão Standard
+// Styled Components seguindo padrão Standard e alinhado com SearchContainer
 const TagFilterContainer = styled(Box)(({ theme }) => ({
   width: '100%',
   display: 'flex',
@@ -26,15 +26,32 @@ const TagFilterContainer = styled(Box)(({ theme }) => ({
 
 const StyledAutocomplete = styled(Autocomplete)(({ theme }) => ({
   '& .MuiOutlinedInput-root': {
-    borderRadius: theme.breakpoints.down('sm') ? 12 : 8,
+    borderRadius: theme.breakpoints.down('sm') ? 12 : theme.shape.borderRadius,
     minHeight: theme.breakpoints.down('sm') ? 48 : 40,
     backgroundColor: theme.palette.background.paper,
-    '&:hover .MuiOutlinedInput-notchedOutline': {
+    '& fieldset': {
+      borderColor: 'grey.300',
+    },
+    '&:hover fieldset': {
       borderColor: theme.palette.primary.main,
     },
-    '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
+    '&.Mui-focused fieldset': {
       borderColor: theme.palette.primary.main,
       borderWidth: 2,
+    }
+  },
+  '& .MuiInputBase-input': {
+    fontSize: theme.breakpoints.down('sm') ? '1rem' : '0.875rem',
+    fontWeight: 400,
+    padding: '16.5px 14px',
+    [theme.breakpoints.down('sm')]: {
+      padding: '16.5px 14px',
+    }
+  },
+  '& .MuiInputLabel-root': {
+    fontSize: theme.breakpoints.down('sm') ? '1rem' : '0.875rem',
+    '&.Mui-focused': {
+      color: theme.palette.primary.main,
     }
   },
   '& .MuiChip-root': {
@@ -43,6 +60,10 @@ const StyledAutocomplete = styled(Autocomplete)(({ theme }) => ({
     fontSize: theme.breakpoints.down('sm') ? '0.875rem' : '0.75rem',
     fontWeight: 500,
     margin: theme.spacing(0.25),
+    transition: 'all 0.2s ease-in-out',
+    '&:hover': {
+      transform: 'scale(1.05)',
+    }
   },
   '& .MuiAutocomplete-tag': {
     margin: theme.spacing(0.25),
@@ -96,6 +117,8 @@ const TagFilterComponent = ({ onFilterChange, size = 'small', placeholder, disab
     return "";
   };
 
+  const effectiveSize = isMobile ? 'medium' : size;
+
   return (
     <TagFilterContainer>
       <StyledAutocomplete
@@ -107,20 +130,20 @@ const TagFilterComponent = ({ onFilterChange, size = 'small', placeholder, disab
         onChange={handleTagsChange}
         loading={loading}
         disabled={disabled}
-        size={isMobile ? 'medium' : size}
+        size={effectiveSize}
         limitTags={isMobile ? 2 : 3}
         renderInput={(params) => (
           <TextField
             {...params}
             variant="outlined"
             placeholder={getPlaceholder()}
-            size={isMobile ? 'medium' : size}
+            size={effectiveSize}
             fullWidth
             InputProps={{
               ...params.InputProps,
               startAdornment: (
                 <>
-                  <InputAdornment position="start">
+                  <InputAdornment position="start" sx={{ mr: 1 }}>
                     <TagIcon 
                       color="primary" 
                       sx={{ fontSize: isMobile ? '1.25rem' : '1.125rem' }}
@@ -141,11 +164,32 @@ const TagFilterComponent = ({ onFilterChange, size = 'small', placeholder, disab
                   {params.InputProps.endAdornment}
                 </>
               ),
+              sx: {
+                '& .MuiAutocomplete-input': {
+                  padding: '16.5px 14px !important',
+                  fontSize: isMobile ? '1rem !important' : '0.875rem !important'
+                }
+              }
             }}
             sx={{
-              '& .MuiInputBase-input': {
+              '& .MuiOutlinedInput-root': {
+                minHeight: isMobile ? 48 : 40,
+                '& fieldset': {
+                  borderColor: 'grey.300',
+                },
+                '&:hover fieldset': {
+                  borderColor: 'primary.main',
+                },
+                '&.Mui-focused fieldset': {
+                  borderColor: 'primary.main',
+                  borderWidth: 2,
+                },
+              },
+              '& .MuiInputLabel-root': {
                 fontSize: isMobile ? '1rem' : '0.875rem',
-                fontWeight: 400,
+                '&.Mui-focused': {
+                  color: 'primary.main',
+                }
               }
             }}
           />
@@ -248,6 +292,11 @@ const TagFilterComponent = ({ onFilterChange, size = 'small', placeholder, disab
             }
           }
         }}
+        noOptionsText={
+          <Typography variant="body2" color="textSecondary">
+            {loading ? "Carregando..." : "Nenhuma tag disponível"}
+          </Typography>
+        }
       />
       
       {!loading && availableTags.length === 0 && (

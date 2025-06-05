@@ -6,7 +6,6 @@ import Contact from "../models/Contact";
 import BlockUnblockContactService from "../services/ContactServices/BlockUnblockContactService";
 import ListContactsService from "../services/ContactServices/ListContactsService";
 import ListContactsServiceNT from "../services/ContactServices/ListContactsServiceNT";
-import CreateContactService from "../services/ContactServices/CreateContactService";
 import ShowContactService from "../services/ContactServices/ShowContactService";
 import UpdateContactService from "../services/ContactServices/UpdateContactService";
 import DeleteContactService from "../services/ContactServices/DeleteContactService";
@@ -26,12 +25,14 @@ import { Boom } from "@hapi/boom";
 import ShowWhatsAppByCompanyIdByDefaultService from "../services/WhatsappService/ShowWhatsAppByCompanyIdByDefaultService";
 import { getWbot } from "../libs/wbot";
 import CheckContactNumber from "../helpers/CheckContactNumber";
+import CreateOrUpdateContactService from "@services/ContactServices/CreateOrUpdateContactService";
 
 type IndexQuery = {
   searchParam: string;
   pageNumber: string;
+  pageSize: string;
   typeContact?: string;
-  pageSize?: string;
+  tagIds?: string;
   orderBy?: string;
   sortBy?: 'ASC' | 'DESC';
 };
@@ -48,31 +49,33 @@ type IndexGetContactQuery = {
 export const index = async (req: Request, res: Response): Promise<Response> => {
   try {
     const pageNumber = parseInt(req.query.pageNumber as string) || 1;
-    const pageSize = parseInt(req.query.pageSize as string) || 100;
+    const pageSize = parseInt(req.query.pageSize as string) || 20;
     const searchParam = (req.query.searchParam as string) || "";
-    const tagIds = req.query.tagIds as string; // Recebe os IDs das tags como string
+    const typeContact = (req.query.typeContact as string) || "private"; // "private" ou "group"
+    const tagIds = req.query.tagIds as string;
     const { companyId } = req.user;
 
-    logger.info(`Fetching contacts. Company: ${companyId}, Page: ${pageNumber}, Size: ${pageSize}, Search: ${searchParam}, TagFilter: ${tagIds || 'none'}`);
+    logger.info(`Fetching contacts. Company: ${companyId}, Page: ${pageNumber}, Size: ${pageSize}, Search: ${searchParam}, Type: ${typeContact}, TagFilter: ${tagIds || 'none'}`);
 
-    const offset = (pageNumber - 1) * pageSize;
-    
     // Converter a string tagIds em array de números, se existir
     let tagIdsArray: number[] = [];
     if (tagIds && tagIds.trim() !== "") {
       tagIdsArray = tagIds.split(',').map(id => parseInt(id, 10)).filter(id => !isNaN(id));
     }
 
+    // Determinar se é busca por grupos ou contatos individuais
+    const isGroup = typeContact === "group";
+
     const { contacts, count, hasMore } = await ListContactsService({
       searchParam,
       pageNumber,
       companyId,
       limit: pageSize,
-      offset,
-      tagIds: tagIdsArray.length > 0 ? tagIdsArray : undefined // Passa os IDs das tags para o serviço
+      tagIds: tagIdsArray.length > 0 ? tagIdsArray : undefined,
+      isGroup // Passa o filtro de tipo
     });
 
-    logger.info(`Found ${count} contacts for company ${companyId}`);
+    logger.info(`Found ${count} ${isGroup ? 'groups' : 'contacts'} for company ${companyId}`);
     
     return res.status(200).json({
       contacts,
@@ -124,7 +127,7 @@ export const store = async (req: Request, res: Response): Promise<Response> => {
    */
   // const profilePicUrl = await GetProfilePicUrl(validNumber.jid, companyId);
 
-  const contact = await CreateContactService({
+  const contact = await CreateOrUpdateContactService({
     ...newContact,
     // profilePicUrl,
     companyId

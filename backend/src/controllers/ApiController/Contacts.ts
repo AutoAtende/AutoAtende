@@ -3,7 +3,6 @@ import * as Yup from 'yup';
 import { getIO } from '../../libs/socket';
 import ContactCustomField from '../../models/ContactCustomField';
 import ListContactsService from '../../services/ContactServices/ListContactsService';
-import CreateContactService from '../../services/ContactServices/CreateContactService';
 import ShowContactService from '../../services/ContactServices/ShowContactService';
 import UpdateContactService from '../../services/ContactServices/UpdateContactService';
 import DeleteContactService from '../../services/ContactServices/DeleteContactService';
@@ -16,6 +15,7 @@ import { head } from '../../utils/helpers';
 import { returnWhatsAppIdAndCompanyIdByParams } from '../../utils/returnWhatsAppIdAndCompanyIdByParams';
 import Contact from '../../models/Contact';
 import { clearSpecialCharactersAndLetters } from '../../helpers/clearSpecialCharactersAndLetters';
+import CreateOrUpdateContactService from '@services/ContactServices/CreateOrUpdateContactService';
 
 type IndexQuery = {
   searchParam: string;
@@ -207,7 +207,6 @@ export const saveContact = async (req: Request, res: Response): Promise<Response
     const validNumber = await CheckContactNumber(newContact.number, companyId);
     const number = validNumber.jid.replace(/\D/g, "");
 
-    // Criando um objeto que corresponde à interface Request esperada pelo CreateContactService
     const contactRequest = {
       name: newContact.name,
       number: number,
@@ -216,10 +215,12 @@ export const saveContact = async (req: Request, res: Response): Promise<Response
       extraInfo: newContact.extraInfo || [],
       disableBot: false,
       employerId: null,
-      positionId: null
+      positionId: null,
+      isGroup: false,
+      remoteJid: validNumber.jid
     };
 
-    const contact = await CreateContactService(contactRequest);
+    const contact = await CreateOrUpdateContactService(contactRequest);
 
     const io = getIO();
     io.emit(`company-${companyId}-contact`, {

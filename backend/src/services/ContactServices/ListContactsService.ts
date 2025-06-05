@@ -4,15 +4,14 @@ import Tag from '../../models/Tag';
 import ContactEmployer from '../../models/ContactEmployer';
 import ContactPosition from '../../models/ContactPosition';
 import { logger } from '../../utils/logger';
-import ContactTags from '../../models/ContactTags';
 
 interface Request {
   searchParam?: string;
   pageNumber?: number;
   companyId: number;
   limit?: number;
-  offset?: number;
   tagIds?: number[];
+  isGroup?: boolean; // Novo parâmetro para filtrar por tipo
 }
 
 interface Response {
@@ -26,61 +25,92 @@ const ListContactsService = async ({
   pageNumber = 1,
   companyId,
   limit = 20,
-  offset = 0,
-  tagIds
+  tagIds,
+  isGroup = false // Default: contatos individuais
 }: Request): Promise<Response> => {
-  let where: any = { companyId, isGroup: false }; // Sempre filtramos isGroup = false
   
-  if (searchParam) {
+  // ✅ CORREÇÃO: Calcular offset corretamente
+  const offset = (pageNumber - 1) * limit;
+  
+  logger.info(`ListContactsService - Page: ${pageNumber}, Limit: ${limit}, Offset: ${offset}, IsGroup: ${isGroup}`);
+
+  // Construir condições WHERE
+  let where: any = { 
+    companyId, 
+    isGroup // ✅ Filtrar por tipo (grupo ou contato individual)
+  };
+  
+  // Adicionar filtro de busca se fornecido
+  if (searchParam && searchParam.trim()) {
     where = {
       ...where,
       [Op.or]: [
-        { name: { [Op.iLike]: `%${searchParam}%` } },
-        { number: { [Op.iLike]: `%${searchParam}%` } },
-        { email: { [Op.iLike]: `%${searchParam}%` } }
+        { name: { [Op.iLike]: `%${searchParam.trim()}%` } },
+        { number: { [Op.iLike]: `%${searchParam.trim()}%` } },
+        ...(isGroup ? [] : [{ email: { [Op.iLike]: `%${searchParam.trim()}%` } }]) // Email apenas para contatos
       ]
     };
   }
 
   // Definir includes padrão
-  const includes: any[] = [
-    {
-      model: ContactEmployer,
-      as: 'employer',
-      attributes: ['id', 'name']
-    },
-    {
-      model: ContactPosition,
-      as: 'position',
-      attributes: ['id', 'name']
-    },
-    {
-      model: Tag,
-      as: 'tags',
-      through: { attributes: [] },
-      attributes: ['id', 'name']
-    }
-  ];
+  const includes: any[] = [];
 
-  // Configurar o include das tags com base no filtro
-  if (tagIds && tagIds.length > 0) {
-    // Correção: Usar 'id' em vez de 'tagId' para filtrar as tags
-    includes[2].where = { id: { [Op.in]: tagIds } };
-    includes[2].required = true; // Importante: só retorna contatos que têm as tags especificadas
-    logger.info(`Filtering contacts by tags: ${tagIds.join(', ')}`);
+  // ✅ CORREÇÃO: Includes específicos para cada tipo
+  if (!isGroup) {
+    // Includes para contatos individuais
+    includes.push(
+      {
+        model: ContactEmployer,
+        as: 'employer',
+        attributes: ['id', 'name'],
+        required: false
+      },
+      {
+        model: ContactPosition,
+        as: 'position',
+        attributes: ['id', 'name'],
+        required: false
+      }
+    );
   }
 
+  // Include de tags (para ambos os tipos, mas filtro apenas se especificado)
+  const tagInclude: any = {
+    model: Tag,
+    as: 'tags',
+    through: { attributes: [] },
+    attributes: ['id', 'name', 'color'],
+    required: false
+  };
+
+  // ✅ CORREÇÃO: Aplicar filtro de tags corretamente
+  if (tagIds && tagIds.length > 0) {
+    tagInclude.where = { id: { [Op.in]: tagIds } };
+    tagInclude.required = true; // Importante: só retorna contatos que têm as tags especificadas
+    logger.info(`Filtering by tags: ${tagIds.join(', ')}`);
+  }
+
+  includes.push(tagInclude);
+
   try {
-    // Executa a consulta com os filtros aplicados
+    logger.info(`Executing query with WHERE:`, where);
+    logger.info(`Includes count: ${includes.length}`);
+
+    // ✅ CORREÇÃO: Executar consulta com paginação correta
     const { count, rows: contacts } = await Contact.findAndCountAll({
       where,
       limit,
       offset,
       order: [["name", "ASC"]],
-      include: includes
+      include: includes,
+      distinct: true // Importante para COUNT correto com JOINs
     });
 
+    // ✅ CORREÇÃO: Calcular hasMore corretamente
     const hasMore = count > offset + contacts.length;
+
+    logger.info(`Query results - Count: ${count}, Returned: ${contacts.length}, HasMore: ${hasMore}`);
+    logger.info(`Offset: ${offset}, Limit: ${limit}, Page: ${pageNumber}`);
 
     return {
       contacts,
@@ -89,6 +119,7 @@ const ListContactsService = async ({
     };
   } catch (error) {
     logger.error(`Error in ListContactsService: ${error.message}`);
+    logger.error(`Query parameters - IsGroup: ${isGroup}, SearchParam: ${searchParam}, TagIds: ${tagIds?.join(',') || 'none'}`);
     throw error;
   }
 };
