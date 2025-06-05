@@ -71,7 +71,7 @@ export const redisConfigWorker: RedisOptions = {
     }
     return delay;
   },
-  commandTimeout: 0,
+  commandTimeout: 60000,
   keepAlive: 30000,
   reconnectOnError: (err) => {
     logger.error('Redis reconnectOnError:', err);
