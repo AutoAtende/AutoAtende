@@ -16,55 +16,10 @@ interface SyncResult {
   whatsappConnections: number;
 }
 
-interface EnrichedParticipant {
-  id: string;
-  admin: string | null;
-  isAdmin: boolean;
-  number: string;
-}
-
 /**
- * Valida e limpa dados JSON antes de inserir no banco
+ * Valida e limpa participantes mantendo a estrutura original da Baileys
  */
-const validateAndCleanJsonData = (data: any): any => {
-  if (!data) return [];
-  
-  try {
-    // Se já é string, tenta fazer parse para validar
-    if (typeof data === 'string') {
-      return JSON.parse(data);
-    }
-    
-    // Se é array, limpa cada item
-    if (Array.isArray(data)) {
-      return data.map(item => {
-        if (!item || typeof item !== 'object') return null;
-        
-        // Remove propriedades circulares e undefined
-        const cleaned: any = {};
-        for (const key in item) {
-          if (item.hasOwnProperty(key) && item[key] !== undefined) {
-            // Apenas propriedades básicas para evitar referências circulares
-            if (typeof item[key] === 'string' || typeof item[key] === 'number' || typeof item[key] === 'boolean') {
-              cleaned[key] = item[key];
-            }
-          }
-        }
-        return cleaned;
-      }).filter(item => item !== null);
-    }
-    
-    return data;
-  } catch (error) {
-    logger.warn(`[SyncGroups] Erro ao validar JSON data: ${error.message}`);
-    return [];
-  }
-};
-
-/**
- * Enriquece participantes com dados limpos e validados
- */
-const enrichParticipants = (participants: GroupParticipant[]): EnrichedParticipant[] => {
+const validateParticipants = (participants: GroupParticipant[]): GroupParticipant[] => {
   if (!Array.isArray(participants)) {
     return [];
   }
@@ -73,22 +28,25 @@ const enrichParticipants = (participants: GroupParticipant[]): EnrichedParticipa
     .filter(p => p && p.id) // Remove participantes inválidos
     .map(p => {
       try {
-        const number = p.id ? p.id.split('@')[0] || '' : '';
-        const admin = p.admin || null;
-        const isAdmin = admin === 'admin' || admin === 'superadmin';
-        
+        // Manter a estrutura original da Baileys, apenas limpar dados inválidos
         return {
           id: p.id,
-          admin,
-          isAdmin,
-          number
-        };
+          lid: p.lid || undefined,
+          name: p.name || undefined,
+          notify: p.notify || undefined,
+          verifiedName: p.verifiedName || undefined,
+          imgUrl: p.imgUrl || undefined,
+          status: p.status || undefined,
+          isAdmin: p.isAdmin || false,
+          isSuperAdmin: p.isSuperAdmin || false,
+          admin: p.admin || null
+        } as GroupParticipant;
       } catch (error) {
         logger.warn(`[SyncGroups] Erro ao processar participante: ${error.message}`);
         return null;
       }
     })
-    .filter(p => p !== null) as EnrichedParticipant[];
+    .filter(p => p !== null) as GroupParticipant[];
 };
 
 /**
@@ -241,11 +199,11 @@ const SyncGroupsService = async (companyId: number): Promise<SyncResult> => {
                 result.participantGroups++;
               }
 
-              // Enriquecer participantes com dados limpos
-              const enrichedParticipants = enrichParticipants(groupMetadata.participants);
+              // Usar participantes validados mantendo estrutura original da Baileys
+              const validatedParticipants = validateParticipants(groupMetadata.participants);
 
-              // Extrair administradores
-              const adminParticipants = enrichedParticipants
+              // Extrair administradores diretamente dos participantes
+              const adminParticipants = validatedParticipants
                 .filter(p => p.admin === 'admin' || p.admin === 'superadmin')
                 .map(p => p.id);
 
@@ -260,9 +218,8 @@ const SyncGroupsService = async (companyId: number): Promise<SyncResult> => {
                 }
               }
 
-              // Validar dados JSON antes de inserir
-              const validatedParticipants = validateAndCleanJsonData(enrichedParticipants);
-              const validatedParticipantsString = JSON.stringify(validatedParticipants);
+              // Preparar dados para salvar no banco mantendo estrutura da Baileys
+              const participantsString = JSON.stringify(validatedParticipants);
 
               // Verificar se o grupo já existe no banco
               const existingGroup = await Groups.findOne({
@@ -276,7 +233,7 @@ const SyncGroupsService = async (companyId: number): Promise<SyncResult> => {
                 jid: group.id,
                 subject: groupMetadata.subject || group.subject || 'Grupo sem nome',
                 description: groupMetadata.desc || group.desc || null,
-                participants: validatedParticipantsString,
+                participants: participantsString,
                 participantsJson: validatedParticipants,
                 adminParticipants: adminParticipants || [],
                 inviteLink: inviteCode ? `https://chat.whatsapp.com/${inviteCode}` : null,

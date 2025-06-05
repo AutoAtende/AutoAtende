@@ -13,17 +13,9 @@ import {
   Default,
   Comment
 } from 'sequelize-typescript';
+import { GroupParticipant } from 'baileys';
 import Company from './Company';
 import Whatsapp from './Whatsapp';
-
-interface GroupParticipant {
-  id: string;
-  number: string;
-  isAdmin: boolean;
-  admin?: string;
-  name?: string;
-  contact?: any;
-}
 
 @Table({
   tableName: 'Groups',
