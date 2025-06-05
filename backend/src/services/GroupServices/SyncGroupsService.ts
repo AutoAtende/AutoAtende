@@ -4,23 +4,7 @@ import { logger } from "../../utils/logger";
 import Groups from "../../models/Groups";
 import Whatsapp from "../../models/Whatsapp";
 import AppError from "../../errors/AppError";
-
-interface GroupData {
-  id: string;
-  subject: string;
-  owner?: string;
-  creation?: number;
-  desc?: string;
-  participants: Array<{
-    id: string;
-    admin?: string;
-    isAdmin?: boolean;
-    isSuperAdmin?: boolean;
-  }>;
-  announce?: boolean;
-  restrict?: boolean;
-  size?: number;
-}
+import { GroupMetadata, GroupParticipant } from "baileys";
 
 interface SyncResult {
   totalGroups: number;
@@ -31,6 +15,118 @@ interface SyncResult {
   errors: string[];
   whatsappConnections: number;
 }
+
+interface EnrichedParticipant {
+  id: string;
+  admin: string | null;
+  isAdmin: boolean;
+  number: string;
+}
+
+/**
+ * Valida e limpa dados JSON antes de inserir no banco
+ */
+const validateAndCleanJsonData = (data: any): any => {
+  if (!data) return [];
+  
+  try {
+    // Se já é string, tenta fazer parse para validar
+    if (typeof data === 'string') {
+      return JSON.parse(data);
+    }
+    
+    // Se é array, limpa cada item
+    if (Array.isArray(data)) {
+      return data.map(item => {
+        if (!item || typeof item !== 'object') return null;
+        
+        // Remove propriedades circulares e undefined
+        const cleaned: any = {};
+        for (const key in item) {
+          if (item.hasOwnProperty(key) && item[key] !== undefined) {
+            // Apenas propriedades básicas para evitar referências circulares
+            if (typeof item[key] === 'string' || typeof item[key] === 'number' || typeof item[key] === 'boolean') {
+              cleaned[key] = item[key];
+            }
+          }
+        }
+        return cleaned;
+      }).filter(item => item !== null);
+    }
+    
+    return data;
+  } catch (error) {
+    logger.warn(`[SyncGroups] Erro ao validar JSON data: ${error.message}`);
+    return [];
+  }
+};
+
+/**
+ * Enriquece participantes com dados limpos e validados
+ */
+const enrichParticipants = (participants: GroupParticipant[]): EnrichedParticipant[] => {
+  if (!Array.isArray(participants)) {
+    return [];
+  }
+  
+  return participants
+    .filter(p => p && p.id) // Remove participantes inválidos
+    .map(p => {
+      try {
+        const number = p.id ? p.id.split('@')[0] || '' : '';
+        const admin = p.admin || null;
+        const isAdmin = admin === 'admin' || admin === 'superadmin';
+        
+        return {
+          id: p.id,
+          admin,
+          isAdmin,
+          number
+        };
+      } catch (error) {
+        logger.warn(`[SyncGroups] Erro ao processar participante: ${error.message}`);
+        return null;
+      }
+    })
+    .filter(p => p !== null) as EnrichedParticipant[];
+};
+
+/**
+ * Adiciona delay entre requisições para evitar rate limiting
+ */
+const rateLimitDelay = async (ms: number = 500): Promise<void> => {
+  return new Promise(resolve => setTimeout(resolve, ms));
+};
+
+/**
+ * Obtém metadados do grupo com retry em caso de erro
+ */
+const getGroupMetadataWithRetry = async (
+  wbot: any, 
+  groupId: string, 
+  maxRetries: number = 3
+): Promise<GroupMetadata | null> => {
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      await rateLimitDelay(200 * attempt); // Delay progressivo
+      const metadata = await wbot.groupMetadata(groupId);
+      return metadata;
+    } catch (error) {
+      logger.warn(`[SyncGroups] Tentativa ${attempt}/${maxRetries} falhou para grupo ${groupId}: ${error.message}`);
+      
+      if (error.message.includes('rate-overlimit')) {
+        // Para rate limit, espera mais tempo
+        await rateLimitDelay(2000 * attempt);
+      }
+      
+      if (attempt === maxRetries) {
+        logger.error(`[SyncGroups] Todas as tentativas falharam para grupo ${groupId}`);
+        return null;
+      }
+    }
+  }
+  return null;
+};
 
 const SyncGroupsService = async (companyId: number): Promise<SyncResult> => {
   const io = getIO();
@@ -83,7 +179,7 @@ const SyncGroupsService = async (companyId: number): Promise<SyncResult> => {
         
         // Obter todos os grupos participando
         const groupsResponse = await wbot.groupFetchAllParticipating();
-        const groups = Object.values(groupsResponse) as GroupData[];
+        const groups = Object.values(groupsResponse) as GroupMetadata[];
         
         logger.info(`[SyncGroups] Encontrados ${groups.length} grupos na conexão ${whatsapp.name}`);
         result.totalGroups += groups.length;
@@ -92,131 +188,153 @@ const SyncGroupsService = async (companyId: number): Promise<SyncResult> => {
         const botJid = wbot.user?.id;
         const botNumber = whatsapp.number?.replace(/\D/g, '');
 
-        for (const group of groups) {
-          try {
-            // Obter metadados completos do grupo
-            let groupMetadata;
+        // Processar grupos em lotes pequenos para evitar sobrecarga
+        const batchSize = 5;
+        for (let i = 0; i < groups.length; i += batchSize) {
+          const batch = groups.slice(i, i + batchSize);
+          
+          for (const group of batch) {
             try {
-              groupMetadata = await wbot.groupMetadata(group.id);
-            } catch (metadataError) {
-              logger.warn(`[SyncGroups] Erro ao obter metadados do grupo ${group.id}: ${metadataError}`);
-              groupMetadata = group;
-            }
+              // Delay entre cada grupo para evitar rate limiting
+              await rateLimitDelay(300);
 
-            // Verificar se o bot é admin do grupo - usar múltiplas formas de verificação
-            let isAdmin = false;
-            let userRole = "participant";
-
-            if (groupMetadata.participants && Array.isArray(groupMetadata.participants)) {
-              // Buscar por JID completo
-              let botParticipant = groupMetadata.participants.find(p => p.id === botJid);
+              // Obter metadados completos do grupo com retry
+              let groupMetadata = await getGroupMetadataWithRetry(wbot, group.id);
               
-              // Se não encontrou por JID, buscar por número
-              if (!botParticipant && botNumber) {
-                botParticipant = groupMetadata.participants.find(p => {
-                  const participantNumber = p.id?.split('@')[0]?.replace(/\D/g, '');
-                  return participantNumber === botNumber;
-                });
+              if (!groupMetadata) {
+                logger.warn(`[SyncGroups] Pulando grupo ${group.id} - não foi possível obter metadados`);
+                result.errors.push(`Grupo ${group.id}: Não foi possível obter metadados após tentativas`);
+                continue;
               }
 
-              if (botParticipant) {
-                isAdmin = botParticipant.admin === 'admin' || botParticipant.admin === 'superadmin';
-                userRole = isAdmin ? 'admin' : 'participant';
+              // Validar se tem participantes
+              if (!groupMetadata.participants || !Array.isArray(groupMetadata.participants)) {
+                logger.warn(`[SyncGroups] Grupo ${group.id} sem participantes válidos`);
+                groupMetadata.participants = [];
               }
-            }
-            
-            if (isAdmin) {
-              result.adminGroups++;
-            } else {
-              result.participantGroups++;
-            }
 
-            // Enriquecer participantes com informações de admin
-            const enrichedParticipants = groupMetadata.participants?.map(p => ({
-              id: p.id,
-              admin: p.admin || null,
-              isAdmin: p.admin === 'admin' || p.admin === 'superadmin'
-            })) || [];
+              // Verificar se o bot é admin do grupo
+              let isAdmin = false;
+              let userRole = "participant";
 
-            // Extrair administradores
-            const adminParticipants = enrichedParticipants
-              .filter(p => p.admin === 'admin' || p.admin === 'superadmin')
-              .map(p => p.id);
+              if (groupMetadata.participants.length > 0) {
+                // Buscar por JID completo
+                let botParticipant = groupMetadata.participants.find(p => p.id === botJid);
+                
+                // Se não encontrou por JID, buscar por número
+                if (!botParticipant && botNumber) {
+                  botParticipant = groupMetadata.participants.find(p => {
+                    const participantNumber = p.id?.split('@')[0]?.replace(/\D/g, '');
+                    return participantNumber === botNumber;
+                  });
+                }
 
-            // Obter código de convite se for admin
-            let inviteCode = null;
-            if (isAdmin) {
-              try {
-                inviteCode = await wbot.groupInviteCode(group.id);
-              } catch (inviteError) {
-                logger.warn(`[SyncGroups] Erro ao obter código de convite do grupo ${group.id}: ${inviteError}`);
+                if (botParticipant) {
+                  isAdmin = botParticipant.admin === 'admin' || botParticipant.admin === 'superadmin';
+                  userRole = isAdmin ? 'admin' : 'participant';
+                }
               }
-            }
+              
+              if (isAdmin) {
+                result.adminGroups++;
+              } else {
+                result.participantGroups++;
+              }
 
-            // Verificar se o grupo já existe no banco
-            const existingGroup = await Groups.findOne({
-              where: {
+              // Enriquecer participantes com dados limpos
+              const enrichedParticipants = enrichParticipants(groupMetadata.participants);
+
+              // Extrair administradores
+              const adminParticipants = enrichedParticipants
+                .filter(p => p.admin === 'admin' || p.admin === 'superadmin')
+                .map(p => p.id);
+
+              // Obter código de convite se for admin (com rate limiting)
+              let inviteCode = null;
+              if (isAdmin) {
+                try {
+                  await rateLimitDelay(500); // Delay extra para invite code
+                  inviteCode = await wbot.groupInviteCode(group.id);
+                } catch (inviteError) {
+                  logger.warn(`[SyncGroups] Erro ao obter código de convite do grupo ${group.id}: ${inviteError.message}`);
+                }
+              }
+
+              // Validar dados JSON antes de inserir
+              const validatedParticipants = validateAndCleanJsonData(enrichedParticipants);
+              const validatedParticipantsString = JSON.stringify(validatedParticipants);
+
+              // Verificar se o grupo já existe no banco
+              const existingGroup = await Groups.findOne({
+                where: {
+                  jid: group.id,
+                  companyId
+                }
+              });
+
+              const groupData = {
                 jid: group.id,
-                companyId
+                subject: groupMetadata.subject || group.subject || 'Grupo sem nome',
+                description: groupMetadata.desc || group.desc || null,
+                participants: validatedParticipantsString,
+                participantsJson: validatedParticipants,
+                adminParticipants: adminParticipants || [],
+                inviteLink: inviteCode ? `https://chat.whatsapp.com/${inviteCode}` : null,
+                companyId,
+                whatsappId: whatsapp.id,
+                userRole,
+                isActive: true,
+                lastSync: new Date(),
+                syncStatus: "synced",
+                // Configurações do grupo
+                settings: [
+                  groupMetadata.announce ? "announcement" : "not_announcement",
+                  groupMetadata.restrict ? "locked" : "unlocked"
+                ].filter(Boolean)
+              };
+
+              if (existingGroup) {
+                // Atualizar grupo existente
+                await existingGroup.update(groupData);
+                result.updatedGroups++;
+                logger.info(`[SyncGroups] Grupo atualizado: ${groupMetadata.subject} (${group.id}) - Role: ${userRole}`);
+              } else {
+                // Criar novo grupo
+                await Groups.create(groupData);
+                result.newGroups++;
+                logger.info(`[SyncGroups] Novo grupo criado: ${groupMetadata.subject} (${group.id}) - Role: ${userRole}`);
               }
-            });
 
-            const groupData = {
-              jid: group.id,
-              subject: groupMetadata.subject || group.subject,
-              description: groupMetadata.desc || group.desc,
-              participants: JSON.stringify(enrichedParticipants),
-              participantsJson: enrichedParticipants,
-              adminParticipants,
-              inviteLink: inviteCode ? `https://chat.whatsapp.com/${inviteCode}` : null,
-              companyId,
-              whatsappId: whatsapp.id,
-              userRole,
-              isActive: true,
-              lastSync: new Date(),
-              syncStatus: "synced",
-              // Configurações do grupo
-              settings: [
-                groupMetadata.announce ? "announcement" : "not_announcement",
-                groupMetadata.restrict ? "locked" : "unlocked"
-              ]
-            };
+              // Emitir progresso
+              io.to(`company-${companyId}-mainchannel`).emit("sync-groups", {
+                action: "progress",
+                status: `Sincronizado: ${groupMetadata.subject}`,
+                progress: {
+                  current: result.newGroups + result.updatedGroups,
+                  total: result.totalGroups
+                }
+              });
 
-            if (existingGroup) {
-              // Atualizar grupo existente
-              await existingGroup.update(groupData);
-              result.updatedGroups++;
-              logger.info(`[SyncGroups] Grupo atualizado: ${groupMetadata.subject} (${group.id}) - Role: ${userRole}`);
-            } else {
-              // Criar novo grupo
-              await Groups.create(groupData);
-              result.newGroups++;
-              logger.info(`[SyncGroups] Novo grupo criado: ${groupMetadata.subject} (${group.id}) - Role: ${userRole}`);
+            } catch (groupError) {
+              const errorMsg = `Erro ao processar grupo ${group.id}: ${groupError.message}`;
+              logger.error(`[SyncGroups] ${errorMsg}`);
+              result.errors.push(errorMsg);
+
+              // Marcar grupo com erro se já existir
+              try {
+                await Groups.update(
+                  { syncStatus: "error", isActive: false },
+                  { where: { jid: group.id, companyId } }
+                );
+              } catch (updateError) {
+                logger.error(`[SyncGroups] Erro ao marcar grupo com erro: ${updateError.message}`);
+              }
             }
+          }
 
-            // Emitir progresso
-            io.to(`company-${companyId}-mainchannel`).emit("sync-groups", {
-              action: "progress",
-              status: `Sincronizado: ${groupMetadata.subject}`,
-              progress: {
-                current: result.newGroups + result.updatedGroups,
-                total: result.totalGroups
-              }
-            });
-
-            // Pequena pausa para não sobrecarregar o sistema
-            await new Promise(resolve => setTimeout(resolve, 100));
-
-          } catch (groupError) {
-            const errorMsg = `Erro ao processar grupo ${group.id}: ${groupError.message}`;
-            logger.error(`[SyncGroups] ${errorMsg}`);
-            result.errors.push(errorMsg);
-
-            // Marcar grupo com erro se já existir
-            await Groups.update(
-              { syncStatus: "error", isActive: false },
-              { where: { jid: group.id, companyId } }
-            );
+          // Delay maior entre lotes
+          if (i + batchSize < groups.length) {
+            await rateLimitDelay(1000);
           }
         }
 
