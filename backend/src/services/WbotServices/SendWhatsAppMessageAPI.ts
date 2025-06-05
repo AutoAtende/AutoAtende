@@ -1,4 +1,4 @@
-import { delay, WAMessage } from "baileys";
+import { delay, WAMessage } from "bail-lite";
 
 import AppError from "../../errors/AppError";
 import GetTicketWbot from "../../helpers/GetTicketWbot";

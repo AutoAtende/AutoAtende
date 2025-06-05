@@ -1,7 +1,7 @@
 import { logger } from "../../utils/logger";
 import Whatsapp from "../../models/Whatsapp";
 import { getWbot } from "../../libs/wbot";
-import { GroupMetadata } from "baileys";
+import { GroupMetadata } from "bail-lite";
 
 // Define a interface simplificada para retorno
 interface SimpleGroupMetadata extends GroupMetadata {

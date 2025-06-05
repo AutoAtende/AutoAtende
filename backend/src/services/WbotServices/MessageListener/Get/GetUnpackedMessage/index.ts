@@ -1,4 +1,4 @@
-import { proto } from "baileys";
+import { proto } from "bail-lite";
 
 export const getUnpackedMessage = (msg: proto.IWebMessageInfo) => {
     return (

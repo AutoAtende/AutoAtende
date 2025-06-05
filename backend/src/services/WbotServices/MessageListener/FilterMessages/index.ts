@@ -1,4 +1,4 @@
-import { WAMessage, WAMessageStubType, proto } from "baileys";
+import { WAMessage, WAMessageStubType, proto } from "bail-lite";
 
 export const filterMessages = (msg: WAMessage): boolean => {
   if (

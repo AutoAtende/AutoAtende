@@ -1,6 +1,6 @@
 // Código corrigido para o ExecuteFlowBuilderService.ts
 import AppError from "../../errors/AppError";
-import { proto } from "baileys";
+import { proto } from "bail-lite";
 import { Op } from "sequelize";
 import FlowBuilder from "../../models/FlowBuilder";
 import FlowBuilderExecution from "../../models/FlowBuilderExecution";

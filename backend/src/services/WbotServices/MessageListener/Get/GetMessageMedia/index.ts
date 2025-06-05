@@ -1,4 +1,4 @@
-import { proto } from "baileys";
+import { proto } from "bail-lite";
 
 export const getMessageMedia = (message: proto.IMessage) => {
     return (

@@ -1,4 +1,4 @@
-import makeWASocket from "baileys";
+import makeWASocket from "bail-lite";
 import {
   WASocket,
   DisconnectReason,
@@ -17,7 +17,7 @@ import {
   delay,
   Contact as BaileysContact,
   GroupMetadata
-} from "baileys";
+} from "bail-lite";
 import { Boom } from "@hapi/boom";
 import NodeCache from "@cacheable/node-cache";
 import MAIN_LOGGER from "baileys/lib/Utils/logger";

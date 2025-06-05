@@ -10,7 +10,7 @@ import { verifyMessage } from "../WbotServices/MessageListener/Verifiers/VerifyM
 import { verifyMediaMessage } from "../WbotServices/MessageListener/Verifiers/VerifyMediaMessage";
 import { getWbot } from "../../libs/wbot";
 import { SendPresenceStatus } from "../../helpers/SendPresenceStatus";
-import { AnyMessageContent } from "baileys";
+import { AnyMessageContent } from "bail-lite";
 import { notifyUpdate } from "../TicketServices/UpdateTicketService";
 import fs from "fs";
 import path from "path";
