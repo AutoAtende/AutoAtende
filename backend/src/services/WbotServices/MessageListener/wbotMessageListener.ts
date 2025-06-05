@@ -1519,8 +1519,6 @@ export const wbotMessageListener = async (
         await verifyCampaignMessageAndCloseTicket(message, companyId);
 
       }
-
-
     }); // Fechamento correto do forEach
   });
 
@@ -1528,12 +1526,6 @@ export const wbotMessageListener = async (
   wbot.ev.on("messages.update", async (messageUpdate: WAMessageUpdate[]) => {
     if (messageUpdate.length === 0) return;
     messageUpdate.forEach(async (message: WAMessageUpdate) => {
-      // Adicionar verificação para evitar o erro EKEYTYPE
-      if (!message.key || message.key.id === undefined) {
-        logger.warn(`Mensagem recebida sem ID válido: ${JSON.stringify(message)}`);
-        return; // Pula esta iteração se o ID for undefined
-      }
-
       const verifyMessageRead = await caches.msgRead.get(message.key.id);
       if (!verifyMessageRead) {
         await (wbot as WASocket)!.readMessages([message.key]);
@@ -1563,5 +1555,88 @@ export const wbotMessageListener = async (
         }
       }
     });
+  });
+
+  wbot.ev.on(
+    "groups.update",
+    async (groupUpdates: Partial<GroupMetadata>[]) => {
+      if (groupUpdates.length === 0) return;
+
+      for (const group of groupUpdates) {
+        const number = group.id!.split("@")[0];
+        const nameGroup = group.subject || number;
+
+        const contactData = {
+          name: nameGroup,
+          number: number,
+          isGroup: true,
+          companyId: companyId,
+          remoteJid: group.id!,
+          whatsappId: wbot.id
+        };
+        await CreateOrUpdateContactService(contactData, wbot, group.id!);
+      }
+    }
+  );
+
+  wbot.ev.on("contacts.update", async (contacts: any) => {
+    try {
+      const whatsapp = await Whatsapp.findByPk(wbot.id);
+
+      if (whatsapp.autoImportContacts === 1) {
+        for (const contact of contacts) {
+          // Verifica se o contato é válido
+          if (!contact?.id) continue;
+
+          try {
+            // Prepara o JID limpo independente de ter URL ou não
+            const cleanJid = contact.id.includes('@g.us')
+              ? contact.id.replace(/[^0-9-]/g, "") + "@g.us" // Mantém o traço nos grupos
+              : contact.id.replace(/\D/g, "") + "@s.whatsapp.net"; // Remove tudo exceto números para usuários normais
+
+            let profilePicUrl = null;
+
+            // Tenta obter a URL da foto de perfil apenas se houver indicação que ela existe
+            if (typeof contact.imgUrl !== 'undefined' && contact.imgUrl !== null) {
+              try {
+                profilePicUrl = await wbot.profilePictureUrl(
+                  contact.id,
+                  "image",
+                  30000
+                );
+              } catch (pictureError) {
+                // Se falhar ao buscar a imagem, apenas registra o erro e continua
+                logger.warn(
+                  `Não foi possível obter foto de perfil para ${contact.id}: ${pictureError.message}`
+                );
+                // Usa a URL padrão se estiver definida no frontend
+                profilePicUrl = `${process.env.FRONTEND_URL}/nopicture.png`;
+              }
+            }
+
+            // Prepara os dados do contato para atualização
+            const contactData = {
+              name: contact.name || cleanJid.split('@')[0],
+              number: cleanJid,
+              isGroup: contact.id.includes("@g.us"),
+              companyId,
+              remoteJid: contact.id,
+              profilePicUrl,
+              whatsappId: wbot.id
+            };
+
+            // Chama o serviço para criar ou atualizar o contato
+            await CreateOrUpdateContactService(contactData, wbot);
+
+          } catch (contactError) {
+            logger.error(
+              `Erro ao processar contato ${contact.id}: ${contactError.message}`
+            );
+          }
+        }
+      }
+    } catch (error) {
+      logger.error(`Erro no evento contacts.update: ${error.message}`);
+    }
   });
 };

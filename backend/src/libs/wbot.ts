@@ -388,11 +388,6 @@ export const initWASocket = async (whatsapp: Whatsapp): Promise<Session> => {
 
         // Processar eventos
         wsocket.ev.process(async (events) => {
-          // Eventos de mensagens têm prioridade absoluta
-          if (events['messages.upsert']) {
-            logger.debug('Processing messages.upsert immediately');
-          }
-
           if (events['messaging-history.set']) {
             try {
               const historyEvent = events['messaging-history.set'];
@@ -763,99 +758,90 @@ export const initWASocket = async (whatsapp: Whatsapp): Promise<Session> => {
             }
           }
 
-          // ✅ CORRIGIDO: Usar interfaces do Baileys corretamente
           if (events['contacts.upsert']) {
             try {
-              const contacts: BaileysContact[] = events['contacts.upsert'];
-              
-              // Processar contatos individuais e grupos separadamente
-              for (const contact of contacts) {
-                try {
-                  if (contact.id.endsWith('@g.us')) {
-                    // É um grupo - criar/atualizar na tabela Contact como grupo
-                    const groupName = contact.name || contact.id.split('@')[0];
-                    
-                    await Contact.findOrCreate({
-                      where: {
-                        number: contact.id,
-                        companyId: whatsapp.companyId,
-                        isGroup: true
-                      },
-                      defaults: {
-                        name: groupName,
-                        number: contact.id,
-                        isGroup: true,
-                        profilePicUrl: contact.imgUrl || `${process.env.FRONTEND_URL}/assets/nopicture.png`,
-                        whatsappId: whatsapp.id,
-                        companyId: whatsapp.companyId,
-                        remoteJid: contact.id
-                      }
-                    });
-                  } else if (!contact.id.endsWith('@newsletter') && !contact.id.includes('status@broadcast')) {
-                    // É um contato individual
-                    const number = contact.id.split('@')[0];
-                    
-                    await Contact.findOrCreate({
-                      where: {
-                        number: number,
-                        companyId: whatsapp.companyId,
-                        isGroup: false
-                      },
-                      defaults: {
-                        name: contact.name || contact.notify || number,
-                        number: number,
-                        isGroup: false,
-                        profilePicUrl: contact.imgUrl || `${process.env.FRONTEND_URL}/assets/nopicture.png`,
-                        whatsappId: whatsapp.id,
-                        companyId: whatsapp.companyId,
-                        remoteJid: contact.id
-                      }
-                    });
-                  }
-                } catch (contactError) {
-                  logger.error(`Erro ao processar contato ${contact.id}: ${contactError.message}`);
-                }
-              }
-
-              // Salvar no Baileys também para compatibilidade
               await createOrUpdateBaileysService({
                 whatsappId: whatsapp.id,
-                contacts: contacts,
+                contacts: events['contacts.upsert'],
               });
 
-              logger.info(`Contatos processados para WhatsApp ${whatsapp.id}: ${contacts.length} contatos`);
+              // Atualizar contatos na estrutura antiga também (compatibilidade)
+              const baileysData = await Baileys.findOne({
+                where: { whatsappId: whatsapp.id }
+              });
 
+              if (baileysData) {
+                const currentContacts = baileysData.contacts
+                  ? JSON.parse(baileysData.contacts)
+                  : [];
+
+                const updatedContacts = [...currentContacts];
+                const contacts = events['contacts.upsert'];
+
+                contacts.forEach(contact => {
+                  const index = updatedContacts.findIndex(
+                    c => c.id === contact.id
+                  );
+                  if (index > -1) {
+                    updatedContacts[index] = contact;
+                  } else {
+                    updatedContacts.push(contact);
+                  }
+                });
+
+                await baileysData.update({
+                  contacts: JSON.stringify(updatedContacts)
+                });
+
+                logger.info(
+                  `Contatos atualizados para WhatsApp ${whatsapp.id}: ${contacts.length} novos/atualizados`
+                );
+              } else {
+                await Baileys.create({
+                  whatsappId: whatsapp.id,
+                  contacts: JSON.stringify(events['contacts.upsert'])
+                });
+
+                logger.info(
+                  `Novo registro de contatos criado para WhatsApp ${whatsapp.id}`
+                );
+              }
             } catch (error) {
-              logger.error(`Erro ao salvar contatos do WhatsApp ${whatsapp.id}:`, error);
+              logger.error(
+                `Erro ao salvar contatos do WhatsApp ${whatsapp.id}:`,
+                error
+              );
             }
           }
 
           // ✅ SIMPLIFICADO: Eventos de grupos voltaram ao modelo original simples
           if (events['groups.upsert']) {
             logger.debug("Received new group");
-            const groups: GroupMetadata[] = events['groups.upsert'];
-            groups.forEach(group => {
+            events['groups.upsert'].forEach(group => {
               groupCache.set(group.id, group);
             });
           }
 
           if (events['groups.update']) {
             logger.debug("Received group update");
-            const updates: Partial<GroupMetadata>[] = events['groups.update'];
-            for (const event of updates) {
+            events['groups.update'].forEach(async event => {
               try {
                 const metadata = await wsocket.groupMetadata(event.id);
                 groupCache.set(event.id, metadata);
               } catch (error) {
                 logger.error(`Erro ao atualizar metadados do grupo: ${error}`);
               }
-            }
+            });
           }
 
           if (events['group-participants.update']) {
             logger.debug("Received group participants update");
             try {
               const event = events['group-participants.update'];
+
+              // Atualizar cache normalmente
+              const metadata = await wsocket.groupMetadata(event.id);
+              groupCache.set(event.id, metadata);
               
               // ✅ SIMPLES: Só verificar grupos gerenciados se necessário
               const managedGroup = await Groups.findOne({
@@ -870,15 +856,13 @@ export const initWASocket = async (whatsapp: Whatsapp): Promise<Session> => {
                 // ✅ PROCESSAMENTO EM BACKGROUND sem bloquear
                 setImmediate(async () => {
                   try {
-                    const groupMetadata = await wsocket.groupMetadata(event.id);
-                    
-                    const adminParticipants = groupMetadata.participants
+                    const adminParticipants = metadata.participants
                       .filter(p => p.admin === 'admin' || p.admin === 'superadmin')
                       .map(p => p.id);
 
                     await managedGroup.update({
-                      participants: JSON.stringify(groupMetadata.participants || []),
-                      participantsJson: groupMetadata.participants,
+                      participants: JSON.stringify(metadata.participants || []),
+                      participantsJson: metadata.participants,
                       adminParticipants,
                       lastSync: new Date()
                     });
@@ -908,10 +892,6 @@ export const initWASocket = async (whatsapp: Whatsapp): Promise<Session> => {
                   }
                 });
               }
-              
-              // Atualizar cache normalmente
-              const metadata = await wsocket.groupMetadata(event.id);
-              groupCache.set(event.id, metadata);
             } catch (error) {
               groupCache.del(events['group-participants.update'].id);
               logger.error(`Erro ao atualizar participantes do grupo: ${error}`);
