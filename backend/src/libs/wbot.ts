@@ -1032,96 +1032,406 @@ export const initWASocket = async (whatsapp: Whatsapp): Promise<Session> => {
 
           if (events['contacts.upsert']) {
             try {
+              const contacts = events['contacts.upsert'];
+              
+              // ✅ SEPARAR CONTATOS INDIVIDUAIS E GRUPOS
+              const individualContacts = contacts.filter(contact => 
+                !contact.id.endsWith('@g.us') && 
+                !contact.id.endsWith('@newsletter') &&
+                !contact.id.includes('status@broadcast')
+              );
+  
+              const groupContacts = contacts.filter(contact => 
+                contact.id.endsWith('@g.us')
+              );
+  
+              // ✅ PROCESSAR CONTATOS INDIVIDUAIS
+              if (individualContacts.length > 0) {
+                logger.debug(`[CONTACTS.UPSERT] Processando ${individualContacts.length} contatos individuais`);
+                
+                for (const contact of individualContacts) {
+                  try {
+                    const number = contact.id.split('@')[0]; // Apenas dígitos
+                    
+                    const [contactRecord, created] = await Contact.findOrCreate({
+                      where: {
+                        number: number,
+                        companyId: whatsapp.companyId,
+                        isGroup: false // ✅ CONTATO INDIVIDUAL
+                      },
+                      defaults: {
+                        name: contact.name || contact.notify || number,
+                        number: number, // ✅ APENAS DÍGITOS
+                        isGroup: false,
+                        profilePicUrl: contact.imgUrl || `${process.env.FRONTEND_URL}/assets/nopicture.png`,
+                        whatsappId: whatsapp.id,
+                        companyId: whatsapp.companyId,
+                        remoteJid: contact.id
+                      }
+                    });
+  
+                    if (!created && (contact.name || contact.notify)) {
+                      await contactRecord.update({
+                        name: contact.name || contact.notify || contactRecord.name,
+                        profilePicUrl: contact.imgUrl || contactRecord.profilePicUrl
+                      });
+                    }
+  
+                    logger.debug(`[CONTACTS.UPSERT] Contato individual ${created ? 'criado' : 'atualizado'}: ${contact.name || number}`);
+                  } catch (contactError) {
+                    logger.error(`[CONTACTS.UPSERT] Erro ao processar contato individual ${contact.id}: ${contactError.message}`);
+                  }
+                }
+              }
+  
+              // ✅ PROCESSAR CONTATOS DE GRUPO
+              if (groupContacts.length > 0) {
+                logger.debug(`[CONTACTS.UPSERT] Processando ${groupContacts.length} contatos de grupo`);
+                
+                for (const groupContact of groupContacts) {
+                  try {
+                    const groupJid = groupContact.id; // JID completo
+                    const groupName = groupContact.name || groupJid.split('@')[0];
+                    
+                    const [contactRecord, created] = await Contact.findOrCreate({
+                      where: {
+                        number: groupJid, // ✅ JID COMPLETO PARA GRUPOS
+                        companyId: whatsapp.companyId,
+                        isGroup: true // ✅ CONTATO DE GRUPO
+                      },
+                      defaults: {
+                        name: groupName,
+                        number: groupJid, // ✅ JID COMPLETO
+                        isGroup: true,
+                        profilePicUrl: `${process.env.FRONTEND_URL}/assets/nopicture.png`,
+                        whatsappId: whatsapp.id,
+                        companyId: whatsapp.companyId,
+                        remoteJid: groupJid
+                      }
+                    });
+  
+                    if (!created && groupName !== contactRecord.name) {
+                      await contactRecord.update({
+                        name: groupName
+                      });
+                    }
+  
+                    logger.debug(`[CONTACTS.UPSERT] Contato de grupo ${created ? 'criado' : 'atualizado'}: ${groupName}`);
+                  } catch (groupError) {
+                    logger.error(`[CONTACTS.UPSERT] Erro ao processar contato de grupo ${groupContact.id}: ${groupError.message}`);
+                  }
+                }
+              }
+  
+              // ✅ SALVAR TODOS OS CONTATOS NO BAILEYS para metadados
               await createOrUpdateBaileysService({
                 whatsappId: whatsapp.id,
-                contacts: events['contacts.upsert'],
+                contacts: contacts,
               });
-
+  
+              logger.info(`[CONTACTS.UPSERT] Processados ${individualContacts.length} contatos individuais e ${groupContacts.length} grupos para WhatsApp ${whatsapp.id}`);
+  
+            } catch (error) {
+              logger.error(`[CONTACTS.UPSERT] Erro: ${error.message}`);
+            }
+          }
+  
+          // **EVENTO: contacts.update - ATUALIZAR CONTATOS EXISTENTES**
+          if (events['contacts.update']) {
+            try {
+              const contactUpdates = events['contacts.update'];
+              
+              // ✅ SEPARAR ATUALIZAÇÕES DE CONTATOS INDIVIDUAIS E GRUPOS
+              const individualUpdates = contactUpdates.filter(contact => 
+                contact.id && 
+                !contact.id.endsWith('@g.us') && 
+                !contact.id.endsWith('@newsletter') &&
+                !contact.id.includes('status@broadcast')
+              );
+  
+              const groupUpdates = contactUpdates.filter(contact => 
+                contact.id && contact.id.endsWith('@g.us')
+              );
+  
+              // ✅ PROCESSAR ATUALIZAÇÕES DE CONTATOS INDIVIDUAIS
+              if (individualUpdates.length > 0) {
+                logger.debug(`[CONTACTS.UPDATE] Processando ${individualUpdates.length} atualizações de contatos individuais`);
+                
+                for (const contactUpdate of individualUpdates) {
+                  try {
+                    if (!contactUpdate.id) continue;
+                    
+                    const number = contactUpdate.id.split('@')[0]; // Apenas dígitos
+                    
+                    const existingContact = await Contact.findOne({
+                      where: {
+                        number: number,
+                        companyId: whatsapp.companyId,
+                        isGroup: false // ✅ CONTATO INDIVIDUAL
+                      }
+                    });
+  
+                    if (existingContact) {
+                      const updateData: any = {};
+                      
+                      if (contactUpdate.name && contactUpdate.name !== existingContact.name) {
+                        updateData.name = contactUpdate.name;
+                      }
+                      
+                      if (contactUpdate.notify && contactUpdate.notify !== existingContact.name) {
+                        updateData.name = contactUpdate.notify;
+                      }
+  
+                      if (contactUpdate.imgUrl && contactUpdate.imgUrl !== existingContact.profilePicUrl) {
+                        updateData.profilePicUrl = contactUpdate.imgUrl;
+                      }
+  
+                      if (Object.keys(updateData).length > 0) {
+                        await existingContact.update(updateData);
+                        logger.debug(`[CONTACTS.UPDATE] Contato individual atualizado: ${existingContact.name} (${number})`);
+                        
+                        const io = getIO();
+                        io.to(`company-${whatsapp.companyId}-mainchannel`).emit(`company-${whatsapp.companyId}-contact`, {
+                          action: "update",
+                          contact: existingContact
+                        });
+                      }
+                    }
+  
+                  } catch (contactError) {
+                    logger.error(`[CONTACTS.UPDATE] Erro ao processar atualização de contato individual ${contactUpdate.id}: ${contactError.message}`);
+                  }
+                }
+              }
+  
+              // ✅ PROCESSAR ATUALIZAÇÕES DE CONTATOS DE GRUPO
+              if (groupUpdates.length > 0) {
+                logger.debug(`[CONTACTS.UPDATE] Processando ${groupUpdates.length} atualizações de contatos de grupo`);
+                
+                for (const groupUpdate of groupUpdates) {
+                  try {
+                    if (!groupUpdate.id) continue;
+                    
+                    const groupJid = groupUpdate.id; // JID completo
+                    
+                    const existingGroupContact = await Contact.findOne({
+                      where: {
+                        number: groupJid, // ✅ JID COMPLETO
+                        companyId: whatsapp.companyId,
+                        isGroup: true // ✅ CONTATO DE GRUPO
+                      }
+                    });
+  
+                    if (existingGroupContact) {
+                      const updateData: any = {};
+                      
+                      if (groupUpdate.name && groupUpdate.name !== existingGroupContact.name) {
+                        updateData.name = groupUpdate.name;
+                      }
+  
+                      if (Object.keys(updateData).length > 0) {
+                        await existingGroupContact.update(updateData);
+                        logger.debug(`[CONTACTS.UPDATE] Contato de grupo atualizado: ${existingGroupContact.name}`);
+                        
+                        const io = getIO();
+                        io.to(`company-${whatsapp.companyId}-mainchannel`).emit(`company-${whatsapp.companyId}-contact`, {
+                          action: "update",
+                          contact: existingGroupContact
+                        });
+                      }
+                    }
+  
+                  } catch (groupError) {
+                    logger.error(`[CONTACTS.UPDATE] Erro ao processar atualização de contato de grupo ${groupUpdate.id}: ${groupError.message}`);
+                  }
+                }
+              }
+  
+              // ✅ ATUALIZAR METADADOS NO BAILEYS
               const baileysData = await Baileys.findOne({
                 where: { whatsappId: whatsapp.id }
               });
-
+  
               if (baileysData) {
-                const currentContacts = baileysData.contacts
-                  ? JSON.parse(baileysData.contacts)
-                  : [];
-
-                const updatedContacts = [...currentContacts];
-                const contacts = events['contacts.upsert'];
-
-                contacts.forEach(contact => {
-                  const index = updatedContacts.findIndex(
-                    c => c.id === contact.id
-                  );
+                const currentContacts = baileysData.contacts ? JSON.parse(baileysData.contacts) : [];
+                let hasChanges = false;
+  
+                contactUpdates.forEach(update => {
+                  const index = currentContacts.findIndex(c => c.id === update.id);
                   if (index > -1) {
-                    updatedContacts[index] = contact;
-                  } else {
-                    updatedContacts.push(contact);
+                    currentContacts[index] = { ...currentContacts[index], ...update };
+                    hasChanges = true;
                   }
                 });
-
-                await baileysData.update({
-                  contacts: JSON.stringify(updatedContacts)
-                });
-
-                logger.info(
-                  `Contatos atualizados para WhatsApp ${whatsapp.id}: ${contacts.length} novos/atualizados`
-                );
-              } else {
-                await Baileys.create({
-                  whatsappId: whatsapp.id,
-                  contacts: JSON.stringify(events['contacts.upsert'])
-                });
-
-                logger.info(
-                  `Novo registro de contatos criado para WhatsApp ${whatsapp.id}`
-                );
+  
+                if (hasChanges) {
+                  await baileysData.update({
+                    contacts: JSON.stringify(currentContacts)
+                  });
+                }
               }
+  
+              logger.info(`[CONTACTS.UPDATE] Processadas ${individualUpdates.length} atualizações de contatos individuais e ${groupUpdates.length} de grupos para WhatsApp ${whatsapp.id}`);
+  
             } catch (error) {
-              logger.error(
-                `Erro ao salvar contatos do WhatsApp ${whatsapp.id}:`,
-                error
-              );
+              logger.error(`[CONTACTS.UPDATE] Erro: ${error.message}`);
             }
           }
-
-          // **OTIMIZAÇÃO CRÍTICA**: Processar eventos de grupos em background
-          if (events['groups.update']) {
-            logger.debug("Received group update");
-            
-            // **NÃO BLOQUEAR**: Adicionar à fila em vez de processar diretamente
-            groupEventQueue.push({
-              type: 'group_update',
-              data: events['groups.update'],
-              whatsappId: whatsapp.id,
-              companyId: whatsapp.companyId,
-              timestamp: Date.now()
-            });
-
-            // Processar em background
-            setImmediate(() => processGroupEventsQueue(whatsapp.id));
-
-            // Atualizar cache imediatamente para não afetar outras operações
-            for (const event of events['groups.update']) {
-              try {
-                setImmediate(async () => {
-                  try {
-                    const metadata = await wsocket.groupMetadata(event.id);
-                    groupCache.set(event.id, metadata);
-                  } catch (error) {
-                    logger.debug(`Erro ao atualizar metadados do grupo: ${error.message}`);
+  
+          // **EVENTO: groups.upsert - CRIAR/INSERIR GRUPOS NOVOS**
+          if (events['groups.upsert']) {
+            try {
+              const groups = events['groups.upsert'];
+              logger.debug(`[GROUPS.UPSERT] Processando ${groups.length} grupos novos`);
+  
+              for (const group of groups) {
+                try {
+                  const groupJid = group.id;
+                  const groupName = group.subject || groupJid.split("@")[0];
+  
+                  // ✅ CRIAR/ATUALIZAR CONTATO DE GRUPO na tabela Contacts
+                  const [groupContact, created] = await Contact.findOrCreate({
+                    where: {
+                      number: groupJid, // ✅ JID COMPLETO
+                      companyId: whatsapp.companyId,
+                      isGroup: true // ✅ CONTATO DE GRUPO
+                    },
+                    defaults: {
+                      name: groupName,
+                      number: groupJid, // ✅ JID COMPLETO
+                      isGroup: true,
+                      profilePicUrl: `${process.env.FRONTEND_URL}/assets/nopicture.png`,
+                      whatsappId: whatsapp.id,
+                      companyId: whatsapp.companyId,
+                      remoteJid: groupJid
+                    }
+                  });
+  
+                  if (!created && groupName !== groupContact.name) {
+                    await groupContact.update({ name: groupName });
                   }
-                });
-              } catch (error) {
-                logger.debug(`Erro menor ao processar group update: ${error.message}`);
+  
+                  logger.debug(`[GROUPS.UPSERT] Contato de grupo ${created ? 'criado' : 'atualizado'}: ${groupName}`);
+  
+                  // ✅ VERIFICAR se é série ativa (grupo gerenciado)
+                  const recentGroupSeries = await GroupSeries.findAll({
+                    where: {
+                      companyId: whatsapp.companyId,
+                      whatsappId: whatsapp.id,
+                      autoCreateEnabled: true
+                    },
+                    limit: 5
+                  });
+  
+                  for (const series of recentGroupSeries) {
+                    if (group.subject === series.baseGroupName ||
+                        group.subject.startsWith(`${series.baseGroupName} #`)) {
+                      logger.info(`[GROUPS.UPSERT] Novo grupo detectado para série ${series.name}: ${group.subject}`);
+                      
+                      // ✅ PROCESSAR como grupo gerenciado em background
+                      setImmediate(async () => {
+                        try {
+                          logger.info(`[GROUPS.UPSERT] Registrando grupo como gerenciado: ${group.subject}`);
+                          // Aqui você pode integrar com AutoGroupManagerService se necessário
+                        } catch (error) {
+                          logger.error(`[GROUPS.UPSERT] Erro ao processar grupo gerenciado: ${error.message}`);
+                        }
+                      });
+                      break;
+                    }
+                  }
+  
+                } catch (groupError) {
+                  logger.error(`[GROUPS.UPSERT] Erro ao processar grupo ${group.id}: ${groupError.message}`);
+                }
               }
+  
+              // ✅ ATUALIZAR cache de grupos
+              groups.forEach(group => {
+                groupCache.set(group.id, group);
+              });
+  
+            } catch (error) {
+              logger.error(`[GROUPS.UPSERT] Erro ao processar novos grupos: ${error.message}`);
             }
           }
-
+  
+          // **EVENTO: groups.update - ATUALIZAR GRUPOS EXISTENTES**
+          if (events['groups.update']) {
+            try {
+              const updates = events['groups.update'];
+              logger.debug(`[GROUPS.UPDATE] Processando ${updates.length} atualizações de grupos`);
+  
+              for (const update of updates) {
+                try {
+                  if (!update.id) continue;
+                  
+                  const groupJid = update.id;
+                  const groupName = update.subject;
+  
+                  // ✅ ATUALIZAR contato de grupo na tabela Contacts
+                  if (groupName) {
+                    const groupContact = await Contact.findOne({
+                      where: {
+                        number: groupJid, // ✅ JID COMPLETO
+                        companyId: whatsapp.companyId,
+                        isGroup: true // ✅ CONTATO DE GRUPO
+                      }
+                    });
+  
+                    if (groupContact && groupContact.name !== groupName) {
+                      await groupContact.update({ name: groupName });
+                      logger.debug(`[GROUPS.UPDATE] Nome do contato de grupo atualizado: ${groupName}`);
+                      
+                      // Emitir evento via socket
+                      const io = getIO();
+                      io.to(`company-${whatsapp.companyId}-mainchannel`).emit(`company-${whatsapp.companyId}-contact`, {
+                        action: "update",
+                        contact: groupContact
+                      });
+                    }
+                  }
+  
+                  // ✅ ATUALIZAR grupo gerenciado se existir
+                  if (groupName) {
+                    const managedGroup = await Groups.findOne({
+                      where: {
+                        jid: groupJid,
+                        companyId: whatsapp.companyId,
+                        isManaged: true
+                      }
+                    });
+  
+                    if (managedGroup && managedGroup.subject !== groupName) {
+                      await managedGroup.update({ subject: groupName });
+                      logger.info(`[GROUPS.UPDATE] Nome do grupo gerenciado atualizado: ${groupName}`);
+                      
+                      // Emitir evento via socket
+                      const io = getIO();
+                      io.to(`company-${managedGroup.companyId}-mainchannel`).emit("group", {
+                        action: "update",
+                        group: managedGroup
+                      });
+                    }
+                  }
+    
+                  logger.debug(`[GROUPS.UPDATE] Grupo atualizado: ${groupName || groupJid}`);
+  
+                } catch (updateError) {
+                  logger.error(`[GROUPS.UPDATE] Erro ao processar atualização do grupo ${update.id}: ${updateError.message}`);
+                }
+              }
+  
+            } catch (error) {
+              logger.error(`[GROUPS.UPDATE] Erro ao processar atualizações de grupos: ${error.message}`);
+            }
+          }
+  
+          // **EVENTO: group-participants.update - ATUALIZAR PARTICIPANTES (JÁ EXISTE - MANTER)**
           if (events['group-participants.update']) {
             logger.debug(`Recebida atualização de participantes no grupo: ${events['group-participants.update'].id}`);
             
-            // **CRÍTICO**: NÃO processar sincronamente - adicionar à fila
+            // ✅ ADICIONAR À FILA sem bloquear
             groupEventQueue.push({
               type: 'participant_update',
               data: events['group-participants.update'],
@@ -1129,11 +1439,11 @@ export const initWASocket = async (whatsapp: Whatsapp): Promise<Session> => {
               companyId: whatsapp.companyId,
               timestamp: Date.now()
             });
-
-            // Processar em background sem bloquear
+  
+            // Processar em background
             setImmediate(() => processGroupEventsQueue(whatsapp.id));
-
-            // Atualizar cache básico imediatamente
+  
+            // Atualizar cache básico
             try {
               const event = events['group-participants.update'];
               setImmediate(async () => {
@@ -1147,27 +1457,6 @@ export const initWASocket = async (whatsapp: Whatsapp): Promise<Session> => {
             } catch (error) {
               logger.debug(`Erro menor no group-participants.update: ${error.message}`);
             }
-          }
-
-          if (events['groups.upsert']) {
-            logger.debug("Received new group");
-
-            // **OTIMIZAÇÃO**: Processar em background
-            groupEventQueue.push({
-              type: 'group_upsert',
-              data: events['groups.upsert'],
-              whatsappId: whatsapp.id,
-              companyId: whatsapp.companyId,
-              timestamp: Date.now()
-            });
-
-            // Atualizar cache imediatamente
-            events['groups.upsert'].forEach(group => {
-              groupCache.set(group.id, group);
-            });
-
-            // Processar resto em background
-            setImmediate(() => processGroupEventsQueue(whatsapp.id));
           }
         });
 

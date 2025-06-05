@@ -186,13 +186,27 @@ export const verifyContact = async (
   wbot: Session,
   companyId: number
 ): Promise<Contact> => {
+  // ✅ CORREÇÃO: Determinar número baseado no tipo
+  const isGroup = msgContact.id.includes("g.us");
+  let number: string;
+  
+  if (isGroup) {
+    // Para grupos: usar o JID completo como número
+    number = msgContact.id;
+  } else {
+    // Para contatos individuais: apenas os dígitos
+    number = msgContact.id.substring(0, msgContact.id.indexOf("@"));
+  }
+
   const contactData = {
-    name: msgContact?.name || msgContact?.id.replace(/\D/g, ""),
-    number: msgContact.id.substring(0, msgContact.id.indexOf("@")),
-    isGroup: msgContact.id.includes("g.us"),
+    name: msgContact?.name || (isGroup ? msgContact.id : number),
+    number: number,
+    isGroup: isGroup,
     companyId,
-    whatsappId: wbot.id
+    whatsappId: wbot.id,
+    remoteJid: msgContact.id // ✅ Sempre incluir o JID completo
   };
+  
   const contact = CreateOrUpdateContactService(
     contactData,
     wbot,
@@ -1549,88 +1563,5 @@ export const wbotMessageListener = async (
         }
       }
     });
-  });
-
-  wbot.ev.on(
-    "groups.update",
-    async (groupUpdates: Partial<GroupMetadata>[]) => {
-      if (groupUpdates.length === 0) return;
-
-      for (const group of groupUpdates) {
-        const number = group.id!.split("@")[0];
-        const nameGroup = group.subject || number;
-
-        const contactData = {
-          name: nameGroup,
-          number: number,
-          isGroup: true,
-          companyId: companyId,
-          remoteJid: group.id!,
-          whatsappId: wbot.id
-        };
-        await CreateOrUpdateContactService(contactData, wbot, group.id!);
-      }
-    }
-  );
-
-  wbot.ev.on("contacts.update", async (contacts: any) => {
-    try {
-      const whatsapp = await Whatsapp.findByPk(wbot.id);
-
-      if (whatsapp.autoImportContacts === 1) {
-        for (const contact of contacts) {
-          // Verifica se o contato é válido
-          if (!contact?.id) continue;
-
-          try {
-            // Prepara o JID limpo independente de ter URL ou não
-            const cleanJid = contact.id.includes('@g.us')
-              ? contact.id.replace(/[^0-9-]/g, "") + "@g.us" // Mantém o traço nos grupos
-              : contact.id.replace(/\D/g, "") + "@s.whatsapp.net"; // Remove tudo exceto números para usuários normais
-
-            let profilePicUrl = null;
-
-            // Tenta obter a URL da foto de perfil apenas se houver indicação que ela existe
-            if (typeof contact.imgUrl !== 'undefined' && contact.imgUrl !== null) {
-              try {
-                profilePicUrl = await wbot.profilePictureUrl(
-                  contact.id,
-                  "image",
-                  30000
-                );
-              } catch (pictureError) {
-                // Se falhar ao buscar a imagem, apenas registra o erro e continua
-                logger.warn(
-                  `Não foi possível obter foto de perfil para ${contact.id}: ${pictureError.message}`
-                );
-                // Usa a URL padrão se estiver definida no frontend
-                profilePicUrl = `${process.env.FRONTEND_URL}/nopicture.png`;
-              }
-            }
-
-            // Prepara os dados do contato para atualização
-            const contactData = {
-              name: contact.name || cleanJid.split('@')[0],
-              number: cleanJid,
-              isGroup: contact.id.includes("@g.us"),
-              companyId,
-              remoteJid: contact.id,
-              profilePicUrl,
-              whatsappId: wbot.id
-            };
-
-            // Chama o serviço para criar ou atualizar o contato
-            await CreateOrUpdateContactService(contactData, wbot);
-
-          } catch (contactError) {
-            logger.error(
-              `Erro ao processar contato ${contact.id}: ${contactError.message}`
-            );
-          }
-        }
-      }
-    } catch (error) {
-      logger.error(`Erro no evento contacts.update: ${error.message}`);
-    }
   });
 };

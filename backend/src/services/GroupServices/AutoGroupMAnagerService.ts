@@ -631,7 +631,8 @@ class AutoGroupManagerService {
           const contact = await Contact.findOne({
             where: { 
               number, 
-              companyId 
+              companyId,
+              isGroup: false
             },
             attributes: ['id', 'name', 'email', 'profilePicUrl']
           });

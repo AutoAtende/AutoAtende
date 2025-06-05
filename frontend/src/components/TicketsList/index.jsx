@@ -92,7 +92,6 @@ const reducer = (state, action) => {
         return [...state];
     }
 
-
     if (action.type === "RESET_UNREAD") {
         const ticketId = action.payload;
 
@@ -104,7 +103,6 @@ const reducer = (state, action) => {
         return [...state];
     }
 
-
     if (action.type === "UPDATE_TICKET_TAGS") {
         const ticket = action.payload;
 
@@ -115,7 +113,6 @@ const reducer = (state, action) => {
 
         return [...state];
     }
-
 
     if (action.type === "UPDATE_TICKET") {
         const ticket = action.payload;
@@ -169,6 +166,33 @@ const reducer = (state, action) => {
     }
 };
 
+/**
+ * Verifica se um ticket é individual (não é grupo)
+ * @param {Object} ticket - Objeto do ticket
+ * @returns {boolean} - true se for ticket individual, false se for grupo
+ */
+const isIndividualTicket = (ticket) => {
+    if (!ticket) return false;
+    
+    // Verificação robusta para garantir que NÃO é grupo
+    const isGroup = ticket.isGroup === true || 
+                   ticket.isGroup === 1 || 
+                   ticket.isGroup === "true" || 
+                   ticket.isGroup === "1";
+    
+    console.log('TicketsList - Ticket ID:', ticket.id, 'isGroup value:', ticket.isGroup, 'Is individual:', !isGroup);
+    return !isGroup;
+};
+
+/**
+ * Filtra tickets para mostrar apenas tickets individuais (não grupos)
+ * @param {Array} tickets - Lista de tickets
+ * @returns {Array} - Lista filtrada apenas com tickets individuais
+ */
+const getIndividualTickets = (tickets) => {
+    return tickets.filter(isIndividualTicket);
+};
+
 const TicketsList = (props) => {
     const {
         status,
@@ -184,6 +208,7 @@ const TicketsList = (props) => {
         refreshTickets,
         filterType,
     } = props;
+    
     const classes = useStyles();
     const [pageNumber, setPageNumber] = useState(1);
     const [ticketsList, dispatch] = useReducer(reducer, []);
@@ -222,15 +247,24 @@ const TicketsList = (props) => {
     const companyId = localStorage.getItem("companyId");
 
     useEffect(() => {
-        dispatch({ type: "LOAD_TICKETS", payload: tickets });
-    }, [tickets, status, searchParam, queues, profile, tickets]);
-
+        console.log('TicketsList - Tickets recebidos:', tickets.length);
+        console.log('TicketsList - Tickets individuais:', tickets.filter(isIndividualTicket).length);
+        console.log('TicketsList - Tickets de grupo (que DEVEM ser filtrados):', tickets.filter(t => !isIndividualTicket(t)).length);
+        
+        // Filtra APENAS tickets individuais (não grupos)
+        const individualTickets = getIndividualTickets(tickets);
+        console.log('TicketsList - Tickets individuais após filtro:', individualTickets.length);
+        
+        dispatch({ type: "LOAD_TICKETS", payload: individualTickets });
+    }, [tickets, status, searchParam, queues, profile, refreshTickets]);
 
     const shouldUpdateTicket = (ticket) =>
         (!ticket.userId || ticket.userId === user?.id || showAll) &&
         (!ticket.queueId || selectedQueueIds.indexOf(ticket.queueId) > -1);
 
-    const notBelongsToUserQueues = (ticket) => ticket.queueId && selectedQueueIds.indexOf(ticket.queueId) === -1 || (ticket.queueId === null && user.profile === "user");
+    const notBelongsToUserQueues = (ticket) => 
+        ticket.queueId && selectedQueueIds.indexOf(ticket.queueId) === -1 || 
+        (ticket.queueId === null && user.profile === "user");
 
     const onConnectTicketList = () => {
         const companyId = localStorage.getItem("companyId");
@@ -254,10 +288,13 @@ const TicketsList = (props) => {
         }
 
         if (data.action === "update" && shouldUpdateTicket(data.ticket) && data.ticket.status === status) {
-            dispatch({
-                type: "UPDATE_TICKET",
-                payload: data.ticket,
-            });
+            // Só atualiza se for um ticket INDIVIDUAL (não grupo)
+            if (isIndividualTicket(data.ticket)) {
+                dispatch({
+                    type: "UPDATE_TICKET",
+                    payload: data.ticket,
+                });
+            }
         }
 
         if (data.action === "update" && notBelongsToUserQueues(data.ticket)) {
@@ -266,26 +303,30 @@ const TicketsList = (props) => {
 
         if (data.action === "delete") {
             dispatch({ type: "DELETE_TICKET", payload: data?.ticketId });
-
         }
 
         if (data.action === "tagUpdate") {
-            dispatch({
-                type: "UPDATE_TICKET_TAGS",
-                payload: data.ticket,
-            });
-
+            // Só atualiza tags se for ticket individual
+            if (isIndividualTicket(data.ticket)) {
+                dispatch({
+                    type: "UPDATE_TICKET_TAGS",
+                    payload: data.ticket,
+                });
+            }
         }
 
         if (data.action === "removeFromList") {
             dispatch({ type: "DELETE_TICKET", payload: data.ticketId });
         }
-
     }
 
     const onCompanyAppMessage = (data) => {
-
         setMakeRequestTagTotalTicketPending(Math.random())
+
+        // Ignora se for ticket de grupo
+        if (!isIndividualTicket(data.ticket)) {
+            return;
+        }
 
         // Verifica se o perfil do usuário é "user" e se o ticket pertence a uma fila acessível e se o parâmetro 'allTicket' estiver desabilitado. 
         // Se não, a função retorna, evitando o processamento do ticket.
@@ -309,7 +350,6 @@ const TicketsList = (props) => {
     }
 
     const onCompanyContact = (data) => {
-
         if (data.action === "update") {
             dispatch({
                 type: "UPDATE_TICKET_CONTACT",
@@ -319,7 +359,6 @@ const TicketsList = (props) => {
     }
 
     useEffect(() => {
-
         if (!socketManager?.GetSocket) return;
         const companyId = localStorage.getItem("companyId");
         if (!companyId) return;
@@ -334,7 +373,6 @@ const TicketsList = (props) => {
         socket.on(`company-${companyId}-contact`, onCompanyContact);
 
         return () => {
-
             if (status) {
                 socket.emit("leaveTickets", status);
             } else {
@@ -345,23 +383,23 @@ const TicketsList = (props) => {
             socket.off(`company-${companyId}-appMessage`, onCompanyAppMessage);
             socket.off(`company-${companyId}-contact`, onCompanyContact);
         };
-
     }, []);
 
-
     useEffect(() => {
-
-        const nonGroup = getTicketsArrayByUser(ticketsList, user).filter(ticket => !ticket.isGroup).length;
+        const filteredTickets = getTicketsArrayByUser(ticketsList, user);
+        const nonGroup = filteredTickets.length; // Já está filtrado apenas individuais
+        
+        console.log('TicketsList - Atualizando contagem de tickets individuais:', nonGroup);
+        
         if (typeof updateCount === "function") {
             updateCount(nonGroup);
         }
 
+        // updateGroupCount não deve ser usado aqui, pois este componente só lida com tickets individuais
         if (typeof updateGroupCount === "function") {
-            updateGroupCount(getTicketsArrayByUser(ticketsList, user).length - nonGroup);
+            updateGroupCount(0); // Zero grupos neste componente
         }
-
-    }, [ticketsList]);
-
+    }, [ticketsList, updateCount, updateGroupCount, user]);
 
     const loadMore = () => {
         setPageNumber((prevState) => prevState + 1);
@@ -379,6 +417,9 @@ const TicketsList = (props) => {
 
     const getFilteredTickets = (tickets) => {
         let filteredTickets = getTicketsArrayByUser(tickets, user);
+        
+        // Garantir que só tickets individuais passem por aqui
+        filteredTickets = filteredTickets.filter(isIndividualTicket);
         
         // Aplicar filtro de pesquisa de texto
         if (searchParam) {
@@ -418,7 +459,7 @@ const TicketsList = (props) => {
         <Paper className={classes.ticketsListWrapper} style={style}>
             <Paper
                 square
-                name="closed"
+                name="individual-tickets"
                 elevation={0}
                 className={classes.ticketsList}
                 onScroll={handleScroll}
@@ -439,7 +480,6 @@ const TicketsList = (props) => {
                         <>
                             {getFilteredTickets(ticketsList)
                                 .sort((a, b) => new Date(b?.updatedAt) - new Date(a?.updatedAt))
-                                .filter(ticket => ticket.isGroup.toString() == "false")
                                 .map((ticket) => (
                                     <TicketListItem ticket={ticket} setTabOpen={setTabOpen} key={ticket.id} />
                                 ))}
