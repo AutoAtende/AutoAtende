@@ -26,12 +26,12 @@ const validateParticipants = (participants: GroupParticipant[]): GroupParticipan
     .filter(p => p && p.id)
     .map(p => ({
       id: p.id,
-      lid: p.lid || null,          // Substitua undefined por null
-      name: p.name || null,         // Substitua undefined por null
-      notify: p.notify || null,     // Substitua undefined por null
-      verifiedName: p.verifiedName || null, // Substitua undefined por null
-      imgUrl: p.imgUrl || null,     // Substitua undefined por null
-      status: p.status || null,     // Substitua undefined por null
+      lid: p.lid || null,
+      name: p.name || null,
+      notify: p.notify || null,
+      verifiedName: p.verifiedName || null,
+      imgUrl: p.imgUrl || null,
+      status: p.status || null,
       isAdmin: p.isAdmin || false,
       isSuperAdmin: p.isSuperAdmin || false,
       admin: p.admin || null

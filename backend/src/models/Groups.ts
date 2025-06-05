@@ -13,7 +13,6 @@ import {
   Default,
   Comment
 } from 'sequelize-typescript';
-import { GroupParticipant } from 'baileys';
 import Company from './Company';
 import Whatsapp from './Whatsapp';
 
@@ -41,11 +40,15 @@ class Groups extends Model<Groups> {
   @Column(DataType.TEXT)
   participants: string;
 
-  @Column(DataType.JSONB)
-  participantsJson: GroupParticipant[];
-
-  @Column(DataType.ARRAY(DataType.STRING))
-  adminParticipants: string[];
+  @Column({
+    type: DataType.JSONB
+  })
+  participantsJson: [];
+  
+  @Column({
+    type: DataType.JSONB
+  })
+  adminParticipants: [];
 
   @Column(DataType.STRING)
   inviteLink: string;
