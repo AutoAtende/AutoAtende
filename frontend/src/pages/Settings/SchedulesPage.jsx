@@ -33,7 +33,9 @@ import {
   Info,
   Schedule as ScheduleIcon,
   Save as SaveIcon,
-  Refresh as RefreshIcon
+  Refresh as RefreshIcon,
+  ContentCopy as CopyIcon,
+  Block as DisabledIcon
 } from "@mui/icons-material";
 import { styled } from "@mui/material/styles";
 import { Formik, Form, Field } from "formik";
@@ -80,6 +82,17 @@ const SectionHeader = styled(Box)(({ theme }) => ({
   marginBottom: theme.spacing(2)
 }));
 
+const CopyButton = styled(Button)(({ theme }) => ({
+  minWidth: "auto",
+  padding: theme.spacing(1),
+  borderRadius: "50%",
+  backgroundColor: theme.palette.primary.main,
+  color: theme.palette.primary.contrastText,
+  "&:hover": {
+    backgroundColor: theme.palette.primary.dark
+  }
+}));
+
 // Constantes
 const weekdays = [
   { weekday: i18n.t("serviceHours.daysweek.day1"), weekdayEn: "monday" },
@@ -120,7 +133,7 @@ const dayScheduleSchema = Yup.object().shape({
 });
 
 const schedulesSchema = Yup.object().shape({
-  type: Yup.string().oneOf(["company", "queue"]).required("Tipo é obrigatório"),
+  type: Yup.string().oneOf(["company", "queue", "disabled"]).required("Tipo é obrigatório"),
   queueId: Yup.number().when("type", {
     is: "queue",
     then: Yup.number().required("Fila é obrigatória"),
@@ -130,10 +143,25 @@ const schedulesSchema = Yup.object().shape({
 });
 
 // Componente de Dia da Semana
-const DayScheduleCard = ({ schedule, index, errors, touched, expanded, onToggle }) => {
+const DayScheduleCard = ({ 
+  schedule, 
+  index, 
+  errors, 
+  touched, 
+  expanded, 
+  onToggle, 
+  showCopyButton, 
+  onCopyFromFirst,
+  setFieldValue 
+}) => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
   const hasErrors = errors && Object.keys(errors).length > 0;
+
+  const handleCopyFromFirst = () => {
+    onCopyFromFirst(index);
+    toast.success(`Horários copiados para ${schedule.weekday}`);
+  };
 
   return (
     <DayCard hasErrors={hasErrors}>
@@ -143,12 +171,40 @@ const DayScheduleCard = ({ schedule, index, errors, touched, expanded, onToggle 
           <Typography variant="h6" fontWeight={600}>
             {schedule.weekday}
           </Typography>
+          {index === 0 && (
+            <Chip 
+              label="Primeiro dia" 
+              size="small" 
+              color="primary" 
+              variant="outlined"
+            />
+          )}
         </Box>
-        {isMobile && (
-          <IconButton onClick={onToggle} size="small">
-            {expanded ? <KeyboardArrowUp /> : <KeyboardArrowDown />}
-          </IconButton>
-        )}
+        
+        <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+          {showCopyButton && index > 0 && (
+            <Tooltip title={`Copiar horários de ${weekdays[0].weekday}`}>
+              <IconButton
+                onClick={handleCopyFromFirst}
+                size="small"
+                sx={{
+                  backgroundColor: theme.palette.primary.main,
+                  color: theme.palette.primary.contrastText,
+                  "&:hover": {
+                    backgroundColor: theme.palette.primary.dark
+                  }
+                }}
+              >
+                <CopyIcon fontSize="small" />
+              </IconButton>
+            </Tooltip>
+          )}
+          {isMobile && (
+            <IconButton onClick={onToggle} size="small">
+              {expanded ? <KeyboardArrowUp /> : <KeyboardArrowDown />}
+            </IconButton>
+          )}
+        </Box>
       </Box>
 
       <Collapse in={expanded || !isMobile} timeout={300}>
@@ -264,7 +320,10 @@ DayScheduleCard.propTypes = {
   errors: PropTypes.object,
   touched: PropTypes.object,
   expanded: PropTypes.bool.isRequired,
-  onToggle: PropTypes.func.isRequired
+  onToggle: PropTypes.func.isRequired,
+  showCopyButton: PropTypes.bool,
+  onCopyFromFirst: PropTypes.func,
+  setFieldValue: PropTypes.func.isRequired
 };
 
 // Componente Principal
@@ -313,6 +372,11 @@ const SchedulesPage = () => {
     const companyId = user?.companyId || localStorage.getItem("companyId");
     if (!companyId) return;
 
+    if (type === "disabled") {
+      setCurrentSchedules(initialSchedules);
+      return;
+    }
+
     setLoading(true);
     try {
       const params = new URLSearchParams({ type });
@@ -343,11 +407,41 @@ const SchedulesPage = () => {
     loadSchedules();
   }, [loadQueues, loadSchedules]);
 
+  // Função para copiar horários do primeiro dia
+  const copyFromFirstDay = useCallback((targetIndex, setFieldValue, values) => {
+    const firstDaySchedule = values.schedules[0];
+    
+    setFieldValue(`schedules.${targetIndex}.startTime`, firstDaySchedule.startTime || "");
+    setFieldValue(`schedules.${targetIndex}.endTime`, firstDaySchedule.endTime || "");
+    setFieldValue(`schedules.${targetIndex}.startLunchTime`, firstDaySchedule.startLunchTime || "");
+    setFieldValue(`schedules.${targetIndex}.endLunchTime`, firstDaySchedule.endLunchTime || "");
+  }, []);
+
+  // Função para copiar para todos os dias
+  const copyToAllDays = useCallback((setFieldValue, values) => {
+    const firstDaySchedule = values.schedules[0];
+    
+    for (let i = 1; i < values.schedules.length; i++) {
+      setFieldValue(`schedules.${i}.startTime`, firstDaySchedule.startTime || "");
+      setFieldValue(`schedules.${i}.endTime`, firstDaySchedule.endTime || "");
+      setFieldValue(`schedules.${i}.startLunchTime`, firstDaySchedule.startLunchTime || "");
+      setFieldValue(`schedules.${i}.endLunchTime`, firstDaySchedule.endLunchTime || "");
+    }
+    
+    toast.success("Horários copiados para todos os dias!");
+  }, []);
+
   // Handlers
   const handleSubmit = async (values, { setSubmitting }) => {
     const companyId = user?.companyId || localStorage.getItem("companyId");
     if (!companyId) {
       toast.error("ID da empresa não encontrado");
+      setSubmitting(false);
+      return;
+    }
+
+    if (values.type === "disabled") {
+      toast.info("Horários desativados - nenhuma alteração salva");
       setSubmitting(false);
       return;
     }
@@ -394,6 +488,8 @@ const SchedulesPage = () => {
     
     if (newType === "company") {
       loadSchedules("company");
+    } else if (newType === "disabled") {
+      setCurrentSchedules(initialSchedules);
     } else {
       setCurrentSchedules(initialSchedules);
     }
@@ -422,11 +518,20 @@ const SchedulesPage = () => {
   }, [scheduleType, selectedQueueId, loadSchedules]);
 
   // Estatísticas
+  const getStatsLabel = () => {
+    switch (scheduleType) {
+      case "company": return "Horários da Empresa";
+      case "queue": return "Horários por Fila";
+      case "disabled": return "Horários Desativados";
+      default: return "Horários";
+    }
+  };
+
   const stats = [
     {
-      label: scheduleType === "company" ? "Horários da Empresa" : "Horários por Fila",
-      icon: scheduleType === "company" ? <Business /> : <Queue />,
-      color: "primary"
+      label: getStatsLabel(),
+      icon: scheduleType === "disabled" ? <DisabledIcon /> : (scheduleType === "company" ? <Business /> : <Queue />),
+      color: scheduleType === "disabled" ? "error" : "primary"
     },
     {
       label: `${currentSchedules.filter(s => s.startTime && s.endTime).length} dias configurados`,
@@ -494,6 +599,12 @@ const SchedulesPage = () => {
                             Fila de Atendimento
                           </Box>
                         </MenuItem>
+                        <MenuItem value="disabled">
+                          <Box sx={{ display: "flex", alignItems: "center" }}>
+                            <DisabledIcon sx={{ mr: 1 }} />
+                            Desativado
+                          </Box>
+                        </MenuItem>
                       </Select>
                     </FormControl>
                   </Grid>
@@ -543,22 +654,52 @@ const SchedulesPage = () => {
                     </Typography>
                   </Alert>
                 )}
+
+                {values.type === "disabled" && (
+                  <Alert severity="warning" sx={{ mt: 2 }}>
+                    <Typography variant="body2">
+                      <strong>Horários desativados:</strong> Nenhum controle de horário será aplicado.
+                      O atendimento funcionará 24/7.
+                    </Typography>
+                  </Alert>
+                )}
+
+                {/* Botão para copiar para todos os dias */}
+                {values.type !== "disabled" && (
+                  <Box sx={{ mt: 2, display: "flex", justifyContent: "center" }}>
+                    <Tooltip title="Copiar horários do primeiro dia para todos os outros dias">
+                      <Button
+                        variant="outlined"
+                        startIcon={<CopyIcon />}
+                        onClick={() => copyToAllDays(setFieldValue, values)}
+                        disabled={!values.schedules[0]?.startTime}
+                      >
+                        Copiar Primeiro Dia para Todos
+                      </Button>
+                    </Tooltip>
+                  </Box>
+                )}
               </Paper>
 
               {/* Horários por Dia */}
-              <Stack spacing={2}>
-                {values.schedules.map((schedule, index) => (
-                  <DayScheduleCard
-                    key={schedule.weekdayEn}
-                    schedule={schedule}
-                    index={index}
-                    errors={errors?.schedules?.[index]}
-                    touched={touched?.schedules?.[index]}
-                    expanded={expandedDays[index] !== false}
-                    onToggle={() => toggleDayExpansion(index)}
-                  />
-                ))}
-              </Stack>
+              {values.type !== "disabled" && (
+                <Stack spacing={2}>
+                  {values.schedules.map((schedule, index) => (
+                    <DayScheduleCard
+                      key={schedule.weekdayEn}
+                      schedule={schedule}
+                      index={index}
+                      errors={errors?.schedules?.[index]}
+                      touched={touched?.schedules?.[index]}
+                      expanded={expandedDays[index] !== false}
+                      onToggle={() => toggleDayExpansion(index)}
+                      showCopyButton={true}
+                      onCopyFromFirst={(targetIndex) => copyFromFirstDay(targetIndex, setFieldValue, values)}
+                      setFieldValue={setFieldValue}
+                    />
+                  ))}
+                </Stack>
+              )}
 
               {/* Ações */}
               <Box sx={{ display: "flex", justifyContent: "center", gap: 2, mt: 4 }}>
@@ -575,10 +716,10 @@ const SchedulesPage = () => {
                   variant="contained"
                   color="primary"
                   startIcon={isSubmitting ? <CircularProgress size={20} /> : <SaveIcon />}
-                  disabled={loading || isSubmitting}
+                  disabled={loading || isSubmitting || values.type === "disabled"}
                   sx={{ minWidth: 200 }}
                 >
-                  Salvar Horários
+                  {values.type === "disabled" ? "Desativado" : "Salvar Horários"}
                 </Button>
               </Box>
             </Form>
