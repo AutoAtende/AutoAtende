@@ -104,42 +104,21 @@ const weekdays = [
   { weekday: i18n.t("serviceHours.daysweek.day7"), weekdayEn: "sunday" }
 ];
 
-// Schema de validação
+// Schema de validação simplificado
 const timeRegex = /^([0-1][0-9]|2[0-3]):[0-5][0-9]$/;
 
-const dayScheduleSchema = Yup.object().shape({
-  startTime: Yup.string()
-    .matches(timeRegex, "Formato inválido (HH:MM)")
-    .nullable(),
-  endTime: Yup.string()
-    .matches(timeRegex, "Formato inválido (HH:MM)")
-    .nullable()
-    .test("end-after-start", "Horário final deve ser após o inicial", function(endTime) {
-      const { startTime } = this.parent;
-      if (!startTime || !endTime) return true;
-      return endTime > startTime;
-    }),
-  startLunchTime: Yup.string()
-    .matches(timeRegex, "Formato inválido (HH:MM)")
-    .nullable(),
-  endLunchTime: Yup.string()
-    .matches(timeRegex, "Formato inválido (HH:MM)")
-    .nullable()
-    .test("lunch-end-after-start", "Fim do almoço deve ser após o início", function(endLunchTime) {
-      const { startLunchTime } = this.parent;
-      if (!startLunchTime || !endLunchTime) return true;
-      return endLunchTime > startLunchTime;
-    })
-});
-
 const schedulesSchema = Yup.object().shape({
-  type: Yup.string().oneOf(["company", "queue", "disabled"]).required("Tipo é obrigatório"),
-  queueId: Yup.number().when("type", {
-    is: "queue",
-    then: Yup.number().required("Fila é obrigatória"),
-    otherwise: Yup.number().nullable()
-  }),
-  schedules: Yup.array().of(dayScheduleSchema)
+  type: Yup.string()
+    .oneOf(["company", "queue", "disabled"])
+    .required("Tipo é obrigatório"),
+  queueId: Yup.number()
+    .nullable()
+    .when("type", (type, schema) => {
+      return type === "queue" 
+        ? schema.required("Fila é obrigatória")
+        : schema.nullable();
+    }),
+  schedules: Yup.array().min(1, "Horários são obrigatórios")
 });
 
 // Componente de Dia da Semana
@@ -340,14 +319,7 @@ const SchedulesPage = () => {
   const [currentSchedules, setCurrentSchedules] = useState([]);
   const [expandedDays, setExpandedDays] = useState({});
 
-  // Valores iniciais
-  const initialSchedules = weekdays.map(day => ({
-    ...day,
-    startTime: "",
-    endTime: "",
-    startLunchTime: "",
-    endLunchTime: ""
-  }));
+
 
   // Carregar filas
   const loadQueues = useCallback(async () => {
@@ -421,7 +393,58 @@ const SchedulesPage = () => {
     loadSchedules();
   }, [loadQueues, loadSchedules]);
 
-  // Função para copiar horários do primeiro dia
+  // Função de validação manual simplificada
+  const validateTimeFields = (values) => {
+    console.log("Iniciando validação com values:", values);
+    
+    // Se for disabled, não validar nada
+    if (values.type === "disabled") {
+      console.log("Tipo disabled - sem validação");
+      return {};
+    }
+
+    // Validação básica apenas
+    const errors = {};
+    
+    // Validar se tipo queue tem queueId
+    if (values.type === "queue" && !values.queueId) {
+      errors.queueId = "Fila é obrigatória";
+    }
+    
+    console.log("Erros encontrados:", errors);
+    return errors;
+  };
+      }
+      
+      if (schedule.endTime && !timeRegex.test(schedule.endTime)) {
+        scheduleErrors.endTime = "Formato inválido (HH:MM)";
+      }
+      
+      if (schedule.startLunchTime && !timeRegex.test(schedule.startLunchTime)) {
+        scheduleErrors.startLunchTime = "Formato inválido (HH:MM)";
+      }
+      
+      if (schedule.endLunchTime && !timeRegex.test(schedule.endLunchTime)) {
+        scheduleErrors.endLunchTime = "Formato inválido (HH:MM)";
+      }
+      
+      // Validar lógica dos horários
+      if (schedule.startTime && schedule.endTime && schedule.endTime <= schedule.startTime) {
+        scheduleErrors.endTime = "Horário final deve ser após o inicial";
+      }
+      
+      if (schedule.startLunchTime && schedule.endLunchTime && schedule.endLunchTime <= schedule.startLunchTime) {
+        scheduleErrors.endLunchTime = "Fim do almoço deve ser após o início";
+      }
+      
+      if (Object.keys(scheduleErrors).length > 0) {
+        if (!errors.schedules) errors.schedules = {};
+        errors.schedules[index] = scheduleErrors;
+      }
+    });
+    
+    return errors;
+  };
   const copyFromFirstDay = useCallback((targetIndex, setFieldValue, values) => {
     const firstDaySchedule = values.schedules[0];
     
@@ -446,7 +469,7 @@ const SchedulesPage = () => {
   }, []);
 
   // Handlers
-  const handleSubmit = async (values, { setSubmitting }) => {
+  const handleSubmit = async (values, { setSubmitting, setFieldError }) => {
     const companyId = user?.companyId || localStorage.getItem("companyId");
     if (!companyId) {
       toast.error("ID da empresa não encontrado");
@@ -460,24 +483,36 @@ const SchedulesPage = () => {
       return;
     }
 
+    console.log("Enviando dados:", {
+      type: values.type,
+      queueId: values.queueId,
+      schedules: values.schedules,
+      companyId
+    });
+
     setLoading(true);
     try {
-      // Formatar horários
+      // Formatar horários - converter strings vazias para null
       const formattedSchedules = values.schedules.map(schedule => ({
-        ...schedule,
-        startTime: schedule.startTime || null,
-        endTime: schedule.endTime || null,
-        startLunchTime: schedule.startLunchTime || null,
-        endLunchTime: schedule.endLunchTime || null
+        weekday: schedule.weekday,
+        weekdayEn: schedule.weekdayEn,
+        startTime: schedule.startTime && schedule.startTime.trim() !== "" ? schedule.startTime : null,
+        endTime: schedule.endTime && schedule.endTime.trim() !== "" ? schedule.endTime : null,
+        startLunchTime: schedule.startLunchTime && schedule.startLunchTime.trim() !== "" ? schedule.startLunchTime : null,
+        endLunchTime: schedule.endLunchTime && schedule.endLunchTime.trim() !== "" ? schedule.endLunchTime : null
       }));
 
       const requestData = {
         schedules: formattedSchedules,
         type: values.type,
-        ...(values.type === "queue" ? { queueId: values.queueId } : {})
+        ...(values.type === "queue" && values.queueId ? { queueId: values.queueId } : {})
       };
 
-      await api.put(`/companies/${companyId}/schedules`, requestData);
+      console.log("Dados formatados para envio:", requestData);
+
+      const response = await api.put(`/companies/${companyId}/schedules`, requestData);
+
+      console.log("Resposta do servidor:", response.data);
 
       const entityName = values.type === "company" ? "empresa" : "fila";
       toast.success(`Horários da ${entityName} atualizados com sucesso!`);
@@ -485,9 +520,25 @@ const SchedulesPage = () => {
       // Recarregar horários
       await loadSchedules(values.type, values.queueId);
     } catch (error) {
-      console.error("Erro ao atualizar horários:", error);
-      const errorMsg = error?.response?.data?.error || "Erro ao atualizar horários";
-      toast.error(errorMsg);
+      console.error("Erro completo ao atualizar horários:", error);
+      
+      if (error?.response?.data) {
+        console.error("Dados do erro:", error.response.data);
+        
+        // Verificar se há erros de validação específicos
+        if (error.response.data.validation) {
+          Object.keys(error.response.data.validation).forEach(field => {
+            setFieldError(field, error.response.data.validation[field]);
+          });
+        }
+        
+        const errorMsg = error.response.data.error || error.response.data.message || "Erro ao atualizar horários";
+        toast.error(errorMsg);
+      } else if (error?.message) {
+        toast.error(`Erro de rede: ${error.message}`);
+      } else {
+        toast.error("Erro desconhecido ao atualizar horários");
+      }
     } finally {
       setLoading(false);
       setSubmitting(false);
@@ -529,7 +580,14 @@ const SchedulesPage = () => {
     if (queueId) {
       loadSchedules("queue", queueId);
     } else {
-      setCurrentSchedules(initialSchedules);
+      const defaultSchedules = weekdays.map(day => ({
+        ...day,
+        startTime: "",
+        endTime: "",
+        startLunchTime: "",
+        endLunchTime: ""
+      }));
+      setCurrentSchedules(defaultSchedules);
     }
   };
 
@@ -589,12 +647,27 @@ const SchedulesPage = () => {
 
         <Formik
           initialValues={{
-            schedules: currentSchedules,
+            schedules: currentSchedules.length > 0 ? currentSchedules : weekdays.map(day => ({
+              ...day,
+              startTime: "",
+              endTime: "",
+              startLunchTime: "",
+              endLunchTime: ""
+            })),
             type: scheduleType,
             queueId: selectedQueueId
           }}
-          validationSchema={schedulesSchema}
-          onSubmit={handleSubmit}
+          validate={(values) => {
+            console.log("Validando valores:", values);
+            const errors = validateTimeFields(values);
+            console.log("Erros de validação:", errors);
+            return errors;
+          }}
+          onSubmit={(values, formikHelpers) => {
+            console.log("Submitting form with values:", values);
+            console.log("Formik helpers:", formikHelpers);
+            return handleSubmit(values, formikHelpers);
+          }}
           enableReinitialize
         >
           {({ values, errors, touched, setFieldValue, isSubmitting }) => (

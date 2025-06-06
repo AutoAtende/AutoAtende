@@ -161,11 +161,11 @@ routes.put("/companies/:id/schedules", celebrate({
         endLunchTime: Joi.string().allow('', null)
       })
     ).required(),
-    type: Joi.string().valid('company', 'queue').required(),
-    queueId: Joi.number().when('type', {
+    type: Joi.string().valid('company', 'queue', 'disabled').required(),
+    queueId: Joi.when('type', {
       is: 'queue',
-      then: Joi.required(),
-      otherwise: Joi.optional()
+      then: Joi.number().required(),
+      otherwise: Joi.number().allow(null).optional()
     })
   }
 }), isAuth, CompanyController.updateSchedules);

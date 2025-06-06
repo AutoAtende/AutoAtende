@@ -78,7 +78,7 @@ interface CompanyData {
 
 interface UpdateSchedulesData {
   schedules: Schedule[];
-  type: 'company' | 'queue';
+  type: 'company' | 'queue' | 'disabled';
   queueId?: number;
 }
 
@@ -252,8 +252,48 @@ export const updateSchedules = async (req: Request, res: Response): Promise<Resp
   }
 
   // Validar tipo de configuração
-  if (!type || !['company', 'queue'].includes(type)) {
+  if (!type || !['company', 'queue', 'disabled'].includes(type)) {
     throw new AppError("Tipo de configuração inválido", 400);
+  }
+
+  // Se for tipo "disabled", limpar os horários (salvar como array vazio)
+  if (type === 'disabled') {
+    try {
+      const company = await Company.findByPk(id);
+      if (!company) {
+        throw new AppError("Empresa não encontrada", 404);
+      }
+
+      // Limpar horários da empresa quando desativado
+      await company.update({ schedules: [] });
+
+      const io = getIO();
+      io.emit(`company-${id}`, {
+        action: "update-schedules",
+        schedules: [],
+        type: 'disabled'
+      });
+
+      return res.json({
+        success: true,
+        type: 'disabled',
+        message: 'Horários desativados com sucesso',
+        data: company
+      });
+
+    } catch (err) {
+      logger.error({
+        message: "Error disabling schedules",
+        companyId: id,
+        error: err
+      });
+
+      if (err instanceof AppError) {
+        throw err;
+      }
+      
+      throw new AppError("Erro ao desativar horários", 500);
+    }
   }
 
   // Se for por queue, validar se queueId foi fornecido
@@ -273,6 +313,39 @@ export const updateSchedules = async (req: Request, res: Response): Promise<Resp
     if (!queue) {
       throw new AppError("Fila não encontrada ou não pertence a esta empresa", 404);
     }
+  }
+
+  // Validar formato dos horários
+  const timeRegex = /^([0-1][0-9]|2[0-3]):[0-5][0-9]$/;
+  const validationErrors: string[] = [];
+
+  schedules.forEach((schedule, index) => {
+    // Validar formato de time se não for null/vazio
+    if (schedule.startTime && !timeRegex.test(schedule.startTime)) {
+      validationErrors.push(`Horário de início inválido no dia ${schedule.weekday}`);
+    }
+    if (schedule.endTime && !timeRegex.test(schedule.endTime)) {
+      validationErrors.push(`Horário de fim inválido no dia ${schedule.weekday}`);
+    }
+    if (schedule.startLunchTime && !timeRegex.test(schedule.startLunchTime)) {
+      validationErrors.push(`Horário de início do almoço inválido no dia ${schedule.weekday}`);
+    }
+    if (schedule.endLunchTime && !timeRegex.test(schedule.endLunchTime)) {
+      validationErrors.push(`Horário de fim do almoço inválido no dia ${schedule.weekday}`);
+    }
+
+    // Validar lógica dos horários
+    if (schedule.startTime && schedule.endTime && schedule.endTime <= schedule.startTime) {
+      validationErrors.push(`Horário de fim deve ser após o início no dia ${schedule.weekday}`);
+    }
+    
+    if (schedule.startLunchTime && schedule.endLunchTime && schedule.endLunchTime <= schedule.startLunchTime) {
+      validationErrors.push(`Fim do almoço deve ser após o início no dia ${schedule.weekday}`);
+    }
+  });
+
+  if (validationErrors.length > 0) {
+    throw new AppError(`Erros de validação: ${validationErrors.join(', ')}`, 400);
   }
 
   try {
