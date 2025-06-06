@@ -75,7 +75,6 @@ const UpdateGroupService = async ({
     await group.update({
       subject: groupMetadata.subject,
       description: groupData.description || group.description,
-      participants: JSON.stringify(groupMetadata.participants),
       participantsJson: groupMetadata.participants,
       adminParticipants,
       settings: groupData.settings || group.settings

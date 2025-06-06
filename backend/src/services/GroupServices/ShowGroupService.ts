@@ -89,7 +89,6 @@ const ShowGroupService = async ({ companyId, groupId }: Request): Promise<Groups
       await group.update({
         subject: groupMetadata.subject,
         description: groupMetadata.desc,
-        participants: JSON.stringify(groupMetadata.participants),
         participantsJson: participantsWithNames,
         adminParticipants,
         userRole,

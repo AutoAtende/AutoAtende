@@ -69,7 +69,6 @@ const UpdateGroupRequestParticipantsService = async ({
             .map(p => p.id);
           
           await group.update({
-            participants: JSON.stringify(groupMetadata.participants),
             participantsJson: groupMetadata.participants,
             adminParticipants
           });

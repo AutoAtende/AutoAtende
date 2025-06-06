@@ -73,7 +73,6 @@ const CreateGroupService = async ({
       jid: groupResult.id,
       subject: title,
       description,
-      participants: JSON.stringify(groupMetadata.participants),
       participantsJson: groupMetadata.participants,
       adminParticipants,
       inviteLink,

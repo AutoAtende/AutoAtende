@@ -124,7 +124,7 @@ export async function ImportContacts(
       // Obter participantes atuais
       let currentParticipants = [];
       try {
-        currentParticipants = JSON.parse(group.participants);
+        currentParticipants = group.participantsJson;
       } catch (error) {
         currentParticipants = [];
       }
@@ -149,7 +149,6 @@ export async function ImportContacts(
       
       // Atualizar no banco de dados
       await group.update({
-        participants: JSON.stringify(groupMetadata.participants),
         participantsJson: groupMetadata.participants,
         adminParticipants
       });

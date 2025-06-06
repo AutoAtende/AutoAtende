@@ -5,6 +5,7 @@ import * as path from "path";
 import { logger } from "../../utils/logger";
 import Groups from "../../models/Groups";
 import AppError from "../../errors/AppError";
+import { GroupParticipant } from "bail-lite";
 
 interface ParticipantData {
   id: string;
@@ -44,7 +45,7 @@ const ExtractLocalContactsService = async ({
     }
 
     // Usar participantes fornecidos ou buscar do grupo
-    const groupParticipants = participants || group.participantsJson || [];
+    const groupParticipants: GroupParticipant[] = group.participantsJson || [];
 
     if (!Array.isArray(groupParticipants) || groupParticipants.length === 0) {
       throw new AppError("Nenhum participante encontrado no grupo");

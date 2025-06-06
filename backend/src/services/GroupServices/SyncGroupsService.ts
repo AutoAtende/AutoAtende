@@ -131,7 +131,6 @@ const SyncGroupsService = async (companyId: number): Promise<SyncResult> => {
               jid: group.id,
               subject: groupMetadata.subject || 'Grupo sem nome',
               description: groupMetadata.desc || null,
-              // ❌ REMOVIDO: participants: JSON.stringify(groupMetadata.participants),
               participantsJson: groupMetadata.participants, // ✅ APENAS ESTE
               adminParticipants,
               inviteLink: inviteCode ? `https://chat.whatsapp.com/${inviteCode}` : null,
