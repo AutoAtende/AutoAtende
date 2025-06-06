@@ -373,7 +373,14 @@ const SchedulesPage = () => {
     if (!companyId) return;
 
     if (type === "disabled") {
-      setCurrentSchedules(initialSchedules);
+      const defaultSchedules = weekdays.map(day => ({
+        ...day,
+        startTime: "",
+        endTime: "",
+        startLunchTime: "",
+        endLunchTime: ""
+      }));
+      setCurrentSchedules(defaultSchedules);
       return;
     }
 
@@ -396,11 +403,18 @@ const SchedulesPage = () => {
       setCurrentSchedules(mergedSchedules);
     } catch (error) {
       console.error("Erro ao carregar horários:", error);
-      setCurrentSchedules(initialSchedules);
+      const errorSchedules = weekdays.map(day => ({
+        ...day,
+        startTime: "",
+        endTime: "",
+        startLunchTime: "",
+        endLunchTime: ""
+      }));
+      setCurrentSchedules(errorSchedules);
     } finally {
       setLoading(false);
     }
-  }, [user?.companyId, initialSchedules]);
+  }, [user?.companyId]);
 
   useEffect(() => {
     loadQueues();
@@ -489,9 +503,23 @@ const SchedulesPage = () => {
     if (newType === "company") {
       loadSchedules("company");
     } else if (newType === "disabled") {
-      setCurrentSchedules(initialSchedules);
+      const defaultSchedules = weekdays.map(day => ({
+        ...day,
+        startTime: "",
+        endTime: "",
+        startLunchTime: "",
+        endLunchTime: ""
+      }));
+      setCurrentSchedules(defaultSchedules);
     } else {
-      setCurrentSchedules(initialSchedules);
+      const defaultSchedules = weekdays.map(day => ({
+        ...day,
+        startTime: "",
+        endTime: "",
+        startLunchTime: "",
+        endLunchTime: ""
+      }));
+      setCurrentSchedules(defaultSchedules);
     }
   };
 
