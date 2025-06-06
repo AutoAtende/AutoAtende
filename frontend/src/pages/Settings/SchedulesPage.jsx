@@ -414,37 +414,7 @@ const SchedulesPage = () => {
     console.log("Erros encontrados:", errors);
     return errors;
   };
-      }
-      
-      if (schedule.endTime && !timeRegex.test(schedule.endTime)) {
-        scheduleErrors.endTime = "Formato inválido (HH:MM)";
-      }
-      
-      if (schedule.startLunchTime && !timeRegex.test(schedule.startLunchTime)) {
-        scheduleErrors.startLunchTime = "Formato inválido (HH:MM)";
-      }
-      
-      if (schedule.endLunchTime && !timeRegex.test(schedule.endLunchTime)) {
-        scheduleErrors.endLunchTime = "Formato inválido (HH:MM)";
-      }
-      
-      // Validar lógica dos horários
-      if (schedule.startTime && schedule.endTime && schedule.endTime <= schedule.startTime) {
-        scheduleErrors.endTime = "Horário final deve ser após o inicial";
-      }
-      
-      if (schedule.startLunchTime && schedule.endLunchTime && schedule.endLunchTime <= schedule.startLunchTime) {
-        scheduleErrors.endLunchTime = "Fim do almoço deve ser após o início";
-      }
-      
-      if (Object.keys(scheduleErrors).length > 0) {
-        if (!errors.schedules) errors.schedules = {};
-        errors.schedules[index] = scheduleErrors;
-      }
-    });
-    
-    return errors;
-  };
+
   const copyFromFirstDay = useCallback((targetIndex, setFieldValue, values) => {
     const firstDaySchedule = values.schedules[0];
     
