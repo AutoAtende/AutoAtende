@@ -37,9 +37,6 @@ class Groups extends Model<Groups> {
   @Column(DataType.TEXT)
   description: string;
 
-  @Column(DataType.TEXT)
-  participants: string;
-
   @Column({
     type: DataType.JSONB
   })
