@@ -347,16 +347,6 @@ class AutoGroupManagerService {
       const wbot = await getWbot(group.whatsappId);
       const groupMetadata = await wbot.groupMetadata(group.jid);
 
-      // Enriquecer participantes
-      const enrichedParticipants = groupMetadata.participants.map(p => ({
-        id: p.id,
-        number: p.id.split('@')[0],
-        isAdmin: p.admin === 'admin' || p.admin === 'superadmin',
-        admin: p.admin,
-        name: null,
-        contact: null
-      }));
-
       // Extrair administradores
       const adminParticipants = groupMetadata.participants
         .filter(p => p.admin === 'admin' || p.admin === 'superadmin')
@@ -366,12 +356,12 @@ class AutoGroupManagerService {
       await group.update({
         subject: groupMetadata.subject,
         participants: JSON.stringify(groupMetadata.participants),
-        participantsJson: enrichedParticipants,
+        participantsJson: groupMetadata.participants,
         adminParticipants,
         lastSync: new Date()
       });
 
-      logger.debug(`[AutoGroupManager] Metadados atualizados para grupo ${group.subject}: ${enrichedParticipants.length} participantes`);
+      logger.debug(`[AutoGroupManager] Metadados atualizados para grupo ${group.subject}: ${groupMetadata.participants.length} participantes`);
 
     } catch (error) {
       logger.error(`[AutoGroupManager] Erro ao atualizar metadados do grupo ${group.id}: ${error.message}`);

@@ -23,11 +23,8 @@ import {
 } from "@mui/icons-material";
 import { Snackbar, Tooltip } from "@mui/material";
 
-import FormControlLabel from "@mui/material/FormControlLabel";
-import Switch from "@mui/material/Switch";
 
 import Divider from "@mui/material/Divider";
-import ListSubheader from "@mui/material/ListSubheader";
 import ChatIcon from '@mui/icons-material/Chat';
 import DoneAllIcon from '@mui/icons-material/DoneAll';
 import NewTicketModal from "../NewTicketModal";
@@ -49,8 +46,6 @@ import api from "../../services/api";
 import { QueueSelectedContext } from "../../context/QueuesSelected/QueuesSelectedContext";
 import VisibilityIcon from "@mui/icons-material/Visibility";
 import VisibilityOffIcon from "@mui/icons-material/VisibilityOff";
-import { ToggleButton } from '@mui/material';
-import { DatePickerMoment } from '../DatePickerMoment';
 import { CloseAllTicketsButton } from "./CloseAllTicketsButton";
 import { GlobalContext } from "../../context/GlobalContext";
 
@@ -427,7 +422,7 @@ const TicketsManagerTabs = () => {
         }
 
         const enableReasonWhenCloseTicket = settings.enableReasonWhenCloseTicket;
-        if (enableReasonWhenCloseTicket === 'enabled') {
+        if (enableReasonWhenCloseTicket === "enabled") {
             setIsShowButtonCloseAll(false)
         } else {
             setIsShowButtonCloseAll(true)
@@ -439,8 +434,6 @@ const TicketsManagerTabs = () => {
 
     useEffect(() => {
         const companyId = localStorage.getItem("companyId");
-        if (!companyId) return;
-        if (!socketManager?.GetSocket) return;
     
         const socket = socketManager.GetSocket(companyId);
         if (!socket) return;

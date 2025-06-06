@@ -10,6 +10,7 @@ import {
   GroupMetadata,
   jidNormalizedUser, MessageUpsertType,
   proto,
+  MessageUserReceiptUpdate,
   WAMessage,
   WAMessageUpdate,
   WASocket
@@ -1556,6 +1557,52 @@ export const wbotMessageListener = async (
       }
     });
   });
+
+  wbot.ev.on(
+    "message-receipt.update",
+    async (receiptUpdates: MessageUserReceiptUpdate[]) => {
+      if (!receiptUpdates || receiptUpdates.length === 0) return;
+
+      for (const update of receiptUpdates) {
+        const { key, receipt } = update;
+        const remoteJid = key.remoteJid || "";
+        const messageId = key.id;
+
+        if (!remoteJid.endsWith("@g.us")) continue;
+
+        const alreadyAcked = await caches.msgAck.get(messageId);
+        if (alreadyAcked) continue;
+
+        let statusParaEnviar: number | null = null;
+
+        if (receipt.readTimestamp != null) {
+          statusParaEnviar = 3;
+        } else if (
+          Array.isArray(receipt.deliveredDeviceJid) &&
+          receipt.deliveredDeviceJid.length > 0
+        ) {
+          statusParaEnviar = 2;
+        } else if (receipt.receiptTimestamp != null) {
+          statusParaEnviar = 2;
+        }
+
+        if (statusParaEnviar === null) continue;
+
+        await ackMutex.runExclusive(async () => {
+          const fakeMessage: WAMessage = {
+            key: {
+              id: messageId,
+              remoteJid
+            }
+          } as WAMessage;
+
+          await handleMsgAck(fakeMessage, statusParaEnviar);
+        });
+
+        caches.msgAck.set(messageId, true);
+      }
+    }
+  );
 
   wbot.ev.on(
     "groups.update",

@@ -5,23 +5,7 @@ import { logger } from "../../utils/logger";
 import Groups from "../../models/Groups";
 import Whatsapp from "../../models/Whatsapp";
 import AppError from "../../errors/AppError";
-
-interface GroupData {
-  id: string;
-  subject: string;
-  owner?: string;
-  creation?: number;
-  desc?: string;
-  participants: Array<{
-    id: string;
-    admin?: string;
-    isAdmin?: boolean;
-    isSuperAdmin?: boolean;
-  }>;
-  announce?: boolean;
-  restrict?: boolean;
-  size?: number;
-}
+import { GroupMetadata, GroupMetadataParticipants } from "bail-lite";
 
 interface SyncResult {
   totalGroups: number;
@@ -85,7 +69,7 @@ const SyncGroupsService = async (companyId: number): Promise<SyncResult> => {
         
         // Obter todos os grupos participando
         const groupsResponse = await wbot.groupFetchAllParticipating();
-        const groups = Object.values(groupsResponse) as GroupData[];
+        const groups = Object.values(groupsResponse) as GroupMetadata[];
         
         logger.info(`[SyncGroups] Encontrados ${groups.length} grupos na conexão ${whatsapp.name}`);
         result.totalGroups += groups.length;
@@ -98,9 +82,10 @@ const SyncGroupsService = async (companyId: number): Promise<SyncResult> => {
             // Verificar se o bot é admin do grupo
             const botParticipant = group.participants?.find(p => p.id === botJid);
             const isAdmin = botParticipant?.admin === 'admin' || botParticipant?.admin === 'superadmin';
+            const isSuperAdmin = botParticipant?.isSuperAdmin;
             const userRole = isAdmin ? 'admin' : 'participant';
             
-            if (isAdmin) {
+            if (isAdmin || isSuperAdmin) {
               result.adminGroups++;
             } else {
               result.participantGroups++;
@@ -114,18 +99,6 @@ const SyncGroupsService = async (companyId: number): Promise<SyncResult> => {
               logger.warn(`[SyncGroups] Erro ao obter metadados do grupo ${group.id}: ${metadataError}`);
               groupMetadata = group;
             }
-
-            // Enriquecer participantes com informações de admin
-            const enrichedParticipants = groupMetadata.participants?.map(p => ({
-              id: p.id,
-              admin: p.admin || null,
-              isAdmin: p.admin === 'admin' || p.admin === 'superadmin'
-            })) || [];
-
-            // Extrair administradores
-            const adminParticipants = enrichedParticipants
-              .filter(p => p.admin === 'admin' || p.admin === 'superadmin')
-              .map(p => p.id);
 
             // Obter código de convite se for admin
             let inviteCode = null;
@@ -149,9 +122,8 @@ const SyncGroupsService = async (companyId: number): Promise<SyncResult> => {
               jid: group.id,
               subject: groupMetadata.subject || group.subject,
               description: groupMetadata.desc || group.desc,
-              participants: JSON.stringify(enrichedParticipants),
-              participantsJson: enrichedParticipants,
-              adminParticipants,
+              participants: JSON.stringify(groupMetadata.participants),
+              participantsJson: groupMetadata.participants,
               inviteLink: inviteCode ? `https://chat.whatsapp.com/${inviteCode}` : null,
               companyId,
               whatsappId: whatsapp.id,
