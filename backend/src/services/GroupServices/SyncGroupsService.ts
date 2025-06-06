@@ -1,12 +1,11 @@
-// SyncGroupsService.ts - Versão corrigida para resolver problemas de JSON
+// SyncGroupsService.ts - Corrigido para usar estrutura correta dos participantes
 import { getWbot } from "../../libs/wbot";
 import { getIO } from "../../libs/socket";
 import { logger } from "../../utils/logger";
 import Groups from "../../models/Groups";
 import Whatsapp from "../../models/Whatsapp";
 import AppError from "../../errors/AppError";
-import Contact from "../../models/Contact";
-import { GroupMetadata, GroupMetadataParticipants } from "bail-lite";
+import { GroupMetadata } from "bail-lite";
 
 interface SyncResult {
   totalGroups: number;
@@ -95,62 +94,28 @@ const SyncGroupsService = async (companyId: number): Promise<SyncResult> => {
               result.participantGroups++;
             }
 
-            // Obter metadados completos do grupo com retry em caso de rate limit
-            let groupMetadata = group;
-            try {
-              // Aguardar um pouco para evitar rate limit
-              await new Promise(resolve => setTimeout(resolve, 300));
-              groupMetadata = await wbot.groupMetadata(group.id);
-            } catch (metadataError) {
-              logger.warn(`[SyncGroups] Usando dados básicos para grupo ${group.id}: ${metadataError.message}`);
-              // Usar dados básicos do grupo se não conseguir obter metadados completos
+            // USAR DADOS DO groupFetchAllParticipating DIRETAMENTE
+            // Não fazer nova chamada groupMetadata para evitar rate limit
+            const groupMetadata = group;
+
+            // Garantir que participants existe e é um array
+            if (!groupMetadata.participants || !Array.isArray(groupMetadata.participants)) {
+              logger.warn(`[SyncGroups] Grupo ${group.id} sem participantes válidos, pulando...`);
+              continue;
             }
 
-            // Processar participantes de forma segura
-            let enrichedParticipants: any[] = [];
-            let adminParticipants: string[] = [];
-            let participantsString = "[]";
+            // Extrair administradores (IGUAL AOS OUTROS SERVIÇOS)
+            const adminParticipants = groupMetadata.participants
+              .filter(p => p && p.admin && (p.admin === 'admin' || p.admin === 'superadmin'))
+              .map(p => p.id);
 
-            if (groupMetadata.participants && Array.isArray(groupMetadata.participants)) {
-              try {
-                // Enriquecer participantes com informações básicas
-                enrichedParticipants = groupMetadata.participants.map(p => {
-                  if (!p || !p.id) {
-                    return null;
-                  }
-                  
-                  return {
-                    id: p.id,
-                    number: p.id.split('@')[0] || '',
-                    admin: p.admin || null,
-                    isAdmin: p.admin === 'admin' || p.admin === 'superadmin' || false
-                  };
-                }).filter(p => p !== null);
-
-                // Extrair administradores
-                adminParticipants = enrichedParticipants
-                  .filter(p => p.admin === 'admin' || p.admin === 'superadmin')
-                  .map(p => p.id);
-
-                // Converter para string JSON de forma segura
-                participantsString = JSON.stringify(enrichedParticipants);
-
-              } catch (participantsError) {
-                logger.error(`[SyncGroups] Erro ao processar participantes do grupo ${group.id}: ${participantsError.message}`);
-                enrichedParticipants = [];
-                adminParticipants = [];
-                participantsString = "[]";
-              }
-            }
-
-            // Obter código de convite se for admin (com retry em caso de erro)
+            // Obter código de convite se for admin
             let inviteCode = null;
             if (isAdmin) {
               try {
-                await new Promise(resolve => setTimeout(resolve, 200));
                 inviteCode = await wbot.groupInviteCode(group.id);
               } catch (inviteError) {
-                logger.warn(`[SyncGroups] Não foi possível obter código de convite do grupo ${group.id}: ${inviteError.message}`);
+                logger.warn(`[SyncGroups] Erro ao obter código de convite do grupo ${group.id}: ${inviteError}`);
               }
             }
 
@@ -162,14 +127,14 @@ const SyncGroupsService = async (companyId: number): Promise<SyncResult> => {
               }
             });
 
-            // Preparar dados do grupo de forma segura
+            // USAR EXATAMENTE O MESMO PADRÃO DOS OUTROS SERVIÇOS
             const groupData = {
               jid: group.id,
-              subject: groupMetadata.subject || group.subject || 'Grupo sem nome',
-              description: groupMetadata.desc || group.desc || null,
-              participants: participantsString,
-              participantsJson: enrichedParticipants,
-              adminParticipants: adminParticipants,
+              subject: groupMetadata.subject || 'Grupo sem nome',
+              description: groupMetadata.desc || null,
+              participants: JSON.stringify(groupMetadata.participants), // IGUAL AOS OUTROS
+              participantsJson: groupMetadata.participants, // IGUAL AOS OUTROS
+              adminParticipants, // IGUAL AOS OUTROS
               inviteLink: inviteCode ? `https://chat.whatsapp.com/${inviteCode}` : null,
               companyId,
               whatsappId: whatsapp.id,
@@ -181,7 +146,7 @@ const SyncGroupsService = async (companyId: number): Promise<SyncResult> => {
               settings: [
                 groupMetadata.announce ? "announcement" : "not_announcement",
                 groupMetadata.restrict ? "locked" : "unlocked"
-              ].filter(Boolean)
+              ]
             };
 
             if (existingGroup) {
@@ -206,8 +171,8 @@ const SyncGroupsService = async (companyId: number): Promise<SyncResult> => {
               }
             });
 
-            // Pausa maior para evitar rate limit
-            await new Promise(resolve => setTimeout(resolve, 500));
+            // Pequena pausa para não sobrecarregar o sistema
+            await new Promise(resolve => setTimeout(resolve, 100));
 
           } catch (groupError) {
             const errorMsg = `Erro ao processar grupo ${group.id}: ${groupError.message}`;
@@ -221,7 +186,7 @@ const SyncGroupsService = async (companyId: number): Promise<SyncResult> => {
                 { where: { jid: group.id, companyId } }
               );
             } catch (updateError) {
-              logger.error(`[SyncGroups] Erro ao marcar grupo com erro: ${updateError.message}`);
+              logger.error(`[SyncGroups] Erro ao marcar grupo ${group.id} com erro: ${updateError.message}`);
             }
           }
         }
@@ -234,27 +199,23 @@ const SyncGroupsService = async (companyId: number): Promise<SyncResult> => {
     }
 
     // Remover grupos que não foram encontrados na sincronização (ficaram inativos)
-    try {
-      const inactiveGroupsCount = await Groups.count({
+    const inactiveGroupsCount = await Groups.count({
+      where: {
+        companyId,
+        isActive: false,
+        syncStatus: "syncing"
+      }
+    });
+
+    if (inactiveGroupsCount > 0) {
+      await Groups.destroy({
         where: {
           companyId,
           isActive: false,
           syncStatus: "syncing"
         }
       });
-
-      if (inactiveGroupsCount > 0) {
-        await Groups.destroy({
-          where: {
-            companyId,
-            isActive: false,
-            syncStatus: "syncing"
-          }
-        });
-        logger.info(`[SyncGroups] Removidos ${inactiveGroupsCount} grupos inativos`);
-      }
-    } catch (cleanupError) {
-      logger.error(`[SyncGroups] Erro na limpeza de grupos inativos: ${cleanupError.message}`);
+      logger.info(`[SyncGroups] Removidos ${inactiveGroupsCount} grupos inativos`);
     }
 
     // Emitir resultado final
@@ -272,14 +233,10 @@ const SyncGroupsService = async (companyId: number): Promise<SyncResult> => {
     logger.error(`[SyncGroups] ${errorMsg}`);
     
     // Reverter status de sincronização em caso de erro
-    try {
-      await Groups.update(
-        { syncStatus: "error" },
-        { where: { companyId, syncStatus: "syncing" } }
-      );
-    } catch (revertError) {
-      logger.error(`[SyncGroups] Erro ao reverter status: ${revertError.message}`);
-    }
+    await Groups.update(
+      { syncStatus: "error" },
+      { where: { companyId, syncStatus: "syncing" } }
+    );
     
     io.to(`company-${companyId}-mainchannel`).emit("sync-groups", {
       action: "error",
