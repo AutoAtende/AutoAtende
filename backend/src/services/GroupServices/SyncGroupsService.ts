@@ -19,7 +19,7 @@ interface SyncResult {
 
 const SyncGroupsService = async (companyId: number): Promise<SyncResult> => {
   const io = getIO();
-  
+
   // Emitir status inicial
   io.to(`company-${companyId}-mainchannel`).emit("sync-groups", {
     action: "start",
@@ -66,11 +66,11 @@ const SyncGroupsService = async (companyId: number): Promise<SyncResult> => {
         });
 
         const wbot = getWbot(whatsapp.id);
-        
+
         // Obter todos os grupos participando
         const groupsResponse = await wbot.groupFetchAllParticipating();
         const groups = Object.values(groupsResponse) as GroupMetadata[];
-        
+
         logger.info(`[SyncGroups] Encontrados ${groups.length} grupos na conexão ${whatsapp.name}`);
         result.totalGroups += groups.length;
 
@@ -84,10 +84,10 @@ const SyncGroupsService = async (companyId: number): Promise<SyncResult> => {
             const botParticipant = group.participants?.find(p => {
               return p.id === botJid || p.id.split('@')[0] === botNumber;
             });
-            
+
             const isAdmin = botParticipant?.admin === 'admin' || botParticipant?.admin === 'superadmin';
             const userRole = isAdmin ? 'admin' : 'participant';
-            
+
             if (isAdmin) {
               result.adminGroups++;
             } else {
@@ -98,16 +98,16 @@ const SyncGroupsService = async (companyId: number): Promise<SyncResult> => {
             // Não fazer nova chamada groupMetadata para evitar rate limit
             const groupMetadata = group;
 
-            // Garantir que participants existe e é um array
-            if (!groupMetadata.participants || !Array.isArray(groupMetadata.participants)) {
-              logger.warn(`[SyncGroups] Grupo ${group.id} sem participantes válidos, pulando...`);
-              continue;
-            }
+            // Serializar participantes para JSON
+            const participants = groupMetadata.participants || [];
+            const participantsJson = JSON.stringify(participants);
 
-            // Extrair administradores (IGUAL AOS OUTROS SERVIÇOS)
-            const adminParticipants = groupMetadata.participants
+            // Extrair administradores (MESMO FORMATO DOS OUTROS SERVIÇOS)
+            const adminIds = participants
               .filter(p => p && p.admin && (p.admin === 'admin' || p.admin === 'superadmin'))
               .map(p => p.id);
+
+            const adminParticipantsJson = JSON.stringify(adminIds);
 
             // Obter código de convite se for admin
             let inviteCode = null;
@@ -132,9 +132,9 @@ const SyncGroupsService = async (companyId: number): Promise<SyncResult> => {
               jid: group.id,
               subject: groupMetadata.subject || 'Grupo sem nome',
               description: groupMetadata.desc || null,
-              participants: JSON.stringify(groupMetadata.participants),
-              participantsJson: JSON.stringify(groupMetadata.participants),
-              adminParticipants: JSON.stringify(adminParticipants),
+              participants: participantsJson,  // String JSON
+              participantsJson: participantsJson,  // String JSON (mesmo valor)
+              adminParticipants: adminParticipantsJson,  // String JSON
               inviteLink: inviteCode ? `https://chat.whatsapp.com/${inviteCode}` : null,
               companyId,
               whatsappId: whatsapp.id,
@@ -142,7 +142,6 @@ const SyncGroupsService = async (companyId: number): Promise<SyncResult> => {
               isActive: true,
               lastSync: new Date(),
               syncStatus: "synced",
-              // Configurações do grupo
               settings: [
                 groupMetadata.announce ? "announcement" : "not_announcement",
                 groupMetadata.restrict ? "locked" : "unlocked"
@@ -231,13 +230,13 @@ const SyncGroupsService = async (companyId: number): Promise<SyncResult> => {
   } catch (error) {
     const errorMsg = `Erro na sincronização de grupos: ${error.message}`;
     logger.error(`[SyncGroups] ${errorMsg}`);
-    
+
     // Reverter status de sincronização em caso de erro
     await Groups.update(
       { syncStatus: "error" },
       { where: { companyId, syncStatus: "syncing" } }
     );
-    
+
     io.to(`company-${companyId}-mainchannel`).emit("sync-groups", {
       action: "error",
       error: errorMsg
