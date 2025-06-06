@@ -11,10 +11,22 @@ import {
   BelongsTo,
   AllowNull,
   Default,
-  Comment
+  Comment,
+  BeforeCreate,
+  BeforeUpdate
 } from 'sequelize-typescript';
 import Company from './Company';
 import Whatsapp from './Whatsapp';
+
+// ✅ INTERFACES PARA TIPAGEM CORRETA
+interface GroupParticipant {
+  id: string;
+  admin?: 'admin' | 'superadmin' | null;
+  isAdmin?: boolean;
+  number?: string;
+  name?: string;
+  contact?: any;
+}
 
 @Table({
   tableName: 'Groups',
@@ -37,15 +49,15 @@ class Groups extends Model<Groups> {
   @Column(DataType.TEXT)
   description: string;
 
-  @Column({
-    type: DataType.JSONB
-  })
-  participantsJson: [];
+  // ✅ CORRIGIDO: Tipo JSONB simples com validação por hooks
+  @Default('[]')
+  @Column(DataType.JSONB)
+  participantsJson: GroupParticipant[];
   
-  @Column({
-    type: DataType.JSONB
-  })
-  adminParticipants: [];
+  // ✅ CORRIGIDO: Tipo JSONB simples com validação por hooks
+  @Default('[]')
+  @Column(DataType.JSONB)
+  adminParticipants: string[];
 
   @Column(DataType.STRING)
   inviteLink: string;
@@ -124,14 +136,45 @@ class Groups extends Model<Groups> {
   @UpdatedAt
   updatedAt: Date;
 
-  // Métodos para gerenciamento automático
+  // ✅ HOOKS PARA VALIDAÇÃO AUTOMÁTICA ANTES DE SALVAR
+  @BeforeCreate
+  @BeforeUpdate
+  static validateJsonFields(instance: Groups) {
+    // Validar e corrigir participantsJson
+    if (!instance.participantsJson || !Array.isArray(instance.participantsJson)) {
+      instance.participantsJson = [];
+    } else {
+      // Filtrar participantes inválidos
+      instance.participantsJson = instance.participantsJson.filter(p => 
+        p && typeof p === 'object' && p.id && typeof p.id === 'string'
+      );
+    }
+
+    // Validar e corrigir adminParticipants
+    if (!instance.adminParticipants || !Array.isArray(instance.adminParticipants)) {
+      instance.adminParticipants = [];
+    } else {
+      // Filtrar IDs inválidos
+      instance.adminParticipants = instance.adminParticipants.filter(id => 
+        id && typeof id === 'string'
+      );
+    }
+
+    // Validar settings
+    if (!instance.settings || !Array.isArray(instance.settings)) {
+      instance.settings = [];
+    }
+  }
+
+  // ✅ MÉTODOS CORRIGIDOS COM VALIDAÇÃO
   getCurrentParticipantCount(): number {
-    return this.participantsJson ? this.participantsJson.length : 0;
+    const participants = this.participantsJson;
+    return Array.isArray(participants) ? participants.length : 0;
   }
 
   getCurrentOccupancyPercentage(): number {
     const currentCount = this.getCurrentParticipantCount();
-    return (currentCount / this.maxParticipants) * 100;
+    return this.maxParticipants > 0 ? (currentCount / this.maxParticipants) * 100 : 0;
   }
 
   isNearCapacity(): boolean {
@@ -142,7 +185,6 @@ class Groups extends Model<Groups> {
     return this.getCurrentParticipantCount() >= this.maxParticipants;
   }
 
-  // Método para verificar se deve criar próximo grupo
   shouldCreateNextGroup(): boolean {
     return this.isManaged && 
            this.autoCreateNext && 
@@ -150,7 +192,6 @@ class Groups extends Model<Groups> {
            this.isNearCapacity();
   }
 
-  // Método para desativar grupo quando atingir capacidade
   async deactivateIfFull(): Promise<void> {
     if (this.isFull() && this.isActive) {
       await this.update({ 
@@ -160,7 +201,6 @@ class Groups extends Model<Groups> {
     }
   }
 
-  // Método para gerar nome do próximo grupo na série
   getNextGroupName(): string {
     if (!this.groupSeries || !this.baseGroupName) {
       return this.subject;
@@ -170,6 +210,28 @@ class Groups extends Model<Groups> {
     return nextNumber === 2 
       ? `${this.baseGroupName} #2`
       : `${this.baseGroupName} #${nextNumber}`;
+  }
+
+  // ✅ MÉTODO PARA OBTER PARTICIPANTES VALIDADOS
+  getValidatedParticipants(): GroupParticipant[] {
+    if (!Array.isArray(this.participantsJson)) {
+      return [];
+    }
+    
+    return this.participantsJson.filter(p => 
+      p && typeof p === 'object' && p.id && typeof p.id === 'string'
+    );
+  }
+
+  // ✅ MÉTODO PARA OBTER ADMINS VALIDADOS
+  getValidatedAdminParticipants(): string[] {
+    if (!Array.isArray(this.adminParticipants)) {
+      return [];
+    }
+    
+    return this.adminParticipants.filter(id => 
+      id && typeof id === 'string'
+    );
   }
 }
 

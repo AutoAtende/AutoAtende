@@ -1,4 +1,3 @@
-// SyncGroupsService.ts - Versão final sem campo participants redundante
 import { getWbot } from "../../libs/wbot";
 import { getIO } from "../../libs/socket";
 import { logger } from "../../utils/logger";
@@ -16,6 +15,55 @@ interface SyncResult {
   errors: string[];
   whatsappConnections: number;
 }
+
+// ✅ FUNÇÃO AUXILIAR PARA VALIDAR E LIMPAR DADOS JSON
+const sanitizeJsonData = (data: any): any[] => {
+  if (!data) return [];
+  
+  if (typeof data === 'string') {
+    try {
+      const parsed = JSON.parse(data);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch (error) {
+      logger.warn(`Erro ao parsear JSON string: ${error.message}`);
+      return [];
+    }
+  }
+  
+  if (Array.isArray(data)) {
+    return data.filter(item => item && typeof item === 'object');
+  }
+  
+  logger.warn(`Tipo de dados inválido para JSON: ${typeof data}`);
+  return [];
+};
+
+// ✅ FUNÇÃO AUXILIAR PARA VALIDAR PARTICIPANTES
+const validateParticipants = (participants: any[]): any[] => {
+  if (!Array.isArray(participants)) {
+    logger.warn('Participantes não é um array válido');
+    return [];
+  }
+  
+  return participants.filter(participant => {
+    if (!participant || typeof participant !== 'object') {
+      return false;
+    }
+    
+    if (!participant.id || typeof participant.id !== 'string') {
+      return false;
+    }
+    
+    return true;
+  }).map(participant => ({
+    id: participant.id,
+    admin: participant.admin || null,
+    isAdmin: participant.admin === 'admin' || participant.admin === 'superadmin',
+    number: participant.id.split('@')[0] || '',
+    name: participant.name || null,
+    contact: null
+  }));
+};
 
 const SyncGroupsService = async (companyId: number): Promise<SyncResult> => {
   const io = getIO();
@@ -80,8 +128,40 @@ const SyncGroupsService = async (companyId: number): Promise<SyncResult> => {
 
         for (const group of groups) {
           try {
+            // ✅ VALIDAÇÃO RIGOROSA DOS DADOS DO GRUPO
+            if (!group || !group.id) {
+              logger.warn(`[SyncGroups] Grupo inválido encontrado, pulando...`);
+              continue;
+            }
+
+            // ✅ VALIDAÇÃO E SANITIZAÇÃO DOS PARTICIPANTES
+            let validatedParticipants: any[] = [];
+            
+            if (group.participants && Array.isArray(group.participants)) {
+              validatedParticipants = validateParticipants(group.participants);
+            } else {
+              logger.warn(`[SyncGroups] Grupo ${group.id} sem participantes válidos ou é null/undefined`);
+              // Tentar obter metadados do grupo diretamente
+              try {
+                const freshMetadata = await wbot.groupMetadata(group.id);
+                if (freshMetadata.participants && Array.isArray(freshMetadata.participants)) {
+                  validatedParticipants = validateParticipants(freshMetadata.participants);
+                  logger.info(`[SyncGroups] Obtidos metadados frescos para grupo ${group.id}: ${validatedParticipants.length} participantes`);
+                }
+              } catch (metadataError) {
+                logger.error(`[SyncGroups] Erro ao obter metadados frescos do grupo ${group.id}: ${metadataError.message}`);
+                continue; // Pula este grupo se não conseguir obter participantes
+              }
+            }
+
+            // Se ainda não temos participantes válidos, pular este grupo
+            if (validatedParticipants.length === 0) {
+              logger.warn(`[SyncGroups] Grupo ${group.id} sem participantes válidos, pulando...`);
+              continue;
+            }
+
             // Verificar se o bot é admin do grupo
-            const botParticipant = group.participants?.find(p => {
+            const botParticipant = validatedParticipants.find(p => {
               return p.id === botJid || p.id.split('@')[0] === botNumber;
             });
             
@@ -94,17 +174,8 @@ const SyncGroupsService = async (companyId: number): Promise<SyncResult> => {
               result.participantGroups++;
             }
 
-            // Usar dados do groupFetchAllParticipating diretamente
-            const groupMetadata = group;
-
-            // Garantir que participants existe e é um array
-            if (!groupMetadata.participants || !Array.isArray(groupMetadata.participants)) {
-              logger.warn(`[SyncGroups] Grupo ${group.id} sem participantes válidos, pulando...`);
-              continue;
-            }
-
-            // Extrair administradores
-            const adminParticipants = groupMetadata.participants
+            // ✅ EXTRAIR ADMINISTRADORES COM VALIDAÇÃO
+            const adminParticipants = validatedParticipants
               .filter(p => p && p.admin && (p.admin === 'admin' || p.admin === 'superadmin'))
               .map(p => p.id);
 
@@ -114,7 +185,7 @@ const SyncGroupsService = async (companyId: number): Promise<SyncResult> => {
               try {
                 inviteCode = await wbot.groupInviteCode(group.id);
               } catch (inviteError) {
-                logger.warn(`[SyncGroups] Erro ao obter código de convite do grupo ${group.id}: ${inviteError}`);
+                logger.warn(`[SyncGroups] Erro ao obter código de convite do grupo ${group.id}: ${inviteError.message}`);
               }
             }
 
@@ -126,13 +197,13 @@ const SyncGroupsService = async (companyId: number): Promise<SyncResult> => {
               }
             });
 
-            // ✅ USANDO APENAS participantsJson (sem campo participants redundante)
+            // ✅ DADOS VALIDADOS E SANITIZADOS
             const groupData = {
               jid: group.id,
-              subject: groupMetadata.subject || 'Grupo sem nome',
-              description: groupMetadata.desc || null,
-              participantsJson: groupMetadata.participants, // ✅ APENAS ESTE
-              adminParticipants,
+              subject: group.subject || 'Grupo sem nome',
+              description: group.desc || null,
+              participantsJson: validatedParticipants, // ✅ DADOS VALIDADOS
+              adminParticipants: adminParticipants, // ✅ DADOS VALIDADOS
               inviteLink: inviteCode ? `https://chat.whatsapp.com/${inviteCode}` : null,
               companyId,
               whatsappId: whatsapp.id,
@@ -142,21 +213,30 @@ const SyncGroupsService = async (companyId: number): Promise<SyncResult> => {
               syncStatus: "synced",
               // Configurações do grupo
               settings: [
-                groupMetadata.announce ? "announcement" : "not_announcement",
-                groupMetadata.restrict ? "locked" : "unlocked"
+                group.announce ? "announcement" : "not_announcement",
+                group.restrict ? "locked" : "unlocked"
               ]
             };
+
+            // ✅ LOG DETALHADO PARA DEBUG
+            logger.debug(`[SyncGroups] Processando grupo ${group.id}:`, {
+              subject: groupData.subject,
+              participantCount: validatedParticipants.length,
+              adminCount: adminParticipants.length,
+              isAdmin,
+              userRole
+            });
 
             if (existingGroup) {
               // Atualizar grupo existente
               await existingGroup.update(groupData);
               result.updatedGroups++;
-              logger.info(`[SyncGroups] Grupo atualizado: ${groupData.subject} (${group.id})`);
+              logger.info(`[SyncGroups] Grupo atualizado: ${groupData.subject} (${group.id}) - ${validatedParticipants.length} participantes`);
             } else {
               // Criar novo grupo
               await Groups.create(groupData);
               result.newGroups++;
-              logger.info(`[SyncGroups] Novo grupo criado: ${groupData.subject} (${group.id})`);
+              logger.info(`[SyncGroups] Novo grupo criado: ${groupData.subject} (${group.id}) - ${validatedParticipants.length} participantes`);
             }
 
             // Emitir progresso
@@ -174,7 +254,7 @@ const SyncGroupsService = async (companyId: number): Promise<SyncResult> => {
 
           } catch (groupError) {
             const errorMsg = `Erro ao processar grupo ${group.id}: ${groupError.message}`;
-            logger.error(`[SyncGroups] ${errorMsg}`);
+            logger.error(`[SyncGroups] ${errorMsg}`, groupError);
             result.errors.push(errorMsg);
 
             // Marcar grupo com erro se já existir
@@ -191,7 +271,7 @@ const SyncGroupsService = async (companyId: number): Promise<SyncResult> => {
 
       } catch (connectionError) {
         const errorMsg = `Erro na conexão ${whatsapp.name}: ${connectionError.message}`;
-        logger.error(`[SyncGroups] ${errorMsg}`);
+        logger.error(`[SyncGroups] ${errorMsg}`, connectionError);
         result.errors.push(errorMsg);
       }
     }
@@ -228,7 +308,7 @@ const SyncGroupsService = async (companyId: number): Promise<SyncResult> => {
 
   } catch (error) {
     const errorMsg = `Erro na sincronização de grupos: ${error.message}`;
-    logger.error(`[SyncGroups] ${errorMsg}`);
+    logger.error(`[SyncGroups] ${errorMsg}`, error);
     
     // Reverter status de sincronização em caso de erro
     await Groups.update(

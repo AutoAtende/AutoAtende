@@ -18,6 +18,13 @@ import {
   Contact as BaileysContact,
   GroupMetadata
 } from "bail-lite";
+import { 
+  validateGroupParticipants, 
+  extractAdminParticipants,
+  prepareGroupDataForDatabase,
+  sanitizeJsonArray,
+  logGroupData 
+} from "../helpers/GroupHelpers";
 import { Boom } from "@hapi/boom";
 import NodeCache from "@cacheable/node-cache";
 import MAIN_LOGGER from "bail-lite/lib/Utils/logger";
@@ -813,14 +820,13 @@ export const initWASocket = async (whatsapp: Whatsapp): Promise<Session> => {
             }
           }
 
-          // ✅ SIMPLIFICADO: Eventos de grupos voltaram ao modelo original simples
           if (events['groups.upsert']) {
             logger.debug("Received new group");
             events['groups.upsert'].forEach(group => {
               groupCache.set(group.id, group);
             });
           }
-
+          
           if (events['groups.update']) {
             logger.debug("Received group update");
             events['groups.update'].forEach(async event => {
@@ -832,17 +838,17 @@ export const initWASocket = async (whatsapp: Whatsapp): Promise<Session> => {
               }
             });
           }
-
+          
           if (events['group-participants.update']) {
             logger.debug("Received group participants update");
             try {
               const event = events['group-participants.update'];
-
+          
               // Atualizar cache normalmente
               const metadata = await wsocket.groupMetadata(event.id);
               groupCache.set(event.id, metadata);
               
-              // ✅ SIMPLES: Só verificar grupos gerenciados se necessário
+              // ✅ VERIFICAR GRUPOS GERENCIADOS COM VALIDAÇÃO RIGOROSA
               const managedGroup = await Groups.findOne({
                 where: {
                   jid: event.id,
@@ -850,22 +856,48 @@ export const initWASocket = async (whatsapp: Whatsapp): Promise<Session> => {
                   companyId: whatsapp.companyId
                 }
               });
-
+          
               if (managedGroup) {
-                // ✅ PROCESSAMENTO EM BACKGROUND sem bloquear
+                // ✅ PROCESSAMENTO EM BACKGROUND COM VALIDAÇÃO COMPLETA
                 setImmediate(async () => {
                   try {
-                    const adminParticipants = metadata.participants
-                      .filter(p => p.admin === 'admin' || p.admin === 'superadmin')
-                      .map(p => p.id);
-
-                    await managedGroup.update({
-                      participants: JSON.stringify(metadata.participants || []),
-                      participantsJson: metadata.participants,
+                    // ✅ VALIDAR METADADOS ANTES DE PROCESSAR
+                    if (!metadata || !metadata.participants) {
+                      logger.warn(`[GroupUpdate] Metadados inválidos para grupo ${event.id}`);
+                      return;
+                    }
+          
+                    // ✅ VALIDAR E SANITIZAR PARTICIPANTES
+                    const validatedParticipants = validateGroupParticipants(metadata.participants);
+                    
+                    if (validatedParticipants.length === 0) {
+                      logger.warn(`[GroupUpdate] Nenhum participante válido encontrado para grupo ${event.id}`);
+                      return;
+                    }
+          
+                    // ✅ EXTRAIR ADMINISTRADORES COM VALIDAÇÃO
+                    const adminParticipants = extractAdminParticipants(validatedParticipants);
+          
+                    // ✅ PREPARAR DADOS PARA ATUALIZAÇÃO
+                    const updateData = prepareGroupDataForDatabase({
+                      participants: JSON.stringify(validatedParticipants), // Campo legacy se existir
+                      participantsJson: validatedParticipants,
                       adminParticipants,
                       lastSync: new Date()
                     });
-
+          
+                    // ✅ LOG DOS DADOS ANTES DA ATUALIZAÇÃO
+                    logGroupData({
+                      jid: event.id,
+                      subject: managedGroup.subject,
+                      ...updateData
+                    }, 'GroupParticipantsUpdate');
+          
+                    // ✅ ATUALIZAÇÃO COM DADOS VALIDADOS
+                    await managedGroup.update(updateData);
+          
+                    logger.info(`[GroupUpdate] Grupo ${managedGroup.subject} atualizado: ${validatedParticipants.length} participantes, ${adminParticipants.length} admins`);
+          
                     // Verificar se deve criar próximo grupo
                     if (managedGroup.shouldCreateNextGroup()) {
                       try {
@@ -887,13 +919,13 @@ export const initWASocket = async (whatsapp: Whatsapp): Promise<Session> => {
                       }
                     }
                   } catch (error) {
-                    logger.error(`Erro ao processar grupo gerenciado: ${error.message}`);
+                    logger.error(`[GroupUpdate] Erro ao processar grupo gerenciado ${event.id}: ${error.message}`, error);
                   }
                 });
               }
             } catch (error) {
               groupCache.del(events['group-participants.update'].id);
-              logger.error(`Erro ao atualizar participantes do grupo: ${error}`);
+              logger.error(`Erro ao atualizar participantes do grupo: ${error}`, error);
             }
           }
         });
