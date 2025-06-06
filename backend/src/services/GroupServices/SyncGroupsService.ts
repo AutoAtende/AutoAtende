@@ -132,9 +132,9 @@ const SyncGroupsService = async (companyId: number): Promise<SyncResult> => {
               jid: group.id,
               subject: groupMetadata.subject || 'Grupo sem nome',
               description: groupMetadata.desc || null,
-              participants: JSON.stringify(groupMetadata.participants), // IGUAL AOS OUTROS
-              participantsJson: groupMetadata.participants, // IGUAL AOS OUTROS
-              adminParticipants, // IGUAL AOS OUTROS
+              participants: groupMetadata.participants,
+              participantsJson: JSON.stringify(groupMetadata.participants),
+              adminParticipants: JSON.stringify(adminParticipants),
               inviteLink: inviteCode ? `https://chat.whatsapp.com/${inviteCode}` : null,
               companyId,
               whatsappId: whatsapp.id,
