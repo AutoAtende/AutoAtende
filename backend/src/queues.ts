@@ -51,12 +51,12 @@ async function initializeRedisConnection() {
 
 const queueDefaultOptions = {
   defaultJobOptions: {
-    removeOnComplete: { count: 5000 },
-    removeOnFail: { count: 1000 },
-    attempts: 5,
+    removeOnComplete: { count: 500 },
+    removeOnFail: { count: 100 },
+    attempts: 2,
     backoff: {
       type: 'exponential' as const,
-      delay: 5000
+      delay: 500
     }
   }
 };
@@ -67,8 +67,6 @@ declare global {
   var __campaignJob: CampaignJob;
   var __scheduleMessageJob: ScheduledMessageJob;
   var __dashboardCacheJob: DashboardCacheJob;
-  var __heartbeatTimer: NodeJS.Timeout | null;
-  var __healthMonitorTimer: NodeJS.Timeout | null;
 }
 
 export let userMonitor: BullQueue;
@@ -597,186 +595,6 @@ async function handleSendMessage(job) {
   }
 }
 
-// Função auxiliar para verificar e corrigir jobs travados
-async function checkAndFixStalledJobs(queue) {
-  try {
-    const activeJobs = await queue.getJobs(['active']);
-    let fixedCount = 0;
-    
-    // Verificar cada job ativo
-    for (const job of activeJobs) {
-      // Verificar se o job está travado (com base no timestamp)
-      const processedOn = job.processedOn;
-      const now = Date.now();
-      
-      // Se o job está sendo processado há mais de 5 minutos, pode estar travado
-      if (processedOn && (now - processedOn) > 5 * 60 * 1000) {
-        try {
-          // Tentar mover para waiting (para ser reprocessado)
-          await job.moveToWaiting();
-          fixedCount++;
-          logger.info(`Job travado ${job.id} recuperado com sucesso`);
-        } catch (moveError) {
-          logger.error(`Erro ao recuperar job travado ${job.id}:`, moveError);
-        }
-      }
-    }
-    
-    return fixedCount;
-  } catch (error) {
-    logger.error(`Erro ao verificar jobs travados:`, error);
-    return 0;
-  }
-}
-
-// Função para limpar e configurar os jobs repetíveis de forma robusta
-const cleanupAndSetupRepeatableJobs = async (repeatableJobs) => {
-  // Limpar jobs existentes para evitar duplicação
-  for (const jobConfig of repeatableJobs) {
-    try {
-      // Pausa a fila temporariamente para evitar disputa durante a limpeza
-      await jobConfig.queue.pause();
-      
-      logger.info(`Limpando jobs repetíveis existentes para ${jobConfig.name}...`);
-      const existingJobs = await jobConfig.queue.getRepeatableJobs();
-      
-      // Remove jobs com o mesmo nome em paralelo
-      const removalPromises = existingJobs
-        .filter(job => job.name === jobConfig.name)
-        .map(job => jobConfig.queue.removeRepeatableByKey(job.key)
-          .catch(err => {
-            logger.warn(`Erro ao remover job repetível ${job.key}: ${err.message}`);
-            return false;
-          })
-        );
-      
-      await Promise.allSettled(removalPromises);
-      logger.info(`Jobs repetíveis existentes para ${jobConfig.name} removidos`);
-      
-      // Resume a fila
-      await jobConfig.queue.resume();
-      
-      // Pequena pausa entre cada fila para evitar sobrecarga
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-    } catch (error) {
-      logger.warn(`Erro ao limpar jobs repetíveis para ${jobConfig.name}:`, error);
-      // Resume a fila mesmo em caso de erro
-      try {
-        await jobConfig.queue.resume();
-      } catch (err) {
-        logger.error(`Erro ao resumir fila após falha na limpeza:`, err);
-      }
-    }
-  }
-
-  // Adicionar os jobs novamente com um intervalo entre eles
-  for (const [index, job] of repeatableJobs.entries()) {
-    try {
-      // Pequeno delay progressivo para evitar todos começarem juntos
-      const staggerDelay = index * 2000;
-      await new Promise(resolve => setTimeout(resolve, staggerDelay));
-      
-      await job.queue.add(
-        job.name,
-        {},
-        {
-          repeat: { 
-            every: job.every,
-            immediately: false // Não executar imediatamente ao adicionar
-          },
-          removeOnComplete: true,
-          removeOnFail: true,
-          attempts: 3,
-          backoff: {
-            type: 'exponential',
-            delay: 5000
-          }
-        }
-      );
-      logger.info(`Job ${job.name} adicionado com sucesso (delay: ${staggerDelay}ms)`);
-    } catch (error) {
-      logger.error(`Erro ao adicionar job repetível ${job.name}:`, error);
-    }
-  }
-};
-
-// Adicionar heartbeat para manter os locks vivos
-const setupHeartbeat = (workers: Worker[]) => {
-  const heartbeatInterval = setInterval(async () => {
-    try {
-      await connection.ping(); // Manter conexão ativa
-      workers.forEach((worker) => {
-        if (!worker.isRunning()) {
-          logger.warn(`Reiniciando worker ${worker.name}`);
-          worker.run().catch(err => 
-            logger.error(`Erro ao reiniciar worker: ${err}`)
-          );
-        }
-      });
-    } catch (err) {
-      logger.error("Falha no heartbeat global:", err);
-    }
-  }, 15000); // Heartbeat a cada 15 segundos
-
-  // Guardar referência global
-  global.__heartbeatTimer = heartbeatInterval;
-  
-  // Função para limpar o intervalo quando necessário
-  return () => {
-    clearInterval(heartbeatInterval);
-    global.__heartbeatTimer = null;
-  };
-};
-
-// Adicionar monitoramento de saúde das filas
-const setupQueueHealthMonitor = (queues) => {
-  const monitorInterval = setInterval(async () => {
-    try {
-      // Verificar a saúde de cada fila
-      for (const queue of queues) {
-        try {
-          const jobCounts = await queue.getJobCounts();
-          const waitingCount = jobCounts.waiting || 0;
-          const activeCount = jobCounts.active || 0;
-          const delayedCount = jobCounts.delayed || 0;
-          const failedCount = jobCounts.failed || 0;
-          
-          logger.debug(`Fila ${queue.name}: waiting=${waitingCount}, active=${activeCount}, delayed=${delayedCount}, failed=${failedCount}`);
-          
-          // Se tiver muitos jobs falhados, podemos limpar automaticamente
-          if (failedCount > 100) {
-            logger.warn(`Fila ${queue.name} tem ${failedCount} jobs falhados. Limpando...`);
-            await queue.clean(0, 1000, 'failed');
-          }
-          
-          // Se tiver muitos jobs travados, podemos tentar recuperá-los
-          if (activeCount > 50) {
-            logger.warn(`Fila ${queue.name} tem muitos jobs ativos (${activeCount}). Verificando travados...`);
-            const stalledCount = await checkAndFixStalledJobs(queue);
-            if (stalledCount > 0) {
-              logger.info(`Recuperados ${stalledCount} jobs travados da fila ${queue.name}`);
-            }
-          }
-          
-        } catch (queueError) {
-          logger.error(`Erro ao verificar saúde da fila ${queue.name}:`, queueError);
-        }
-      }
-    } catch (error) {
-      logger.error(`Erro no monitoramento de saúde das filas:`, error);
-    }
-  }, 2 * 60 * 1000); // Executar a cada 2 minutos
-  
-  // Guardar referência global
-  global.__healthMonitorTimer = monitorInterval;
-  
-  return () => {
-    clearInterval(monitorInterval);
-    global.__healthMonitorTimer = null;
-  };
-};
-
 export async function startQueueProcess() {
   logger.info("[StartQueueProcess] Iniciando o processamento das filas");
 
@@ -795,12 +613,12 @@ export async function startQueueProcess() {
     // Configuração otimizada para workers
     const defaultWorkerConfig = {
       connection: connectionWorker,
-      removeOnComplete: { count: 5000 },
-      removeOnFail: { count: 1000 },
-      lockDuration: 120000, // 2 minutos para evitar locks prematuras
-      stalledInterval: 120000, // 2 minutos para verificação
+      removeOnComplete: { count: 500 },
+      removeOnFail: { count: 100 },
+      lockDuration: 12000, // 2 minutos para evitar locks prematuras
+      stalledInterval: 12000, // 2 minutos para verificação
       maxStalledCount: 3,
-      drainDelay: 10,
+      drainDelay: 5,
       skipLockRenewal: false,       // Importante: NÃO pular renovação de locks
     };
 
@@ -973,62 +791,59 @@ export async function startQueueProcess() {
         queue: userMonitor,
         name: "VerifyLoginStatus",
         every: 60000 * 5,
-        timeout: 30000
+        timeout: 300
       },
       {
         queue: generalMonitor,
         name: "CloseTicketsAutomatic",
         every: 60 * 1000 * 5,
-        timeout: 60000
+        timeout: 600
       },
       {
         queue: generalMonitor,
         name: "InvoiceCreate",
         every: 60 * 1000 * 30,
-        timeout: 300000
+        timeout: 3000
       },
       {
         queue: campaignQueue,
         name: "VerifyCampaigns",
         every: 60 * 1000 * 5,
-        timeout: 60000
+        timeout: 600
       },
       {
         queue: scheduleMonitor,
         name: "VerifySchedules",
         every: 60 * 1000, // A cada 1 minuto
-        timeout: 30000
+        timeout: 300
       },
       {
         queue: queueMonitor,
         name: "VerifyQueueStatus",
         every: 60 * 1000 * 2,
-        timeout: 30000
+        timeout: 300
       },
       {
         queue: generalMonitor,
         name: "InactivityMonitoring",
         every: 60 * 1000, // A cada 1 minuto
-        timeout: 30000
+        timeout: 300
       },
       {
         queue: generalMonitor,
         name: "InactivityCleanup", 
         every: 30 * 60 * 1000, // A cada 30 minutos
-        timeout: 120000
+        timeout: 1200
       },
       {
         queue: generalMonitor,
         name: "DashboardCacheUpdate",
         every: 30 * 60 * 1000, // A cada 30 minutos
-        timeout: 300000 // 5 minutos de timeout
+        timeout: 3000 // 5 minutos de timeout
       }
     ];
 
     logger.info("[StartQueueProcess] Configurando jobs repetíveis");
-
-    // Usar a implementação robusta de limpeza e configuração de jobs repetíveis
-    await cleanupAndSetupRepeatableJobs(repeatableJobs);
     
     // Iniciar trabalhadores especializados
     logger.info("[StartQueueProcess] Iniciando CampaignJob");
@@ -1107,14 +922,6 @@ export async function startQueueProcess() {
       });
     });
     
-    // Implementar heartbeat para manter locks vivos
-    const stopHeartbeat = setupHeartbeat(workers);
-    
-    // Implementar monitoramento de saúde das filas (incluindo a nova fila)
-    const stopHealthMonitor = setupQueueHealthMonitor([
-      userMonitor, generalMonitor, messageQueue, queueMonitor, scheduleMonitor, campaignQueue, ticketAnalysisQueue
-    ]);
-    
     // Verificar e retomar filas pausadas (incluindo a nova fila)
     const queues = [userMonitor, generalMonitor, messageQueue, queueMonitor, scheduleMonitor, campaignQueue, ticketAnalysisQueue];
     for (const queue of queues) {
@@ -1132,8 +939,6 @@ export async function startQueueProcess() {
       campaignJob: global.__campaignJob,
       scheduleMessageJob: global.__scheduleMessageJob,
       dashboardCacheJob: global.__dashboardCacheJob,
-      stopHeartbeat,
-      stopHealthMonitor
     };
     
   } catch (error) {
@@ -1146,21 +951,7 @@ export async function startQueueProcess() {
 export async function shutdownQueues() {
   logger.info("Iniciando o desligamento do sistema de filas");
   
-  try {
-    // Parar o monitoramento de saúde
-    if (global.__healthMonitorTimer) {
-      clearInterval(global.__healthMonitorTimer);
-      global.__healthMonitorTimer = null;
-      logger.info("Monitoramento de saúde das filas parado com sucesso");
-    }
-    
-    // Parar o heartbeat
-    if (global.__heartbeatTimer) {
-      clearInterval(global.__heartbeatTimer);
-      global.__heartbeatTimer = null;
-      logger.info("Heartbeat de locks parado com sucesso");
-    }
-    
+  try {    
     // Fechar trabalhadores
     if (global.__workerRefs) {
       logger.info(`Encerrando ${global.__workerRefs.length} workers...`);
@@ -1265,11 +1056,11 @@ export async function cleanupQueues() {
     const cleanupPromises = queues.map(async queue => {
       try {
         // Limpar as filas com opções mais robustas
-        await queue.clean(0, 3000, 'delayed');
-        await queue.clean(0, 3000, 'wait');
-        await queue.clean(0, 3000, 'active');
-        await queue.clean(0, 3000, 'completed');
-        await queue.clean(0, 3000, 'failed');
+        await queue.clean(0, 300, 'delayed');
+        await queue.clean(0, 300, 'wait');
+        await queue.clean(0, 300, 'active');
+        await queue.clean(0, 300, 'completed');
+        await queue.clean(0, 300, 'failed');
         logger.info(`Fila ${queue.name} limpa com sucesso`);
       } catch (queueError) {
         logger.error(`Erro ao limpar fila ${queue.name}:`, queueError);
@@ -1306,7 +1097,7 @@ export async function addTicketAnalysisJob(data: {
     attempts: 3,
     backoff: {
       type: 'exponential',
-      delay: 5000
+      delay: 500
     }
   });
 
