@@ -322,6 +322,16 @@ export const createTicketPBX = async (req: Request, res: Response) => {
     const { phoneNumber, status, ramal, idFilaPBX, message, contactName } = req.body;
     const medias = req.files as Express.Multer.File[];
 
+    if (medias && medias.length > 0) {
+      const validMedias = medias.filter(file => 
+        file.path && fs.existsSync(file.path)
+      );
+    
+      if (validMedias.length === 0) {
+        console.error("Arquivos recebidos mas não salvos no sistema de arquivos");
+      }
+    }
+
     if (!phoneNumber) {
       return res.status(400).json({ error: "phoneNumber é obrigatório" });
     }

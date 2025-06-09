@@ -55,20 +55,21 @@ const UpdateCallRecordTicketService = async (
     body: `Mensagem do Sistema:\nA url referente a gravação da ligação com o contato ID: ${ticket.contact.id} é: ${baseUrl}`,
     fromMe: true,
     mediaType: null,
-    read: false,
+    read: true,
     quotedMsgId: null,
     ack: 3,
     remoteJid: null,
     participant: null,
     dataJson: null,
-    isEdited: false
+    isEdited: false,
+    internalMessage: true
   };
 
   await CreateMessageService({
     messageData,
     ticket,
     companyId: ticket.companyId,
-    isForceDeleteConnection: true,
+    internalMessage: true
   });
 
   return {

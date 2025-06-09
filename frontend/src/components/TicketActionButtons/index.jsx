@@ -306,12 +306,7 @@ const TicketActionButtons = ({
     };
 
     const handleCall = async () => {
-        // Se já estiver em execução, não permite nova chamada
-        if (loading) {
-            return;
-        }
-        
-        console.log('Iniciando chamada...');
+        if (loading) return;
         
         // Validações com logs detalhados
         if (!ticket.company?.urlPBX) {
@@ -332,61 +327,79 @@ const TicketActionButtons = ({
             return;
         }
         
-        console.log('Dados da chamada:', {
-            urlPBX: ticket.company.urlPBX,
-            ramal: ticket.user.ramal,
-            numero: ticket.contact.number,
-            ticketId: ticket.id
-        });
-        
-        const baseUrl = `${ticket.company?.urlPBX}/discar_chatbot.php`;
+        const baseUrl = `${ticket.company.urlPBX}/discar_chatbot.php`;
         const params = new URLSearchParams({
-            exten: ticket.user?.ramal,
-            phone: ticket.contact?.number.replace(/\D/g, ''),
+            exten: ticket.user.ramal,
+            phone: ticket.contact.number.replace(/\D/g, ''),
             nome_rede_social: ticket.id.toString()
         });
         
         const fullUrl = `${baseUrl}?${params.toString()}`;
-        console.log('URL da chamada:', fullUrl);
+        toast.info('URL da chamada:', fullUrl);
         
         setLoading(true);
         
         try {
-            console.log('Iniciando requisição ao PBX...');
+            toast.info('Iniciando requisição ao PBX...');
             
-            // Cria uma Promise com timeout de 12 segundos
-            const timeoutPromise = new Promise((_, reject) => {
-                setTimeout(() => {
-                    reject(new Error('Timeout ao tentar conectar com o PBX'));
-                }, 12000);
+            // 1. Cria um controller para o timeout
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 12000);
+            
+            // 2. Faz a requisição com tratamento de timeout
+            const response = await fetch(fullUrl, {
+                signal: controller.signal
             });
+            clearTimeout(timeoutId); // Limpa o timeout se a requisição completar
             
-            // Executa a requisição com timeout
-            const callRecordId = await Promise.race([
-                api.get(fullUrl),
-                timeoutPromise
-            ]);
+            if (!response.ok) {
+                throw new Error(`Erro no PBX: ${response.status} ${response.statusText}`);
+            }
             
-            console.log('Resposta da chamada:', callRecordId);
+            // 3. Extrai o texto da resposta
+            const responseText = await response.text();
+            toast.info('Resposta bruta do PBX:', responseText);
+            
+            // 4. Tenta extrair o callRecordId da resposta
+            // (Adapte esta parte conforme o formato real da resposta)
+            let callRecordId;
+            
+            // Tentativa 1: Supondo que a resposta seja apenas o ID
+            if (/^\d+\.\d+$/.test(responseText.trim())) {
+                callRecordId = responseText.trim();
+            }
+            // Tentativa 2: Procura por padrão na resposta
+            else {
+                const match = responseText.match(/callRecordId[:=]?['"]?(\d+\.\d+)['"]?/i);
+                callRecordId = match ? match[1] : null;
+            }
+            
+            if (!callRecordId) {
+                throw new Error('Não foi possível extrair o callRecordId da resposta do PBX');
+            }
+            
+            console.log('callRecordId extraído:', callRecordId);
             toast.success('Conexão com PBX estabelecida');
             
+            // 5. Atualiza o registro da chamada
             try {
                 await api.put(`/tickets/${ticket.id}/record/${callRecordId}`);
                 console.log('Registro da chamada atualizado');
-                toast.success('Registro da chamada atualizado com sucesso');
+                toast.success('Registro atualizado com sucesso');
             } catch (err) {
-                console.error('Erro ao atualizar registro da chamada:', err);
+                console.error('Erro ao atualizar registro:', err);
                 toast.error('Erro ao atualizar registro da chamada');
-                setLoading(false);
                 return;
             }
+            
             toast.success('Chamada iniciada com sucesso');
         } catch (err) {
-            console.error('Erro ao conectar com PBX:', err);
-            if (err.message === 'Timeout ao tentar conectar com o PBX') {
-                toast.error('A chamada não foi atendida ou o PBX não está corretamente configurado.');
+            console.error('Erro na chamada:', err);
+            
+            if (err.name === 'AbortError') {
+                toast.error('Timeout: PBX não respondeu em 12 segundos');
             } else {
-                toast.error('Erro ao conectar com PBX. Tente novamente.');
+                toast.error(`Erro: ${err.message}`);
             }
         } finally {
             setLoading(false);

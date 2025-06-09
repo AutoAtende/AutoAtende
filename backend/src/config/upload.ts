@@ -103,6 +103,17 @@ export default {
         // Determinar o diretório de destino
         let folder = companyPath;
 
+        if (typeArch === "pbx" || (req.path.includes("/ticket/createPBX"))) {
+          const pbxDir = path.resolve(companyPath, "pbx");
+          if (!fs.existsSync(pbxDir)) {
+            fs.mkdirSync(pbxDir, { recursive: true });
+            fs.chmodSync(pbxDir, 0o777); // Permissões corrigidas
+          }
+          folder = pbxDir;
+          logger.info(`[UPLOAD DESTINATION] Destino final para pbx: ${folder}`);
+          return cb(null, folder);
+        }
+
         // Verificar se é um upload de Landing Page (código antigo restaurado)
         if (typeArch === "landingPage" || 
             (req.path.includes("/landing-pages/") && 

@@ -33,7 +33,12 @@ apiRoutes.post("/api/v1/ticket/ListByTag", tokenAuthApiPub, TicketController.lis
 apiRoutes.post("/api/v1/ticket/create", tokenAuthApiPub, TicketController.createTicket);
 apiRoutes.post("/api/v1/ticket/history", tokenAuthApiPub, TicketController.apiTicketsWithMessages);
 // Nova rota para criar tickets a partir do PBX com mensagem interna e mídias
-apiRoutes.post("/api/v1/ticket/createPBX", tokenAuthApiPub, upload.array("medias"), TicketController.createTicketPBX);
+apiRoutes.post("/api/v1/ticket/createPBX", tokenAuthApiPub, 
+    (req, res, next) => {
+        req.body.typeArch = "pbx";
+        next();
+      },
+    upload.array("medias"), TicketController.createTicketPBX);
 
 // invoices
 apiRoutes.post("/api/v1/invoices", tokenAuthApiPub, InvoicesController.listAllInvoicesByCompanyId);
