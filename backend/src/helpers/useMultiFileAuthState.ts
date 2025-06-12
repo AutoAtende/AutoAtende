@@ -1,11 +1,11 @@
-import { proto } from "bail-lite";
+import { proto } from "baileys";
 import {
   AuthenticationCreds,
   AuthenticationState,
   SignalDataTypeMap
-} from "bail-lite";
-import { initAuthCreds } from "bail-lite";
-import { BufferJSON } from "bail-lite";
+} from "baileys";
+import { initAuthCreds } from "baileys";
+import { BufferJSON } from "baileys";
 import Whatsapp from "../models/Whatsapp";
 import fs from "fs/promises";
 import path from "path";

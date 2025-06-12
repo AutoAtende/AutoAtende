@@ -5,7 +5,7 @@ import * as path from "path";
 import { logger } from "../../utils/logger";
 import Groups from "../../models/Groups";
 import AppError from "../../errors/AppError";
-import { GroupParticipant } from "bail-lite";
+import { GroupParticipant } from "baileys";
 
 interface ParticipantData {
   id: string;

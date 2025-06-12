@@ -1,4 +1,4 @@
-import { proto } from "bail-lite";
+import { proto } from "baileys";
 import { getTypeMessage } from "../GetTypeMessage";
 import * as MessageUtils from "../../../wbotGetMessageFromType";
 import { multContactVcard } from "../../wbotMessageListener";

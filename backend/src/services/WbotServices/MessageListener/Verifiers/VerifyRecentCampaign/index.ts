@@ -1,4 +1,4 @@
-import { proto } from "bail-lite";
+import { proto } from "baileys";
 import Campaign from "../../../../../models/Campaign";
 import CampaignShipping from "../../../../../models/CampaignShipping";
 import { Op } from "sequelize";

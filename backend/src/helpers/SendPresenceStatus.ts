@@ -1,4 +1,4 @@
-import {delay} from "bail-lite";
+import {delay} from "baileys";
 import {Session} from "../libs/wbot";
 
 function randomValue(min: number, max: number) {

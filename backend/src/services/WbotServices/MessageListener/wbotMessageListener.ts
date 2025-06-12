@@ -14,7 +14,7 @@ import {
   WAMessage,
   WAMessageUpdate,
   WASocket
-} from "bail-lite";
+} from "baileys";
 
 
 import ffmpeg from "fluent-ffmpeg";

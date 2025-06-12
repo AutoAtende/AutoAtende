@@ -4,7 +4,7 @@ import { logger } from "../../utils/logger";
 import Groups from "../../models/Groups";
 import Whatsapp from "../../models/Whatsapp";
 import AppError from "../../errors/AppError";
-import { GroupMetadata } from "bail-lite";
+import { GroupMetadata } from "baileys";
 
 interface SyncResult {
   totalGroups: number;
