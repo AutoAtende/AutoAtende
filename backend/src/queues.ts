@@ -25,9 +25,6 @@ import MarkDeleteWhatsAppMessage from "./services/WbotServices/MarkDeleteWhatsAp
 import CampaignJob from "./workers/campaignJob";
 import ScheduledMessageJob from "./workers/scheduledMessageJob";
 import ScheduleMessageHandler from "./workers/handler/ScheduleMessageHandler";
-import InactivityMonitorService from "./services/FlowBuilderService/InactivityMonitorService";
-import CleanupInactiveFlowsService from "./services/FlowBuilderService/CleanupInactiveFlowsService";
-import DashboardCacheJob from "./jobs/dashboardCacheJob";
 import AnalyzeTicketsService from "./services/AssistantServices/AnalyzeTicketsService";
 import TicketAnalysis from "./models/TicketAnalysis";
 
@@ -66,7 +63,6 @@ declare global {
   var __workerRefs: Worker[];
   var __campaignJob: CampaignJob;
   var __scheduleMessageJob: ScheduledMessageJob;
-  var __dashboardCacheJob: DashboardCacheJob;
 }
 
 export let userMonitor: BullQueue;
@@ -507,38 +503,6 @@ async function handleTicketAnalysisJob(job) {
   }
 }
 
-async function handleInactivityMonitoring(job) {
-  logger.info("Iniciando monitoramento de inatividade de fluxos");
-  try {
-    // Executar monitoramento de inatividade
-    await InactivityMonitorService.checkInactiveExecutions();
-    logger.info("Monitoramento de inatividade concluído com sucesso");
-  } catch (error) {
-    logger.error("Erro no monitoramento de inatividade:", error);
-    throw error;
-  }
-}
-
-async function handleInactivityCleanup(job) {
-  logger.info("Iniciando limpeza de fluxos inativos");
-  try {
-    // Parâmetros padrão para limpeza
-    const maxInactiveTimeMinutes = 60; // 1 hora
-    const batchSize = 100;
-    
-    // Executar limpeza de fluxos inativos
-    const stats = await CleanupInactiveFlowsService.cleanupInactiveFlows(
-      maxInactiveTimeMinutes,
-      batchSize
-    );
-    
-    logger.info(`Limpeza de fluxos inativos concluída: ${JSON.stringify(stats)}`);
-  } catch (error) {
-    logger.error("Erro na limpeza de fluxos inativos:", error);
-    throw error;
-  }
-}
-
 async function messageUpdateJob(job) {
   const { data } = job;
   const companyId = data.companyId;
@@ -637,18 +601,6 @@ export async function startQueueProcess() {
               return handleCloseTicketsAutomatic();
             case "InvoiceCreate":
               return handleInvoiceAndCompanyStatus();
-            case "InactivityMonitoring":
-              return handleInactivityMonitoring(job);
-            case "InactivityCleanup":
-              return handleInactivityCleanup(job);
-            case "DashboardCacheUpdate":
-              // Obter a instância do DashboardCacheJob do contexto global
-              if (global.__dashboardCacheJob) {
-                return global.__dashboardCacheJob.process(job);
-              } else {
-                logger.warn("DashboardCacheJob não inicializado, ignorando job");
-                return { success: false, error: "DashboardCacheJob não inicializado" };
-              }
             default:
               logger.warn(`[StartQueueProcess] Tipo de job desconhecido: ${job.name}`);
           }
@@ -884,19 +836,6 @@ export async function startQueueProcess() {
       global.__scheduleMessageJob = scheduleMessageJob;
       logger.info("[StartQueueProcess] ScheduledMessageJob inicializado com sucesso");
       
-      // Inicializar DashboardCacheJob
-      logger.info("[StartQueueProcess] Iniciando DashboardCacheJob");
-      try {
-        const dashboardCacheJob = await DashboardCacheJob.create(generalMonitor);
-        if (!dashboardCacheJob) {
-          throw new Error("[StartQueueProcess] DashboardCacheJob não foi criado corretamente");
-        }
-        global.__dashboardCacheJob = dashboardCacheJob;
-        logger.info("[StartQueueProcess] DashboardCacheJob inicializado com sucesso");
-      } catch (dashboardError) {
-        logger.error("[StartQueueProcess] Erro ao inicializar DashboardCacheJob:", dashboardError);
-        // Continuar mesmo com erro na inicialização do DashboardCacheJob
-      }
     } catch (workerError) {
       logger.error("[StartQueueProcess] Erro crítico na inicialização dos workers especializados:", workerError);
       // Propagar o erro para que seja tratado corretamente
@@ -938,7 +877,6 @@ export async function startQueueProcess() {
       workers,
       campaignJob: global.__campaignJob,
       scheduleMessageJob: global.__scheduleMessageJob,
-      dashboardCacheJob: global.__dashboardCacheJob,
     };
     
   } catch (error) {

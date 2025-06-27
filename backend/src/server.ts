@@ -15,11 +15,6 @@ import { StartAllWhatsAppsSessions } from "./services/WbotServices/StartAllWhats
 import Company from "./models/Company";
 import { payGatewayInitialize, checkOpenInvoices } from "./services/PaymentGatewayServices/PaymentGatewayServices";
 import GroupMonitoringService from "./services/GroupServices/GroupMonitoringService";
-import {
-  initInactivityWorker,
-  scheduleInactivityJobs,
-  cleanupInactivityResources
-} from "./job/InactivityMonitoringJob";
 
 // Variável para armazenar o servidor
 let server;
@@ -77,25 +72,6 @@ const initialize = async () => {
     logger.info("Inicializando processamento de filas...");
     await startQueueProcess();
     logger.info("Processamento de filas iniciado com sucesso");
-
-    // 4.1. Inicializar sistema de monitoramento de inatividade
-    logger.info("Inicializando sistema de monitoramento de inatividade...");
-    try {
-      // Inicializar worker de inatividade
-      await initInactivityWorker();
-
-      // Agendar jobs de monitoramento e limpeza
-      await scheduleInactivityJobs(
-        60,  // Monitoramento a cada 60 segundos
-        30,  // Limpeza a cada 30 minutos
-        60   // Considerar inativo após 60 minutos
-      );
-
-      logger.info("Sistema de monitoramento de inatividade inicializado com sucesso");
-    } catch (error) {
-      logger.error("Erro ao inicializar sistema de monitoramento de inatividade:", error);
-      logger.warn("Continuando sem o sistema de monitoramento de inatividade");
-    }
 
     // 4.2. Inicializar sistema de monitoramento de grupos
     logger.info("Inicializando sistema de monitoramento de grupos...");
@@ -160,10 +136,6 @@ const initialize = async () => {
       onShutdown: async () => {
         logger.info("Iniciando desligamento...");
         await shutdownQueues();
-        logger.info("Finalizando sistema de monitoramento de inatividade...");
-        await cleanupInactivityResources();
-
-
       },
       finally: () => {
         logger.info("Desligamento concluído.");

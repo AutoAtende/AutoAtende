@@ -93,12 +93,8 @@ export const index = async (req: Request, res: Response): Promise<Response> => {
 
 export const store = async (req: Request, res: Response): Promise<Response> => {
   const { companyId } = req.user;
-  const newContact = req.body;
-  
-  logger.info(`Creating new contact. Company: ${companyId}, Original Number: ${newContact.number}, Name: ${newContact.name}`);
-  
+  const newContact= req.body;
   newContact.number = newContact.number.replace("-", "").replace(" ", "");
-  logger.info(`Number after basic formatting: ${newContact.number}`);
 
   const schema = Yup.object().shape({
     name: Yup.string().required(),
@@ -110,15 +106,12 @@ export const store = async (req: Request, res: Response): Promise<Response> => {
   try {
     await schema.validate(newContact);
   } catch (err: any) {
-    logger.error(`Validation error for contact creation: ${err.message}`);
     throw new AppError(err.message);
   }
 
   if (!newContact.isGroup) {
-    logger.info(`Validating number format for: ${newContact.number}`);
     const validNumber = await CheckContactNumber(newContact.number, companyId);
     const number = validNumber.jid.replace(/\D/g, "");
-    logger.info(`Number after full validation: ${number}, Original JID: ${validNumber.jid}`);
     newContact.number = number;
   }
 
@@ -132,8 +125,6 @@ export const store = async (req: Request, res: Response): Promise<Response> => {
     // profilePicUrl,
     companyId
   });
-
-  logger.info(`Contact created successfully. ID: ${contact.id}, Number: ${contact.number}, Name: ${contact.name}`);
 
   const io = getIO();
   io.to(`company-${companyId}-mainchannel`).emit(

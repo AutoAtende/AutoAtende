@@ -62,13 +62,17 @@ export const index = async (req: Request, res: Response): Promise<Response> => {
     logger.info(`Encontrados ${positions.length} cargos para o companyId ${companyId}`);
 
     return res.json({
-      positions: positionsWithStatus,
-      count,
+      positions: positionsWithStatus || [],
+      count: count || 0,
       hasMore: count > offset + positions.length
     });
   } catch (err) {
     logger.error(`Erro ao buscar cargos: ${err.message}`);
-    throw new AppError("Erro ao buscar cargos", 500);
+    return res.json({
+      positions: [],
+      count: 0,
+      hasMore: false
+    });
   }
 };
 
@@ -113,7 +117,8 @@ export const show = async (req: Request, res: Response): Promise<Response> => {
     });
 
     if (!position) {
-      throw new AppError("Cargo não encontrado", 404);
+      logger.info(`Cargo ID: ${id} não encontrado para companyId: ${companyId}`);
+      return res.status(200).json(null);
     }
 
     const positionWithDetails = {
@@ -132,7 +137,7 @@ export const show = async (req: Request, res: Response): Promise<Response> => {
     return res.json(positionWithDetails);
   } catch (err) {
     logger.error(`Erro ao buscar detalhes do cargo: ${err.message}`);
-    throw new AppError("Erro ao buscar detalhes do cargo", err.statusCode || 500);
+    return res.status(200).json(null);
   }
 };
 
@@ -168,13 +173,17 @@ export const statistics = async (req: Request, res: Response): Promise<Response>
     logger.info(`Estatísticas obtidas: Total=${total}, Ativas=${active}, Recentes=${recentlyAdded}`);
 
     return res.json({
-      total,
-      active,
-      recentlyAdded
+      total: total || 0,
+      active: active || 0,
+      recentlyAdded: recentlyAdded || 0
     });
   } catch (err) {
     logger.error(`Erro ao buscar estatísticas de cargos: ${err.message}`);
-    throw new AppError("Erro ao buscar estatísticas de cargos", 500);
+    return res.json({
+      total: 0,
+      active: 0,
+      recentlyAdded: 0
+    });
   }
 };
 
@@ -514,15 +523,21 @@ export const listSimplified = async (req: Request, res: Response): Promise<Respo
     logger.info(`Lista simplificada obtida com sucesso. Total: ${count}`);
 
     return res.json({
-      positions: positionsSimplified,
-      count,
+      positions: positionsSimplified || [],
+      count: count || 0,
       hasMore: count > (offset + positions.length),
-      pages: Math.ceil(count / Number(limit)),
-      currentPage: Number(page)
+      pages: Math.ceil(count / Number(limit)) || 0,
+      currentPage: Number(page) || 1
     });
   } catch (err) {
     logger.error(`Erro ao buscar lista simplificada de cargos: ${err.message}`);
-    throw new AppError("Erro ao buscar lista simplificada de cargos", 500);
+    return res.json({
+      positions: [],
+      count: 0,
+      hasMore: false,
+      pages: 0,
+      currentPage: Number(page) || 1
+    });
   }
 };
 

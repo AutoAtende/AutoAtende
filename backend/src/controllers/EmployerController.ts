@@ -139,14 +139,19 @@ export const index = async (req: Request, res: Response): Promise<Response> => {
     logger.info(`Encontradas ${formattedEmployers.length} empresas para o companyId ${companyId}`);
 
     return res.json({
-      employers: formattedEmployers,
-      count: totalCount,
-      page: Number(page),
-      limit: Number(limit)
+      employers: formattedEmployers || [],
+      count: totalCount || 0,
+      page: Number(page) || 0,
+      limit: Number(limit) || 10
     });
   } catch (error) {
     logger.error(`Erro ao buscar empresas: ${error.message}`);
-    throw new AppError("Erro ao buscar empresas", 500);
+    return res.json({
+      employers: [],
+      count: 0,
+      page: Number(page) || 0,
+      limit: Number(limit) || 10
+    });
   }
 };
 
@@ -273,7 +278,8 @@ export const show = async (req: Request, res: Response): Promise<Response> => {
     });
 
     if (!employer) {
-      throw new AppError("Empresa não encontrada", 404);
+      logger.info(`Empresa ID: ${id} não encontrada para companyId: ${companyId}`);
+      return res.status(200).json(null);
     }
 
     logger.info(`Detalhes da empresa ${id} recuperados com sucesso`);
@@ -281,10 +287,7 @@ export const show = async (req: Request, res: Response): Promise<Response> => {
     return res.status(200).json(employer);
   } catch (err) {
     logger.error(`Erro ao buscar detalhes da empresa: ${err.message}`);
-    if (err instanceof AppError) {
-      throw err;
-    }
-    throw new AppError("Erro ao buscar detalhes da empresa");
+    return res.status(200).json(null);
   }
 };
 
@@ -370,13 +373,17 @@ export const statistics = async (req: Request, res: Response): Promise<Response>
     logger.info(`Estatísticas obtidas: Total=${total}, Ativas=${active}, Recentes=${recentlyAdded}`);
 
     return res.json({
-      total,
-      active,
-      recentlyAdded
+      total: total || 0,
+      active: active || 0,
+      recentlyAdded: recentlyAdded || 0
     });
   } catch (err) {
     logger.error(`Erro ao buscar estatísticas: ${err.message}`);
-    throw new AppError("Erro ao buscar estatísticas", 500);
+    return res.json({
+      total: 0,
+      active: 0,
+      recentlyAdded: 0
+    });
   }
 };
 
@@ -478,7 +485,6 @@ export const report = async (req: Request, res: Response): Promise<Response> => 
   const { employerId: rawEmployerId, startDate, endDate } = req.query;
   const { companyId } = req.user;
 
-  // Converter o employerId para número
   const employerId = typeof rawEmployerId === 'string' ? parseInt(rawEmployerId) : null;
 
   const schema = Yup.object().shape({
@@ -490,7 +496,6 @@ export const report = async (req: Request, res: Response): Promise<Response> => 
   try {
     await schema.validate({ employerId, startDate, endDate });
 
-    // Buscar a empresa (validando que pertence ao companyId atual)
     const employer = await ContactEmployer.findOne({
       where: {
         id: employerId,
@@ -504,7 +509,6 @@ export const report = async (req: Request, res: Response): Promise<Response> => 
 
     logger.info(`Gerando relatório para employer ID: ${employerId}, CompanyId: ${companyId}`);
 
-    // Condições de data para filtrar tickets
     const dateWhere = {};
     if (startDate || endDate) {
       dateWhere['createdAt'] = {};
@@ -516,7 +520,6 @@ export const report = async (req: Request, res: Response): Promise<Response> => 
       }
     }
 
-    // Buscar todos os contatos dessa empresa com suas posições
     const contacts = await Contact.findAll({
       where: {
         employerId,
@@ -531,7 +534,6 @@ export const report = async (req: Request, res: Response): Promise<Response> => 
       ]
     });
 
-    // Função auxiliar para contar tickets por status
     const countTicketsByStatus = (tickets: Ticket[]): TicketCount => {
       return {
         pending: tickets.filter(t => t.status === 'pending').length,
@@ -541,17 +543,19 @@ export const report = async (req: Request, res: Response): Promise<Response> => 
       };
     };
 
-    // Buscar todos os tickets dos contatos encontrados
     const contactIds = contacts.map(c => c.id);
-    const tickets = await Ticket.findAll({
-      where: {
-        contactId: { [Op.in]: contactIds },
-        companyId,
-        ...dateWhere
-      }
-    });
+    let tickets: Ticket[] = [];
+    
+    if (contactIds.length > 0) {
+      tickets = await Ticket.findAll({
+        where: {
+          contactId: { [Op.in]: contactIds },
+          companyId,
+          ...dateWhere
+        }
+      });
+    }
 
-    // Agrupar tickets por contato
     const ticketsByContact = tickets.reduce((acc, ticket) => {
       if (!acc[ticket.contactId]) {
         acc[ticket.contactId] = [];
@@ -560,7 +564,6 @@ export const report = async (req: Request, res: Response): Promise<Response> => 
       return acc;
     }, {} as Record<number, Ticket[]>);
 
-    // Montar o relatório
     const report: EmployerReport = {
       employer: {
         id: employer.id,
@@ -634,6 +637,6 @@ export const ranking = async (req: Request, res: Response): Promise<Response> =>
     return res.json(formattedRanking);
   } catch (error) {
     logger.error(`Erro ao buscar ranking de empresas: ${error.message}`);
-    throw new AppError("Erro ao buscar ranking de empresas", 500);
+    return res.json([]); // Retorna array vazio em caso de erro
   }
 };
