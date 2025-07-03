@@ -34,7 +34,7 @@ const CreateOrUpdateContactService = async ({
   name,
   number: rawNumber,
   remoteJid,
-  isGroup,
+  isGroup = false, // ✅ Valor padrão para isGroup
   isPBX = false,
   email = "",
   companyId,
@@ -47,89 +47,135 @@ const CreateOrUpdateContactService = async ({
 }: Request, wbot?: Session, msgContactId?: string): Promise<Contact> => {
   
   try {
-    // ✅ CORREÇÃO: Determinar número baseado no tipo de contato
-    let number: string;
-    
-    if (isGroup) {
-      // ✅ Para grupos: usar JID completo ou rawNumber se já estiver correto
-      if (rawNumber.includes('@g.us')) {
-        number = rawNumber; // Já está no formato correto
-      } else if (remoteJid && remoteJid.includes('@g.us')) {
-        number = remoteJid; // Usar remoteJid se estiver correto
-      } else {
-        // Fallback: construir JID se necessário
-        number = rawNumber.includes('@') ? rawNumber : `${rawNumber}@g.us`;
-      }
-    } else {
-      // ✅ Para contatos individuais: apenas dígitos
-      number = rawNumber.replace(/[^0-9]/g, "");
+    logger.debug(`[CreateOrUpdateContactService] Iniciando processamento: ${JSON.stringify({
+      name,
+      rawNumber,
+      isGroup,
+      companyId
+    })}`);
+
+    // ✅ Validação de entrada
+    if (!rawNumber || !companyId) {
+      throw new Error("Número e companyId são obrigatórios");
     }
 
-    logger.debug(`[CreateOrUpdateContactService] Processando ${isGroup ? 'grupo' : 'contato'}: ${name || number}`);
+    // ✅ Determinar número baseado no tipo de contato
+    let number: string;
+    let finalRemoteJid: string;
+    
+    if (isGroup) {
+      // Para grupos: manter JID completo ou construir se necessário
+      if (rawNumber.includes('@g.us')) {
+        number = rawNumber;
+        finalRemoteJid = rawNumber;
+      } else if (remoteJid && remoteJid.includes('@g.us')) {
+        number = remoteJid;
+        finalRemoteJid = remoteJid;
+      } else {
+        // Construir JID do grupo
+        const groupId = rawNumber.replace(/[^0-9]/g, "");
+        number = `${groupId}@g.us`;
+        finalRemoteJid = number;
+      }
+      logger.debug(`[CreateOrUpdateContactService] Grupo processado: ${number}`);
+    } else {
+      // Para contatos individuais: apenas dígitos
+      number = rawNumber.replace(/[^0-9]/g, "");
+      finalRemoteJid = remoteJid || `${number}@s.whatsapp.net`;
+      
+      if (number.length < 8) {
+        throw new Error("Número de telefone muito curto");
+      }
+      logger.debug(`[CreateOrUpdateContactService] Contato individual processado: ${number}`);
+    }
 
     const io = getIO();
     let contact: Contact | null;
     let finalPositionId = positionId;
 
-    // Processar posição se necessário (apenas para contatos individuais)
+    // ✅ Processar posição apenas para contatos individuais
     if (!isGroup && employerId && positionName) {
-      const [position] = await ContactPosition.findOrCreate({
-        where: { name: positionName.trim() },
-        defaults: { name: positionName.trim() }
-      });
-
-      await EmployerPosition.findOrCreate({
-        where: {
-          employerId,
-          positionId: position.id
-        }
-      });
-
-      finalPositionId = position.id;
-    }
-
-    if (!isGroup && finalPositionId && employerId) {
-      const position = await ContactPosition.findByPk(finalPositionId);
-      if (!position) {
-        throw new Error("Posição não encontrada");
-      }
-
-      const hasEmployerPosition = await EmployerPosition.findOne({
-        where: {
-          employerId,
-          positionId: finalPositionId
-        }
-      });
-
-      if (!hasEmployerPosition) {
-        await EmployerPosition.create({
-          employerId,
-          positionId: finalPositionId
+      try {
+        logger.debug(`[CreateOrUpdateContactService] Processando posição: ${positionName}`);
+        
+        const [position] = await ContactPosition.findOrCreate({
+          where: { name: positionName.trim() },
+          defaults: { name: positionName.trim() }
         });
+
+        await EmployerPosition.findOrCreate({
+          where: {
+            employerId,
+            positionId: position.id
+          }
+        });
+
+        finalPositionId = position.id;
+        logger.debug(`[CreateOrUpdateContactService] Posição processada: ID ${finalPositionId}`);
+      } catch (positionError) {
+        logger.error(`[CreateOrUpdateContactService] Erro ao processar posição: ${positionError.message}`);
+        // Não falhar por causa da posição, apenas logar o erro
       }
     }
 
-    // ✅ CORREÇÃO: Buscar contato incluindo isGroup para evitar conflitos
-    contact = await Contact.findOne({
-      where: {
-        number,
-        companyId,
-        isGroup // ✅ INCLUIR isGroup na busca
-      },
-      include: [
-        "extraInfo",
-        {
-          model: ContactEmployer,
-          as: 'employer',
-          attributes: ['id', 'name']
-        },
-        {
-          model: ContactPosition,
-          as: 'position',
-          attributes: ['id', 'name']
+    // ✅ Validar relacionamento empregador-posição
+    if (!isGroup && finalPositionId && employerId) {
+      try {
+        const position = await ContactPosition.findByPk(finalPositionId);
+        if (!position) {
+          logger.warn(`[CreateOrUpdateContactService] Posição ${finalPositionId} não encontrada`);
+          finalPositionId = undefined;
+        } else {
+          const hasEmployerPosition = await EmployerPosition.findOne({
+            where: {
+              employerId,
+              positionId: finalPositionId
+            }
+          });
+
+          if (!hasEmployerPosition) {
+            await EmployerPosition.create({
+              employerId,
+              positionId: finalPositionId
+            });
+          }
         }
-      ]
-    });
+      } catch (relationError) {
+        logger.error(`[CreateOrUpdateContactService] Erro na validação empregador-posição: ${relationError.message}`);
+        finalPositionId = undefined;
+      }
+    }
+
+    // ✅ Buscar contato existente incluindo isGroup
+    try {
+      contact = await Contact.findOne({
+        where: {
+          number,
+          companyId,
+          isGroup
+        },
+        include: [
+          "extraInfo",
+          {
+            model: ContactEmployer,
+            as: 'employer',
+            attributes: ['id', 'name'],
+            required: false
+          },
+          {
+            model: ContactPosition,
+            as: 'position',
+            attributes: ['id', 'name'],
+            required: false
+          }
+        ]
+      });
+
+      logger.debug(`[CreateOrUpdateContactService] Busca de contato: ${contact ? 'encontrado' : 'não encontrado'}`);
+    } catch (searchError) {
+      logger.error(`[CreateOrUpdateContactService] Erro ao buscar contato: ${searchError.message}`);
+      contact = null;
+    }
     
     if (contact) {
       // ✅ CONTATO EXISTE - ATUALIZAR SE NECESSÁRIO
@@ -161,22 +207,23 @@ const CreateOrUpdateContactService = async ({
         shouldUpdate = true;
       }
 
-      // Atualizar foto de perfil (verificar se precisa atualizar)
+      // ✅ Atualizar foto de perfil com proteção contra erros
       const lastUpdate = new Date(contact.updatedAt);
       const now = new Date();
-      const diff = now.getTime() - lastUpdate.getTime();
-      const diffDays = Math.ceil(diff / (1000 * 3600 * 24));
+      const diffDays = Math.ceil((now.getTime() - lastUpdate.getTime()) / (1000 * 3600 * 24));
 
       if (shouldUpdate || diffDays >= 3) {
         let profilePicUrl: string | undefined;
         
         try {
-          // ✅ Só buscar foto para contatos individuais
-          if (!isGroup && wbot) {
+          // Só buscar foto para contatos individuais
+          if (!isGroup && wbot && number) {
             profilePicUrl = await GetProfilePicUrl(rawNumber, companyId);
+            logger.debug(`[CreateOrUpdateContactService] Foto obtida: ${profilePicUrl ? 'sim' : 'não'}`);
           }
-        } catch (e) {
-          logger.debug(`[CreateOrUpdateContactService] Erro ao obter foto do perfil: ${e}`);
+        } catch (profileError) {
+          logger.debug(`[CreateOrUpdateContactService] Erro ao obter foto: ${profileError.message}`);
+          // Não falhar por causa da foto
         }
 
         // Só atualizar foto se obteve uma válida
@@ -186,100 +233,125 @@ const CreateOrUpdateContactService = async ({
         }
       }
 
-      // Aplicar atualizações se houver
+      // ✅ Aplicar atualizações se houver
       if (shouldUpdate) {
-        contact.changed('updatedAt', true);
-        await contact.update(updateData);
-        
-        await contact.reload();
-        
-        logger.debug(`[CreateOrUpdateContactService] ${isGroup ? 'Grupo' : 'Contato'} atualizado: ${contact.name}`);
-        
-        io.to(`company-${companyId}-mainchannel`).emit(`company-${companyId}-contact`, {
-          action: "update",
-          contact
-        });
+        try {
+          contact.changed('updatedAt', true);
+          await contact.update(updateData);
+          await contact.reload();
+          
+          logger.info(`[CreateOrUpdateContactService] ${isGroup ? 'Grupo' : 'Contato'} atualizado: ${contact.name} (${contact.id})`);
+          
+          io.to(`company-${companyId}-mainchannel`).emit(`company-${companyId}-contact`, {
+            action: "update",
+            contact
+          });
+        } catch (updateError) {
+          logger.error(`[CreateOrUpdateContactService] Erro ao atualizar contato: ${updateError.message}`);
+          throw updateError;
+        }
       }
 
     } else {
       // ✅ CONTATO NÃO EXISTE - CRIAR NOVO
       logger.debug(`[CreateOrUpdateContactService] Criando novo ${isGroup ? 'grupo' : 'contato'}: ${name || number}`);
       
-      let profilePicUrl: string;
+      let profilePicUrl: string = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/assets/nopicture.png`;
       
       try {
-        // ✅ Só buscar foto para contatos individuais
-        if (!isGroup && wbot) {
-          profilePicUrl = await GetProfilePicUrl(rawNumber, companyId);
-        } else {
-          profilePicUrl = `${process.env.FRONTEND_URL}/assets/nopicture.png`;
+        // Só buscar foto para contatos individuais
+        if (!isGroup && wbot && number) {
+          const fetchedUrl = await GetProfilePicUrl(rawNumber, companyId);
+          if (fetchedUrl && !fetchedUrl.endsWith("nopicture.png")) {
+            profilePicUrl = fetchedUrl;
+          }
+          logger.debug(`[CreateOrUpdateContactService] Foto para novo contato: ${profilePicUrl}`);
         }
-      } catch (e) {
-        logger.debug(`[CreateOrUpdateContactService] Erro ao obter foto do perfil: ${e}`);
-        profilePicUrl = `${process.env.FRONTEND_URL}/assets/nopicture.png`;
+      } catch (profileError) {
+        logger.debug(`[CreateOrUpdateContactService] Erro ao obter foto para novo contato: ${profileError.message}`);
+        // Usar foto padrão
       }
 
-      // ✅ CORREÇÃO: Criar contato com dados corretos baseados no tipo
-      const [_contact] = await Contact.findOrCreate({
-        where: {
-          number,
-          companyId,
-          isGroup // ✅ INCLUIR isGroup no where
-        },
-        defaults: {
-          name: name || (isGroup ? number.split('@')[0] : number),
-          number, // ✅ JID completo para grupos, dígitos para contatos
-          profilePicUrl,
-          email: isGroup ? "" : email, // Grupos não têm email
-          isGroup,
-          companyId,
-          disableBot: isGroup ? false : disableBot, // Grupos não têm disableBot
-          whatsappId: whatsappId as any,
-          employerId: isGroup ? null : employerId, // Grupos não têm empregador
-          positionId: isGroup ? null : finalPositionId, // Grupos não têm posição
-          remoteJid: remoteJid || (isGroup ? number : `${number}@s.whatsapp.net`), // ✅ remoteJid correto
-          isPBX: isGroup ? false : isPBX // Grupos não são PBX
+      // ✅ Criar contato com dados corretos baseados no tipo
+      try {
+        const [_contact] = await Contact.findOrCreate({
+          where: {
+            number,
+            companyId,
+            isGroup
+          },
+          defaults: {
+            name: name || (isGroup ? number.split('@')[0] : number),
+            number,
+            profilePicUrl,
+            email: isGroup ? "" : (email || ""),
+            isGroup,
+            companyId,
+            disableBot: isGroup ? false : disableBot,
+            whatsappId: whatsappId as any,
+            employerId: isGroup ? null : employerId,
+            positionId: isGroup ? null : finalPositionId,
+            remoteJid: finalRemoteJid,
+            isPBX: isGroup ? false : isPBX
+          }
+        });
+
+        // ✅ Carregar as relações após criar
+        await _contact.reload({
+          include: [
+            "extraInfo",
+            ...(isGroup ? [] : [
+              {
+                model: ContactEmployer,
+                as: 'employer',
+                attributes: ['id', 'name'],
+                required: false
+              },
+              {
+                model: ContactPosition,
+                as: 'position',
+                attributes: ['id', 'name'],
+                required: false
+              }
+            ])
+          ]
+        });
+
+        // ✅ Adicionar informações extras (apenas para contatos individuais)
+        if (!isGroup && extraInfo && extraInfo.length > 0) {
+          try {
+            await _contact.$set('extraInfo', extraInfo);
+          } catch (extraError) {
+            logger.error(`[CreateOrUpdateContactService] Erro ao adicionar extraInfo: ${extraError.message}`);
+            // Não falhar por causa das informações extras
+          }
         }
-      });
 
-      // Carregar as relações após criar (apenas para contatos individuais)
-      await _contact.reload({
-        include: [
-          "extraInfo",
-          ...(isGroup ? [] : [
-            {
-              model: ContactEmployer,
-              as: 'employer',
-              attributes: ['id', 'name']
-            },
-            {
-              model: ContactPosition,
-              as: 'position',
-              attributes: ['id', 'name']
-            }
-          ])
-        ]
-      });
+        contact = _contact;
 
-      // Adicionar informações extras (apenas para contatos individuais)
-      if (!isGroup && extraInfo && extraInfo.length > 0) {
-        await _contact.$set('extraInfo', extraInfo);
+        logger.info(`[CreateOrUpdateContactService] ${isGroup ? 'Grupo' : 'Contato'} criado: ${contact.name} (${contact.id}) - Número: ${number}`);
+
+        io.to(`company-${companyId}-mainchannel`).emit(`company-${companyId}-contact`, {
+          action: "create",
+          contact
+        });
+
+      } catch (createError) {
+        logger.error(`[CreateOrUpdateContactService] Erro ao criar contato: ${createError.message}`);
+        throw createError;
       }
-
-      contact = _contact;
-
-      logger.info(`[CreateOrUpdateContactService] ${isGroup ? 'Grupo' : 'Contato'} criado: ${contact.name} (${number})`);
-
-      io.to(`company-${companyId}-mainchannel`).emit(`company-${companyId}-contact`, {
-        action: "create",
-        contact
-      });
     }
 
     return contact;
 
   } catch (error) {
-    logger.error(`[CreateOrUpdateContactService] Erro ao processar ${isGroup ? 'grupo' : 'contato'}: ${error.message}`);
+    logger.error(`[CreateOrUpdateContactService] Erro geral: ${error.message}`, {
+      name,
+      rawNumber,
+      isGroup,
+      companyId,
+      stack: error.stack
+    });
     throw error;
   }
 };

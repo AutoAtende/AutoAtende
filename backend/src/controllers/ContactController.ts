@@ -92,50 +92,111 @@ export const index = async (req: Request, res: Response): Promise<Response> => {
 };
 
 export const store = async (req: Request, res: Response): Promise<Response> => {
-  const { companyId } = req.user;
-  const newContact= req.body;
-  newContact.number = newContact.number.replace("-", "").replace(" ", "");
-
-  const schema = Yup.object().shape({
-    name: Yup.string().required(),
-    number: Yup.string()
-      .required()
-      .matches(/^\d+$/, "Invalid number format. Only numbers is allowed.")
-  });
-
   try {
-    await schema.validate(newContact);
-  } catch (err: any) {
-    throw new AppError(err.message);
-  }
+    const { companyId } = req.user;
+    const newContact = req.body;
+    
+    // Log para debug
+    logger.info(`Criando contato. Empresa: ${companyId}, Dados:`, newContact);
 
-  if (!newContact.isGroup) {
-    const validNumber = await CheckContactNumber(newContact.number, companyId);
-    const number = validNumber.jid.replace(/\D/g, "");
-    newContact.number = number;
-  }
-
-  /**
-   * Código desabilitado por demora no retorno
-   */
-  // const profilePicUrl = await GetProfilePicUrl(validNumber.jid, companyId);
-
-  const contact = await CreateOrUpdateContactService({
-    ...newContact,
-    // profilePicUrl,
-    companyId
-  });
-
-  const io = getIO();
-  io.to(`company-${companyId}-mainchannel`).emit(
-    `company-${companyId}-contact`,
-    {
-      action: "create",
-      contact
+    // Limpar o número
+    if (newContact.number) {
+      newContact.number = newContact.number.replace(/[-\s]/g, "");
     }
-  );
 
-  return res.status(200).json(contact);
+    // Schema de validação
+    const schema = Yup.object().shape({
+      name: Yup.string().required("Nome é obrigatório"),
+      number: Yup.string()
+        .required("Número é obrigatório")
+        .matches(/^\d+$/, "Formato de número inválido. Apenas números são permitidos."),
+      isGroup: Yup.boolean().default(false),
+      email: Yup.string().email().optional(),
+      disableBot: Yup.boolean().default(false)
+    });
+
+    // Validar dados
+    try {
+      await schema.validate(newContact);
+    } catch (err: any) {
+      logger.error(`Erro de validação: ${err.message}`);
+      throw new AppError(err.message, 400);
+    }
+
+    // Definir isGroup como false se não fornecido (contato individual)
+    if (newContact.isGroup === undefined || newContact.isGroup === null) {
+      newContact.isGroup = false;
+      logger.info(`isGroup definido como false para contato individual`);
+    }
+
+    // Processar número apenas para contatos individuais
+    if (!newContact.isGroup) {
+      try {
+        logger.info(`Validando número: ${newContact.number}`);
+        const validNumber = await CheckContactNumber(newContact.number, companyId);
+        
+        if (!validNumber || !validNumber.jid) {
+          throw new AppError("Número de telefone inválido ou não encontrado", 400);
+        }
+        
+        // Extrair apenas os dígitos do JID
+        const number = validNumber.jid.replace(/\D/g, "");
+        if (!number || number.length < 8) {
+          throw new AppError("Número de telefone muito curto", 400);
+        }
+        
+        newContact.number = number;
+        logger.info(`Número processado: ${number}`);
+        
+      } catch (err) {
+        logger.error(`Erro ao validar número: ${err.message}`);
+        if (err instanceof AppError) {
+          throw err;
+        }
+        throw new AppError("Erro ao validar número de telefone: " + err.message, 400);
+      }
+    }
+
+    // Criar ou atualizar contato
+    logger.info(`Chamando CreateOrUpdateContactService com dados:`, {
+      ...newContact,
+      companyId
+    });
+
+    const contact = await CreateOrUpdateContactService({
+      ...newContact,
+      companyId
+    });
+
+    logger.info(`Contato criado com sucesso: ID: ${contact.id}, Nome: ${contact.name}, Número: ${contact.number}`);
+
+    // Emitir evento via Socket.io
+    const io = getIO();
+    io.to(`company-${companyId}-mainchannel`).emit(
+      `company-${companyId}-contact`,
+      {
+        action: "create",
+        contact
+      }
+    );
+
+    return res.status(201).json(contact);
+
+  } catch (err) {
+    logger.error(`Erro ao criar contato: ${err.message}`, err);
+    
+    if (err instanceof AppError) {
+      return res.status(err.statusCode).json({
+        error: err.message
+      });
+    }
+
+    // Erro não tratado
+    return res.status(500).json({
+      error: "Erro interno do servidor",
+      message: process.env.NODE_ENV === 'development' ? err.message : "Erro ao criar contato"
+    });
+  }
 };
 
 export const update = async (req: Request, res: Response): Promise<Response> => {

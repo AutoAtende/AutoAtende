@@ -717,6 +717,7 @@ const ContactModal = ({ open, onClose, contactId, onSave }) => {
                 try {
                     fullNumber = phoneInputRef.current.getNumber();
                     isValidPhone = phoneInputRef.current.isValidNumber();
+                    console.log('Validação do telefone:', { fullNumber, isValidPhone });
                 } catch (phoneErr) {
                     console.error("Erro ao validar telefone:", phoneErr);
                     isValidPhone = false;
@@ -734,7 +735,8 @@ const ContactModal = ({ open, onClose, contactId, onSave }) => {
                 }
                 fullNumber = values.number.trim();
             }
-            
+    
+            // ✅ CORREÇÃO: Incluir isGroup explicitamente
             const contactData = {
                 name: values.name.trim(),
                 number: fullNumber,
@@ -744,7 +746,9 @@ const ContactModal = ({ open, onClose, contactId, onSave }) => {
                 employerId: selectedEmployer?.id || null,
                 positionId: selectedPosition?.id || null,
                 positionName: newPositionName.trim() || undefined,
-                profilePicUrl: profilePicUrl || undefined
+                profilePicUrl: profilePicUrl || undefined,
+                isGroup: false, // ✅ ADICIONADO: Sempre false para contatos individuais
+                isPBX: false    // ✅ ADICIONADO: Campo adicional de segurança
             };
             
             console.log('Dados a serem enviados:', contactData);
@@ -787,7 +791,27 @@ const ContactModal = ({ open, onClose, contactId, onSave }) => {
             
         } catch (error) {
             console.error('Erro ao salvar contato:', error);
-            toast.error(error.response?.data?.error || 'Erro ao salvar contato');
+            
+            // ✅ MELHOR TRATAMENTO DE ERRO
+            let errorMessage = 'Erro ao salvar contato';
+            
+            if (error.response?.data?.error) {
+                errorMessage = error.response.data.error;
+            } else if (error.response?.data?.message) {
+                errorMessage = error.response.data.message;
+            } else if (error.message) {
+                errorMessage = error.message;
+            }
+            
+            console.log('Mensagem de erro final:', errorMessage);
+            toast.error(errorMessage);
+            
+            // Se for erro de validação, pode tentar mostrar no campo específico
+            if (error.response?.status === 400 && errorMessage.includes('número')) {
+                setFieldError('number', errorMessage);
+                setPhoneError(errorMessage);
+            }
+            
         } finally {
             setIsSaving(false);
             setSubmitting(false);
