@@ -6,7 +6,6 @@ import AppError from "../../errors/AppError";
 interface GetUserQueuesRequest {
   userId: number;
   companyId?: number;
-  includeInactive?: boolean;
 }
 
 interface GetUserQueuesResponse {
@@ -21,7 +20,6 @@ interface GetUserQueuesResponse {
 const GetUserQueuesService = async ({
   userId,
   companyId,
-  includeInactive = false
 }: GetUserQueuesRequest): Promise<GetUserQueuesResponse> => {
   
   // Buscar o usuário para verificar se existe e obter dados básicos
@@ -31,9 +29,8 @@ const GetUserQueuesService = async ({
       {
         model: Queue,
         as: "queues",
-        attributes: ["id", "name", "color", "greetingMessage", "isActive"],
+        attributes: ["id", "name", "color", "greetingMessage"],
         through: { attributes: [] }, // Remove campos da tabela UserQueue
-        where: includeInactive ? {} : { isActive: true },
         required: false // LEFT JOIN - usuário pode não ter queues
       }
     ]

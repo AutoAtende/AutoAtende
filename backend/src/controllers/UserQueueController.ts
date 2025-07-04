@@ -28,7 +28,6 @@ export const getUserQueues = async (
     const result = await GetUserQueuesService({
       userId: Number(userId),
       companyId,
-      includeInactive: includeInactive === 'true'
     });
 
     logger.info(`Filas do usuário ${userId} consultadas por ${req.user.id}`, {
@@ -69,12 +68,10 @@ export const getCurrentUserQueues = async (
 ): Promise<Response> => {
   try {
     const { id: userId, companyId } = req.user;
-    const { includeInactive } = req.query;
 
     const result = await GetUserQueuesService({
       userId: Number(userId),
       companyId,
-      includeInactive: includeInactive === 'true'
     });
 
     return res.status(200).json(result);
