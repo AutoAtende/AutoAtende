@@ -1,3 +1,4 @@
+// src/services/TicketServices/ListTicketsService.ts
 import { Op, fn, where, col, Filterable, Includeable } from "sequelize";
 import { startOfDay, endOfDay, parseISO } from "date-fns";
 
@@ -24,7 +25,6 @@ interface Request {
   showAll?: string;
   userId: string;
   withUnreadMessages?: string;
-  //chatbot?: boolean | string;
   queueIds: number[];
   tags: number[];
   users: number[];
@@ -39,29 +39,6 @@ interface Response {
   hasMore: boolean;
 }
 
-/**
- * Serviço para listar tickets com base em diversos parâmetros de busca.
- *
- * @param {Object} params - Parâmetros de entrada para a busca de tickets.
- * @param {string} [params.searchParam] - Parâmetro de busca para filtrar tickets.
- * @param {string} [params.pageNumber] - Número da página para paginação.
- * @param {string} [params.status] - Status dos tickets a serem filtrados.
- * @param {string} [params.date] - Data específica para filtrar tickets.
- * @param {string} params.startDate - Data de início para o intervalo de busca.
- * @param {string} params.endDate - Data de fim para o intervalo de busca.
- * @param {string} [params.updatedAt] - Data de atualização para filtrar tickets.
- * @param {string} [params.showAll] - Flag para mostrar todos os tickets.
- * @param {string} params.userId - ID do usuário que está fazendo a busca.
- * @param {string} [params.withUnreadMessages] - Flag para incluir tickets com mensagens não lidas.
- * @param {number[]} params.queueIds - IDs das filas para filtrar tickets.
- * @param {number[]} params.tags - IDs das tags para filtrar tickets.
- * @param {number[]} params.users - IDs dos usuários para filtrar tickets.
- * @param {number} params.companyId - ID da empresa associada aos tickets.
- * @param {string} [params.reasonId] - ID da razão para filtrar tickets.
- * @param {boolean} [params.isGroupSuperAdmin] - Flag para indicar se o usuário é um super admin de grupo.
- * 
- * @returns {Promise<Response>} - Retorna uma promessa com os tickets encontrados, contagem e se há mais tickets.
- */
 const ListTicketsService = async ({
   searchParam = "",
   pageNumber = "1",
@@ -72,7 +49,6 @@ const ListTicketsService = async ({
   date,
   startDate,
   endDate,
-  //chatbot,
   updatedAt,
   showAll,
   userId,
@@ -84,11 +60,48 @@ const ListTicketsService = async ({
   const user = await ShowUserService(userId);
   const userQueueIds = user.queues.map(queue => queue.id);
 
-  let whereCondition: Filterable["where"] = {
-    [Op.or]: [{ userId }, { status: "pending" }],
-    queueId: { [Op.or]: [queueIds, null] }
-  };
+  // CORREÇÃO: Lógica corrigida para evitar inconsistências
+  let whereCondition: Filterable["where"] = {};
   let includeCondition: Includeable[];
+
+  // Definir condições baseadas no perfil do usuário
+  if (user.profile === "user") {
+    // Para usuários normais: mostrar apenas tickets atribuídos a eles OU tickets pending sem usuário
+    whereCondition = {
+      [Op.or]: [
+        { 
+          userId: user.id,
+          status: { [Op.ne]: "pending" } // Tickets atribuídos não podem ser pending
+        },
+        { 
+          status: "pending",
+          userId: { [Op.is]: null } // Tickets pending devem ter userId null
+        }
+      ],
+      queueId: { [Op.or]: [userQueueIds, null] }
+    };
+  } else {
+    // Para admins e outros perfis
+    if (showAll === "true" || user.allTicket === "enabled") {
+      whereCondition = { 
+        queueId: { [Op.or]: [queueIds, null] }
+      };
+    } else {
+      whereCondition = {
+        [Op.or]: [
+          { 
+            userId: user.id,
+            status: { [Op.ne]: "pending" }
+          },
+          { 
+            status: "pending",
+            userId: { [Op.is]: null }
+          }
+        ],
+        queueId: { [Op.or]: [queueIds, null] }
+      };
+    }
+  }
 
   includeCondition = [
     {
@@ -126,34 +139,7 @@ const ListTicketsService = async ({
     { model: Company, as: "company", attributes: ["urlPBX"] }
   ];
 
-  if (user.profile === "user") {
-    const TicketsUserFilter: any[] | null = [];
-
-    let ticketsIds = [];
-
-    ticketsIds = await Ticket.findAll({
-      where: {
-        userId: { [Op.or]: [user.id, null] },
-        companyId,
-      },
-    });
-
-    if (ticketsIds) {
-      TicketsUserFilter.push(ticketsIds.map(t => t.id));
-    }
-
-    const ticketsIntersection: number[] = intersection(...TicketsUserFilter);
-
-    whereCondition = {
-      ...whereCondition,
-      id: ticketsIntersection
-    };
-  }
-
-  if (showAll === "true" || (user.profile === "user" && user.allTicket === "enabled")) {
-      whereCondition = { queueId: { [Op.or]: [queueIds, null] } };
-  }
-
+  // Aplicar filtro de status se especificado
   if (status) {
     whereCondition = {
       ...whereCondition,
@@ -161,6 +147,7 @@ const ListTicketsService = async ({
     };
   }
 
+  // Aplicar outros filtros...
   if (startDate && endDate) {
     whereCondition = {
       ...whereCondition,
@@ -176,13 +163,6 @@ const ListTicketsService = async ({
       reasonId
     };
   }
-
-  //if (chatbot) {
-  //  whereCondition = {
-  //    ...whereCondition,
-  //    chatbot
-  //  };
-  // }
 
   if (searchParam) {
     const sanitizedSearchParam = searchParam.toLocaleLowerCase().trim();
@@ -247,12 +227,8 @@ const ListTicketsService = async ({
   }
 
   if (withUnreadMessages === "true") {
-    const user = await ShowUserService(userId);
-    const userQueueIds = user.queues.map(queue => queue.id);
-
     whereCondition = {
-      [Op.or]: [{ userId }, { status: "pending" }],
-      queueId: { [Op.or]: [userQueueIds, null] },
+      ...whereCondition,
       unreadMessages: { [Op.gt]: 0 }
     };
   }
