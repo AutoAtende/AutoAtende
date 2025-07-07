@@ -432,8 +432,9 @@ const typebotListener = async ({
     } else if (body === typebotKeywordRestart) {
       logger.info(`[Typebot] Comando de restart recebido para ticket ${ticket.id}`);
       await ticket.update({
-        chatbot: true,
-        typebotSessionId: null
+        chatbot: false,
+        typebotSessionId: null,
+        typebotStatus: null
       })
       await wbot.sendMessage(`${number}@c.us`, { text: typebotRestartMessage })
     } else if (body === typebotKeywordFinish) {
@@ -455,7 +456,9 @@ const typebotListener = async ({
     logger.error(`[Typebot] Erro crítico no processamento: ${error}`);
     logger.error(`[Typebot] Stack trace: ${error.stack}`);
     await ticket.update({
-      typebotSessionId: null
+        chatbot: false,
+        typebotSessionId: null,
+        typebotStatus: null
     });
   }
 }

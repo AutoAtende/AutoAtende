@@ -101,15 +101,6 @@ const VerifyCurrentSchedule = async (params: VerifyScheduleParams): Promise<Resu
 
     // Se não houver agenda para hoje
     if (!currentSchedule || !currentSchedule.startTime || !currentSchedule.endTime) {
-      logger.info({
-        message: "No schedule found for current weekday",
-        entityType: type,
-        entityId: entity.id,
-        entityName,
-        currentWeekday,
-        hasSchedules: schedules.length > 0
-      });
-
       return {
         id: entity.id,
         currentSchedule: null,
