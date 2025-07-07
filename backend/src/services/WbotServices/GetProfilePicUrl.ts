@@ -29,7 +29,12 @@ const getFromCache = async (number: string): Promise<string | null> => {
     const cachedUrl = caches.imgCache.get<string>(number);
     if (cachedUrl) return cachedUrl;
 
-    const contact = await Contact.findOne({ where: { number } });
+    // Garantir que o número seja tratado como string
+    const contact = await Contact.findOne({ 
+      where: { 
+        number: String(number) // Conversão explícita para string
+      } 
+    });
 
     if (contact?.profilePicUrl) {
       const cacheExpiration = new Date();
@@ -46,7 +51,8 @@ const getFromCache = async (number: string): Promise<string | null> => {
     logger.error({
       message: "Erro ao verificar cache da foto de perfil",
       number,
-      error: (error as Error).message
+      error: (error as Error).message,
+      stack: (error as Error).stack
     });
     return null;
   }
@@ -61,12 +67,15 @@ const GetProfilePicUrl = async (
       throw new Error("Parâmetros number e companyId são obrigatórios");
     }
 
+    // Garantir que number seja uma string
+    const cleanNumber = String(number).trim();
+
     // Ignora grupos
-    if (number.includes("@g.us")) {
+    if (cleanNumber.includes("@g.us")) {
       return DEFAULT_PROFILE_PIC;
     }
 
-    const formattedNumber = formatWhatsAppNumber(number);
+    const formattedNumber = formatWhatsAppNumber(cleanNumber);
 
     const cachedUrl = await getFromCache(formattedNumber);
     if (cachedUrl) {
@@ -107,7 +116,18 @@ const GetProfilePicUrl = async (
       throw profileError;
     }
 
+    // Salvar no cache e no banco de dados
     caches.imgCache.set(formattedNumber, profilePicUrl);
+
+    // Atualizar o contato no banco de dados
+    await Contact.update(
+      { profilePicUrl },
+      { 
+        where: { 
+          number: String(formattedNumber) 
+        } 
+      }
+    );
 
     logger.info({
       message: "Foto de perfil obtida com sucesso",
