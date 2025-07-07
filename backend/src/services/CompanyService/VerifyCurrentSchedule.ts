@@ -63,11 +63,6 @@ const VerifyCurrentSchedule = async (params: VerifyScheduleParams): Promise<Resu
       
       // Se a fila não tem horários configurados, usar os da empresa
       if (!schedules.length) {
-        logger.info({
-          message: "Queue has no schedules, falling back to company schedules",
-          queueId,
-          companyId
-        });
 
         const company = await Company.findOne({
           where: { id: companyId },
@@ -128,31 +123,8 @@ const VerifyCurrentSchedule = async (params: VerifyScheduleParams): Promise<Resu
       // Se estiver no horário de almoço, não está em atividade
       if (now.isBetween(startLunchTime, endLunchTime, 'minute', '[]')) {
         inActivity = false;
-        
-        logger.info({
-          message: "Currently in lunch break",
-          entityType: type,
-          entityId: entity.id,
-          entityName,
-          currentTime: now.format('HH:mm'),
-          lunchStart: currentSchedule.startLunchTime,
-          lunchEnd: currentSchedule.endLunchTime
-        });
       }
     }
-
-    logger.info({
-      message: "Schedule verification completed",
-      entityType: type,
-      entityId: entity.id,
-      entityName,
-      currentWeekday,
-      currentTime: now.format('HH:mm'),
-      workStart: currentSchedule.startTime,
-      workEnd: currentSchedule.endTime,
-      inActivity,
-      hasLunchBreak: !!(currentSchedule.startLunchTime && currentSchedule.endLunchTime)
-    });
 
     return {
       id: entity.id,

@@ -18,8 +18,6 @@ const CheckContactNumber = async (number: string, companyId: number) => {
     const defaultWhatsapp = await GetDefaultWhatsApp(companyId);
     const wbot = await getWbot(defaultWhatsapp.id, companyId);
     
-    try {
-      // Usar a API oficial do WhatsApp para verificar o número
       const [validNumber] = await wbot.onWhatsApp(formattedNumber);
       
       if (validNumber && validNumber.exists) {
@@ -28,15 +26,6 @@ const CheckContactNumber = async (number: string, companyId: number) => {
           exists: true
         };
       }
-    } catch (apiError) {
-      logger.warn(`Erro ao verificar número: ${apiError.message}`);
-    }
-        
-    // Se não atender nenhuma condição anterior, retorna que não existe
-    return {
-      jid: formattedNumber,
-      exists: false
-    };
   } catch (error) {
     logger.error(`Erro ao verificar número: ${error.message}`);
     
