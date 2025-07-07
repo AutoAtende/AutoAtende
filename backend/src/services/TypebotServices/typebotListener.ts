@@ -4,7 +4,7 @@ import QueueIntegrations from "../../models/QueueIntegrations";
 import { WASocket, proto } from "baileys";
 import { getBodyMessage } from "../WbotServices/MessageListener/Get/GetBodyMessage";
 import { logger } from "../../utils/logger";
-import { isNil } from "../../utils/helpers";
+import { isNil } from "lodash";
 import UpdateTicketService from "../TicketServices/UpdateTicketService";
 import { SendPresenceStatus } from "../../helpers/SendPresenceStatus";
 import axios, { AxiosRequestConfig } from "axios";
@@ -21,76 +21,114 @@ interface Request {
   queueValues?: string[];
 }
 
+interface TypebotCommand {
+  stopBot?: boolean;
+  userId?: number;
+  queueId?: number;
+  tagIds?: number[];
+}
+
+const MAX_RETRIES = 3;
+const RETRY_DELAY = 2000;
+const REQUEST_TIMEOUT = 10000;
+
 const wait = async (seconds: number): Promise<void> => {
   logger.info(`[Typebot] Iniciando delay de ${seconds} segundos`);
   await new Promise(resolve => setTimeout(resolve, seconds * 1000));
   logger.info(`[Typebot] Delay de ${seconds} segundos concluído`);
 };
 
-async function createSession(msg: proto.IWebMessageInfo, typebot: QueueIntegrations, number: string, ticket: Ticket, queueValues?: string[]) {
-  logger.info(`[Typebot] Criando nova sessão para número ${number}`);
+const retryOperation = async (operation: () => Promise<any>, retries = MAX_RETRIES): Promise<any> => {
   try {
-    const { urlN8N: url, typebotSlug } = typebot;
-
-    if (!url || !typebotSlug) {
-      throw new Error('URL do Typebot ou Slug não configurados');
+    return await operation();
+  } catch (error) {
+    if (retries > 0) {
+      logger.info(`[Typebot] Tentativa falhou, aguardando ${RETRY_DELAY}ms para retry. Tentativas restantes: ${retries}`);
+      await new Promise(resolve => setTimeout(resolve, RETRY_DELAY));
+      return retryOperation(operation, retries - 1);
     }
-
-    const reqBody = {
-      isStreamEnabled: true,
-      isOnlyRegistering: false,
-      prefilledVariables: {
-        number: number,
-        numero: number,
-        pushName: msg.pushName || "",
-        nome: ticket?.contact?.name || "",
-        ticketId: ticket?.id || "",
-        remoteJid: msg?.key.remoteJid
-      },
-    };
-
-    if (queueValues && queueValues.length > 0) {
-      logger.debug(`[Typebot] Adicionando valores de fila: ${JSON.stringify(queueValues)}`);
-      queueValues.forEach((item, index) => {
-        reqBody.prefilledVariables[`fila${index + 1}`] = item;
-      });
-    }
-
-    logger.debug(`[Typebot] Starting session with body: ${JSON.stringify(reqBody, null, 2)}`);
-
-    const config: AxiosRequestConfig = {
-      method: 'post',
-      maxBodyLength: Infinity,
-      url: `${url}/api/v1/typebots/${typebotSlug}/startChat`,
-      headers: {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json',
-        'User-Agent': 'Chrome/59.0.3071.115'
-      },
-      data: reqBody
-    };
-
-    logger.debug(`[Typebot] Request URL: ${config.url}`);
-    logger.debug(`[Typebot] Request Body: ${JSON.stringify(reqBody)}`);
-
-    const response = await axios.request(config);
-    
-    if (!response.data) {
-      throw new Error('Resposta vazia do servidor Typebot');
-    }
-
-    return response.data;
-
-  } catch (err) {
-    logger.error(`[Typebot] Erro ao criar sessão: ${err.response?.data}`);
-    await ticket.update({
-      useIntegration: false,
-      chatbot: false,
-      typebotSessionId: null
-    });
-    throw err;
+    throw error;
   }
-}
+};
+
+const processTypebotCommand = async (command: string, ticket: Ticket): Promise<void> => {
+  try {
+    if (!command.startsWith("#")) return;
+
+    const jsonStr = command.replace("#", "");
+    const commandData: TypebotCommand = JSON.parse(jsonStr);
+
+    // Processa o stopBot
+    if (commandData.stopBot && isNil(commandData.userId) && isNil(commandData.queueId) && isNil(commandData.tagIds)) {
+      await UpdateTicketService({
+        ticketData: {
+          useIntegration: false,
+          chatbot: false
+        },
+        ticketId: ticket.id,
+        companyId: ticket.companyId
+      });
+      return;
+    }
+
+    // Processa as tags individualmente
+    if (!isNil(commandData.tagIds) && Array.isArray(commandData.tagIds) && commandData.tagIds.length > 0) {
+      for (const tagId of commandData.tagIds) {
+        await TicketTag.create({
+          ticketId: ticket.id,
+          tagId: tagId
+        });
+      }
+
+      if (isNil(commandData.queueId)) {
+        await UpdateTicketService({
+          ticketData: {
+            chatbot: true,
+            useIntegration: true
+          },
+          ticketId: ticket.id,
+          companyId: ticket.companyId
+        });
+        return;
+      }
+    }
+
+    // Processa transferência para fila sem usuário específico
+    if (!isNil(commandData.queueId) && commandData.queueId > 0 && isNil(commandData.userId)) {
+      await UpdateTicketService({
+        ticketData: {
+          queueId: commandData.queueId,
+          chatbot: false,
+          useIntegration: false,
+          integrationId: null
+        },
+        ticketId: ticket.id,
+        companyId: ticket.companyId
+      });
+      return;
+    }
+
+    // Processa transferência para fila com usuário específico
+    if (!isNil(commandData.queueId) && commandData.queueId > 0 && !isNil(commandData.userId) && commandData.userId > 0) {
+      await UpdateTicketService({
+        ticketData: {
+          queueId: commandData.queueId,
+          userId: commandData.userId,
+          chatbot: false,
+          useIntegration: false,
+          integrationId: null
+        },
+        ticketId: ticket.id,
+        companyId: ticket.companyId
+      });
+      return;
+    }
+
+    logger.info(`[Typebot] Comando processado com sucesso para ticket ${ticket.id}: ${JSON.stringify(commandData)}`);
+  } catch (error) {
+    logger.error(`[Typebot] Erro ao processar comando para ticket ${ticket.id}: ${error}`);
+  }
+};
 
 const typebotListener = async ({
   wbot,
@@ -124,6 +162,59 @@ const typebotListener = async ({
 
   logger.debug(`[Typebot] Mensagem recebida: ${body} de ${number}`);
 
+  async function createSession(msg: proto.IWebMessageInfo, typebot: QueueIntegrations, number: string) {
+    return retryOperation(async () => {
+      if (!url || !typebotSlug) {
+        throw new Error('URL do Typebot ou Slug não configurados');
+      }
+
+      const reqBody = {
+        isStreamEnabled: true,
+        message: "string",
+        resultId: "string",
+        isOnlyRegistering: false,
+        prefilledVariables: {
+          number: number,
+          numero: number,
+          pushName: msg.pushName || "",
+          nome: ticket?.contact?.name || "",
+          ticketId: ticket?.id || "",
+          remoteJid: msg?.key.remoteJid
+        },
+      };
+
+      if (queueValues) {
+        queueValues.forEach((item, index) => {
+          reqBody.prefilledVariables[`fila${index + 1}`] = item;
+        });
+      }
+
+      const config: AxiosRequestConfig = {
+        method: 'post',
+        maxBodyLength: Infinity,
+        url: `${url}/api/v1/typebots/${typebotSlug}/startChat`,
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        },
+        data: reqBody,
+        timeout: REQUEST_TIMEOUT,
+        validateStatus: (status) => {
+          return status >= 200 && status < 500;
+        }
+      };
+
+      const response = await axios.request(config);
+
+      if (response.status === 404) {
+        logger.error(`[Typebot] Bot não encontrado: ${typebotSlug}`);
+        throw new Error(`Bot não encontrado: ${typebotSlug}`);
+      }
+
+      return response.data;
+    });
+  }
+
   let sessionId;
   let dataStart;
   let status = false;
@@ -144,10 +235,10 @@ const typebotListener = async ({
 
     if (!ticket.typebotSessionId) {
       logger.info(`[Typebot] Iniciando nova sessão para ticket ${ticket.id}`);
-      dataStart = await createSession(msg, typebot, number, ticket, queueValues);
+      dataStart = await createSession(msg, typebot, number);
       sessionId = dataStart.sessionId;
       status = true;
-      
+
       logger.debug(`[Typebot] Atualizando ticket com nova sessão ID: ${sessionId}`);
       await ticket.update({
         typebotSessionId: sessionId,
@@ -178,17 +269,21 @@ const typebotListener = async ({
           "message": body
         });
 
-        let config = {
+        const config: AxiosRequestConfig = {
           method: 'post',
           maxBodyLength: Infinity,
           url: `${url}/api/v1/sessions/${sessionId}/continueChat`,
           headers: {
             'Content-Type': 'application/json',
-            'Accept': 'application/json',
-            'User-Agent': 'Chrome/59.0.3071.115'
+            'Accept': 'application/json'
           },
-          data: reqData
+          data: reqData,
+          timeout: REQUEST_TIMEOUT,
+          validateStatus: (status) => {
+            return status >= 200 && status < 500;
+          }
         };
+
         requestContinue = await axios.request(config);
         messages = requestContinue.data?.messages;
         input = requestContinue.data?.input;
@@ -313,82 +408,17 @@ const typebotListener = async ({
           }
 
           if (formattedText.startsWith("#")) {
-            let gatilho = formattedText.replace("#", "");
-
-            try {
-              let jsonGatilho = JSON.parse(gatilho);
-
-              if (jsonGatilho.stopBot && isNil(jsonGatilho.userId) && isNil(jsonGatilho.queueId) && isNil(jsonGatilho.tagIds)) {
-                await ticket.update({
-                  useIntegration: false,
-                  chatbot: false
-                })
-                return;
-              }
-
-              if (!isNil(jsonGatilho.tagIds) && Array.isArray(jsonGatilho.tagIds) && jsonGatilho.tagIds.length > 0) {
-                const tagPromises = jsonGatilho.tagIds.map(tagId => {
-                  console.log("[typebot] salvando a tagId", tagId);
-                  return TicketTag.create({
-                    ticketId: ticket.id,
-                    tagId: tagId
-                  });
-                });
-
-                await Promise.all(tagPromises);
-
-                if (isNil(jsonGatilho.queueId)) {
-                  await ticket.update({
-                    chatbot: true,
-                    useIntegration: true
-                  });
-                  await ticket.reload();
-                }
-                continue;
-              }
-
-              if (!isNil(jsonGatilho.queueId) && jsonGatilho.queueId > 0 && isNil(jsonGatilho.userId)) {
-                const ticketData: any = {
-                  queueId: jsonGatilho.queueId,
-                  chatbot: false,
-                  useIntegration: false,
-                  integrationId: null
-                };
-
-                await UpdateTicketService({
-                  ticketData,
-                  ticketId: ticket.id,
-                  companyId: ticket.companyId
-                })
-                return;
-              }
-
-              if (!isNil(jsonGatilho.queueId) && jsonGatilho.queueId > 0 && !isNil(jsonGatilho.userId) && jsonGatilho.userId > 0) {
-                await UpdateTicketService({
-                  ticketData: {
-                    queueId: jsonGatilho.queueId,
-                    userId: jsonGatilho.userId,
-                    chatbot: false,
-                    useIntegration: false,
-                    integrationId: null
-                  },
-                  ticketId: ticket.id,
-                  companyId: ticket.companyId
-                })
-                return;
-              }
-            } catch (err) {
-              throw err
-            }
+            await processTypebotCommand(formattedText, ticket);
+            continue;
           }
 
-          await SendPresenceStatus(wbot, msg.key.remoteJid, typebotDelayMessage)
-          await wbot.sendMessage(msg.key.remoteJid, { text: formattedText });
+          await SendPresenceStatus(wbot, msg.key.remoteJid, typebotDelayMessage);
+          await wbot.sendMessage(msg.key.remoteJid, {text: formattedText});
         }
 
         if (message.type === 'audio') {
           logger.info(`[Typebot] Processando mensagem de áudio: ${message.content.url}`);
-          await SendPresenceStatus(wbot, msg.key.remoteJid, typebotDelayMessage)
+          await SendPresenceStatus(wbot, msg.key.remoteJid, typebotDelayMessage);
 
           const media = {
             audio: {
@@ -402,7 +432,7 @@ const typebotListener = async ({
 
         if (message.type === 'image') {
           logger.info(`[Typebot] Processando mensagem de imagem: ${message.content.url}`);
-          await SendPresenceStatus(wbot, msg.key.remoteJid, typebotDelayMessage)
+          await SendPresenceStatus(wbot, msg.key.remoteJid, typebotDelayMessage);
           const media = {
             image: {
               url: message.content.url,
@@ -423,8 +453,8 @@ const typebotListener = async ({
           }
           formattedText = formattedText.replace(/\n$/, '');
 
-          await SendPresenceStatus(wbot, msg.key.remoteJid, typebotDelayMessage)
-          await wbot.sendMessage(msg.key.remoteJid, { text: formattedText });
+          await SendPresenceStatus(wbot, msg.key.remoteJid, typebotDelayMessage);
+          await wbot.sendMessage(msg.key.remoteJid, {text: formattedText});
         }
       }
       logger.info(`[Typebot] Processamento de mensagens concluído com sucesso`);
@@ -435,10 +465,10 @@ const typebotListener = async ({
         chatbot: true,
         typebotSessionId: null
       })
-      await wbot.sendMessage(`${number}@c.us`, { text: typebotRestartMessage })
+      await wbot.sendMessage(`${number}@c.us`, {text: typebotRestartMessage});
     } else if (body === typebotKeywordFinish) {
       logger.info(`[Typebot] Comando de finalização recebido para ticket ${ticket.id}`);
-      ticket.set({ typebotSessionId: null });
+      ticket.set({typebotSessionId: null});
       await UpdateTicketService({
         ticketData: {
           status: "closed",
@@ -448,7 +478,7 @@ const typebotListener = async ({
         },
         ticketId: ticket.id,
         companyId: ticket.companyId
-      })
+      });
       return;
     }
   } catch (error) {
