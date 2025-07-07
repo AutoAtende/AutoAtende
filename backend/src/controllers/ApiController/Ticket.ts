@@ -67,12 +67,12 @@ export const closeTicket = async (
 
   const ticketId = req.body.ticketId;
 
-  const ticketData = await ShowTicketService(+ticketId, companyId);
-  ticketData.status = req.body.ticketData.status || 'closed';
-
   const { ticket } = await UpdateTicketService({
-    ticketData: ticketData as any, // Ajuste o tipo conforme necessário
-    ticketId: +ticketId,
+    ticketData:{
+      status: 'closed',
+      unreadMessages: 0,
+    },
+    ticketId: ticketId,
     companyId
   });
   return res.status(200).json('Ticket closed');
