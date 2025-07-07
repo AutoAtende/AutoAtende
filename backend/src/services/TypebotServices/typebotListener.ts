@@ -21,6 +21,21 @@ interface Request {
   queueValues?: string[];
 }
 
+interface TypebotTriggerPayload {
+  stopBot?: boolean;
+  userId?: number;
+  queueId?: number;
+  tagIds?: number[];
+  status?: 'open' | 'pending' | 'closed';
+}
+
+const VALID_TICKET_STATUSES = ['open', 'pending', 'closed'] as const;
+type TicketStatus = typeof VALID_TICKET_STATUSES[number];
+
+const isValidTicketStatus = (status: string): status is TicketStatus => {
+  return VALID_TICKET_STATUSES.includes(status as TicketStatus);
+};
+
 const wait = async (seconds: number): Promise<void> => {
   logger.info(`[Typebot] Iniciando delay de ${seconds} segundos`);
   await new Promise(resolve => setTimeout(resolve, seconds * 1000));
@@ -312,78 +327,130 @@ const typebotListener = async ({
             formattedText = typebotUnknownMessage;
           }
 
-          if (formattedText.startsWith("#")) {
-            let gatilho = formattedText.replace("#", "");
+if (formattedText.startsWith("#")) {
+  let gatilho = formattedText.replace("#", "");
 
-            try {
-              let jsonGatilho = JSON.parse(gatilho);
+  try {
+    let jsonGatilho: TypebotTriggerPayload = JSON.parse(gatilho);
+    
+    logger.info(`[Typebot] Processando gatilho: ${JSON.stringify(jsonGatilho)}`);
 
-              if (jsonGatilho.stopBot && isNil(jsonGatilho.userId) && isNil(jsonGatilho.queueId) && isNil(jsonGatilho.tagIds)) {
-                await ticket.update({
-                  useIntegration: false,
-                  chatbot: false
-                })
-                return;
-              }
+    // ✅ Gatilho existente: stopBot
+    if (jsonGatilho.stopBot && isNil(jsonGatilho.userId) && isNil(jsonGatilho.queueId) && isNil(jsonGatilho.tagIds)) {
+      logger.info(`[Typebot] Executando stopBot para ticket ${ticket.id}`);
+      await ticket.update({
+        useIntegration: false,
+        chatbot: false
+      });
+      return;
+    }
 
-              if (!isNil(jsonGatilho.tagIds) && Array.isArray(jsonGatilho.tagIds) && jsonGatilho.tagIds.length > 0) {
-                const tagPromises = jsonGatilho.tagIds.map(tagId => {
-                  console.log("[typebot] salvando a tagId", tagId);
-                  return TicketTag.create({
-                    ticketId: ticket.id,
-                    tagId: tagId
-                  });
-                });
+    // ✅ NOVA FUNCIONALIDADE: Gatilho de status
+    if (!isNil(jsonGatilho.status)) {
+      if (!isValidTicketStatus(jsonGatilho.status)) {
+        logger.warn(`[Typebot] Status inválido fornecido: ${jsonGatilho.status}. Status válidos: ${VALID_TICKET_STATUSES.join(', ')}`);
+        continue;
+      }
 
-                await Promise.all(tagPromises);
+      logger.info(`[Typebot] Alterando status do ticket ${ticket.id} para: ${jsonGatilho.status}`);
+      
+      const ticketData = {
+        status: jsonGatilho.status,
+        // Manter integração ativa se não for fechamento
+        useIntegration: jsonGatilho.status !== 'closed',
+        chatbot: jsonGatilho.status !== 'closed',
+        // Limpar integração se for fechamento
+        ...(jsonGatilho.status === 'closed' && {
+          integrationId: null,
+          typebotSessionId: null,
+          typebotStatus: false
+        })
+      };
 
-                if (isNil(jsonGatilho.queueId)) {
-                  await ticket.update({
-                    chatbot: true,
-                    useIntegration: true
-                  });
-                  await ticket.reload();
-                }
-                continue;
-              }
+      await UpdateTicketService({
+        ticketData,
+        ticketId: ticket.id,
+        companyId: ticket.companyId
+      });
 
-              if (!isNil(jsonGatilho.queueId) && jsonGatilho.queueId > 0 && isNil(jsonGatilho.userId)) {
-                const ticketData = {
-                  status: "pending",
-                  queueId: jsonGatilho.queueId,
-                  chatbot: false,
-                  useIntegration: false,
-                  integrationId: null
-                };
+      logger.info(`[Typebot] Status do ticket ${ticket.id} alterado com sucesso para: ${jsonGatilho.status}`);
+      
+      // Se apenas está alterando status, continue o fluxo
+      if (isNil(jsonGatilho.queueId) && isNil(jsonGatilho.userId) && isNil(jsonGatilho.tagIds)) {
+        continue;
+      }
+    }
 
-                await UpdateTicketService({
-                  ticketData,
-                  ticketId: ticket.id,
-                  companyId: ticket.companyId
-                })
-                return;
-              }
+    // ✅ Gatilho existente: tagIds
+    if (!isNil(jsonGatilho.tagIds) && Array.isArray(jsonGatilho.tagIds) && jsonGatilho.tagIds.length > 0) {
+      logger.info(`[Typebot] Adicionando tags ${jsonGatilho.tagIds} ao ticket ${ticket.id}`);
+      
+      const tagPromises = jsonGatilho.tagIds.map(tagId => {
+        logger.info(`[Typebot] Salvando tagId: ${tagId} para ticket ${ticket.id}`);
+        return TicketTag.create({
+          ticketId: ticket.id,
+          tagId: tagId
+        });
+      });
 
-              if (!isNil(jsonGatilho.queueId) && jsonGatilho.queueId > 0 && !isNil(jsonGatilho.userId) && jsonGatilho.userId > 0) {
-                await UpdateTicketService({
-                  ticketData: {
-                    queueId: jsonGatilho.queueId,
-                    userId: jsonGatilho.userId,
-                    chatbot: false,
-                    useIntegration: false,
-                    integrationId: null
-                  },
-                  ticketId: ticket.id,
-                  companyId: ticket.companyId
-                })
-                return;
-              }
-            } catch (err) {
-              throw err
-            }
-          }
+      await Promise.all(tagPromises);
 
-          await SendPresenceStatus(wbot, msg.key.remoteJid, typebotDelayMessage)
+      if (isNil(jsonGatilho.queueId)) {
+        await ticket.update({
+          chatbot: true,
+          useIntegration: true
+        });
+        await ticket.reload();
+      }
+      continue;
+    }
+
+    // ✅ Gatilho existente: queueId sem userId
+    if (!isNil(jsonGatilho.queueId) && jsonGatilho.queueId > 0 && isNil(jsonGatilho.userId)) {
+      logger.info(`[Typebot] Transferindo ticket ${ticket.id} para fila ${jsonGatilho.queueId}`);
+      
+      const ticketData = {
+        status: jsonGatilho.status || "pending", // Usar status do gatilho ou padrão
+        queueId: jsonGatilho.queueId,
+        chatbot: false,
+        useIntegration: false,
+        integrationId: null
+      };
+
+      await UpdateTicketService({
+        ticketData,
+        ticketId: ticket.id,
+        companyId: ticket.companyId
+      });
+      return;
+    }
+
+    // ✅ Gatilho existente: queueId com userId
+    if (!isNil(jsonGatilho.queueId) && jsonGatilho.queueId > 0 && !isNil(jsonGatilho.userId) && jsonGatilho.userId > 0) {
+      logger.info(`[Typebot] Transferindo ticket ${ticket.id} para fila ${jsonGatilho.queueId} e usuário ${jsonGatilho.userId}`);
+      
+      await UpdateTicketService({
+        ticketData: {
+          queueId: jsonGatilho.queueId,
+          userId: jsonGatilho.userId,
+          status: jsonGatilho.status || "open", // Usar status do gatilho ou padrão
+          chatbot: false,
+          useIntegration: false,
+          integrationId: null
+        },
+        ticketId: ticket.id,
+        companyId: ticket.companyId
+      });
+      return;
+    }
+
+  } catch (err) {
+    logger.error(`[Typebot] Erro ao processar gatilho JSON: ${err}`);
+    throw err;
+  }
+}
+
+          await SendPresenceStatus(wbot, msg.key.remoteJid, typebotDelayMessage);
           await wbot.sendMessage(msg.key.remoteJid, { text: formattedText });
         }
 
