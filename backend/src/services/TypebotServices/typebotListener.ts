@@ -348,7 +348,8 @@ const typebotListener = async ({
               }
 
               if (!isNil(jsonGatilho.queueId) && jsonGatilho.queueId > 0 && isNil(jsonGatilho.userId)) {
-                const ticketData: any = {
+                const ticketData = {
+                  status: "pending",
                   queueId: jsonGatilho.queueId,
                   chatbot: false,
                   useIntegration: false,
@@ -428,6 +429,9 @@ const typebotListener = async ({
         }
       }
       logger.info(`[Typebot] Processamento de mensagens concluído com sucesso`);
+      await ticket.update({
+        statu: "closed"
+      })
       return true;
     } else if (body === typebotKeywordRestart) {
       logger.info(`[Typebot] Comando de restart recebido para ticket ${ticket.id}`);
