@@ -434,7 +434,7 @@ const typebotListener = async ({
       await ticket.update({
         chatbot: false,
         typebotSessionId: null,
-        typebotStatus: null
+        typebotStatus: false
       })
       await wbot.sendMessage(`${number}@c.us`, { text: typebotRestartMessage })
     } else if (body === typebotKeywordFinish) {
@@ -458,7 +458,7 @@ const typebotListener = async ({
     await ticket.update({
         chatbot: false,
         typebotSessionId: null,
-        typebotStatus: null
+        typebotStatus: false
     });
   }
 }
