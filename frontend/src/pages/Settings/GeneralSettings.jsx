@@ -268,15 +268,16 @@ const SettingTextField = React.memo(({
   type = "text",
   gridSize = { xs: 12, sm: 6 },
   validation = null,
-  showCopyButton = false
+  showCopyButton = false,
+  notifyBackend = true // <-- NOVA PROP ADICIONADA COM DEFAULT TRUE
 }) => {
   const handleChange = useCallback((event) => {
     const newValue = event.target.value;
     if (validation && !validation(newValue)) {
       return;
     }
-    onChange(id, newValue, false);
-  }, [id, onChange, validation]);
+    onChange(id, newValue, notifyBackend); // <-- AGORA USA A PROP EM VEZ DE HARDCODED FALSE
+  }, [id, onChange, validation, notifyBackend]);
 
   const handleCopy = useCallback(() => {
     if (value) {
@@ -337,7 +338,8 @@ SettingTextField.propTypes = {
   type: PropTypes.string,
   gridSize: PropTypes.object,
   validation: PropTypes.func,
-  showCopyButton: PropTypes.bool
+  showCopyButton: PropTypes.bool,
+  notifyBackend: PropTypes.bool // <-- NOVA PROP ADICIONADA AOS PROP TYPES
 };
 
 // Componente Principal
