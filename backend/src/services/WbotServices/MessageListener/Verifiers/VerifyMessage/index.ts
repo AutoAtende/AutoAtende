@@ -87,7 +87,7 @@ export const verifyMessage = async (
     });
   
     if (!msg.key.fromMe && ticket.status === "closed") {
-      await ticket.update({ status: "pending" });
+      await ticket.update({ status: "pending", userId: null });
       await ticket.reload({
         include: [
           { model: Queue, as: "queue" },
