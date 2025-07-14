@@ -167,6 +167,30 @@ const SessionSchema = Yup.object().shape({
     color: Yup.string(),
 });
 
+// Função utilitária para normalizar valores vindos do banco (números) para booleanos do frontend
+const normalizeNumberToBoolean = (value) => {
+    if (value === undefined || value === null) return false;
+    
+    if (typeof value === "boolean") {
+        return value;
+    }
+    
+    if (typeof value === "number") {
+        return value > 0;
+    }
+    
+    if (typeof value === "string") {
+        const numValue = Number(value);
+        if (!isNaN(numValue)) {
+            return numValue > 0;
+        }
+        const lowerValue = value.toLowerCase();
+        return lowerValue === "true" || lowerValue === "1" || lowerValue === "yes";
+    }
+    
+    return false;
+};
+
 const WhatsAppModal = ({ open, onClose, whatsAppId, onStartImportMonitoring }) => {
     const classes = useStyles();
     const theme = useTheme();
@@ -189,37 +213,37 @@ const WhatsAppModal = ({ open, onClose, whatsAppId, onStartImportMonitoring }) =
     const [showQrCodeAfterSave, setShowQrCodeAfterSave] = useState(false);
 
     // Estado inicial do WhatsApp
-const [whatsApp, setWhatsApp] = useState({
-    name: "",
-    greetingMessage: "",
-    complationMessage: "",
-    outOfHoursMessage: "",
-    ratingMessage: "",
-    isDefault: 0,
-    token: "",
-    maxUseBotQueues: 3,
-    provider: "beta",
-    expiresTicket: 0,
-    channel: "baileys",
-    allowGroup: false, // Usar booleano aqui
-    enableImportMessage: false,
-    timeUseBotQueues: "0",
-    timeSendQueue: "0",
-    sendIdQueue: 0,
-    expiresTicketNPS: "0",
-    expiresInactiveMessage: "",
-    timeInactiveMessage: "",
-    inactiveMessage: "",
-    collectiveVacationMessage: "",
-    collectiveVacationStart: null,
-    collectiveVacationEnd: null,
-    maxUseBotQueuesNPS: 3,
-    whenExpiresTicket: 0,
-    timeCreateNewTicket: 0,
-    color: "#7367F0",
-    autoRejectCalls: false, // Usar booleano aqui
-    autoImportContacts: true, // Usar booleano aqui
-});
+    const [whatsApp, setWhatsApp] = useState({
+        name: "",
+        greetingMessage: "",
+        complationMessage: "",
+        outOfHoursMessage: "",
+        ratingMessage: "",
+        isDefault: 0,
+        token: "",
+        maxUseBotQueues: 3,
+        provider: "beta",
+        expiresTicket: 0,
+        channel: "baileys",
+        allowGroup: false,
+        enableImportMessage: false,
+        timeUseBotQueues: "0",
+        timeSendQueue: "0",
+        sendIdQueue: 0,
+        expiresTicketNPS: "0",
+        expiresInactiveMessage: "",
+        timeInactiveMessage: "",
+        inactiveMessage: "",
+        collectiveVacationMessage: "",
+        collectiveVacationStart: null,
+        collectiveVacationEnd: null,
+        maxUseBotQueuesNPS: 3,
+        whenExpiresTicket: 0,
+        timeCreateNewTicket: 0,
+        color: "#7367F0",
+        autoRejectCalls: false,
+        autoImportContacts: true,
+    });
 
     const [selectedQueueIds, setSelectedQueueIds] = useState([]);
     const [enableImportMessage, setEnableImportMessage] = useState(false);
@@ -238,7 +262,6 @@ const [whatsApp, setWhatsApp] = useState({
     const [selectedPrompt, setSelectedPrompt] = useState(null);
     const [selectedIntegration, setSelectedIntegration] = useState(null);
     const [startConnection, setStartConnection] = useState(false);
-
 
     const [schedules, setSchedules] = useState([
         {
@@ -330,9 +353,8 @@ const [whatsApp, setWhatsApp] = useState({
                 const { data } = await api.get(`whatsapp/${whatsAppId}`);
     
                 if (data) {
-                    // Corrigir a conversão dos valores string para booleanos
-                    // Converter string "1" para booleano true
-                    setIsDefaultWhatsApp(data.isDefault === 1 || data.isDefault === "1");
+                    // Converter números do banco para booleanos do frontend
+                    setIsDefaultWhatsApp(normalizeNumberToBoolean(data.isDefault));
     
                     // Resto do código
                     setSelectedPrompt(data.promptId || null);
@@ -358,10 +380,10 @@ const [whatsApp, setWhatsApp] = useState({
                         maxUseBotQueues: data.maxUseBotQueues || 3,
                         provider: data.provider || "beta",
                         expiresTicket: data.expiresTicket || 0,
-                        // Converter os valores string/numéricos para booleanos
-                        allowGroup: data.allowGroup === 1 || data.allowGroup === "1",
-                        autoRejectCalls: data.autoRejectCalls === 1 || data.autoRejectCalls === "1",
-                        autoImportContacts: data.autoImportContacts === 1 || data.autoImportContacts === "1",
+                        // Converter números do banco (0/1) para booleanos do frontend (false/true)
+                        allowGroup: normalizeNumberToBoolean(data.allowGroup),
+                        autoRejectCalls: normalizeNumberToBoolean(data.autoRejectCalls),
+                        autoImportContacts: normalizeNumberToBoolean(data.autoImportContacts),
                         timeUseBotQueues: data.timeUseBotQueues || "0",
                         timeSendQueue: data.timeSendQueue || "0",
                         sendIdQueue: data.sendIdQueue || 0,
@@ -380,16 +402,20 @@ const [whatsApp, setWhatsApp] = useState({
                         timeCreateNewTicket: data.timeCreateNewTicket || 0,
                     };
     
-                    // Log para depuração - verificar se os valores booleanos estão corretos
-                    console.log("Valores booleanos carregados:", {
-                        isDefault: data.isDefault,
-                        convertedIsDefault: data.isDefault === 1 || data.isDefault === "1",
-                        allowGroup: data.allowGroup,
-                        convertedAllowGroup: data.allowGroup === 1 || data.allowGroup === "1",
-                        autoRejectCalls: data.autoRejectCalls,
-                        convertedAutoRejectCalls: data.autoRejectCalls === 1 || data.autoRejectCalls === "1",
-                        autoImportContacts: data.autoImportContacts,
-                        convertedAutoImportContacts: data.autoImportContacts === 1 || data.autoImportContacts === "1",
+                    // Log para depuração - verificar se os valores estão corretos
+                    console.log("Valores recebidos do servidor e convertidos:", {
+                        raw: {
+                            isDefault: data.isDefault,
+                            allowGroup: data.allowGroup,
+                            autoRejectCalls: data.autoRejectCalls,
+                            autoImportContacts: data.autoImportContacts,
+                        },
+                        converted: {
+                            isDefault: normalizeNumberToBoolean(data.isDefault),
+                            allowGroup: normalizeNumberToBoolean(data.allowGroup),
+                            autoRejectCalls: normalizeNumberToBoolean(data.autoRejectCalls),
+                            autoImportContacts: normalizeNumberToBoolean(data.autoImportContacts),
+                        }
                     });
     
                     setWhatsApp(defaultedData);
@@ -401,8 +427,8 @@ const [whatsApp, setWhatsApp] = useState({
                         setEnableImportMessage(true);
                         setImportOldMessages(data.importOldMessages);
                         setImportRecentMessages(data.importRecentMessages);
-                        setClosedTicketsPostImported(data.closedTicketsPostImported === "true" || data.closedTicketsPostImported === true);
-                        setImportOldMessagesGroups(data.importOldMessagesGroups === "true" || data.importOldMessagesGroups === true);
+                        setClosedTicketsPostImported(normalizeNumberToBoolean(data.closedTicketsPostImported));
+                        setImportOldMessagesGroups(normalizeNumberToBoolean(data.importOldMessagesGroups));
                     }
                 }
             } catch (err) {
@@ -504,7 +530,7 @@ const [whatsApp, setWhatsApp] = useState({
     
             // Verificação de conexão padrão se necessário
             if (isDefaultWhatsApp && !whatsAppId) {
-                const defaultWhatsApp = whatsApps.find(w => w.isDefault === 1 || w.isDefault === "1");
+                const defaultWhatsApp = whatsApps.find(w => normalizeNumberToBoolean(w.isDefault));
                 if (defaultWhatsApp) {
                     if (!window.confirm(i18n.t("whatsappModal.confirmations.changeDefault") || 
                                         "Já existe uma conexão padrão. Deseja substituí-la?")) {
@@ -536,15 +562,15 @@ const [whatsApp, setWhatsApp] = useState({
                 
             console.log("WhatsAppModal - Setores selecionados para salvar:", queueIds);
     
-            // Preparação de dados com conversão explícita para números (0 e 1)
+            // Preparação de dados - enviar como booleanos para o backend normalizar automaticamente
             const whatsappData = {
                 ...formattedValues,
-                isDefault: isDefaultWhatsApp ? 1 : 0,
+                // O backend irá converter booleanos para números (0/1) automaticamente
+                isDefault: isDefaultWhatsApp,
                 channel: "baileys",
-                // Converter explicitamente os valores booleanos para números
-                autoRejectCalls: values.autoRejectCalls === true ? 1 : 0,
-                autoImportContacts: values.autoImportContacts === true ? 1 : 0,
-                allowGroup: values.allowGroup === true ? 1 : 0,
+                autoRejectCalls: values.autoRejectCalls,
+                autoImportContacts: values.autoImportContacts,
+                allowGroup: values.allowGroup,
                 // Incluir explicitamente queueIds (mesmo que seja array vazio)
                 queueIds: queueIds,
                 token: autoToken || '',
@@ -554,12 +580,15 @@ const [whatsApp, setWhatsApp] = useState({
                 schedules: schedules || [],
                 importOldMessages: enableImportMessage ? importOldMessages : null,
                 importRecentMessages: enableImportMessage ? importRecentMessages : null,
-                importOldMessagesGroups: importOldMessagesGroups ? 1 : 0,
-                closedTicketsPostImported: closedTicketsPostImported ? 1 : 0,
+                importOldMessagesGroups: importOldMessagesGroups,
+                closedTicketsPostImported: closedTicketsPostImported,
                 maxUseBotQueues: Number(values.maxUseBotQueues) || 3,
                 timeUseBotQueues: values.timeUseBotQueues || "0",
                 expiresTicket: Number(values.expiresTicket) || 0
             };
+            
+            // Log para debug
+            console.log("WhatsAppModal - Dados sendo enviados:", JSON.stringify(whatsappData, null, 2));
             
             let savedWhatsApp;
         
@@ -850,65 +879,65 @@ const [whatsApp, setWhatsApp] = useState({
                                             </Grid>
 
                                             <Grid item xs={12} sm={6}>
-    <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
-        <FormControlLabel
-            control={
-                <Switch
-                    checked={isDefaultWhatsApp}
-                    onChange={(e) => {
-                        console.log("isDefault alterado:", e.target.checked);
-                        setIsDefaultWhatsApp(e.target.checked);
-                    }}
-                    color="primary"
-                />
-            }
-            label={i18n.t("whatsappModal.form.default")}
-        />
-        <FormControlLabel
-            control={
-                <Switch
-                    name="allowGroup"
-                    color="primary"
-                    checked={values.allowGroup === true}
-                    onChange={(e) => {
-                        console.log("allowGroup alterado:", e.target.checked);
-                        setFieldValue("allowGroup", e.target.checked);
-                    }}
-                />
-            }
-            label={i18n.t("whatsappModal.form.group")}
-        />
-        <FormControlLabel
-            control={
-                <Switch
-                    name="autoImportContacts"
-                    color="primary"
-                    checked={values.autoImportContacts === true}
-                    onChange={(e) => {
-                        console.log("autoImportContacts alterado:", e.target.checked);
-                        setFieldValue("autoImportContacts", e.target.checked);
-                    }}
-                />
-            }
-            label={i18n.t("whatsappModal.form.autoImport")}
-        />
+                                                <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
+                                                    <FormControlLabel
+                                                        control={
+                                                            <Switch
+                                                                checked={isDefaultWhatsApp}
+                                                                onChange={(e) => {
+                                                                    console.log("isDefault alterado:", e.target.checked);
+                                                                    setIsDefaultWhatsApp(e.target.checked);
+                                                                }}
+                                                                color="primary"
+                                                            />
+                                                        }
+                                                        label={i18n.t("whatsappModal.form.default")}
+                                                    />
+                                                    <FormControlLabel
+                                                        control={
+                                                            <Switch
+                                                                name="allowGroup"
+                                                                color="primary"
+                                                                checked={values.allowGroup}
+                                                                onChange={(e) => {
+                                                                    console.log("allowGroup alterado:", e.target.checked);
+                                                                    setFieldValue("allowGroup", e.target.checked);
+                                                                }}
+                                                            />
+                                                        }
+                                                        label={i18n.t("whatsappModal.form.group")}
+                                                    />
+                                                    <FormControlLabel
+                                                        control={
+                                                            <Switch
+                                                                name="autoImportContacts"
+                                                                color="primary"
+                                                                checked={values.autoImportContacts}
+                                                                onChange={(e) => {
+                                                                    console.log("autoImportContacts alterado:", e.target.checked);
+                                                                    setFieldValue("autoImportContacts", e.target.checked);
+                                                                }}
+                                                            />
+                                                        }
+                                                        label={i18n.t("whatsappModal.form.autoImport")}
+                                                    />
 
-        <FormControlLabel
-            control={
-                <Switch
-                    name="autoRejectCalls"
-                    color="primary"
-                    checked={values.autoRejectCalls === true}
-                    onChange={(e) => {
-                        console.log("autoRejectCalls alterado:", e.target.checked);
-                        setFieldValue("autoRejectCalls", e.target.checked);
-                    }}
-                />
-            }
-            label={i18n.t("whatsappModal.form.autoReject")}
-        />
-    </Box>
-</Grid>
+                                                    <FormControlLabel
+                                                        control={
+                                                            <Switch
+                                                                name="autoRejectCalls"
+                                                                color="primary"
+                                                                checked={values.autoRejectCalls}
+                                                                onChange={(e) => {
+                                                                    console.log("autoRejectCalls alterado:", e.target.checked);
+                                                                    setFieldValue("autoRejectCalls", e.target.checked);
+                                                                }}
+                                                            />
+                                                        }
+                                                        label={i18n.t("whatsappModal.form.autoReject")}
+                                                    />
+                                                </Box>
+                                            </Grid>
 
                                             <Grid item xs={12} sm={6}>
                                                 <Field

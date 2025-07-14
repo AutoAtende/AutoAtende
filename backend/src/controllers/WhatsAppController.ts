@@ -28,9 +28,9 @@ interface CreateWhatsAppData {
     outOfHoursMessage?: string;
     ratingMessage?: string;
     status?: string;
-    isDefault?: number;
-    autoRejectCalls?: number;
-    autoImportContacts?: number;
+    isDefault?: boolean | number | string;
+    autoRejectCalls?: boolean | number | string;
+    autoImportContacts?: boolean | number | string;
     token?: string;
     provider?: string;
     sendIdQueue?: number;
@@ -46,13 +46,22 @@ interface CreateWhatsAppData {
     collectiveVacationMessage?: string;
     collectiveVacationStart?: number; 
     collectiveVacationEnd?: number;
-    allowGroup?: number;
+    allowGroup?: boolean | number | string;
     importOldMessages?: string;
     importRecentMessages?: string;
-    closedTicketsPostImported?: number;
-    importOldMessagesGroups?: number;
+    closedTicketsPostImported?: boolean | number | string;
+    importOldMessagesGroups?: boolean | number | string;
     color?: string;
 }
+
+// Função utilitária para validar cor
+const validateWhatsAppColor = (color: string | undefined): string => {
+  if (!color || typeof color !== 'string' || !color.startsWith('#')) {
+    return "#7367F0"; // Cor padrão
+  }
+  // Validar formato hexadecimal
+  return /^#([0-9A-F]{3}){1,2}$/i.test(color) ? color : "#7367F0";
+};
 
 export const index = async (req: Request, res: Response): Promise<Response> => {
   const { companyId } = req.user;
@@ -66,14 +75,6 @@ export const index = async (req: Request, res: Response): Promise<Response> => {
     logger.error(`Error listing whatsapps: ${err}`);
     throw new AppError("ERR_LIST_WHATSAPPS", 500);
   }
-};
-
-const validateWhatsAppColor = (color: string | undefined): string => {
-  if (!color || typeof color !== 'string' || !color.startsWith('#')) {
-    return "#7367F0"; // Cor padrão
-  }
-  // Validar formato hexadecimal
-  return /^#([0-9A-F]{3}){1,2}$/i.test(color) ? color : "#7367F0";
 };
 
 export const store = async (req: Request, res: Response): Promise<Response> => {
@@ -98,15 +99,20 @@ export const store = async (req: Request, res: Response): Promise<Response> => {
         .filter(id => !isNaN(id) && id > 0);
       
       logger.info(`[WhatsAppController] IDs de setores processados: ${data.queueIds.join(', ')}`);
+    } else {
+      // Garantir que queueIds seja sempre um array
+      data.queueIds = [];
     }
 
-    // Garantir que os campos booleanos estão como números
-    data.autoRejectCalls = data.autoRejectCalls ? 1 : 0;
-    data.autoImportContacts = data.autoImportContacts ? 1 : 0;
-    data.isDefault = data.isDefault ? 1 : 0;
-    data.allowGroup = data.allowGroup ? 1 : 0;
-    data.closedTicketsPostImported = data.closedTicketsPostImported ? 1 : 0;
-    data.importOldMessagesGroups = data.importOldMessagesGroups ? 1 : 0;
+    // Log dos valores que serão enviados para o service (sem normalização prévia)
+    logger.info(`[WhatsAppController] Valores booleanos sendo enviados:`, {
+      autoRejectCalls: data.autoRejectCalls,
+      autoImportContacts: data.autoImportContacts,
+      isDefault: data.isDefault,
+      allowGroup: data.allowGroup,
+      closedTicketsPostImported: data.closedTicketsPostImported,
+      importOldMessagesGroups: data.importOldMessagesGroups
+    });
 
     const { whatsapp, oldDefaultWhatsapp } = await CreateWhatsAppService({
       ...data,
@@ -211,23 +217,17 @@ export const update = async (req: Request, res: Response): Promise<Response> => 
         console.log(`[WhatsAppController] queueIds não é um array, definindo como array vazio`);
         whatsappData.queueIds = [];
       }
-    } else {
-      console.log(`[WhatsAppController] queueIds é undefined`);
     }
 
-    // Garantir que os campos booleanos estão como números
-    if (whatsappData.allowGroup !== undefined) {
-      whatsappData.allowGroup = whatsappData.allowGroup ? 1 : 0;
-    }
-    if (whatsappData.autoRejectCalls !== undefined) {
-      whatsappData.autoRejectCalls = whatsappData.autoRejectCalls ? 1 : 0;
-    }
-    if (whatsappData.autoImportContacts !== undefined) {
-      whatsappData.autoImportContacts = whatsappData.autoImportContacts ? 1 : 0;
-    }
-    if (whatsappData.isDefault !== undefined) {
-      whatsappData.isDefault = whatsappData.isDefault ? 1 : 0;
-    }
+    // Log dos valores que serão enviados para o service (sem normalização prévia no controller)
+    console.log(`[WhatsAppController] Valores booleanos sendo enviados para update:`, {
+      allowGroup: whatsappData.allowGroup,
+      autoRejectCalls: whatsappData.autoRejectCalls,
+      autoImportContacts: whatsappData.autoImportContacts,
+      isDefault: whatsappData.isDefault,
+      closedTicketsPostImported: whatsappData.closedTicketsPostImported,
+      importOldMessagesGroups: whatsappData.importOldMessagesGroups
+    });
 
     const { whatsapp: updatedWhatsapp, oldDefaultWhatsapp } = await UpdateWhatsAppService({
       whatsappData,

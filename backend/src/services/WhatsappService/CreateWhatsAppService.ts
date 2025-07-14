@@ -14,9 +14,9 @@ interface Request {
   outOfHoursMessage?: string;
   ratingMessage?: string;
   status?: string;
-  isDefault?: number;
-  autoRejectCalls?: number;
-  autoImportContacts?: number;
+  isDefault?: number | string | boolean;
+  autoRejectCalls?: number | string | boolean;
+  autoImportContacts?: number | string | boolean;
   token?: string;
   provider?: string;
   sendIdQueue?: number;
@@ -33,11 +33,11 @@ interface Request {
   collectiveVacationMessage?: string;
   collectiveVacationStart?: number; 
   collectiveVacationEnd?: number;
-  allowGroup?: number;
+  allowGroup?: number | string | boolean;
   importOldMessages?: string;
   importRecentMessages?: string;
-  closedTicketsPostImported?: number;
-  importOldMessagesGroups?: number;
+  closedTicketsPostImported?: number | string | boolean;
+  importOldMessagesGroups?: number | string | boolean;
   color?: string;
 }
 
@@ -45,6 +45,26 @@ interface Response {
   whatsapp: Whatsapp;
   oldDefaultWhatsapp: Whatsapp | null;
 }
+
+// Função utilitária para normalizar valores booleanos para números
+const normalizeBooleanToNumber = (value: boolean | string | number | undefined): number => {
+  if (value === undefined || value === null) return 0;
+  
+  if (typeof value === "boolean") {
+    return value ? 1 : 0;
+  }
+  
+  if (typeof value === "number") {
+    return value > 0 ? 1 : 0;
+  }
+  
+  if (typeof value === "string") {
+    const lowerValue = value.toLowerCase();
+    return (lowerValue === "true" || lowerValue === "1" || lowerValue === "yes") ? 1 : 0;
+  }
+  
+  return 0;
+};
 
 const CreateWhatsAppService = async ({
   name,
@@ -82,6 +102,15 @@ const CreateWhatsAppService = async ({
   color = ""
 }: Request): Promise<Response> => {
 
+  // Normalizar campos booleanos para números
+  const normalizedIsDefault = normalizeBooleanToNumber(isDefault);
+  const normalizedAutoRejectCalls = normalizeBooleanToNumber(autoRejectCalls);
+  const normalizedAutoImportContacts = normalizeBooleanToNumber(autoImportContacts);
+  const normalizedAllowGroup = normalizeBooleanToNumber(allowGroup);
+  const normalizedClosedTicketsPostImported = normalizeBooleanToNumber(closedTicketsPostImported);
+  const normalizedImportOldMessagesGroups = normalizeBooleanToNumber(importOldMessagesGroups);
+
+  console.log(`[CreateWhatsAppService] Dados recebidos - isDefault: ${isDefault} -> ${normalizedIsDefault}, allowGroup: ${allowGroup} -> ${normalizedAllowGroup}, autoRejectCalls: ${autoRejectCalls} -> ${normalizedAutoRejectCalls}, autoImportContacts: ${autoImportContacts} -> ${normalizedAutoImportContacts}`);
 
   status = "OPENING";
   
@@ -119,17 +148,29 @@ const CreateWhatsAppService = async ({
     throw new AppError(err.message);
   }
 
+  // ✅ CORREÇÃO: Não sobrescrever isDefault baseado na existência de whatsapp
+  // A lógica original estava errada - deve respeitar o valor enviado pelo usuário
   const whatsappFound = await Whatsapp.findOne({ where: { companyId } });
+  
+  // Se o usuário não especificou isDefault e é a primeira conexão da empresa, torna padrão
+  let finalIsDefault = normalizedIsDefault;
+  if (normalizedIsDefault === 0 && !whatsappFound) {
+    finalIsDefault = 1;
+    console.log(`[CreateWhatsAppService] Primeira conexão da empresa - definindo como padrão automaticamente`);
+  }
 
-  isDefault = whatsappFound ? 1 : 0;
+  console.log(`[CreateWhatsAppService] isDefault final: ${finalIsDefault}`);
 
   let oldDefaultWhatsapp: Whatsapp | null = null;
 
-  if (isDefault) {
+  // ✅ CORREÇÃO: Comparação correta com número
+  if (finalIsDefault === 1) {
+    console.log(`[CreateWhatsAppService] Buscando conexão padrão atual para remover...`);
     oldDefaultWhatsapp = await Whatsapp.findOne({
       where: { isDefault: 1, companyId }
     });
     if (oldDefaultWhatsapp) {
+      console.log(`[CreateWhatsAppService] Removendo isDefault da conexão: ${oldDefaultWhatsapp.name}`);
       await oldDefaultWhatsapp.update({ isDefault: 0 });
     }
   }
@@ -147,6 +188,15 @@ const CreateWhatsAppService = async ({
     }
   }
 
+  console.log(`[CreateWhatsAppService] Criando WhatsApp com dados:`, {
+    name,
+    isDefault: finalIsDefault,
+    allowGroup: normalizedAllowGroup,
+    autoRejectCalls: normalizedAutoRejectCalls,
+    autoImportContacts: normalizedAutoImportContacts,
+    companyId
+  });
+
   const whatsapp = await Whatsapp.create(
     {
       name,
@@ -156,9 +206,9 @@ const CreateWhatsAppService = async ({
       complationMessage,
       outOfHoursMessage,
       ratingMessage,
-      isDefault,
-      autoRejectCalls,
-      autoImportContacts,
+      isDefault: finalIsDefault,
+      autoRejectCalls: normalizedAutoRejectCalls,
+      autoImportContacts: normalizedAutoImportContacts,
       companyId,
       token,
       provider,
@@ -175,15 +225,17 @@ const CreateWhatsAppService = async ({
       collectiveVacationMessage, 
       collectiveVacationStart,   
       collectiveVacationEnd,   
-      allowGroup,
+      allowGroup: normalizedAllowGroup,
       importOldMessages,
       importRecentMessages,
-      closedTicketsPostImported,
-      importOldMessagesGroups,
+      closedTicketsPostImported: normalizedClosedTicketsPostImported,
+      importOldMessagesGroups: normalizedImportOldMessagesGroups,
       color
     },
     { include: ["queues"] }
   );
+
+  console.log(`[CreateWhatsAppService] WhatsApp criado com sucesso. ID: ${whatsapp.id}, isDefault: ${whatsapp.isDefault}`);
 
   await AssociateWhatsappQueue(whatsapp, queueIds);
 

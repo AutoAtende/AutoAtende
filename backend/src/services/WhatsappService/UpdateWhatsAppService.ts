@@ -1,5 +1,5 @@
 // Versão corrigida de UpdateWhatsAppService.ts
-// Mantendo a lógica original e apenas adicionando logs
+// Corrigindo problemas com isDefault e campos booleanos
 
 import * as Yup from "yup";
 import { Op } from "sequelize";
@@ -15,9 +15,9 @@ export interface WhatsappData {
   status?: string;
   channel?: string;
   session?: string;
-  isDefault?: number;
-  autoRejectCalls?: number;
-  autoImportContacts?: number;
+  isDefault?: number | string | boolean;
+  autoRejectCalls?: number | string | boolean;
+  autoImportContacts?: number | string | boolean;
   greetingMessage?: string;
   complationMessage?: string;
   outOfHoursMessage?: string;
@@ -38,11 +38,11 @@ export interface WhatsappData {
   collectiveVacationMessage?: string; 
   collectiveVacationStart?: number; 
   collectiveVacationEnd?: number;
-  allowGroup?: number;
+  allowGroup?: number | string | boolean;
   importOldMessages?: string;
   importRecentMessages?: string;
-  closedTicketsPostImported?: number;
-  importOldMessagesGroups?: number;
+  closedTicketsPostImported?: number | string | boolean;
+  importOldMessagesGroups?: number | string | boolean;
   color?: string;
 }
 
@@ -57,13 +57,34 @@ interface Response {
   oldDefaultWhatsapp: Whatsapp | null;
 }
 
+// Função utilitária para normalizar valores booleanos para números
+const normalizeBooleanToNumber = (value: boolean | string | number | undefined): number => {
+  if (value === undefined || value === null) return 0;
+  
+  if (typeof value === "boolean") {
+    return value ? 1 : 0;
+  }
+  
+  if (typeof value === "number") {
+    return value > 0 ? 1 : 0;
+  }
+  
+  if (typeof value === "string") {
+    const lowerValue = value.toLowerCase();
+    return (lowerValue === "true" || lowerValue === "1" || lowerValue === "yes") ? 1 : 0;
+  }
+  
+  return 0;
+};
+
 const UpdateWhatsAppService = async ({
   whatsappData,
   whatsappId,
   companyId
 }: Request): Promise<Response> => {
   // Log para debug do problema de queueIds
-  console.log(`[UpdateWhatsAppService] Dados de queueIds recebidos:`, JSON.stringify(whatsappData.queueIds, null, 2));
+  console.log(`[UpdateWhatsAppService] Dados recebidos:`, JSON.stringify(whatsappData, null, 2));
+  console.log(`[UpdateWhatsAppService] queueIds específico:`, JSON.stringify(whatsappData.queueIds));
   
   const schema = Yup.object().shape({
     name: Yup.string().min(2),
@@ -105,6 +126,17 @@ const UpdateWhatsAppService = async ({
     color
   } = whatsappData;
 
+  // Normalizar campos booleanos para números
+  const normalizedIsDefault = isDefault !== undefined ? normalizeBooleanToNumber(isDefault) : undefined;
+  const normalizedAutoRejectCalls = autoRejectCalls !== undefined ? normalizeBooleanToNumber(autoRejectCalls) : undefined;
+  const normalizedAutoImportContacts = autoImportContacts !== undefined ? normalizeBooleanToNumber(autoImportContacts) : undefined;
+  const normalizedAllowGroup = allowGroup !== undefined ? normalizeBooleanToNumber(allowGroup) : undefined;
+  const normalizedClosedTicketsPostImported = closedTicketsPostImported !== undefined ? normalizeBooleanToNumber(closedTicketsPostImported) : undefined;
+  const normalizedImportOldMessagesGroups = importOldMessagesGroups !== undefined ? normalizeBooleanToNumber(importOldMessagesGroups) : undefined;
+
+  console.log(`[UpdateWhatsAppService] Valores originais - isDefault: ${isDefault}, allowGroup: ${allowGroup}, autoRejectCalls: ${autoRejectCalls}, autoImportContacts: ${autoImportContacts}`);
+  console.log(`[UpdateWhatsAppService] Valores normalizados - isDefault: ${normalizedIsDefault}, allowGroup: ${normalizedAllowGroup}, autoRejectCalls: ${normalizedAutoRejectCalls}, autoImportContacts: ${normalizedAutoImportContacts}`);
+
   try {
     await schema.validate({ name, status });
   } catch (err: any) {
@@ -118,7 +150,9 @@ const UpdateWhatsAppService = async ({
 
   let oldDefaultWhatsapp: Whatsapp | null = null;
 
-  if (isDefault) {
+  // ✅ CORREÇÃO: Comparação correta com número
+  if (normalizedIsDefault === 1) {
+    console.log(`[UpdateWhatsAppService] Definindo como padrão - removendo padrão de outras conexões...`);
     oldDefaultWhatsapp = await Whatsapp.findOne({
       where: {
         isDefault: 1,
@@ -127,6 +161,7 @@ const UpdateWhatsAppService = async ({
       }
     });
     if (oldDefaultWhatsapp) {
+      console.log(`[UpdateWhatsAppService] Removendo isDefault da conexão: ${oldDefaultWhatsapp.name}`);
       await oldDefaultWhatsapp.update({ isDefault: 0 });
     }
   }
@@ -138,14 +173,25 @@ const UpdateWhatsAppService = async ({
     whatsapp.queues ? JSON.stringify(whatsapp.queues.map(q => ({ id: q.id, name: q.name }))) : "[]");
   
   // Mantém o status atual se não for conexão oficial
-  status = whatsapp.status;
+  if (!status) {
+    status = whatsapp.status;
+  }
 
   // Mantém a sessão atual se não for explicitamente fornecida
   if (!session) {
     session = whatsapp.session;
   }
 
-  isDefault = whatsapp ? 1 : 0;
+  // ✅ CORREÇÃO: NÃO sobrescrever isDefault - respeitar o valor enviado pelo usuário
+  // A linha original estava incorreta: `isDefault = whatsapp ? 1 : 0;`
+  // Isso sobrescrevia o valor do usuário com base na existência do whatsapp
+  let finalIsDefault = whatsapp.isDefault; // Valor atual por padrão
+  if (normalizedIsDefault !== undefined) {
+    // Se foi fornecido um valor específico, usar ele
+    finalIsDefault = normalizedIsDefault;
+  }
+
+  console.log(`[UpdateWhatsAppService] isDefault final para atualização: ${finalIsDefault}`);
 
   await whatsapp.update({
     name,
@@ -156,9 +202,9 @@ const UpdateWhatsAppService = async ({
     complationMessage,
     outOfHoursMessage,
     ratingMessage,
-    isDefault,
-    autoRejectCalls,
-    autoImportContacts,
+    isDefault: finalIsDefault, // ✅ Usar valor correto (não sobrescrito)
+    autoRejectCalls: normalizedAutoRejectCalls !== undefined ? normalizedAutoRejectCalls : whatsapp.autoRejectCalls,
+    autoImportContacts: normalizedAutoImportContacts !== undefined ? normalizedAutoImportContacts : whatsapp.autoImportContacts,
     token,
     timeSendQueue,
     sendIdQueue,
@@ -174,12 +220,14 @@ const UpdateWhatsAppService = async ({
     collectiveVacationStart,   
     collectiveVacationEnd,      
     color,                     
-    allowGroup,
+    allowGroup: normalizedAllowGroup !== undefined ? normalizedAllowGroup : whatsapp.allowGroup,
     importOldMessages,
     importRecentMessages,
-    closedTicketsPostImported,
-    importOldMessagesGroups
+    closedTicketsPostImported: normalizedClosedTicketsPostImported !== undefined ? normalizedClosedTicketsPostImported : whatsapp.closedTicketsPostImported,
+    importOldMessagesGroups: normalizedImportOldMessagesGroups !== undefined ? normalizedImportOldMessagesGroups : whatsapp.importOldMessagesGroups
   });
+
+  console.log(`[UpdateWhatsAppService] WhatsApp atualizado. ID: ${whatsapp.id}, isDefault: ${whatsapp.isDefault}`);
 
   // Verificar se queueIds existe antes de associar
   // Log para debug do tratamento de queueIds
@@ -187,6 +235,8 @@ const UpdateWhatsAppService = async ({
   
   // Garantir que queueIds seja sempre um array, mesmo que vazio
   const queueIdsArray = Array.isArray(queueIds) ? queueIds : [];
+  
+  console.log(`[UpdateWhatsAppService] queueIdsArray processado:`, JSON.stringify(queueIdsArray));
   
   // Forçar sempre a execução do AssociateWhatsappQueue para garantir que as filas sejam atualizadas
   await AssociateWhatsappQueue(whatsapp, queueIdsArray);
@@ -208,6 +258,7 @@ const UpdateWhatsAppService = async ({
 
   // Reinicia a sessão apenas se necessário
   if (promptId !== whatsapp.promptId || integrationId !== whatsapp.integrationId) {
+    console.log(`[UpdateWhatsAppService] Reiniciando wbot devido a mudança de prompt/integração`);
     await restartWbot(companyId);
   }
 
