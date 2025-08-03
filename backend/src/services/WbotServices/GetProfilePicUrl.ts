@@ -1,6 +1,5 @@
 import GetDefaultWhatsApp from "../../helpers/GetDefaultWhatsApp";
 import { getWbot } from "../../libs/wbot";
-import caches from "../../utils/cache";
 import Contact from "../../models/Contact";
 import { logger } from "../../utils/logger";
 
@@ -24,40 +23,6 @@ const formatWhatsAppNumber = (number: string): string => {
   return number;
 };
 
-const getFromCache = async (number: string): Promise<string | null> => {
-  try {
-    const cachedUrl = caches.imgCache.get<string>(number);
-    if (cachedUrl) return cachedUrl;
-
-    // Garantir que o número seja tratado como string
-    const contact = await Contact.findOne({ 
-      where: { 
-        number: String(number) // Conversão explícita para string
-      } 
-    });
-
-    if (contact?.profilePicUrl) {
-      const cacheExpiration = new Date();
-      cacheExpiration.setHours(cacheExpiration.getHours() - 24);
-
-      if (contact.updatedAt >= cacheExpiration) {
-        caches.imgCache.set(number, contact.profilePicUrl);
-        return contact.profilePicUrl;
-      }
-    }
-
-    return null;
-  } catch (error) {
-    logger.error({
-      message: "Erro ao verificar cache da foto de perfil",
-      number,
-      error: (error as Error).message,
-      stack: (error as Error).stack
-    });
-    return null;
-  }
-};
-
 const GetProfilePicUrl = async (
   number: string,
   companyId: number
@@ -76,15 +41,6 @@ const GetProfilePicUrl = async (
     }
 
     const formattedNumber = formatWhatsAppNumber(cleanNumber);
-
-    const cachedUrl = await getFromCache(formattedNumber);
-    if (cachedUrl) {
-      logger.debug({
-        message: "Foto de perfil recuperada do cache",
-        number: formattedNumber
-      });
-      return cachedUrl;
-    }
 
     const defaultWhatsapp = await GetDefaultWhatsApp(companyId);
     if (!defaultWhatsapp) {
@@ -116,9 +72,6 @@ const GetProfilePicUrl = async (
       throw profileError;
     }
 
-    // Salvar no cache e no banco de dados
-    caches.imgCache.set(formattedNumber, profilePicUrl);
-
     // Atualizar o contato no banco de dados
     await Contact.update(
       { profilePicUrl },
@@ -128,12 +81,6 @@ const GetProfilePicUrl = async (
         } 
       }
     );
-
-    logger.info({
-      message: "Foto de perfil obtida com sucesso",
-      number: formattedNumber,
-      companyId
-    });
 
     return profilePicUrl;
 

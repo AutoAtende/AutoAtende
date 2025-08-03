@@ -332,7 +332,7 @@ export const initWASocket = async (whatsapp: Whatsapp): Promise<Session> => {
         }
 
         const msgRetryCounterCache = new NodeCache();
-        const userDevicesCache: CacheStore = new NodeCache();
+        const userDevicesCache = new NodeCache();
         const internalGroupCache = new NodeCache({
           stdTTL: 5 * 60,
           useClones: false
