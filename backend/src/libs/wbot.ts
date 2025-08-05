@@ -215,7 +215,7 @@ export const restartWbot = async (companyId: number, session?: any): Promise<voi
 
 export let dataMessages = [];
 
-const waVersion: WAVersion = [2, 3000, 1025052013];
+const waVersion: WAVersion = [2, 3000, 1023333981];
 
 const getProjectWAVersion = async () => {
   try {
@@ -331,12 +331,44 @@ export const initWASocket = async (whatsapp: Whatsapp): Promise<Session> => {
           state.creds = result.creds;
         }
 
-        const msgRetryCounterCache = new NodeCache();
-        const userDevicesCache: CacheStore = new NodeCache();
+        const internalMsgRetryCounterCache = new NodeCache();
+        const internalUserDevicesCache = new NodeCache();
         const internalGroupCache = new NodeCache({
           stdTTL: 5 * 60,
           useClones: false
         });
+
+        // Cache wrapper for msgRetryCounterCache
+        const msgRetryCounterCache: CacheStore = {
+          get: <T>(key: string): T => {
+            return internalMsgRetryCounterCache.get(key) as T;
+          },
+          set: async (key: string, value: any) => {
+            return internalMsgRetryCounterCache.set(key, value);
+          },
+          del: async (key: string) => {
+            return internalMsgRetryCounterCache.del(key);
+          },
+          flushAll: async () => {
+            return internalMsgRetryCounterCache.flushAll();
+          }
+        };
+
+        // Cache wrapper for userDevicesCache
+        const userDevicesCache: CacheStore = {
+          get: <T>(key: string): T => {
+            return internalUserDevicesCache.get(key) as T;
+          },
+          set: async (key: string, value: any) => {
+            return internalUserDevicesCache.set(key, value);
+          },
+          del: async (key: string) => {
+            return internalUserDevicesCache.del(key);
+          },
+          flushAll: async () => {
+            return internalUserDevicesCache.flushAll();
+          }
+        };
 
         // Cache de grupos simples como o original
         const groupCache: CacheStore = {
