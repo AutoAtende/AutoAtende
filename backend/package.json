@@ -84,7 +84,7 @@
     "sdk-typescript-apis-efi": "^1.2.6",
     "sequelize": "^5.22.5",
     "sequelize-cli": "^5.5.1",
-    "sequelize-typescript": "1.1.0",
+    "sequelize-typescript": "2.1.6",
     "sharp": "^0.32.6",
     "socket.io": "4.8.1",
     "stream": "^0.0.3",
