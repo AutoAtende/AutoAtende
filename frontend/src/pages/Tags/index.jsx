@@ -7,7 +7,8 @@ import {
   MenuItem,
   ListItemIcon,
   ListItemText,
-  IconButton
+  IconButton,
+  TablePagination
 } from "@mui/material";
 import {
   Edit as EditIcon,
@@ -45,6 +46,12 @@ const Tags = () => {
   const [searchParam, setSearchParam] = useState("");
   const [activeTab, setActiveTab] = useState(0);
   
+ // Estados de paginação
+  const [page, setPage] = useState(0);
+  const [rowsPerPage, setRowsPerPage] = useState(25);
+  const [totalCount, setTotalCount] = useState(0);
+  const [hasMore, setHasMore] = useState(false);
+
   // Estados de modais
   const [tagModalOpen, setTagModalOpen] = useState(false);
   const [bulkModalOpen, setBulkModalOpen] = useState(false);
@@ -57,28 +64,43 @@ const Tags = () => {
   const [bulkActionAnchorEl, setBulkActionAnchorEl] = useState(null);
 
   // Função para buscar tags do servidor
-  const fetchTags = useCallback(async () => {
+    const fetchTags = useCallback(async () => {
     try {
       setLoading(true);
       const { data } = await api.get("/tags", {
         params: {
           searchParam,
+          pageNumber: page + 1, // +1 porque a API começa em 1
+          pageSize: rowsPerPage,
         },
       });
 
       setTags(data.tags || []);
+      setTotalCount(data.count || 0);
+      setHasMore(data.hasMore || false);
     } catch (err) {
       console.error(err);
       toast.error(i18n.t("tags.toasts.loadError"));
     } finally {
       setLoading(false);
     }
-  }, [searchParam]);
+  }, [searchParam, page, rowsPerPage]);
 
   // Carregar tags na montagem e quando os filtros mudarem
   useEffect(() => {
     fetchTags();
   }, [fetchTags]);
+
+  // Manipuladores de paginação
+  const handleChangePage = (event, newPage) => {
+    setPage(newPage);
+    setSelectedTags([]); // Limpar seleção ao mudar de página
+  };
+
+  const handleChangeRowsPerPage = (event) => {
+    setRowsPerPage(parseInt(event.target.value, 10));
+    setPage(0); // Resetar para a primeira página ao mudar o tamanho
+  };
 
   // Configuração das colunas - MANTENDO EXATAMENTE O MESMO LAYOUT
   const columns = [
@@ -328,6 +350,21 @@ const Tags = () => {
           emptyActionLabel="Adicionar Tag"
           onEmptyActionClick={() => handleOpenTagModal()}
         />
+
+       <TablePagination
+  rowsPerPageOptions={[10, 25, 50, 100]}
+  component="div"
+  count={totalCount}
+  rowsPerPage={rowsPerPage}
+  page={page}
+  onPageChange={handleChangePage}
+  onRowsPerPageChange={handleChangeRowsPerPage}
+  labelRowsPerPage="Tags por página:"
+  labelDisplayedRows={({ from, to, count }) => (
+    `${from}-${to} de ${count}`
+  )}
+/>
+
       </StandardPageLayout>
 
       {/* Modais */}

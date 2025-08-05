@@ -215,7 +215,7 @@ export const restartWbot = async (companyId: number, session?: any): Promise<voi
 
 export let dataMessages = [];
 
-const waVersion: WAVersion = [2, 3000, 1023333981];
+const waVersion: WAVersion = [2, 3000, 1025052013];
 
 const getProjectWAVersion = async () => {
   try {
