@@ -1,19 +1,6 @@
-// src/helpers/GroupHelpers.ts
-
 import { logger } from "../utils/logger";
+import { GroupParticipant } from "baileys";
 
-export interface GroupParticipant {
-  id: string;
-  admin?: 'admin' | 'superadmin' | null;
-  isAdmin?: boolean;
-  number?: string;
-  name?: string;
-  contact?: any;
-}
-
-/**
- * ✅ FUNÇÃO PARA VALIDAR E SANITIZAR ARRAY JSON
- */
 export const sanitizeJsonArray = (data: any, fieldName: string = 'field'): any[] => {
   // Se é null ou undefined, retorna array vazio
   if (data === null || data === undefined) {
@@ -48,7 +35,7 @@ export const sanitizeJsonArray = (data: any, fieldName: string = 'field'): any[]
 /**
  * ✅ FUNÇÃO PARA VALIDAR PARTICIPANTES DE GRUPO
  */
-export const validateGroupParticipants = (participants: any[]): GroupParticipant[] => {
+export const validateGroupParticipants = (participants: GroupParticipant[]): GroupParticipant[] => {
   const sanitized = sanitizeJsonArray(participants, 'participants');
   
   return sanitized
@@ -72,11 +59,16 @@ export const validateGroupParticipants = (participants: any[]): GroupParticipant
     })
     .map(participant => ({
       id: participant.id,
+      lid: participant.lid || null,
+      name: participant.name || null,
+      notify: participant.notify || null,
+      verifiedName: participant.verifiedName || null,
+      imgUrl: participant.imgUrl || null,
+      status: participant.status || null,
       admin: participant.admin || null,
       isAdmin: participant.admin === 'admin' || participant.admin === 'superadmin',
-      number: participant.id.split('@')[0] || '',
-      name: participant.name || null,
-      contact: participant.contact || null
+      isSuperAdmin: participant.isSuperAdmin || false,
+      number: participant.id.split('@')[0] || ''      
     }));
 };
 
