@@ -1,5 +1,7 @@
 import { proto } from "baileys";
+
 import { Session } from "../../../../../libs/wbot";
+import { getIO } from "../../../../../libs/socket";
 import OpenAI from "openai";
 import Assistant from "../../../../../models/Assistant";
 import Thread from "../../../../../models/Thread";
@@ -584,7 +586,7 @@ export const handleAssistantChat = async (
   integration?: QueueIntegrations 
 ): Promise<boolean> => {
   const threadLockKey = `thread_${ticket.id}`;
-  
+  const io = getIO();
   try {
     if (!assistant) {
       logger.warn(`Nenhum assistente ativo encontrado para a empresa ${ticket.companyId}`);
@@ -638,6 +640,13 @@ export const handleAssistantChat = async (
     // Verificar novamente o status do ticket para evitar condições de corrida
     await ticket.reload();
     
+    io.emit(`company-${ticket.companyId}-ticket`, {
+      action: "update",
+      ticket,
+      ticketId: ticket.id
+    });
+
+
     if (!shouldProcessMessage(ticket, msg)) {
       logger.info({
         ticketId: ticket.id,
@@ -1007,6 +1016,12 @@ export const handleAssistantChat = async (
                       audio: audioBuffer,
                       mimetype: 'audio/mp4',
                       ptt: true
+                    });
+
+                    io.emit(`company-${ticket.companyId}-ticket`, {
+                      action: "update",
+                      ticket,
+                      ticketId: ticket.id
                     });
                     
                     await verifyMessage(sentAudio, ticket, contact);
