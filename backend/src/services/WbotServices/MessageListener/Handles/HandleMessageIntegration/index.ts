@@ -182,7 +182,8 @@ export const handleMessageIntegration = async (
         })
         await ticket.reload();
         const { handleAssistantChat } = await import("../HandleAssistantChat");
-        const assistantProcessed = await handleAssistantChat(assistant, msg, wbot, ticket, contactInfo);
+        const assistantProcessed = await handleAssistantChat(
+          assistant, msg, wbot, ticket, contactInfo, queueIntegration);
         
         if (assistantProcessed) {
             await ticket.update({
