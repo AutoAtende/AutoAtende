@@ -6,6 +6,7 @@ import Thread from "../../../../../models/Thread";
 import Ticket from "../../../../../models/Ticket";
 import Contact from "../../../../../models/Contact";
 import Message from "../../../../../models/Message";
+import QueueIntegrations from "../../../../../models/QueueIntegrations";
 import VoiceMessage from "../../../../../models/VoiceMessage";
 import { getBodyMessage } from "../../Get/GetBodyMessage";
 import { verifyMessage } from "../../Verifiers/VerifyMessage";
@@ -579,7 +580,8 @@ export const handleAssistantChat = async (
   msg: proto.IWebMessageInfo, 
   wbot: Session, 
   ticket: Ticket, 
-  contact?: Contact
+  contact?: Contact,
+  integration?: QueueIntegrations 
 ): Promise<boolean> => {
   const threadLockKey = `thread_${ticket.id}`;
   
@@ -714,7 +716,8 @@ export const handleAssistantChat = async (
             const voiceMessage = await TranscriptionService({
               audioPath,
               ticket,
-              messageId: msg.key.id
+              messageId: msg.key.id,
+              integration: integration
             });
             userMessage = voiceMessage.transcription || "Não foi possível transcrever sua mensagem de áudio.";
           } else {
