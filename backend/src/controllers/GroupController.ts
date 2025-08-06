@@ -609,16 +609,17 @@ export const uploadContacts = async (req: Request, res: Response) => {
 
 export const getGroupDetails = async (req: Request, res: Response): Promise<Response> => {
   const { companyId } = req.user;
-  const { groupId } = req.params;
+  const { contactId } = req.params;
   
-  logger.info(`[GroupController] Iniciando getGroupDetails para groupId: ${groupId}, companyId: ${companyId}`);
+  logger.info(`[GroupController] Iniciando getGroupDetails para groupId: ${contactId}, companyId: ${companyId}`);
   
   try {
-    const groupInfo = await GetGroupDetailsService(groupId, companyId);
-    logger.info(`[GroupController] Detalhes do grupo ${groupId} recuperados com sucesso`);
+    const contactIdNumber = Number(contactId);
+    const groupInfo = await GetGroupDetailsService({ contactId: contactIdNumber, companyId});
+    logger.info(`[GroupController] Detalhes do grupo ${contactId} recuperados com sucesso`);
     return res.status(200).json(groupInfo);
   } catch (err) {
-    logger.error(`[GroupController] Erro ao recuperar detalhes do grupo ${groupId}: ${err.message}`);
+    logger.error(`[GroupController] Erro ao recuperar detalhes do grupo ${contactId}: ${err.message}`);
     throw new AppError(err.message);
   }
 };
