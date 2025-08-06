@@ -717,7 +717,7 @@ export const handleAssistantChat = async (
               audioPath,
               ticket,
               messageId: msg.key.id,
-              integration: integration
+              assistantId: assistant.id
             });
             userMessage = voiceMessage.transcription || "Não foi possível transcrever sua mensagem de áudio.";
           } else {

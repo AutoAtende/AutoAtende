@@ -13,6 +13,7 @@ import Assistant from '../models/Assistant';
 import Queue from '../models/Queue';
 import { getIO } from '../libs/socket';
 import { publicFolder } from '../config/upload';
+import QueueIntegrations from '@models/QueueIntegrations';
 
 
 export const uploadAudio = async (req: Request, res: Response): Promise<Response> => {
@@ -28,11 +29,15 @@ export const uploadAudio = async (req: Request, res: Response): Promise<Response
     const ticket = await Ticket.findOne({
       where: { id: ticketId, companyId }
     });
-    
+
     if (!ticket) {
       throw new AppError('Ticket não encontrado', 404);
     }
-    
+
+    const integration = await QueueIntegrations.findOne({
+      where: { id: ticket.integrationId, active: true }
+    })
+
     // Criar mensagem para o áudio
     const message = await Message.create({
       ticketId,
@@ -59,7 +64,8 @@ export const uploadAudio = async (req: Request, res: Response): Promise<Response
     TranscriptionService({
       audioPath: req.file.path,
       ticket,
-      messageId: message.id
+      messageId: message.id,
+      assistantId: integration.assistantId
     })
       .then(voiceMessage => {
         // Notificar sobre transcrição concluída

@@ -15,26 +15,22 @@ interface TranscriptionRequest {
   audioPath: string;
   ticket: Ticket;
   messageId: string;
-  integration?: QueueIntegrations;
+  assistantId?: string;
 }
 
 const TranscriptionService = async ({
   audioPath,
   ticket,
   messageId,
-  integration
+  assistantId
 }: TranscriptionRequest): Promise<VoiceMessage> => {
   let voiceMessage: VoiceMessage | null = null;
   const startTime = Date.now();
 
   try {
     // Buscar assistente
-    let assistantInUse = ticket.integrationId;
-    if(!integration) {
-      console.log("[IA Transcrição] Chamada veio sem objeto integration.")
-    }
     const assistant = await Assistant.findOne({
-      where: { id: assistantInUse, active: true }
+      where: { id: assistantId, active: true }
     });
     if (!assistant) throw new AppError('Assistente não encontrado', 404);
     
