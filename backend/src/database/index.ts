@@ -80,6 +80,7 @@ import EmployerPassword from "../models/EmployerPassword";
 import MessageRule from "../models/MessageRule";
 import FlowBuilder from "../models/FlowBuilder";
 import FlowBuilderExecution from "../models/FlowBuilderExecution";
+import ApiNode from "../models/ApiNode";
 import AttendantNode from "../models/AttendantNode";
 import MediaNode from "../models/MediaNode";
 import WebhookNode from "../models/WebhookNode";
@@ -190,6 +191,7 @@ const models = [
   WhatsappQueue,
   FlowBuilder,
   FlowBuilderExecution,
+  ApiNode,
   AttendantNode,
   MediaNode,
   WebhookNode,

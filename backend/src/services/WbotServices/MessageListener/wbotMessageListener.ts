@@ -1049,16 +1049,7 @@ export const handleMessage = async (
      * Se a mensagem foi enviada pelo usuário e não está em modo de importação, chama a função
      * ProcessMessageWithRules para processar a mensagem com as regras de atendimento.
      */
-        //const isEnabledMessageRules = await CheckIsEnabledMessageRuleService({ companyId, whatsappId: ticket.whatsappId });
-        // if (isEnabledMessageRules) {
-          if (!importing && !isGroup) {
-            await ProcessMessageWithRules({
-              body: bodyMessage,
-              ticket,
-              companyId
-            });
-          }
-        //}
+
     
 
     /**

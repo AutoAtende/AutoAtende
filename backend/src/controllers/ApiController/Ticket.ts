@@ -63,18 +63,16 @@ export const closeTicket = async (
   req: Request,
   res: Response
 ): Promise<Response> => {
-  const params = await returnWhatsAppIdAndCompanyIdByParams(req)
+  const companyId = req.companyId;
 
-  const companyId = params?.companyId || req.user?.companyId;
-
-  const ticketId = req?.body?.ticketId || req?.params?.ticketId;
-
-  const ticketData = await ShowTicketService(+ticketId, companyId);
-  ticketData.status = req?.body?.ticketData?.status || 'closed';
+  const ticketId = req.body.ticketId;
 
   const { ticket } = await UpdateTicketService({
-    ticketData: ticketData as any, // Ajuste o tipo conforme necessário
-    ticketId: +ticketId,
+    ticketData:{
+      status: 'closed',
+      unreadMessages: 0,
+    },
+    ticketId: ticketId,
     companyId
   });
   return res.status(200).json('Ticket closed');

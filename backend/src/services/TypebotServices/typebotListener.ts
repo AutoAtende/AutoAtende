@@ -21,6 +21,21 @@ interface Request {
   queueValues?: string[];
 }
 
+interface TypebotTriggerPayload {
+  stopBot?: boolean;
+  userId?: number;
+  queueId?: number;
+  tagIds?: number[];
+  status?: 'open' | 'pending' | 'closed';
+}
+
+const VALID_TICKET_STATUSES = ['open', 'pending', 'closed'] as const;
+type TicketStatus = typeof VALID_TICKET_STATUSES[number];
+
+const isValidTicketStatus = (status: string): status is TicketStatus => {
+  return VALID_TICKET_STATUSES.includes(status as TicketStatus);
+};
+
 const wait = async (seconds: number): Promise<void> => {
   logger.info(`[Typebot] Iniciando delay de ${seconds} segundos`);
   await new Promise(resolve => setTimeout(resolve, seconds * 1000));
@@ -50,13 +65,13 @@ async function createSession(msg: proto.IWebMessageInfo, typebot: QueueIntegrati
     };
 
     if (queueValues && queueValues.length > 0) {
-      logger.debug(`[Typebot] Adicionando valores de fila: ${JSON.stringify(queueValues)}`);
+      logger.info(`[Typebot] Adicionando valores de fila: ${JSON.stringify(queueValues)}`);
       queueValues.forEach((item, index) => {
         reqBody.prefilledVariables[`fila${index + 1}`] = item;
       });
     }
 
-    logger.debug(`[Typebot] Starting session with body: ${JSON.stringify(reqBody, null, 2)}`);
+    logger.info(`[Typebot] Starting session with body: ${JSON.stringify(reqBody, null, 2)}`);
 
     const config: AxiosRequestConfig = {
       method: 'post',
@@ -70,8 +85,8 @@ async function createSession(msg: proto.IWebMessageInfo, typebot: QueueIntegrati
       data: reqBody
     };
 
-    logger.debug(`[Typebot] Request URL: ${config.url}`);
-    logger.debug(`[Typebot] Request Body: ${JSON.stringify(reqBody)}`);
+    logger.info(`[Typebot] Request URL: ${config.url}`);
+    logger.info(`[Typebot] Request Body: ${JSON.stringify(reqBody)}`);
 
     const response = await axios.request(config);
     
@@ -102,7 +117,7 @@ const typebotListener = async ({
   logger.info(`[Typebot] Iniciando typebotListener para ticket ${ticket.id}`);
 
   if (msg.key.remoteJid === 'status@broadcast') {
-    logger.debug(`[Typebot] Ignorando mensagem de status broadcast`);
+    logger.info(`[Typebot] Ignorando mensagem de status broadcast`);
     return;
   }
 
@@ -117,12 +132,12 @@ const typebotListener = async ({
     typebotRestartMessage,
   } = typebot;
 
-  logger.debug(`[Typebot] Configurações carregadas: URL=${url}, Slug=${typebotSlug}`);
+  logger.info(`[Typebot] Configurações carregadas: URL=${url}, Slug=${typebotSlug}`);
 
   const number = msg.key.remoteJid.replace(/\D/g, '');
   let body = getBodyMessage(msg);
 
-  logger.debug(`[Typebot] Mensagem recebida: ${body} de ${number}`);
+  logger.info(`[Typebot] Mensagem recebida: ${body} de ${number}`);
 
   let sessionId;
   let dataStart;
@@ -131,7 +146,7 @@ const typebotListener = async ({
   try {
     const dataLimite = new Date();
     dataLimite.setMinutes(dataLimite.getMinutes() - Number(typebotExpires));
-    logger.debug(`[Typebot] Data limite para expiração: ${dataLimite}`);
+    logger.info(`[Typebot] Data limite para expiração: ${dataLimite}`);
 
     if (typebotExpires > 0 && ticket.updatedAt < dataLimite) {
       logger.info(`[Typebot] Ticket expirado, resetando sessão para ticket ${ticket.id}`);
@@ -148,7 +163,7 @@ const typebotListener = async ({
       sessionId = dataStart.sessionId;
       status = true;
       
-      logger.debug(`[Typebot] Atualizando ticket com nova sessão ID: ${sessionId}`);
+      logger.info(`[Typebot] Atualizando ticket com nova sessão ID: ${sessionId}`);
       await ticket.update({
         typebotSessionId: sessionId,
         typebotStatus: true,
@@ -157,7 +172,7 @@ const typebotListener = async ({
       });
       await ticket.reload();
     } else {
-      logger.debug(`[Typebot] Usando sessão existente ID: ${ticket.typebotSessionId}`);
+      logger.info(`[Typebot] Usando sessão existente ID: ${ticket.typebotSessionId}`);
       sessionId = ticket.typebotSessionId;
       status = ticket.typebotStatus;
     }
@@ -173,7 +188,7 @@ const typebotListener = async ({
       let input;
 
       if (dataStart?.messages.length === 0 || dataStart === undefined) {
-        logger.debug(`[Typebot] Continuando chat existente`);
+        logger.info(`[Typebot] Continuando chat existente`);
         const reqData = JSON.stringify({
           "message": body
         });
@@ -193,7 +208,7 @@ const typebotListener = async ({
         messages = requestContinue.data?.messages;
         input = requestContinue.data?.input;
       } else {
-        logger.debug(`[Typebot] Usando mensagens iniciais`);
+        logger.info(`[Typebot] Usando mensagens iniciais`);
         messages = dataStart?.messages;
         input = dataStart?.input;
       }
@@ -208,7 +223,7 @@ const typebotListener = async ({
         try {
           const clientSideActions = requestContinue?.data?.clientSideActions || dataStart?.clientSideActions;
           if (clientSideActions) {
-            logger.debug(`[Typebot] Verificando ações do cliente para mensagem ID: ${message.id}`);
+            logger.info(`[Typebot] Verificando ações do cliente para mensagem ID: ${message.id}`);
             const matchingAction = clientSideActions.find(
               (action: any) => action.lastBubbleBlockId === message.id
             );
@@ -312,77 +327,130 @@ const typebotListener = async ({
             formattedText = typebotUnknownMessage;
           }
 
-          if (formattedText.startsWith("#")) {
-            let gatilho = formattedText.replace("#", "");
+if (formattedText.startsWith("#")) {
+  let gatilho = formattedText.replace("#", "");
 
-            try {
-              let jsonGatilho = JSON.parse(gatilho);
+  try {
+    let jsonGatilho: TypebotTriggerPayload = JSON.parse(gatilho);
+    
+    logger.info(`[Typebot] Processando gatilho: ${JSON.stringify(jsonGatilho)}`);
 
-              if (jsonGatilho.stopBot && isNil(jsonGatilho.userId) && isNil(jsonGatilho.queueId) && isNil(jsonGatilho.tagIds)) {
-                await ticket.update({
-                  useIntegration: false,
-                  chatbot: false
-                })
-                return;
-              }
+    // ✅ Gatilho existente: stopBot
+    if (jsonGatilho.stopBot && isNil(jsonGatilho.userId) && isNil(jsonGatilho.queueId) && isNil(jsonGatilho.tagIds)) {
+      logger.info(`[Typebot] Executando stopBot para ticket ${ticket.id}`);
+      await ticket.update({
+        useIntegration: false,
+        chatbot: false
+      });
+      return;
+    }
 
-              if (!isNil(jsonGatilho.tagIds) && Array.isArray(jsonGatilho.tagIds) && jsonGatilho.tagIds.length > 0) {
-                const tagPromises = jsonGatilho.tagIds.map(tagId => {
-                  console.log("[typebot] salvando a tagId", tagId);
-                  return TicketTag.create({
-                    ticketId: ticket.id,
-                    tagId: tagId
-                  });
-                });
+    // ✅ NOVA FUNCIONALIDADE: Gatilho de status
+    if (!isNil(jsonGatilho.status)) {
+      if (!isValidTicketStatus(jsonGatilho.status)) {
+        logger.warn(`[Typebot] Status inválido fornecido: ${jsonGatilho.status}. Status válidos: ${VALID_TICKET_STATUSES.join(', ')}`);
+        continue;
+      }
 
-                await Promise.all(tagPromises);
+      logger.info(`[Typebot] Alterando status do ticket ${ticket.id} para: ${jsonGatilho.status}`);
+      
+      const ticketData = {
+        status: jsonGatilho.status,
+        // Manter integração ativa se não for fechamento
+        useIntegration: jsonGatilho.status !== 'closed',
+        chatbot: jsonGatilho.status !== 'closed',
+        // Limpar integração se for fechamento
+        ...(jsonGatilho.status === 'closed' && {
+          integrationId: null,
+          typebotSessionId: null,
+          typebotStatus: false
+        })
+      };
 
-                if (isNil(jsonGatilho.queueId)) {
-                  await ticket.update({
-                    chatbot: true,
-                    useIntegration: true
-                  });
-                  await ticket.reload();
-                }
-                continue;
-              }
+      await UpdateTicketService({
+        ticketData,
+        ticketId: ticket.id,
+        companyId: ticket.companyId
+      });
 
-              if (!isNil(jsonGatilho.queueId) && jsonGatilho.queueId > 0 && isNil(jsonGatilho.userId)) {
-                const ticketData: any = {
-                  queueId: jsonGatilho.queueId,
-                  chatbot: false,
-                  useIntegration: false,
-                  integrationId: null
-                };
+      logger.info(`[Typebot] Status do ticket ${ticket.id} alterado com sucesso para: ${jsonGatilho.status}`);
+      
+      // Se apenas está alterando status, continue o fluxo
+      if (isNil(jsonGatilho.queueId) && isNil(jsonGatilho.userId) && isNil(jsonGatilho.tagIds)) {
+        continue;
+      }
+    }
 
-                await UpdateTicketService({
-                  ticketData,
-                  ticketId: ticket.id,
-                  companyId: ticket.companyId
-                })
-                return;
-              }
+    // ✅ Gatilho existente: tagIds
+    if (!isNil(jsonGatilho.tagIds) && Array.isArray(jsonGatilho.tagIds) && jsonGatilho.tagIds.length > 0) {
+      logger.info(`[Typebot] Adicionando tags ${jsonGatilho.tagIds} ao ticket ${ticket.id}`);
+      
+      const tagPromises = jsonGatilho.tagIds.map(tagId => {
+        logger.info(`[Typebot] Salvando tagId: ${tagId} para ticket ${ticket.id}`);
+        return TicketTag.create({
+          ticketId: ticket.id,
+          tagId: tagId
+        });
+      });
 
-              if (!isNil(jsonGatilho.queueId) && jsonGatilho.queueId > 0 && !isNil(jsonGatilho.userId) && jsonGatilho.userId > 0) {
-                await UpdateTicketService({
-                  ticketData: {
-                    queueId: jsonGatilho.queueId,
-                    userId: jsonGatilho.userId,
-                    chatbot: false,
-                    useIntegration: false,
-                    integrationId: null
-                  },
-                  ticketId: ticket.id,
-                  companyId: ticket.companyId
-                })
-                return;
-              }
-            } catch (err) {
-              throw err
-            }
-          }
+      await Promise.all(tagPromises);
 
-          await SendPresenceStatus(wbot, msg.key.remoteJid, typebotDelayMessage)
+      if (isNil(jsonGatilho.queueId)) {
+        await ticket.update({
+          chatbot: true,
+          useIntegration: true
+        });
+        await ticket.reload();
+      }
+      continue;
+    }
+
+    // ✅ Gatilho existente: queueId sem userId
+    if (!isNil(jsonGatilho.queueId) && jsonGatilho.queueId > 0 && isNil(jsonGatilho.userId)) {
+      logger.info(`[Typebot] Transferindo ticket ${ticket.id} para fila ${jsonGatilho.queueId}`);
+      
+      const ticketData = {
+        status: jsonGatilho.status || "pending", // Usar status do gatilho ou padrão
+        queueId: jsonGatilho.queueId,
+        chatbot: false,
+        useIntegration: false,
+        integrationId: null
+      };
+
+      await UpdateTicketService({
+        ticketData,
+        ticketId: ticket.id,
+        companyId: ticket.companyId
+      });
+      return;
+    }
+
+    // ✅ Gatilho existente: queueId com userId
+    if (!isNil(jsonGatilho.queueId) && jsonGatilho.queueId > 0 && !isNil(jsonGatilho.userId) && jsonGatilho.userId > 0) {
+      logger.info(`[Typebot] Transferindo ticket ${ticket.id} para fila ${jsonGatilho.queueId} e usuário ${jsonGatilho.userId}`);
+      
+      await UpdateTicketService({
+        ticketData: {
+          queueId: jsonGatilho.queueId,
+          userId: jsonGatilho.userId,
+          status: jsonGatilho.status || "open", // Usar status do gatilho ou padrão
+          chatbot: false,
+          useIntegration: false,
+          integrationId: null
+        },
+        ticketId: ticket.id,
+        companyId: ticket.companyId
+      });
+      return;
+    }
+
+  } catch (err) {
+    logger.error(`[Typebot] Erro ao processar gatilho JSON: ${err}`);
+    throw err;
+  }
+}
+
+          await SendPresenceStatus(wbot, msg.key.remoteJid, typebotDelayMessage);
           await wbot.sendMessage(msg.key.remoteJid, { text: formattedText });
         }
 
@@ -428,12 +496,16 @@ const typebotListener = async ({
         }
       }
       logger.info(`[Typebot] Processamento de mensagens concluído com sucesso`);
+      await ticket.update({
+        statu: "closed"
+      })
       return true;
     } else if (body === typebotKeywordRestart) {
       logger.info(`[Typebot] Comando de restart recebido para ticket ${ticket.id}`);
       await ticket.update({
-        chatbot: true,
-        typebotSessionId: null
+        chatbot: false,
+        typebotSessionId: null,
+        typebotStatus: false
       })
       await wbot.sendMessage(`${number}@c.us`, { text: typebotRestartMessage })
     } else if (body === typebotKeywordFinish) {
@@ -455,7 +527,9 @@ const typebotListener = async ({
     logger.error(`[Typebot] Erro crítico no processamento: ${error}`);
     logger.error(`[Typebot] Stack trace: ${error.stack}`);
     await ticket.update({
-      typebotSessionId: null
+        chatbot: false,
+        typebotSessionId: null,
+        typebotStatus: false
     });
   }
 }

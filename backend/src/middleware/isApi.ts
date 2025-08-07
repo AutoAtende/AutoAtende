@@ -48,6 +48,7 @@ const isApi = async (
 
     // Adicionar companyId ao request para uso posterior nas rotas
     req.companyId = whatsapp.companyId;
+    req.whatsappId = whatsapp.id;
     
     // NOVA VALIDAÇÃO: Verificar se está tentando acessar recursos de outra empresa
     const requestedCompanyId = req.params.companyId ? Number(req.params.companyId) : null;

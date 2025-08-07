@@ -55,8 +55,11 @@ const tokenAuthApiPub = async (
     // Também definir no req.user para compatibilidade
     req.user = {
       ...req.user,
-      companyId: whatsapp.companyId
+      companyId: whatsapp.companyId,
     };
+
+    req.companyId = whatsapp.companyId;
+    req.whatsappId = whatsapp.id;
 
     return next();
   } catch (err) {
