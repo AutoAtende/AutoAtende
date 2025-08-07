@@ -66,6 +66,7 @@ import horarioRoutes from "./horarioRoutes";
 import voiceRoutes from "./voiceRoutes";
 import adminDashboardRoutes from "./adminDashboardRoutes";
 import ticketAnalysisRoutes from "./ticketAnalysisRoutes";
+import aiSuggestionRoutes from "./aiSuggestionRoutes";
 
 const routes = Router();
 
@@ -105,6 +106,7 @@ routes.use(companyRoutes);
 routes.use(planRoutes);
 routes.use(ticketNoteRoutes);
 routes.use(notificationRoutes);
+routes.use(aiSuggestionRoutes);
 //routes.use(metaApiRoutes);
 routes.use(quickMessageRoutes);
 routes.use(helpRoutes);
