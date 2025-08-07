@@ -10,7 +10,7 @@ import makeStyles from '@mui/styles/makeStyles';
 import useTheme from '@mui/material/styles/useTheme';
 
 import ContactDrawer from "../ContactDrawer";
-import MessageInput from "../MessageInputCustom/";
+import MessageInputCustom from "../MessageInputCustom/";
 import TicketHeader from "../TicketHeader";
 import TicketInfo from "../TicketInfo";
 import TicketActionButtons from "../TicketActionButtons";
@@ -229,7 +229,7 @@ const Ticket = () => {
                     forwardMessageModalOpen={forwardMessageModalOpen}
                     setForwardMessageModalOpen={setForwardMessageModalOpen}
                 />
-                <MessageInput ticketId={ticket.id} ticketStatus={ticket.status} />
+                <MessageInputCustom ticketId={ticket.id} ticketStatus={ticket.status} />
             </>
         );
     };
