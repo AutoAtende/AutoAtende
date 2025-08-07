@@ -83,11 +83,12 @@ const WrappedCompanies = (props) => (
 
 const Routes = () => {
   const [showCampaigns, setShowCampaigns] = useState(false);
-  const { settings } = useSettings();
+  const { settings, getAll} = useSettings();
 
   useEffect(() => {
     const loadInitialConfigs = async () => {
       try {
+        await getAll();
         const cshow = localStorage.getItem("cshow");
         if (cshow !== undefined) {
           setShowCampaigns(true);

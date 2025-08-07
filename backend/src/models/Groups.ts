@@ -9,14 +9,17 @@ import {
   UpdatedAt,
   ForeignKey,
   BelongsTo,
+  BeforeSave,
   AllowNull,
   Default,
   Comment,
   BeforeCreate,
   BeforeUpdate
 } from 'sequelize-typescript';
+import { logger } from '@utils/logger';
 import Company from './Company';
 import Whatsapp from './Whatsapp';
+import { sanitizeJsonArray } from '../helpers/GroupHelpers';
 
 // ✅ INTERFACES PARA TIPAGEM CORRETA
 interface GroupParticipant {
@@ -136,33 +139,48 @@ class Groups extends Model<Groups> {
   @UpdatedAt
   updatedAt: Date;
 
-  // ✅ HOOKS PARA VALIDAÇÃO AUTOMÁTICA ANTES DE SALVAR
-  @BeforeCreate
-  @BeforeUpdate
-  static validateJsonFields(instance: Groups) {
-    // Validar e corrigir participantsJson
-    if (!instance.participantsJson || !Array.isArray(instance.participantsJson)) {
+  @BeforeSave
+  static sanitizeFieldsBeforeSave(instance: Groups) {
+    try {
+      logger.debug(`[Groups] Sanitizando dados antes de salvar grupo ${instance.jid}`);
+
+      if (instance.participantsJson !== undefined && instance.participantsJson !== null) {
+        const sanitizedParticipants = sanitizeJsonArray(instance.participantsJson, 'participantsJson');
+        instance.participantsJson = sanitizedParticipants;
+        logger.debug(`[Groups] participantsJson sanitizado: ${sanitizedParticipants.length} participantes`);
+      } else {
+        instance.participantsJson = [];
+        logger.debug(`[Groups] participantsJson era null/undefined, definido como array vazio`);
+      }
+
+      if (instance.adminParticipants !== undefined && instance.adminParticipants !== null) {
+        const sanitizedAdmins = sanitizeJsonArray(instance.adminParticipants, 'adminParticipants');
+        instance.adminParticipants = sanitizedAdmins;
+        logger.debug(`[Groups] adminParticipants sanitizado: ${sanitizedAdmins.length} admins`);
+      } else {
+        instance.adminParticipants = [];
+        logger.debug(`[Groups] adminParticipants era null/undefined, definido como array vazio`);
+      }
+
+      if (instance.settings !== undefined && instance.settings !== null) {
+        const sanitizedSettings = sanitizeJsonArray(instance.settings, 'settings');
+        instance.settings = sanitizedSettings;
+        logger.debug(`[Groups] settings sanitizado: ${sanitizedSettings.length} configurações`);
+      } else {
+        instance.settings = [];
+        logger.debug(`[Groups] settings era null/undefined, definido como array vazio`);
+      }
+
+      logger.info(`[Groups] Dados sanitizados com sucesso para grupo ${instance.jid}: ${instance.participantsJson.length} participantes, ${instance.adminParticipants.length} admins`);
+
+    } catch (error) {
+      logger.error(`[Groups] Erro crítico na sanitização do grupo ${instance.jid}:`, error);
+      
       instance.participantsJson = [];
-    } else {
-      // Filtrar participantes inválidos
-      instance.participantsJson = instance.participantsJson.filter(p => 
-        p && typeof p === 'object' && p.id && typeof p.id === 'string'
-      );
-    }
-
-    // Validar e corrigir adminParticipants
-    if (!instance.adminParticipants || !Array.isArray(instance.adminParticipants)) {
       instance.adminParticipants = [];
-    } else {
-      // Filtrar IDs inválidos
-      instance.adminParticipants = instance.adminParticipants.filter(id => 
-        id && typeof id === 'string'
-      );
-    }
-
-    // Validar settings
-    if (!instance.settings || !Array.isArray(instance.settings)) {
       instance.settings = [];
+      
+      logger.warn(`[Groups] Aplicado fallback para grupo ${instance.jid} - todos os arrays definidos como vazios`);
     }
   }
 

@@ -72,7 +72,8 @@ import { useLocalStorage } from "../../hooks/useLocalStorage";
 import { toast } from "../../helpers/toast";
 import { EditMessageContext } from "../../context/EditingMessage/EditingMessageContext";
 import useQuickMessages from "../../hooks/useQuickMessages";
-
+import useSettings from "../../hooks/useSettings";
+import AISuggestionWidget from "../AISuggestionWidget";
 import MediaPreviewModal from './MediaPreviewModal';
 import ContactSendModal from "../ContactSendModal";
 
@@ -1106,10 +1107,30 @@ const MessageInputCustom = (props) => {
   // Controle de visibilidade para ocultar o campo de texto durante a gravação
   const [inputVisible, setInputVisible] = useState(true);
 
+    // Estados para IA
+    const [aiWidgetOpen, setAiWidgetOpen] = useState(false);
+
+    // Hooks para IA
+    const { settings } = useSettings();
+
   useEffect(() => {
     // Atualizar visibilidade do campo de texto baseado no estado de gravação
     setInputVisible(!recording);
   }, [recording]);
+
+    // Configurações de IA do sistema
+    const aiSettings = {
+      openAiKey: settings?.openAiKey,
+      openaiModel: settings?.openaiModel || 'gpt-4o',
+      aiMaxSuggestions: 3,
+      aiContextLength: 20,
+      aiTemperature: 0.7,
+      aiMaxTokens: 1500,
+      aiSuggestionConfidenceThreshold: 0.7,
+      aiEnableFeedback: true,
+      aiCacheResults: false,
+      transcriptionLanguage: 'pt'
+    };
 
   useEffect(() => {
     inputRef.current && inputRef.current.focus();
@@ -1258,6 +1279,27 @@ const MessageInputCustom = (props) => {
       setMedias(selectedMedias);
     }
   };
+
+    // Função para abrir o widget de IA
+    const handleAIWidgetOpen = () => {
+      setAiWidgetOpen(true);
+      setSpeedDialOpen(false);
+    };
+  
+    // Função para inserir sugestão no campo de texto
+    const handleAISuggestionSelect = (suggestionText) => {
+      setInputMessage(suggestionText);
+      setAiWidgetOpen(false);
+  
+      // Foco no input após inserir a sugestão
+      setTimeout(() => {
+        if (inputRef.current) {
+          inputRef.current.focus();
+          inputRef.current.setSelectionRange(suggestionText.length, suggestionText.length);
+        }
+      }, 100);
+    };
+  
 
   const handleInputDrop = (e) => {
     e.preventDefault();
@@ -1748,11 +1790,7 @@ const handleSendMessage = async () => {
     { icon: <MoodIcon />, name: "Emoji", action: () => setShowEmoji(prev => !prev) },
     { icon: <AttachFileIcon />, name: i18n.t("messagesInput.attach") || "Anexar", action: () => document.getElementById('upload-button').click() },
     { icon: <PersonIcon />, name: i18n.t("messagesInput.contact") || "Contato", action: handleSendContactModalOpen },
-    ...(!internalMessageMode ? [{
-      icon: <PsychologyIcon />,
-      name: "Sugestões de IA",
-      action: handleAIWidgetOpen
-    }] : [])
+    ...(!internalMessageMode ? [{ icon: <PsychologyIcon />, name: "Sugestões de IA", action: handleAIWidgetOpen}] : []),
   ];
 
   if (medias.length > 0)
@@ -1845,6 +1883,15 @@ const handleSendMessage = async () => {
           onCaption={handleMediaCaptions}
           onDelete={(index) => handleDeleteMedia(index)}
           onAddMore={handleAddMoreMedia}
+        />
+
+                {/* Widget de Sugestões de IA */}
+                <AISuggestionWidget
+          ticketId={ticketId}
+          onSuggestionSelect={handleAISuggestionSelect}
+          aiSettings={aiSettings}
+          open={aiWidgetOpen}
+          onClose={() => setAiWidgetOpen(false)}
         />
 
         <MainWrapper

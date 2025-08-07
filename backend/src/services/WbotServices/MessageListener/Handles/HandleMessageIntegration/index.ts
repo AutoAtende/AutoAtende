@@ -172,9 +172,18 @@ export const handleMessageIntegration = async (
         }
         
         // Processar mensagem com o assistente
-        logger.info(`Processando mensagem com assistente: ${assistant.name} (${assistant.id})`);
+        logger.info(`[IA] Processando mensagem com assistente: ${assistant.name} (${assistant.id})`);
+        await ticket.update({
+          userId: null,
+          queueId: null,
+          useIntegration: true,
+          integrationId: queueIntegration.id,
+          isBot: true
+        })
+        await ticket.reload();
         const { handleAssistantChat } = await import("../HandleAssistantChat");
-        const assistantProcessed = await handleAssistantChat(assistant, msg, wbot, ticket, contactInfo);
+        const assistantProcessed = await handleAssistantChat(
+          assistant, msg, wbot, ticket, contactInfo, queueIntegration);
         
         if (assistantProcessed) {
             await ticket.update({
@@ -185,7 +194,7 @@ export const handleMessageIntegration = async (
             });
             return true;
         } else {
-            logger.warn(`Assistente não processou a mensagem: ${assistant.id}`);
+            logger.warn(`[IA] Assistente não processou a mensagem: ${assistant.id}`);
         }
         
         return false;

@@ -9,28 +9,28 @@ import Queue from '../../models/Queue';
 import Assistant from '../../models/Assistant';
 import AppError from '../../errors/AppError';
 import fs from 'fs';
+import QueueIntegrations from '@models/QueueIntegrations';
 
 interface TranscriptionRequest {
   audioPath: string;
   ticket: Ticket;
   messageId: string;
+  assistantId?: string;
 }
 
 const TranscriptionService = async ({
   audioPath,
   ticket,
-  messageId
+  messageId,
+  assistantId
 }: TranscriptionRequest): Promise<VoiceMessage> => {
   let voiceMessage: VoiceMessage | null = null;
   const startTime = Date.now();
 
   try {
     // Buscar assistente
-    const queue = await Queue.findByPk(ticket.queueId);
-    if (!queue) throw new AppError('Fila não encontrada', 404);
-    
     const assistant = await Assistant.findOne({
-      where: { queueId: queue.id, active: true }
+      where: { id: assistantId, active: true }
     });
     if (!assistant) throw new AppError('Assistente não encontrado', 404);
     

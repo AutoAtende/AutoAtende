@@ -1,11 +1,14 @@
 import { proto } from "baileys";
+
 import { Session } from "../../../../../libs/wbot";
+import { getIO } from "../../../../../libs/socket";
 import OpenAI from "openai";
 import Assistant from "../../../../../models/Assistant";
 import Thread from "../../../../../models/Thread";
 import Ticket from "../../../../../models/Ticket";
 import Contact from "../../../../../models/Contact";
 import Message from "../../../../../models/Message";
+import QueueIntegrations from "../../../../../models/QueueIntegrations";
 import VoiceMessage from "../../../../../models/VoiceMessage";
 import { getBodyMessage } from "../../Get/GetBodyMessage";
 import { verifyMessage } from "../../Verifiers/VerifyMessage";
@@ -579,10 +582,11 @@ export const handleAssistantChat = async (
   msg: proto.IWebMessageInfo, 
   wbot: Session, 
   ticket: Ticket, 
-  contact?: Contact
+  contact?: Contact,
+  integration?: QueueIntegrations 
 ): Promise<boolean> => {
   const threadLockKey = `thread_${ticket.id}`;
-  
+  const io = getIO();
   try {
     if (!assistant) {
       logger.warn(`Nenhum assistente ativo encontrado para a empresa ${ticket.companyId}`);
@@ -636,6 +640,13 @@ export const handleAssistantChat = async (
     // Verificar novamente o status do ticket para evitar condições de corrida
     await ticket.reload();
     
+    io.emit(`company-${ticket.companyId}-ticket`, {
+      action: "update",
+      ticket,
+      ticketId: ticket.id
+    });
+
+
     if (!shouldProcessMessage(ticket, msg)) {
       logger.info({
         ticketId: ticket.id,
@@ -714,7 +725,8 @@ export const handleAssistantChat = async (
             const voiceMessage = await TranscriptionService({
               audioPath,
               ticket,
-              messageId: msg.key.id
+              messageId: msg.key.id,
+              assistantId: assistant.id
             });
             userMessage = voiceMessage.transcription || "Não foi possível transcrever sua mensagem de áudio.";
           } else {
@@ -1004,6 +1016,12 @@ export const handleAssistantChat = async (
                       audio: audioBuffer,
                       mimetype: 'audio/mp4',
                       ptt: true
+                    });
+
+                    io.emit(`company-${ticket.companyId}-ticket`, {
+                      action: "update",
+                      ticket,
+                      ticketId: ticket.id
                     });
                     
                     await verifyMessage(sentAudio, ticket, contact);

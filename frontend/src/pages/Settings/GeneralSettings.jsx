@@ -1047,20 +1047,18 @@ const GeneralSettings = () => {
             />
           </Grid>
 
-          {settings.enableAudioTranscriptions === "enabled" && (
             <Grid item xs={12}>
               <SettingTextField
                 id="openAiKey"
                 label={i18n.t("optionsPage.openAiKey") || "Chave da API OpenAI"}
                 value={settings.openAiKey || ""}
                 onChange={handleSettingChange}
-                helpText={i18n.t("optionsPage.openAiKeyHelp") || "Informe a chave da API OpenAI para realizar a transcrição de áudio"}
+                helpText={i18n.t("optionsPage.openAiKeyHelp") || "Informe a chave da API OpenAI para utilizar recursos de IA em atendimentos."}
                 type="password"
                 showCopyButton={true}
                 gridSize={{ xs: 12 }}
               />
             </Grid>
-          )}
         </Grid>
 
         <SectionTitle variant="h6">

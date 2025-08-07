@@ -10,13 +10,6 @@ const CACHE_EXPIRATION_TIME = 86400000; // 24 horas em milissegundos
 
 
 export const SettingsProvider = ({ children }) => {
-  SettingsProvider.propTypes = {
-    children: PropTypes.oneOfType([
-      PropTypes.arrayOf(PropTypes.node),
-      PropTypes.node,
-    ]).isRequired,
-  };
-  
   // Estado principal para armazenar as configurações como array (compatível com código existente)
   const [settings, setSettings] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -201,35 +194,6 @@ export const SettingsProvider = ({ children }) => {
     });
     return data;
   };
-
- // Definindo a forma do contexto para validação
- const contextValue = {
-  settings: PropTypes.arrayOf(
-    PropTypes.shape({
-      key: PropTypes.string.isRequired,
-      value: PropTypes.any,
-      companyId: PropTypes.string,
-    })
-  ),
-  loading: PropTypes.bool.isRequired,
-  getPublicSetting: PropTypes.func.isRequired,
-  getAll: PropTypes.func.isRequired,
-  getAllPublicSetting: PropTypes.func.isRequired,
-  update: PropTypes.func.isRequired,
-  updateWebhook: PropTypes.func.isRequired,
-  deleteWebhookByparamName: PropTypes.func.isRequired,
-  getWebhook: PropTypes.func.isRequired,
-};
-
-// Validando o valor do contexto em desenvolvimento
-if (process.env.NODE_ENV === 'development') {
-  PropTypes.checkPropTypes(
-    { value: PropTypes.shape(contextValue).isRequired },
-    { value: contextValue },
-    'context',
-    'SettingsContext.Provider'
-  );
-}
 
 return (
   <SettingsContext.Provider

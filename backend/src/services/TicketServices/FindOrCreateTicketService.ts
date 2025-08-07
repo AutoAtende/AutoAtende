@@ -1,6 +1,7 @@
 import { subHours } from "date-fns";
 import { Op } from "sequelize";
 import { getIO } from "../../libs/socket";
+import { SocketEmitter } from "../../utils/SocketEmitter";
 import Company from "../../models/Company";
 import Contact from "../../models/Contact";
 import Ticket from "../../models/Ticket";
@@ -89,14 +90,9 @@ const FindOrCreateTicketService = async (
       value 
     });
     
-    // Emitir evento de atualização no formato esperado pelo frontend
-    const io = getIO();
-    notifyUpdate(
-      io,
-      ticket,
-      ticket.id,
-      ticket.companyId
-    );
+    // ===== AJUSTE SOCKET =====
+    SocketEmitter.emitTicketEvent(companyId, "update", ticket);
+    // ===== FIM AJUSTE SOCKET =====
     
     return ticket;
   }
@@ -174,14 +170,9 @@ const FindOrCreateTicketService = async (
       
       await ticket.reload();
       
-      // Emitir evento de atualização do ticket
-      const io = getIO();
-      notifyUpdate(
-        io,
-        ticket,
-        ticket.id,
-        ticket.companyId
-      );
+      // ===== AJUSTE SOCKET =====
+      SocketEmitter.emitTicketEvent(companyId, "update", ticket);
+      // ===== FIM AJUSTE SOCKET =====
       
       await FindOrCreateATicketTrakingService({
         ticketId: ticket.id,
@@ -227,14 +218,9 @@ const FindOrCreateTicketService = async (
       
       await ticket.update(updateData);
       
-      // Emitir evento de atualização do ticket
-      const io = getIO();
-      notifyUpdate(
-        io,
-        ticket,
-        ticket.id,
-        ticket.companyId
-      );
+      // ===== AJUSTE SOCKET =====
+      SocketEmitter.emitTicketEvent(companyId, "update", ticket, updateData.userId);
+      // ===== FIM AJUSTE SOCKET =====
       
       await FindOrCreateATicketTrakingService({
         ticketId: ticket.id,
@@ -290,23 +276,18 @@ const FindOrCreateTicketService = async (
       // Atualizar o ticket com os dados mais recentes
       ticket = await ShowTicketService(_ticket.id, companyId);
 
-      // Emitir evento de criação de ticket
-      const io = getIO();
-      io.to(`company-${companyId}`).emit(`company-${companyId}-ticket`, {
-        action: 'create',
-        ticketId: ticket.id,
-        ticket: ticket.get({ plain: true })
-      });
+      // ===== AJUSTES SOCKET =====
+      SocketEmitter.emitTicketEvent(companyId, "create", ticket, user?.id);
 
       // Notificar usuário específico se for uma atribuição direta
       if (isApi && user) {
-        io.to(`user-${user.id}`).emit(`company-${companyId}-appMessage`, {
-          action: 'ticketAssigned',
+        SocketEmitter.emitMessageEvent(companyId, "ticketAssigned", {
           ticketId: ticket.id,
           userId: user.id,
           companyId
         });
       }
+      // ===== FIM AJUSTES SOCKET =====
 
       await FindOrCreateATicketTrakingService({
         ticketId: ticket.id,

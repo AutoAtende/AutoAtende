@@ -228,6 +228,23 @@ const ContactDrawer = ({ open, handleDrawerClose, contact, ticket, loading, isGr
     setIsEditingPhone(false);
     setTabValue(0);
 
+    // Função para carregar os participantes do grupo
+const loadGroupParticipants = async () => {
+	if (!contact.isGroup) return;
+	
+	setLoadingParticipants(true);
+	try {
+		const { data } = await api.get(`/groups/${contact.id}/details`);
+		setParticipants(data);
+	} catch (err) {
+		console.error("Erro ao buscar participantes do grupo:", err);
+		toast.error("Erro ao carregar participantes do grupo");
+		setParticipants([]);
+	} finally {
+		setLoadingParticipants(false);
+	}
+};
+
     const checkAppointments = async () => {
       try {
         const { data } = await api.get('/appointments', {
@@ -255,8 +272,8 @@ const ContactDrawer = ({ open, handleDrawerClose, contact, ticket, loading, isGr
     
     // Se for um grupo, carrega os participantes
     if (isGroup) {
-      console.log("Carregando participantes do grupo...", contact.number);
-      loadGroupParticipants(contact.number);
+      console.log("Carregando participantes do grupo...", contact.id);
+      loadGroupParticipants(contact.id);
     }
   }, [open, contact]);
 
@@ -273,61 +290,6 @@ const ContactDrawer = ({ open, handleDrawerClose, contact, ticket, loading, isGr
     }
   };
   
-// Função para carregar os participantes do grupo
-const loadGroupParticipants = async (groupId) => {
-  try {
-    console.log(`Carregando participantes do grupo: ${groupId}`);
-    setLoadingParticipants(true);
-    
-    // Garantir que estamos usando o formato correto de ID (sem o sufixo @g.us)
-    const normalizedGroupId = groupId.includes('@g.us') ? groupId.split('@')[0] : groupId;
-    console.log(`ID do grupo normalizado: ${normalizedGroupId}`);
-    
-    const { data } = await api.get(`/groups/${normalizedGroupId}/details`);
-    console.log("Dados recebidos do servidor:", data);
-    
-    // Verificar se temos os participantes diretamente no objeto data
-    if (data.participants && Array.isArray(data.participants)) {
-      console.log(`Participantes encontrados diretamente na resposta: ${data.participants.length}`);
-      setParticipants(data.participants);
-    } 
-    // Verificar se há um campo participantsJson
-    else if (data.participantsJson) {
-      console.log("Tentando parsear participantsJson");
-      try {
-        let parsedParticipants;
-        if (typeof data.participantsJson === 'string') {
-          parsedParticipants = JSON.parse(data.participantsJson);
-          console.log(`Participantes parseados de participantsJson string: ${parsedParticipants.length}`);
-        } else if (Array.isArray(data.participantsJson)) {
-          parsedParticipants = data.participantsJson;
-          console.log(`Participantes obtidos de participantsJson array: ${parsedParticipants.length}`);
-        }
-        
-        if (parsedParticipants && Array.isArray(parsedParticipants)) {
-          setParticipants(parsedParticipants);
-        } else {
-          console.warn("Formato inesperado de participantes:", parsedParticipants);
-          setParticipants([]);
-        }
-      } catch (e) {
-        console.error("Erro ao parsear participantes:", e);
-        toast.error(i18n.t("contactDrawer.errors.parsingParticipantsFailed"));
-        setParticipants([]);
-      }
-    } else {
-      console.warn("Nenhum participante encontrado nos dados recebidos");
-      setParticipants([]);
-    }
-  } catch (err) {
-    console.error("Erro ao carregar participantes do grupo:", err);
-    console.error("Detalhes do erro:", err.response?.data || err.message);
-    toast.error(i18n.t("contactDrawer.errors.loadingParticipantsFailed"));
-    setParticipants([]);
-  } finally {
-    setLoadingParticipants(false);
-  }
-};
   const handleContactToggleDisableBot = async () => {
     const { id } = contact;
 
