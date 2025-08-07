@@ -41,7 +41,7 @@ import api from '../../services/api';
 import { AuthContext } from '../../context/Auth/AuthContext';
 import useSettings from '../../hooks/useSettings';
 import StandardModal from '../shared/StandardModal';
-
+import storage from "../../helpers/storage";
 const PREFIX = 'AISuggestionWidget';
 
 const StyledFab = styled(Fab)(({ theme }) => ({
@@ -113,7 +113,7 @@ const AISuggestionWidget = ({
   });
 
   const loadLocalConfig = () => {
-    const savedConfig = window.locaLStorage.getItem('aiSuggestionConfig');
+    const savedConfig = storage.getItem('aiSuggestionConfig');
     if (savedConfig) {
       try {
         const parsedConfig = JSON.parse(savedConfig);
@@ -125,7 +125,7 @@ const AISuggestionWidget = ({
   };
 
   const saveLocalConfig = () => {
-    window.localStorage.setItem('aiSuggestionConfig', JSON.stringify(localConfig));
+    storage.setItem('aiSuggestionConfig', JSON.stringify(localConfig));
     setConfigOpen(false);
     toast.success('Configurações pessoais salvas com sucesso!');
   };

@@ -291,9 +291,19 @@ const useAuth = () => {
   
       const { token, user } = data;
       const { companyId, id, company, profile } = user;
-  
+      const iaDefaultConfig = {
+          // Estas configurações podem ser ajustadas pelo usuário individual
+          contextLength: 20,
+          maxSuggestions: 3,
+          temperature: 0.7,
+          maxTokens: 1500,
+          confidenceThreshold: 0.7
+      }
       // Configurar autenticação
       localStorage.setItem("token", JSON.stringify(token));
+      localStorage.setItem('aiSuggestionConfig', JSON.stringify(localConfig));
+
+
       localStorage.setItem("companyId", String(companyId));
       // Salvar também o lastCompanyId para lembrar após logout
       localStorage.setItem("lastCompanyId", String(companyId));
