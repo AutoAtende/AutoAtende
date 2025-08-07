@@ -301,7 +301,7 @@ const useAuth = () => {
       }
       // Configurar autenticação
       localStorage.setItem("token", JSON.stringify(token));
-      localStorage.setItem('aiSuggestionConfig', JSON.stringify(localConfig));
+      localStorage.setItem('aiSuggestionConfig', JSON.stringify(iaDefaultConfig));
 
 
       localStorage.setItem("companyId", String(companyId));
