@@ -1790,11 +1790,7 @@ const handleSendMessage = async () => {
     { icon: <MoodIcon />, name: "Emoji", action: () => setShowEmoji(prev => !prev) },
     { icon: <AttachFileIcon />, name: i18n.t("messagesInput.attach") || "Anexar", action: () => document.getElementById('upload-button').click() },
     { icon: <PersonIcon />, name: i18n.t("messagesInput.contact") || "Contato", action: handleSendContactModalOpen },
-        ...(aiSettings?.openAiKey && !internalMessageMode ? [{
-          icon: <PsychologyIcon />,
-          name: "Sugestões de IA",
-          action: handleAIWidgetOpen
-        }] : []),
+    ...(!internalMessageMode ? [{ icon: <PsychologyIcon />, name: "Sugestões de IA", action: handleAIWidgetOpen}] : []),
   ];
 
   if (medias.length > 0)
