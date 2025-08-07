@@ -113,7 +113,7 @@ const AISuggestionWidget = ({
   });
 
   const loadLocalConfig = () => {
-    const savedConfig = storage.getItem('aiSuggestionConfig');
+    const savedConfig = storage.getItem('aiSuggestionConfig'); //
     if (savedConfig) {
       try {
         const parsedConfig = JSON.parse(savedConfig);

@@ -291,7 +291,7 @@ const useAuth = () => {
   
       const { token, user } = data;
       const { companyId, id, company, profile } = user;
-      const iaDefaultConfig = {
+      const aiSuggestionConfig = {
           // Estas configurações podem ser ajustadas pelo usuário individual
           contextLength: 20,
           maxSuggestions: 3,
@@ -301,7 +301,7 @@ const useAuth = () => {
       }
       // Configurar autenticação
       localStorage.setItem("token", JSON.stringify(token));
-      localStorage.setItem('aiSuggestionConfig', JSON.stringify(iaDefaultConfig));
+      localStorage.setItem('aiSuggestionConfig', JSON.stringify(aiSuggestionConfig));
 
 
       localStorage.setItem("companyId", String(companyId));
