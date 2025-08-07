@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback } from "react";
+import { useLocation } from "react-router-dom"; 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
 import { ptBR } from "@mui/material/locale";
@@ -54,7 +55,7 @@ const ThemedApp = () => {
     let isMounted = true;
     
     // Apenas carregar configurações privadas quando autenticado
-    if (isAuth) {
+    if (isAuth && location.pathname !== "/login") {
       getAll(companyId)
         .then(allSettings => {
           if (!isMounted) return;
