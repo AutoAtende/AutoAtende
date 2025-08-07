@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useContext } from 'react';
+import React, { useState, useEffect, useContext, useCallback } from 'react';
 import {
   Box,
   Card,
@@ -42,6 +42,7 @@ import { AuthContext } from '../../context/Auth/AuthContext';
 import useSettings from '../../hooks/useSettings';
 import StandardModal from '../shared/StandardModal';
 import storage from "../../helpers/storage";
+
 const PREFIX = 'AISuggestionWidget';
 
 const StyledFab = styled(Fab)(({ theme }) => ({
@@ -90,19 +91,20 @@ const ToneChip = styled(Chip)(({ theme, tone }) => {
 const AISuggestionWidget = ({ 
   ticketId, 
   onSuggestionSelect, 
-  aiSettings,
   open,
   onClose 
 }) => {
   const { user } = useContext(AuthContext);
+  const { settings, getAll, loading: settingsLoading } = useSettings();
+  
   const [suggestions, setSuggestions] = useState([]);
   const [loading, setLoading] = useState(false);
   const [configOpen, setConfigOpen] = useState(false);
   const [expandedSuggestion, setExpandedSuggestion] = useState(null);
+  const [aiConfigReady, setAiConfigReady] = useState(false);
   
   // Estados para configurações locais (preferências do usuário)
   const [localConfig, setLocalConfig] = useState({
-    // Estas configurações podem ser ajustadas pelo usuário individual
     contextLength: 20,
     maxSuggestions: 3,
     temperature: 0.7,
@@ -110,8 +112,47 @@ const AISuggestionWidget = ({
     confidenceThreshold: 0.7
   });
 
-  const loadLocalConfig = () => {
-    const savedConfig = storage.getItem('aiSuggestionConfig'); //
+  // Função para buscar configuração específica por key
+  const getSettingByKey = useCallback((key) => {
+    if (!Array.isArray(settings) || settings.length === 0) {
+      return null;
+    }
+    
+    const setting = settings.find(s => s.key === key);
+    return setting ? setting.value : null;
+  }, [settings]);
+
+  // Buscar configurações de IA
+  const getAiSettings = useCallback(() => {
+    const openAiKey = getSettingByKey('openAiKey');
+    const openAiModel = getSettingByKey('openAiModel');
+    
+    return {
+      openAiKey,
+      openAiModel: openAiModel || 'gpt-4o' // valor padrão
+    };
+  }, [getSettingByKey]);
+
+  // Carregar configurações quando o componente é montado ou aberto
+  useEffect(() => {
+    if (open && !settingsLoading && (!settings || settings.length === 0)) {
+      const companyId = user?.companyId || localStorage.getItem("companyId");
+      if (companyId) {
+        getAll(companyId);
+      }
+    }
+  }, [open, settingsLoading, settings, getAll, user?.companyId]);
+
+  // Verificar se as configurações de IA estão prontas
+  useEffect(() => {
+    if (settings && settings.length > 0) {
+      const { openAiKey } = getAiSettings();
+      setAiConfigReady(!!openAiKey);
+    }
+  }, [settings, getAiSettings]);
+
+  const loadLocalConfig = useCallback(() => {
+    const savedConfig = storage.getItem('aiSuggestionConfig');
     if (savedConfig) {
       try {
         const parsedConfig = JSON.parse(savedConfig);
@@ -120,22 +161,29 @@ const AISuggestionWidget = ({
         console.error('Erro ao carregar configurações locais:', error);
       }
     }
-  };
+  }, []);
 
-  const saveLocalConfig = () => {
-    storage.setItem('aiSuggestionConfig', JSON.stringify(localConfig));
-    setConfigOpen(false);
-    toast.success('Configurações pessoais salvas com sucesso!');
-  };
+  const saveLocalConfig = useCallback(() => {
+    try {
+      storage.setItem('aiSuggestionConfig', JSON.stringify(localConfig));
+      setConfigOpen(false);
+      toast.success('Configurações pessoais salvas com sucesso!');
+    } catch (error) {
+      console.error('Erro ao salvar configurações:', error);
+      toast.error('Erro ao salvar configurações');
+    }
+  }, [localConfig]);
 
   useEffect(() => {
     loadLocalConfig();
-  }, []);
+  }, [loadLocalConfig]);
 
   // Gerar sugestões usando configurações globais + locais
   const generateSuggestions = async () => {
-    if (!settings?.openAiKey) {
-      toast.error('Configurações de IA não encontradas. Configure nas Configurações Gerais.');
+    const { openAiKey, openAiModel } = getAiSettings();
+    
+    if (!openAiKey) {
+      toast.error('Configurações de IA não encontradas. Configure a chave da OpenAI nas Configurações Gerais.');
       return;
     }
 
@@ -143,8 +191,8 @@ const AISuggestionWidget = ({
     try {
       const requestConfig = {
         // Usar configurações globais como base
-        model: aiSettings?.openaiModel || 'gpt-4o',
-        apiKey: aiSettings?.openAiKey, // Chave global
+        model: openAiModel,
+        apiKey: openAiKey, // Chave global
         // Permitir override local das configurações de comportamento
         maxSuggestions: localConfig.maxSuggestions,
         contextLength: localConfig.contextLength,
@@ -167,6 +215,12 @@ const AISuggestionWidget = ({
       console.error('Erro ao gerar sugestões:', error);
       if (error.response?.status === 401) {
         toast.error('Chave da OpenAI inválida. Entre em contato com o administrador.');
+      } else if (error.response?.status === 429) {
+        toast.error('Limite de requisições atingido. Tente novamente em alguns minutos.');
+      } else if (error.response?.status === 500) {
+        toast.error('Erro interno do servidor. Tente novamente mais tarde.');
+      } else if (error.response?.status === 403) {
+        toast.error('Acesso negado. Verifique suas permissões.');
       } else {
         toast.error(error.response?.data?.error || 'Erro ao gerar sugestões');
       }
@@ -179,7 +233,6 @@ const AISuggestionWidget = ({
   const handleUseSuggestion = async (suggestion) => {
     try {
       // Registrar que a sugestão foi usada (se feedback estiver habilitado)
-
       await api.post(`/ai-suggestions/${suggestion.id}/feedback`, {
         used: true,
         helpful: true
@@ -224,6 +277,7 @@ const AISuggestionWidget = ({
       toast.success('Obrigado pelo feedback!');
     } catch (error) {
       console.error('Erro ao enviar feedback:', error);
+      toast.warn('Não foi possível registrar o feedback, mas obrigado!');
     }
   };
 
@@ -261,6 +315,18 @@ const AISuggestionWidget = ({
   };
 
   const renderMainContent = () => {
+    // Mostrar loading se as configurações ainda estão carregando
+    if (settingsLoading) {
+      return (
+        <Box textAlign="center" py={4}>
+          <CircularProgress sx={{ mb: 2 }} />
+          <Typography variant="body1">
+            Carregando configurações...
+          </Typography>
+        </Box>
+      );
+    }
+
     if (suggestions.length === 0) {
       return (
         <Box textAlign="center" py={4}>
@@ -344,26 +410,26 @@ const AISuggestionWidget = ({
                   </Button>
                 </Box>
 
-                  <Box display="flex" gap={1}>
-                    <Tooltip title="Útil">
-                      <IconButton
-                        size="small"
-                        onClick={() => handleFeedback(suggestion.id, true)}
-                        color="success"
-                      >
-                        <ThumbUpIcon fontSize="small" />
-                      </IconButton>
-                    </Tooltip>
-                    <Tooltip title="Não útil">
-                      <IconButton
-                        size="small"
-                        onClick={() => handleFeedback(suggestion.id, false)}
-                        color="error"
-                      >
-                        <ThumbDownIcon fontSize="small" />
-                      </IconButton>
-                    </Tooltip>
-                  </Box>
+                <Box display="flex" gap={1}>
+                  <Tooltip title="Útil">
+                    <IconButton
+                      size="small"
+                      onClick={() => handleFeedback(suggestion.id, true)}
+                      color="success"
+                    >
+                      <ThumbUpIcon fontSize="small" />
+                    </IconButton>
+                  </Tooltip>
+                  <Tooltip title="Não útil">
+                    <IconButton
+                      size="small"
+                      onClick={() => handleFeedback(suggestion.id, false)}
+                      color="error"
+                    >
+                      <ThumbDownIcon fontSize="small" />
+                    </IconButton>
+                  </Tooltip>
+                </Box>
               </Box>
             </CardContent>
           </SuggestionCard>
@@ -372,77 +438,81 @@ const AISuggestionWidget = ({
     );
   };
 
-  const renderConfigContent = () => (
-    <Box display="flex" flexDirection="column" gap={2} mt={2}>
-      <Alert severity="info">
-        <Typography variant="body2">
-          <strong>Configuração Global:</strong> {aiSettings?.openaiModel || 'N/A'} configurado para toda a empresa.
-          Aqui você pode ajustar suas preferências pessoais de comportamento da IA.
-        </Typography>
-      </Alert>
+  const renderConfigContent = () => {
+    const { openAiModel } = getAiSettings();
+    
+    return (
+      <Box display="flex" flexDirection="column" gap={2} mt={2}>
+        <Alert severity="info">
+          <Typography variant="body2">
+            <strong>Configuração Global:</strong> {openAiModel} configurado para toda a empresa.
+            Aqui você pode ajustar suas preferências pessoais de comportamento da IA.
+          </Typography>
+        </Alert>
 
-      <TextField
-        label="Máximo de Sugestões"
-        type="number"
-        value={localConfig.maxSuggestions}
-        onChange={(e) => handleConfigChange('maxSuggestions', parseInt(e.target.value))}
-        inputProps={{ min: 1, max: 5 }}
-        fullWidth
-        helperText={`Padrão da empresa: 3}`}
-      />
+        <TextField
+          label="Máximo de Sugestões"
+          type="number"
+          value={localConfig.maxSuggestions}
+          onChange={(e) => handleConfigChange('maxSuggestions', parseInt(e.target.value) || 3)}
+          inputProps={{ min: 1, max: 5 }}
+          fullWidth
+          helperText="Padrão da empresa: 3"
+        />
 
-      <TextField
-        label="Tamanho do Contexto"
-        type="number"
-        value={localConfig.contextLength}
-        onChange={(e) => handleConfigChange('contextLength', parseInt(e.target.value))}
-        inputProps={{ min: 5, max: 50 }}
-        fullWidth
-        helperText={`Número de mensagens para análise. Padrão: 20}`}
-      />
+        <TextField
+          label="Tamanho do Contexto"
+          type="number"
+          value={localConfig.contextLength}
+          onChange={(e) => handleConfigChange('contextLength', parseInt(e.target.value) || 20)}
+          inputProps={{ min: 5, max: 50 }}
+          fullWidth
+          helperText="Número de mensagens para análise. Padrão: 20"
+        />
 
-      <TextField
-        label="Criatividade (Temperature)"
-        type="number"
-        value={localConfig.temperature}
-        onChange={(e) => handleConfigChange('temperature', parseFloat(e.target.value))}
-        inputProps={{ min: 0.1, max: 1.0, step: 0.1 }}
-        fullWidth
-        helperText={`0.1 = Conservador, 1.0 = Criativo. Padrão: 0.7}`}
-      />
+        <TextField
+          label="Criatividade (Temperature)"
+          type="number"
+          value={localConfig.temperature}
+          onChange={(e) => handleConfigChange('temperature', parseFloat(e.target.value) || 0.7)}
+          inputProps={{ min: 0.1, max: 1.0, step: 0.1 }}
+          fullWidth
+          helperText="0.1 = Conservador, 1.0 = Criativo. Padrão: 0.7"
+        />
 
-      <TextField
-        label="Máximo de Tokens"
-        type="number"
-        value={localConfig.maxTokens}
-        onChange={(e) => handleConfigChange('maxTokens', parseInt(e.target.value))}
-        inputProps={{ min: 500, max: 4000 }}
-        fullWidth
-        helperText={`Tamanho máximo da resposta. Padrão: 1500}`}
-      />
+        <TextField
+          label="Máximo de Tokens"
+          type="number"
+          value={localConfig.maxTokens}
+          onChange={(e) => handleConfigChange('maxTokens', parseInt(e.target.value) || 1500)}
+          inputProps={{ min: 500, max: 4000 }}
+          fullWidth
+          helperText="Tamanho máximo da resposta. Padrão: 1500"
+        />
 
-      <TextField
-        label="Limite de Confiança (%)"
-        type="number"
-        value={Math.round(localConfig.confidenceThreshold * 100)}
-        onChange={(e) => handleConfigChange('confidenceThreshold', parseInt(e.target.value) / 100)}
-        inputProps={{ min: 10, max: 100, step: 5 }}
-        fullWidth
-        helperText={`Mínimo de confiança para mostrar sugestões. Padrão: ${Math.round((0.7) * 100)}%`}
-      />
+        <TextField
+          label="Limite de Confiança (%)"
+          type="number"
+          value={Math.round(localConfig.confidenceThreshold * 100)}
+          onChange={(e) => handleConfigChange('confidenceThreshold', (parseInt(e.target.value) || 70) / 100)}
+          inputProps={{ min: 10, max: 100, step: 5 }}
+          fullWidth
+          helperText="Mínimo de confiança para mostrar sugestões. Padrão: 70%"
+        />
 
-      <Alert severity="success" sx={{ mt: 2 }}>
-        <Typography variant="body2">
-          <strong>💡 Dica:</strong> Estas configurações são salvas localmente no seu navegador e 
-          não afetam outros usuários. Use configurações mais conservadoras para respostas mais precisas 
-          ou mais criativas para respostas mais variadas.
-        </Typography>
-      </Alert>
-    </Box>
-  );
+        <Alert severity="success" sx={{ mt: 2 }}>
+          <Typography variant="body2">
+            <strong>💡 Dica:</strong> Estas configurações são salvas localmente no seu navegador e 
+            não afetam outros usuários. Use configurações mais conservadoras para respostas mais precisas 
+            ou mais criativas para respostas mais variadas.
+          </Typography>
+        </Alert>
+      </Box>
+    );
+  };
 
   // Verificar se IA está configurada
-  if (!aiSettings?.openAiKey) {
+  if (!aiConfigReady && !settingsLoading && settings && settings.length > 0) {
     return (
       <StandardModal
         open={open}
@@ -476,11 +546,13 @@ const AISuggestionWidget = ({
     );
   }
 
+  const { openAiModel } = getAiSettings();
+
   const getMainModalActions = () => [
     {
       label: loading ? 'Gerando...' : 'Gerar Novas Sugestões',
       onClick: generateSuggestions,
-      disabled: loading,
+      disabled: loading || settingsLoading,
       variant: 'outlined'
     },
     {
@@ -510,27 +582,28 @@ const AISuggestionWidget = ({
         open={open}
         onClose={onClose}
         title="Sugestões de Resposta IA"
-        subtitle={`Configuração: ${aiSettings?.openaiModel || 'N/A'} • Máx. ${localConfig.maxSuggestions} sugestões • Contexto: ${localConfig.contextLength} mensagens`}
+        subtitle={`Configuração: ${openAiModel} • Máx. ${localConfig.maxSuggestions} sugestões • Contexto: ${localConfig.contextLength} mensagens`}
         icon={PsychologyIcon}
         iconColor="#2196f3"
         maxWidth="md"
         fullWidth
-        loading={loading}
-        loadingText="Gerando sugestões..."
+        loading={loading || settingsLoading}
+        loadingText={settingsLoading ? "Carregando configurações..." : "Gerando sugestões..."}
         actions={getMainModalActions()}
-        disableBackdropClick={loading}
-        disableEscapeKeyDown={loading}
+        disableBackdropClick={loading || settingsLoading}
+        disableEscapeKeyDown={loading || settingsLoading}
       >
         {/* Informações sobre configuração global */}
         <Alert severity="info" sx={{ mb: 2 }}>
           <Typography variant="body2">
-            <strong>Configuração Ativa:</strong> {aiSettings?.openaiModel || 'N/A'} • 
+            <strong>Configuração Ativa:</strong> {openAiModel} • 
             Máx. {localConfig.maxSuggestions} sugestões • 
             Contexto: {localConfig.contextLength} mensagens
             <IconButton 
               onClick={() => setConfigOpen(true)} 
               size="small" 
               sx={{ ml: 1 }}
+              disabled={settingsLoading}
             >
               <SettingsIcon fontSize="small" />
             </IconButton>
