@@ -105,19 +105,15 @@ const AISuggestionWidget = ({
   // Estados para configurações locais (preferências do usuário)
   const [localConfig, setLocalConfig] = useState({
     // Estas configurações podem ser ajustadas pelo usuário individual
-    contextLength: aiSettings?.aiContextLength || 20,
-    maxSuggestions: aiSettings?.aiMaxSuggestions || 3,
-    temperature: aiSettings?.aiTemperature || 0.7,
-    maxTokens: aiSettings?.aiMaxTokens || 1500,
-    confidenceThreshold: aiSettings?.aiSuggestionConfidenceThreshold || 0.7
+    contextLength: 20,
+    maxSuggestions: 3,
+    temperature: 0.7,
+    maxTokens: 1500,
+    confidenceThreshold: 0.7
   });
 
-  useEffect(() => {
-    loadLocalConfig();
-  }, []);
-
   const loadLocalConfig = () => {
-    const savedConfig = locaLStorage.getItem('aiSuggestionConfig');
+    const savedConfig = window.locaLStorage.getItem('aiSuggestionConfig');
     if (savedConfig) {
       try {
         const parsedConfig = JSON.parse(savedConfig);
@@ -129,14 +125,18 @@ const AISuggestionWidget = ({
   };
 
   const saveLocalConfig = () => {
-    localStorage.setItem('aiSuggestionConfig', JSON.stringify(localConfig));
+    window.localStorage.setItem('aiSuggestionConfig', JSON.stringify(localConfig));
     setConfigOpen(false);
     toast.success('Configurações pessoais salvas com sucesso!');
   };
 
+  useEffect(() => {
+    loadLocalConfig();
+  }, []);
+
   // Gerar sugestões usando configurações globais + locais
   const generateSuggestions = async () => {
-    if (!aiSettings?.openAiKey) {
+    if (!settings?.openAiKey) {
       toast.error('Configurações de IA não encontradas. Configure nas Configurações Gerais.');
       return;
     }
@@ -145,18 +145,15 @@ const AISuggestionWidget = ({
     try {
       const requestConfig = {
         // Usar configurações globais como base
-        model: aiSettings.openaiModel || 'gpt-4o',
-        apiKey: aiSettings.openAiKey, // Chave global
+        model: settings?.openaiModel || 'gpt-4o',
+        apiKey: settings?.openAiKey, // Chave global
         // Permitir override local das configurações de comportamento
         maxSuggestions: localConfig.maxSuggestions,
         contextLength: localConfig.contextLength,
         temperature: localConfig.temperature,
         maxTokens: localConfig.maxTokens,
         confidenceThreshold: localConfig.confidenceThreshold,
-        // Configurações específicas da empresa
-        enableFeedback: aiSettings.aiEnableFeedback,
-        cacheResults: aiSettings.aiCacheResults,
-        language: aiSettings.transcriptionLanguage || 'pt'
+        language: 'pt'
       };
 
       const response = await api.post(`/ai-suggestions/tickets/${ticketId}/generate`, requestConfig);
