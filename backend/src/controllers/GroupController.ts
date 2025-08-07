@@ -625,11 +625,11 @@ export const getGroupDetails = async (req: Request, res: Response): Promise<Resp
 };
 
 export const syncGroups = async (req: Request, res: Response): Promise<Response> => {
-  const { companyId } = req.user;
+  const { companyId, id: userId} = req.user;
 
   try {
     // Inicia o processo de sincronização em background
-    SyncGroupsService(companyId)
+    SyncGroupsService(companyId, Number(userId))
       .then(result => {
         logger.info(`Sincronização de grupos concluída para empresa ${companyId}:`, result);
       })
