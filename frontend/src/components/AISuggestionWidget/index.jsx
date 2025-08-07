@@ -40,9 +40,7 @@ import { toast } from '../../helpers/toast';
 import api from '../../services/api';
 import { AuthContext } from '../../context/Auth/AuthContext';
 import useSettings from '../../hooks/useSettings';
-import StandardModalAdv from '../shared/StandardModalAdv';
 import StandardModal from '../shared/StandardModal';
-import storage from '../../helpers/storage';
 
 const PREFIX = 'AISuggestionWidget';
 
@@ -119,7 +117,7 @@ const AISuggestionWidget = ({
   }, []);
 
   const loadLocalConfig = () => {
-    const savedConfig = storage.getItem('aiSuggestionConfig');
+    const savedConfig = locaLStorage.getItem('aiSuggestionConfig');
     if (savedConfig) {
       try {
         const parsedConfig = JSON.parse(savedConfig);
@@ -131,7 +129,7 @@ const AISuggestionWidget = ({
   };
 
   const saveLocalConfig = () => {
-    storage.setItem('aiSuggestionConfig', JSON.stringify(localConfig));
+    localStorage.setItem('aiSuggestionConfig', JSON.stringify(localConfig));
     setConfigOpen(false);
     toast.success('Configurações pessoais salvas com sucesso!');
   };
