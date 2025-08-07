@@ -55,7 +55,7 @@ class Groups extends Model<Groups> {
   // ✅ CORRIGIDO: Tipo JSONB simples com validação por hooks
   @Default('[]')
   @Column(DataType.JSONB)
-  participantsJson: GroupParticipant[];
+  participantsJson: string[];
   
   // ✅ CORRIGIDO: Tipo JSONB simples com validação por hooks
   @Default('[]')
@@ -139,50 +139,6 @@ class Groups extends Model<Groups> {
   @UpdatedAt
   updatedAt: Date;
 
-  @BeforeSave
-  static sanitizeFieldsBeforeSave(instance: Groups) {
-    try {
-      logger.debug(`[Groups] Sanitizando dados antes de salvar grupo ${instance.jid}`);
-
-      if (instance.participantsJson !== undefined && instance.participantsJson !== null) {
-        const sanitizedParticipants = sanitizeJsonArray(instance.participantsJson, 'participantsJson');
-        instance.participantsJson = sanitizedParticipants;
-        logger.debug(`[Groups] participantsJson sanitizado: ${sanitizedParticipants.length} participantes`);
-      } else {
-        instance.participantsJson = [];
-        logger.debug(`[Groups] participantsJson era null/undefined, definido como array vazio`);
-      }
-
-      if (instance.adminParticipants !== undefined && instance.adminParticipants !== null) {
-        const sanitizedAdmins = sanitizeJsonArray(instance.adminParticipants, 'adminParticipants');
-        instance.adminParticipants = sanitizedAdmins;
-        logger.debug(`[Groups] adminParticipants sanitizado: ${sanitizedAdmins.length} admins`);
-      } else {
-        instance.adminParticipants = [];
-        logger.debug(`[Groups] adminParticipants era null/undefined, definido como array vazio`);
-      }
-
-      if (instance.settings !== undefined && instance.settings !== null) {
-        const sanitizedSettings = sanitizeJsonArray(instance.settings, 'settings');
-        instance.settings = sanitizedSettings;
-        logger.debug(`[Groups] settings sanitizado: ${sanitizedSettings.length} configurações`);
-      } else {
-        instance.settings = [];
-        logger.debug(`[Groups] settings era null/undefined, definido como array vazio`);
-      }
-
-      logger.info(`[Groups] Dados sanitizados com sucesso para grupo ${instance.jid}: ${instance.participantsJson.length} participantes, ${instance.adminParticipants.length} admins`);
-
-    } catch (error) {
-      logger.error(`[Groups] Erro crítico na sanitização do grupo ${instance.jid}:`, error);
-      
-      instance.participantsJson = [];
-      instance.adminParticipants = [];
-      instance.settings = [];
-      
-      logger.warn(`[Groups] Aplicado fallback para grupo ${instance.jid} - todos os arrays definidos como vazios`);
-    }
-  }
 
   // ✅ MÉTODOS CORRIGIDOS COM VALIDAÇÃO
   getCurrentParticipantCount(): number {
@@ -230,27 +186,6 @@ class Groups extends Model<Groups> {
       : `${this.baseGroupName} #${nextNumber}`;
   }
 
-  // ✅ MÉTODO PARA OBTER PARTICIPANTES VALIDADOS
-  getValidatedParticipants(): GroupParticipant[] {
-    if (!Array.isArray(this.participantsJson)) {
-      return [];
-    }
-    
-    return this.participantsJson.filter(p => 
-      p && typeof p === 'object' && p.id && typeof p.id === 'string'
-    );
-  }
-
-  // ✅ MÉTODO PARA OBTER ADMINS VALIDADOS
-  getValidatedAdminParticipants(): string[] {
-    if (!Array.isArray(this.adminParticipants)) {
-      return [];
-    }
-    
-    return this.adminParticipants.filter(id => 
-      id && typeof id === 'string'
-    );
-  }
 }
 
 export default Groups;

@@ -66,7 +66,7 @@ const createExcelSheet = (
 export async function ExtractContactsService(
   link: string,
   companyId: number,
-  participants?: GroupParticipant[],
+  participants?: [],
   groupCode?: string
 ) {
   const io = getIO();
