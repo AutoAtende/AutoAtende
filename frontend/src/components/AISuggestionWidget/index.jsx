@@ -95,8 +95,6 @@ const AISuggestionWidget = ({
   onClose 
 }) => {
   const { user } = useContext(AuthContext);
-  const { settings } = useSettings();
-  
   const [suggestions, setSuggestions] = useState([]);
   const [loading, setLoading] = useState(false);
   const [configOpen, setConfigOpen] = useState(false);
@@ -145,8 +143,8 @@ const AISuggestionWidget = ({
     try {
       const requestConfig = {
         // Usar configurações globais como base
-        model: settings?.openaiModel || 'gpt-4o',
-        apiKey: settings?.openAiKey, // Chave global
+        model: aiSettings?.openaiModel || 'gpt-4o',
+        apiKey: aiSettings?.openAiKey, // Chave global
         // Permitir override local das configurações de comportamento
         maxSuggestions: localConfig.maxSuggestions,
         contextLength: localConfig.contextLength,
@@ -181,12 +179,11 @@ const AISuggestionWidget = ({
   const handleUseSuggestion = async (suggestion) => {
     try {
       // Registrar que a sugestão foi usada (se feedback estiver habilitado)
-      if (aiSettings?.aiEnableFeedback) {
-        await api.post(`/ai-suggestions/${suggestion.id}/feedback`, {
-          used: true,
-          helpful: true
-        });
-      }
+
+      await api.post(`/ai-suggestions/${suggestion.id}/feedback`, {
+        used: true,
+        helpful: true
+      });
 
       // Chamar callback para inserir texto no campo de resposta
       if (onSuggestionSelect) {
@@ -218,10 +215,6 @@ const AISuggestionWidget = ({
 
   // Dar feedback
   const handleFeedback = async (suggestionId, helpful) => {
-    if (!aiSettings?.aiEnableFeedback) {
-      return;
-    }
-
     try {
       await api.post(`/ai-suggestions/${suggestionId}/feedback`, {
         used: false,
@@ -351,7 +344,6 @@ const AISuggestionWidget = ({
                   </Button>
                 </Box>
 
-                {aiSettings?.aiEnableFeedback && (
                   <Box display="flex" gap={1}>
                     <Tooltip title="Útil">
                       <IconButton
@@ -372,7 +364,6 @@ const AISuggestionWidget = ({
                       </IconButton>
                     </Tooltip>
                   </Box>
-                )}
               </Box>
             </CardContent>
           </SuggestionCard>
@@ -397,7 +388,7 @@ const AISuggestionWidget = ({
         onChange={(e) => handleConfigChange('maxSuggestions', parseInt(e.target.value))}
         inputProps={{ min: 1, max: 5 }}
         fullWidth
-        helperText={`Padrão da empresa: ${aiSettings?.aiMaxSuggestions || 3}`}
+        helperText={`Padrão da empresa: 3}`}
       />
 
       <TextField
@@ -407,7 +398,7 @@ const AISuggestionWidget = ({
         onChange={(e) => handleConfigChange('contextLength', parseInt(e.target.value))}
         inputProps={{ min: 5, max: 50 }}
         fullWidth
-        helperText={`Número de mensagens para análise. Padrão: ${aiSettings?.aiContextLength || 20}`}
+        helperText={`Número de mensagens para análise. Padrão: 20}`}
       />
 
       <TextField
@@ -417,7 +408,7 @@ const AISuggestionWidget = ({
         onChange={(e) => handleConfigChange('temperature', parseFloat(e.target.value))}
         inputProps={{ min: 0.1, max: 1.0, step: 0.1 }}
         fullWidth
-        helperText={`0.1 = Conservador, 1.0 = Criativo. Padrão: ${aiSettings?.aiTemperature || 0.7}`}
+        helperText={`0.1 = Conservador, 1.0 = Criativo. Padrão: 0.7}`}
       />
 
       <TextField
@@ -427,7 +418,7 @@ const AISuggestionWidget = ({
         onChange={(e) => handleConfigChange('maxTokens', parseInt(e.target.value))}
         inputProps={{ min: 500, max: 4000 }}
         fullWidth
-        helperText={`Tamanho máximo da resposta. Padrão: ${aiSettings?.aiMaxTokens || 1500}`}
+        helperText={`Tamanho máximo da resposta. Padrão: 1500}`}
       />
 
       <TextField
@@ -437,7 +428,7 @@ const AISuggestionWidget = ({
         onChange={(e) => handleConfigChange('confidenceThreshold', parseInt(e.target.value) / 100)}
         inputProps={{ min: 10, max: 100, step: 5 }}
         fullWidth
-        helperText={`Mínimo de confiança para mostrar sugestões. Padrão: ${Math.round((aiSettings?.aiSuggestionConfidenceThreshold || 0.7) * 100)}%`}
+        helperText={`Mínimo de confiança para mostrar sugestões. Padrão: ${Math.round((0.7) * 100)}%`}
       />
 
       <Alert severity="success" sx={{ mt: 2 }}>

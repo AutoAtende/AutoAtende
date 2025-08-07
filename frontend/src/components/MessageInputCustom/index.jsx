@@ -1887,7 +1887,7 @@ const handleSendMessage = async () => {
         />
 
                 {/* Widget de Sugestões de IA */}
-                <AISuggestionWidget
+        <AISuggestionWidget
           ticketId={ticketId}
           onSuggestionSelect={handleAISuggestionSelect}
           aiSettings={aiSettings}

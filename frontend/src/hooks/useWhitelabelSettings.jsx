@@ -115,30 +115,37 @@ export function useWhitelabelSettings() {
   };
 
   // Função para atualizar uma configuração específica
-  const updateSetting = async (key, value) => {
-    try {
-      const companyId = user?.companyId || localStorage.getItem("companyId") || "1";
-      await api.post("/settings", { key, value });
-      
-      // Atualizar o estado local
-      setSettings(prev => ({
-        ...prev,
-        [key]: value
-      }));
-      
-      // Atualizar o cache
-      const cachedSettings = getSettingsFromCache(companyId);
-      if (cachedSettings) {
-        cachedSettings[key] = value;
-        cacheSettings(companyId, cachedSettings);
-      }
-      
-      return true;
-    } catch (err) {
-      console.error("Erro ao atualizar configuração:", err);
-      return false;
+const updateSetting = async (key, value) => {
+  try {
+    const companyId = user?.companyId || localStorage.getItem("companyId");
+
+    if (!companyId || !key) {
+      throw new Error("Parâmetros 'companyId' ou 'key' ausentes.");
     }
-  };
+
+    // Ajusta a chamada ao endpoint conforme a rota do backend
+    await api.put(`/settings/c/${companyId}/k/${key}`, { value });
+
+    // Atualiza o estado local
+    setSettings(prev => ({
+      ...prev,
+      [key]: value
+    }));
+
+    // Atualiza o cache local
+    const cachedSettings = getSettingsFromCache(companyId);
+    if (cachedSettings) {
+      cachedSettings[key] = value;
+      cacheSettings(companyId, cachedSettings);
+    }
+
+    return true;
+  } catch (err) {
+    console.error("Erro ao atualizar configuração:", err);
+    return false;
+  }
+};
+
 
   // Carregar configurações iniciais
   useEffect(() => {
