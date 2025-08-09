@@ -5,30 +5,6 @@ module.exports = {
   up: async (queryInterface, Sequelize) => {
     // Inicia uma única transação para todo o processo
     await queryInterface.sequelize.transaction(async (transaction) => {
-      // 1) Adicionar coluna 'optionType' (cria automaticamente o ENUM 'enum_QueueOptions_optionType')
-      await queryInterface.addColumn(
-        'QueueOptions',
-        'optionType',
-        {
-          type: Sequelize.ENUM(
-            'text',
-            'audio',
-            'video',
-            'image',
-            'document',
-            'contact',
-            'transfer_queue',
-            'transfer_user',
-            'transfer_whatsapp',
-            'validation',
-            'conditional'
-          ),
-          allowNull: false,
-          defaultValue: 'text',
-        },
-        { transaction }
-      );
-
       // 2) Adicionar coluna 'targetQueueId' (FK para 'Queues')
       await queryInterface.addColumn(
         'QueueOptions',
