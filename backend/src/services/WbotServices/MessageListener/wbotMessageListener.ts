@@ -804,6 +804,53 @@ export const handleMessage = async (
     });
 
     /**
+ * @description Tenta verificar se a mensagem não foi enviada pelo próprio bot.
+ * Se a mensagem foi enviada por um usuário, verifica se a avaliação do ticket
+ * deve ser processada. Se a avaliação for válida, chama a função handleRating
+ * para processar a avaliação e registra uma mensagem de log. Se ocorrer um erro
+ * durante o processamento, captura a exceção e registra o erro.
+ */
+    if (!msg.key.fromMe && !importing) {
+      // Buscar ticket fechado com avaliação pendente para este contato
+      const existingTicket = await Ticket.findOne({
+        where: {
+          contactId: contact.id,
+          companyId,
+          status: "closed"
+        },
+        order: [["updatedAt", "DESC"]],
+        include: [
+          {
+            model: TicketTraking,
+            as: "ticketTrakings",
+            required: false
+          }
+        ]
+      });
+
+      if (existingTicket) {
+        const ticketTraking = await FindOrCreateATicketTrakingService({
+          ticketId: existingTicket.id,
+          companyId,
+          whatsappId: whatsapp?.id,
+          userId: existingTicket.userId
+        });
+
+        // Verificar se está aguardando avaliação
+        if (verifyRating(ticketTraking)) {
+          try {
+            await handleRating(msg, existingTicket, ticketTraking);
+            return; // Não continuar processamento
+          } catch (e) {
+            console.log("Erro ao processar avaliação:", e);
+          }
+        }
+      }
+    }
+
+
+
+    /**
      * @description Cria ou encontra um ticket para o contato. Este bloco de código chama a função
      * FindOrCreateTicketService para obter ou criar um ticket com base nas informações do contato,
      * ID do WhatsApp, contagem de mensagens não lidas, ID da empresa, contato do grupo (se houver),
@@ -896,27 +943,8 @@ export const handleMessage = async (
     }
 
 
-    /**
- * @description Tenta verificar se a mensagem não foi enviada pelo próprio bot.
- * Se a mensagem foi enviada por um usuário, verifica se a avaliação do ticket
- * deve ser processada. Se a avaliação for válida, chama a função handleRating
- * para processar a avaliação e registra uma mensagem de log. Se ocorrer um erro
- * durante o processamento, captura a exceção e registra o erro.
- */
-    try {
-      if (!msg.key.fromMe) {
-        // Verifica se a mensagem não foi enviada pelo bot
-        if (verifyRating(ticketTraking)) {
-          // Verifica se a avaliação do ticket deve ser processada
-          await handleRating(msg, ticket, ticketTraking); // Processa a avaliação
-          return; // Retorna para evitar a execução de código adicional
-        }
-      }
-    } catch (e) {
-      console.log("Erro ao salvar avaliação!");
 
-      console.log(e);
-    }
+
 
     /**
      * @description Verifica se a mensagem recebida é o comando para voltar ao menu inicial.
