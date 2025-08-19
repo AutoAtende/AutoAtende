@@ -49,7 +49,7 @@ const ListService = async ({
     };
   }
 
-  const limit = 9999;
+  const limit = 50;
   const offset = limit * (+pageNumber - 1);
 
   const { count, rows: records } = await QuickMessage.findAndCountAll({

@@ -19,7 +19,7 @@ const ListService = async ({
   pageNumber = "1"
 }: Request): Promise<Response> => {
   let whereCondition = {};
-  const limit = 200000;
+  const limit = 100;
   const offset = limit * (+pageNumber - 1);
 
   if (searchParam) {

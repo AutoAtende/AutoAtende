@@ -25,10 +25,11 @@ module.exports = {
     max: 10 // Número máximo de tentativas de reconexão em caso de erro
   },
   pool: {
-    max: 60, // Número máximo de conexões simultâneas
+    max: 20, // Número máximo de conexões simultâneas (reduzido para melhor gestão de recursos)
     min: 5, // Número mínimo de conexões no pool
-    acquire: 30000, // Tempo máximo para tentar adquirir uma nova conexão (60 segundos)
-    idle: 10000 // Tempo máximo que uma conexão pode ficar inativa antes de ser liberada (10 minutos)
+    acquire: 10000, // Tempo máximo para tentar adquirir uma nova conexão (10 segundos)
+    idle: 10000, // Tempo máximo que uma conexão pode ficar inativa antes de ser liberada (10 segundos)
+    evict: 1000 // Intervalo de validação de conexões (1 segundo)
   },
   dialect: process.env.DB_DIALECT || "postgres", // Dialeto do banco de dados (por padrão, PostgreSQL)
   timezone: "-03:00", // Fuso horário configurado para UTC-3 (Brasil)

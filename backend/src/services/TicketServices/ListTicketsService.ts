@@ -234,44 +234,39 @@ const ListTicketsService = async ({
   }
 
   if (Array.isArray(tags) && tags.length > 0) {
-    const ticketsTagFilter: any[] | null = [];
-    for (let tag of tags) {
-      const ticketTags = await TicketTag.findAll({
-        where: { tagId: tag }
-      });
-      if (ticketTags) {
-        ticketsTagFilter.push(ticketTags.map(t => t.ticketId));
-      }
-    }
+    // Optimized: Single query to get all ticket tags for all requested tags
+    const ticketTags = await TicketTag.findAll({
+      where: { 
+        tagId: { [Op.in]: tags },
+        companyId
+      },
+      attributes: ['ticketId', 'tagId']
+    });
 
-    const ticketsIntersection: number[] = intersection(...ticketsTagFilter);
+    // Group by ticketId and count tags
+    const ticketTagCounts = ticketTags.reduce((acc: any, tt) => {
+      acc[tt.ticketId] = (acc[tt.ticketId] || 0) + 1;
+      return acc;
+    }, {});
+
+    // Filter tickets that have ALL required tags
+    const validTicketIds = Object.keys(ticketTagCounts)
+      .filter(ticketId => ticketTagCounts[ticketId] === tags.length)
+      .map(id => parseInt(id));
 
     whereCondition = {
       ...whereCondition,
       id: {
-        [Op.in]: ticketsIntersection
+        [Op.in]: validTicketIds
       }
     };
   }
 
   if (Array.isArray(users) && users.length > 0) {
-    const ticketsUserFilter: any[] | null = [];
-    for (let user of users) {
-      const ticketUsers = await Ticket.findAll({
-        where: { userId: user }
-      });
-      if (ticketUsers) {
-        ticketsUserFilter.push(ticketUsers.map(t => t.id));
-      }
-    }
-
-    const ticketsIntersection: number[] = intersection(...ticketsUserFilter);
-
+    // Optimized: Use direct where condition instead of N+1 queries
     whereCondition = {
       ...whereCondition,
-      id: {
-        [Op.in]: ticketsIntersection
-      }
+      userId: { [Op.in]: users }
     };
   }
 

@@ -130,40 +130,65 @@ const ExportCsvService = async ({
       ratingsMap.set(rating.ticketId, rating.rate);
     });
 
+    // Otimização: Buscar todos os dados necessários de uma vez
+    // Buscar todas as tags de todos os tickets
+    const allTicketTags = await TicketTag.findAll({
+      where: {
+        ticketId: { [Op.in]: ticketIds }
+      },
+      attributes: ["ticketId", "tagId"],
+      include: [
+        {
+          model: Tag,
+          as: "tag",
+          attributes: ["id", "name"]
+        }
+      ]
+    });
+
+    // Buscar todos os trackings
+    const allTrackings = await TicketTraking.findAll({
+      where: {
+        ticketId: { [Op.in]: ticketIds }
+      },
+      attributes: ["ticketId", "startedAt", "queuedAt", "ratingAt", "rated", "createdAt", "finishedAt"]
+    });
+
+    // Buscar todos os contatos
+    const contactIds = tickets.map(t => t.contactId);
+    const allContacts = await Contact.findAll({
+      where: {
+        id: { [Op.in]: contactIds }
+      },
+      attributes: ["id", "createdAt", "name", "number"]
+    });
+
+    // Criar mapas para acesso rápido
+    const tagsMap = new Map();
+    allTicketTags.forEach(tt => {
+      if (!tagsMap.has(tt.ticketId)) {
+        tagsMap.set(tt.ticketId, []);
+      }
+      tagsMap.get(tt.ticketId).push(tt.tag);
+    });
+
+    const trackingsMap = new Map();
+    allTrackings.forEach(tracking => {
+      trackingsMap.set(tracking.ticketId, tracking);
+    });
+
+    const contactsMap = new Map();
+    allContacts.forEach(contact => {
+      contactsMap.set(contact.id, contact);
+    });
+
     // Processar tickets e adicionar informações adicionais
     const parsedTickets: ExportCsvResult[] = [];
 
     for (const ticket of tickets) {
-      // Buscar tags do ticket
-      const tags = await TicketTag.findAll({
-        attributes: ["tagId"],
-        where: {
-          ticketId: ticket.id
-        },
-        include: [
-          {
-            model: Tag,
-            as: "tag",
-            attributes: ["id", "name"]
-          }
-        ]
-      });
-
-      // Buscar tracking do ticket
-      const tracking = await TicketTraking.findOne({
-        where: {
-          ticketId: ticket.id
-        },
-        attributes: ["startedAt", "queuedAt", "ratingAt", "rated", "createdAt", "finishedAt"]
-      });
-
-      // Buscar contato do ticket
-      const contact = await Contact.findOne({
-        attributes: ["createdAt", "name", "number"],
-        where: {
-          id: ticket.contactId
-        }
-      });
+      const tags = tagsMap.get(ticket.id) || [];
+      const tracking = trackingsMap.get(ticket.id);
+      const contact = contactsMap.get(ticket.contactId);
 
       // Verificar se o contato é novo (criado próximo à data do ticket)
       let newContact = false;
@@ -194,7 +219,7 @@ const ExportCsvService = async ({
         primeiraMensagemEnviadaEm: tracking?.createdAt || "N/A",
         resolvidoEm: tracking?.finishedAt || "N/A",
         contatoNovo: newContact || "N/A",
-        etiquetas: tags.map(tag => tag.tag.name).join(',') || "N/A",
+        etiquetas: tags.map(tag => tag.name).join(',') || "N/A",
         avaliacao: ratingsMap.get(ticket.id) || "N/A"
       });
     }
