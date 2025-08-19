@@ -6,7 +6,7 @@ import FlowBuilderExecution from "../../models/FlowBuilderExecution";
 import { logger } from "../../utils/logger";
 import { v4 as uuidv4 } from "uuid";
 import formatBody from "../../helpers/Mustache";
-import { getIO } from "../../libs/socket";
+import { getIO } from "../../libs/optimizedSocket";
 import { notifyUpdate } from "../TicketServices/UpdateTicketService";
 import CreateMessageService from "../MessageServices/CreateMessageService";
 

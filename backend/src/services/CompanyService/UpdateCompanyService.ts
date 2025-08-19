@@ -3,7 +3,7 @@ import AppError from "../../errors/AppError";
 import Company from "../../models/Company";
 import Setting from "../../models/Setting";
 import User from "../../models/User";
-import { getIO } from "../../libs/socket";
+import { getIO } from "../../libs/optimizedSocket";
 import { logger } from "../../utils/logger";
 import database from "../../database";
 import { hash } from "bcryptjs";

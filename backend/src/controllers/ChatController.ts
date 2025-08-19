@@ -1,5 +1,5 @@
 import { Request, Response } from "express";
-import { getIO } from "../libs/socket";
+import { getIO } from "../libs/optimizedSocket";
 import multer from "multer";
 import * as Yup from 'yup';
 import uploadConfig from '../config/upload';

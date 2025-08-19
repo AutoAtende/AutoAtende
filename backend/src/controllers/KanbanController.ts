@@ -1,5 +1,5 @@
 import { Request, Response } from "express";
-import { getIO } from "../libs/socket";
+import { getIO } from "../libs/optimizedSocket";
 import { Op } from "sequelize";
 import Ticket from "../models/Ticket";
 import Contact from "../models/Contact";

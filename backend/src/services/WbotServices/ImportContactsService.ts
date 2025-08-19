@@ -1,4 +1,4 @@
-import { getIO } from "../../libs/socket";
+import { getIO } from "../../libs/optimizedSocket";
 import { getWbot } from "../../libs/wbot";
 import Whatsapp from "../../models/Whatsapp";
 import { logger } from "../../utils/logger";

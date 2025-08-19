@@ -1,6 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import * as Yup from 'yup';
-import { getIO } from '../../libs/socket';
+import { getIO } from '../../libs/optimizedSocket';
 import ContactCustomField from '../../models/ContactCustomField';
 import ListContactsService from '../../services/ContactServices/ListContactsService';
 import ShowContactService from '../../services/ContactServices/ShowContactService';

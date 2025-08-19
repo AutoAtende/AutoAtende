@@ -1,4 +1,4 @@
-import { getIO } from "../../libs/socket";
+import { getIO } from "../../libs/optimizedSocket";
 import MessageRule from "../../models/MessageRule";
 import { Op } from "sequelize";
 import Ticket from "../../models/Ticket";

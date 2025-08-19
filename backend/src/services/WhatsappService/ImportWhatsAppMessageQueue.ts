@@ -1,5 +1,5 @@
 import { Queue, Worker } from 'bullmq';
-import { getIO } from "../../libs/socket";
+import { getIO } from "../../libs/optimizedSocket";
 import { handleMessage } from "../WbotServices/MessageListener/wbotMessageListener";
 import { getWbot } from "../../libs/wbot";
 import { logger } from "../../utils/logger";

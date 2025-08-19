@@ -7,7 +7,7 @@ import path from 'path';
 import fs from 'fs';
 import { logger } from '../../utils/logger';
 import uploadConfig from '../../config/upload';
-import { emitTaskUpdate } from '../../libs/socket';
+import { emitTaskUpdate } from '../../libs/optimizedSocket';
 
 class TaskAttachmentService {
   static readonly MAX_FILE_SIZE = uploadConfig.fileSize || 10 * 1024 * 1024;

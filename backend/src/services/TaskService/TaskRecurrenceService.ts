@@ -8,7 +8,7 @@ import TaskTimeline from '../../models/TaskTimeline';
 import { logger } from '../../utils/logger';
 import moment from 'moment';
 import { Op } from 'sequelize';
-import { emitTaskUpdate } from "../../libs/socket";
+import { emitTaskUpdate } from "../../libs/optimizedSocket";
 
 class TaskRecurrenceService {
   // Array de includes padrão para as consultas

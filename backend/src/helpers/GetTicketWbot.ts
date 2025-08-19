@@ -1,7 +1,7 @@
 import { getWbot, Session } from "../libs/wbot";
 import Ticket from "../models/Ticket";
 import AppError from "../errors/AppError";
-import { getIO } from "../libs/socket";
+import { getIO } from "../libs/optimizedSocket";
 import { ParamsApi } from "../services/WbotServices/SendWhatsAppMessage";
 import GetWhatsAppConnected from "./GetWhatsAppConnected";
 

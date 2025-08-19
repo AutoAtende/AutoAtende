@@ -1,6 +1,6 @@
 import { subHours } from "date-fns";
 import { Op } from "sequelize";
-import { getIO } from "../../libs/socket";
+import { getIO } from "../../libs/optimizedSocket";
 import { SocketEmitter } from "../../utils/SocketEmitter";
 import Company from "../../models/Company";
 import Contact from "../../models/Contact";

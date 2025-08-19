@@ -1,5 +1,5 @@
 import { Request, Response } from "express";
-import { getIO } from "../libs/socket";
+import { getIO } from "../libs/optimizedSocket";
 import KanbanWorkflowService from "../services/KanbanServices/KanbanWorkflowService";
 import AppError from "../errors/AppError";
 import { logger } from "../utils/logger";

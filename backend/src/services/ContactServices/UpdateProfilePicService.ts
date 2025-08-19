@@ -5,7 +5,7 @@ import path from 'path';
 import { promisify } from 'util';
 import AppError from "../../errors/AppError";
 import Contact from "../../models/Contact";
-import { getIO } from "../../libs/socket";
+import { getIO } from "../../libs/optimizedSocket";
 import { getWbot } from "../../libs/wbot";
 import { logger } from "../../utils/logger";
 import ShowWhatsAppByCompanyIdByStatusService from "../WhatsappService/ShowWhatsAppByCompanyIdByStatusService";

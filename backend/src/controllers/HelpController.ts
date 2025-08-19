@@ -1,6 +1,6 @@
 import * as Yup from "yup";
 import { Request, Response } from "express";
-import { getIO } from "../libs/socket";
+import { getIO } from "../libs/optimizedSocket";
 
 import ListService from "../services/HelpServices/ListService";
 import CreateService from "../services/HelpServices/CreateService";

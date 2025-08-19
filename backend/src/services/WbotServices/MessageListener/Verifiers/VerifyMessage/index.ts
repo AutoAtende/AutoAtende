@@ -1,7 +1,7 @@
 import { proto } from "baileys";
 import Ticket from "../../../../../models/Ticket";
 import Contact from "../../../../../models/Contact";
-import { getIO } from "../../../../../libs/socket";
+import { getIO } from "../../../../../libs/optimizedSocket";
 import { verifyQuotedMessage } from "../../wbotMessageListener";
 import Message from "../../../../../models/Message";
 import Queue from "../../../../../models/Queue";

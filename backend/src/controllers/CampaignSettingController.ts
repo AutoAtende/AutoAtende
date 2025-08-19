@@ -1,5 +1,5 @@
 import { Request, Response } from "express";
-import { getIO } from "../libs/socket";
+import { getIO } from "../libs/optimizedSocket";
 
 import ListService from "../services/CampaignSettingServices/ListService";
 import CreateService from "../services/CampaignSettingServices/CreateService";

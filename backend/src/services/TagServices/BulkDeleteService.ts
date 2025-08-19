@@ -1,7 +1,7 @@
 // BulkUpdateService.ts
 import Tag from "../../models/Tag";
 import { Transaction } from "sequelize";
-import { getIO } from "../../libs/socket";
+import { getIO } from "../../libs/optimizedSocket";
 
 interface Request {
   tagIds: number[];

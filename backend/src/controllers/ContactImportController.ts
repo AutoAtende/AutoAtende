@@ -1,6 +1,6 @@
 import { v4 as uuidv4 } from 'uuid';
 import { Request, Response } from "express";
-import { getIO } from "../libs/socket";
+import { getIO } from "../libs/optimizedSocket";
 import { logger } from "../utils/logger";
 import { head } from "../utils/helpers";
 import { removeFilePublicFolder } from "../helpers/removeFilePublicFolder";

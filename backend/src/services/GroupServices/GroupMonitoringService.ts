@@ -1,5 +1,5 @@
 import { logger } from "../../utils/logger";
-import { getIO } from "../../libs/socket";
+import { getIO } from "../../libs/optimizedSocket";
 import Groups from "../../models/Groups";
 import AutoGroupManagerService from "./AutoGroupManagerService"; //feito
 import cron from "node-cron";

@@ -1,7 +1,7 @@
 import { Op } from "sequelize";
 import Ticket from "../../models/Ticket"
 import Whatsapp from "../../models/Whatsapp"
-import { getIO } from "../../libs/socket"
+import { getIO } from "../../libs/optimizedSocket"
 import formatBody from "../../helpers/Mustache";
 import SendWhatsAppMessage from "./SendWhatsAppMessage";
 import moment from "moment";

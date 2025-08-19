@@ -2,7 +2,7 @@ import AppError from "errors/AppError";
 import GetWhatsAppConnected from "./GetWhatsAppConnected";
 import Whatsapp from "../models/Whatsapp";
 import Ticket from "../models/Ticket";
-import { getIO } from "../libs/socket";
+import { getIO } from "../libs/optimizedSocket";
 import { ParamsApi } from "../services/WbotServices/SendWhatsAppMessage";
 
 const GetTicketWhatsapp = async (

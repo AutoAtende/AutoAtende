@@ -1,5 +1,5 @@
 import { Request, Response } from "express";
-import { getIO } from "../libs/socket";
+import { getIO } from "../libs/optimizedSocket";
 import { head } from "../utils/helpers";
 import uploadConfig from "../config/upload";
 import fs from "fs";

@@ -1,5 +1,5 @@
 import { proto } from "baileys";
-import { getIO } from "../../../../../libs/socket";
+import { getIO } from "../../../../../libs/optimizedSocket";
 import Message from "../../../../../models/Message";
 import Ticket from "../../../../../models/Ticket";
 import Contact from "../../../../../models/Contact";

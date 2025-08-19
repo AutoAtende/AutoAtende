@@ -1,6 +1,6 @@
 import { Request, Response } from "express";
 import AppError from "../errors/AppError";
-import { getIO } from "../libs/socket";
+import { getIO } from "../libs/optimizedSocket";
 
 import AuthUserService from "../services/UserServices/AuthUserService";
 import { SendRefreshToken } from "../helpers/SendRefreshToken";

@@ -4,7 +4,7 @@ import Contact from "../../../../../models/Contact";
 import { verifyQuotedMessage } from "../../wbotMessageListener";
 import { Session } from "../../../../../libs/wbot";
 import Message from "../../../../../models/Message";
-import { getIO } from "../../../../../libs/socket";
+import { getIO } from "../../../../../libs/optimizedSocket";
 import { getWbot } from "../../../../../libs/wbot";
 import { downloadMedia } from "../../../../../helpers/downloadMedia";
 import mime from "mime-types";

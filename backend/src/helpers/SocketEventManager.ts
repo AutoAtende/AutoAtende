@@ -1,4 +1,4 @@
-import { getIO } from "../libs/socket";
+import { getIO } from "../libs/optimizedSocket";
 import { logger } from "../utils/logger";
 
 interface EventUpdate {

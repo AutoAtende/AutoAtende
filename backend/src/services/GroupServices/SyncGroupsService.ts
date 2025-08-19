@@ -1,5 +1,5 @@
 import { getWbot } from "../../libs/wbot";
-import { getIO } from "../../libs/socket";
+import { getIO } from "../../libs/optimizedSocket";
 import { logger } from "../../utils/logger";
 import Groups from "../../models/Groups";
 import Whatsapp from "../../models/Whatsapp";

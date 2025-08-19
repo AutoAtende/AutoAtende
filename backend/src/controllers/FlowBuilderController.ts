@@ -1,5 +1,5 @@
 import { Request, Response } from "express";
-import { getIO } from "../libs/socket";
+import { getIO } from "../libs/optimizedSocket";
 import { logger } from "../utils/logger";
 import * as FlowBuilderService from "../services/FlowBuilderService";
 import AppError from "../errors/AppError";

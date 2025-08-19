@@ -1,7 +1,7 @@
 import { Request, Response } from "express";
 import path from "path";
 import fs from "fs";
-import { getIO } from "../libs/socket";
+import { getIO } from "../libs/optimizedSocket";
 import AppError from "../errors/AppError";
 import User from "../models/User";
 import Company from "../models/Company";

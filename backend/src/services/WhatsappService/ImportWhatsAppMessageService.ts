@@ -3,7 +3,7 @@ import Whatsapp from "../../models/Whatsapp";
 import Ticket from "../../models/Ticket";
 import UpdateTicketService from "../TicketServices/UpdateTicketService";
 import {dataMessages, getWbot} from "../../libs/wbot";
-import { getIO } from "../../libs/socket";
+import { getIO } from "../../libs/optimizedSocket";
 import { handleMessage } from "../WbotServices/MessageListener/wbotMessageListener";
 import moment from "moment";
 import {Op, QueryTypes, Sequelize} from "sequelize";

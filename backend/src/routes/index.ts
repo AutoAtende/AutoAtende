@@ -67,6 +67,7 @@ import voiceRoutes from "./voiceRoutes";
 import adminDashboardRoutes from "./adminDashboardRoutes";
 import ticketAnalysisRoutes from "./ticketAnalysisRoutes";
 import aiSuggestionRoutes from "./aiSuggestionRoutes";
+import mobileRoutes from "./mobileRoutes";
 
 const routes = Router();
 
@@ -137,5 +138,6 @@ routes.use(flowBuilderRoutes);
 routes.use(taskRoutes);
 routes.use(horarioRoutes);
 routes.use(voiceRoutes);
+routes.use("/mobile", mobileRoutes);
 
 export default routes;

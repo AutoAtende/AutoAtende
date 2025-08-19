@@ -1,7 +1,7 @@
 // GroupController.ts
 import * as Yup from "yup";
 import { Request, Response } from "express";
-import { getIO } from "../libs/socket";
+import { getIO } from "../libs/optimizedSocket";
 import AppError from "../errors/AppError";
 import { logger } from "../utils/logger";
 import multer from "multer";

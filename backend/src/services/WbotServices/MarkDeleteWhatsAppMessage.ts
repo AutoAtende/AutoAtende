@@ -1,5 +1,5 @@
 import Message from "../../models/Message";
-import { getIO } from "../../libs/socket";
+import { getIO } from "../../libs/optimizedSocket";
 
 const MarkDeleteWhatsAppMessage = async (from: any, timestamp?: any, msgId?: string, companyId?: number): Promise<Message> => {
 

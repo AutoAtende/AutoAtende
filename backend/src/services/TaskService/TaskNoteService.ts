@@ -4,7 +4,7 @@ import User from '../../models/User';
 import Task from '../../models/Task';
 import { Transaction } from 'sequelize';
 import { logger } from '../../utils/logger';
-import { emitTaskUpdate } from '../../libs/socket';
+import { emitTaskUpdate } from '../../libs/optimizedSocket';
 
 class TaskNoteService {
   static async create(data: {

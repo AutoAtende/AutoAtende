@@ -6,7 +6,7 @@ import { stripeInitialize, stripeCreateSubscription, stripeCheckStatus, stripeWe
 import { asaasInitialize, asaasCreateSubscription, asaasCheckStatus, asaasWebhookHandler } from "./AsaasServices";
 import { Request, Response } from "express";
 import Invoices from "../../models/Invoices";
-import { getIO } from "../../libs/socket";
+import { getIO } from "../../libs/optimizedSocket";
 import { Op } from "sequelize";
 import Company from "../../models/Company";
 import moment from "moment";

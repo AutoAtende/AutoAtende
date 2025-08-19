@@ -1,7 +1,7 @@
 import { Request, Response } from "express";
 import { ImportContactService } from "../services/ContactServices/ImportContactService";
 import { ExportContactService } from "../services/ContactServices/ExportContactService";
-import { getIO } from "../libs/socket";
+import { getIO } from "../libs/optimizedSocket";
 import { logger } from "../utils/logger";
 import AppError from "../errors/AppError";
 import Contact from "../models/Contact";

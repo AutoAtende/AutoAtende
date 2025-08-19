@@ -5,7 +5,7 @@ import TaskTimeline from "../../models/TaskTimeline";
 import TaskUser from "../../models/TaskUser"; 
 import { getWbot } from "../../libs/wbot";
 import { logger } from "../../utils/logger";
-import { emitTaskUpdate } from "../../libs/socket";
+import { emitTaskUpdate } from "../../libs/optimizedSocket";
 import { Op } from "sequelize";
 
 class TaskNotificationService {

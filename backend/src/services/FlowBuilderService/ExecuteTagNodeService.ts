@@ -6,7 +6,7 @@ import TicketTag from "../../models/TicketTag";
 import Ticket from "../../models/Ticket";
 import { logger } from "../../utils/logger";
 import FlowBuilderExecution from "../../models/FlowBuilderExecution";
-import { getIO } from "../../libs/socket";
+import { getIO } from "../../libs/optimizedSocket";
 
 interface ExecuteTagNodeParams {
   nodeData: {

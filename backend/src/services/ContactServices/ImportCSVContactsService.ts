@@ -4,7 +4,7 @@ import { Server as SocketIO } from "socket.io";
 import CheckContactNumber from "../../helpers/CheckContactNumber";
 import { clearSpecialCharactersAndLetters } from "../../helpers/clearSpecialCharactersAndLetters";
 import { removeFilePublicFolder } from "../../helpers/removeFilePublicFolder";
-import { getIO } from "../../libs/socket";
+import { getIO } from "../../libs/optimizedSocket";
 import Contact from "../../models/Contact";
 import { logger } from "../../utils/logger";
 

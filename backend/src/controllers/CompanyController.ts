@@ -13,7 +13,7 @@ import User from "../models/User";
 import Plan from "../models/Plan";
 import Queue from "../models/Queue";
 import Whatsapp from "../models/Whatsapp";
-import { getIO } from "../libs/socket";
+import { getIO } from "../libs/optimizedSocket";
 import { getWbot, removeWbot } from "../libs/wbot";
 import { CheckSettings } from "../helpers/CheckSettings";
 import { SendMessage } from "../helpers/SendMessage";

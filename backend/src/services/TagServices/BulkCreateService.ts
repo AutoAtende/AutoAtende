@@ -1,6 +1,6 @@
 import Tag from "../../models/Tag";
 import AppError from "../../errors/AppError";
-import { getIO } from "../../libs/socket";
+import { getIO } from "../../libs/optimizedSocket";
 
 interface Request {
   quantity: number;

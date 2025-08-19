@@ -1,7 +1,7 @@
 import { AxiosError } from "axios";
 import { logger } from "../../../utils/logger";
 
-import { getIO } from "../../../libs/socket";
+import { getIO } from "../../../libs/optimizedSocket";
 import Setting from "../../../models/Setting";
 import CreateTicketNoteService, { TicketNoteData } from "../../TicketNoteService/CreateTicketNoteService";
 import Ticket from "../../../models/Ticket";

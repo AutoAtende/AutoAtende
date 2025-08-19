@@ -23,7 +23,7 @@ import FindOrCreateTicketService from "../TicketServices/FindOrCreateTicketServi
 import FindOrCreateATicketTrakingService from "../TicketServices/FindOrCreateATicketTrakingService";
 import Ticket from "../../models/Ticket";
 import CreateMessageService from "../MessageServices/CreateMessageService";
-import { getIO } from "../../libs/socket";
+import { getIO } from "../../libs/optimizedSocket";
 import { notifyUpdate } from "../TicketServices/UpdateTicketService";
 import { Mutex } from "async-mutex";
 import SetTicketMessagesAsRead from '@helpers/SetTicketMessagesAsRead';

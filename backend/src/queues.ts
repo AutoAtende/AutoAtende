@@ -9,7 +9,7 @@ import { logger } from "./utils/logger";
 import moment from "moment";
 import Contact from "./models/Contact";
 import { Op } from "sequelize";
-import { getIO } from "./libs/socket";
+import { getIO } from "./libs/optimizedSocket";
 import User from "./models/User";
 import Company from "./models/Company";
 import Plan from "./models/Plan";

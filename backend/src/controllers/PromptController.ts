@@ -1,5 +1,5 @@
 import { Request, Response } from "express";
-import { getIO } from "../libs/socket";
+import { getIO } from "../libs/optimizedSocket";
 import CreatePromptService from "../services/PromptServices/CreatePromptService";
 import DeletePromptService from "../services/PromptServices/DeletePromptService";
 import ListPromptsService from "../services/PromptServices/ListPromptsService";

@@ -3,7 +3,7 @@ import CheckContactOpenTickets from "../../helpers/CheckContactOpenTickets";
 import Ticket from "../../models/Ticket";
 import Company from "../../models/Company";
 import ShowContactService from "../ContactServices/ShowContactService";
-import { getIO } from "../../libs/socket";
+import { getIO } from "../../libs/optimizedSocket";
 import FindOrCreateATicketTrakingService from "./FindOrCreateATicketTrakingService";
 import Contact from "../../models/Contact";
 import Whatsapp from "../../models/Whatsapp";

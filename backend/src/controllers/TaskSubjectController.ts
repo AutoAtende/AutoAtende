@@ -4,7 +4,7 @@ import Task from '../models/Task';
 import TaskTimeline from '../models/TaskTimeline';
 import { Op } from 'sequelize';
 import { logger } from '../utils/logger';
-import { emitTaskUpdate } from '../libs/socket';
+import { emitTaskUpdate } from '../libs/optimizedSocket';
 
 export const index = async (req: Request, res: Response): Promise<Response> => {
   try {

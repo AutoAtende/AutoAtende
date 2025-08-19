@@ -1,5 +1,5 @@
 import { Request, Response } from "express";
-import { getIO } from "../libs/socket";
+import { getIO } from "../libs/optimizedSocket";
 import AppError from "../errors/AppError";
 import Contact from "../models/Contact";
 import Tag from "../models/Tag";

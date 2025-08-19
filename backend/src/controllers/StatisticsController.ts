@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import { getIO } from "../libs/socket";
+import { getIO } from "../libs/optimizedSocket";
 import DashTicketsAndTimes from "../services/StatisticsService/DashTicketsAndTimes";
 import DashTicketsChannels from "../services/StatisticsService/DashTicketsChannels";
 import DashTicketsEvolutionByPeriod from "../services/StatisticsService/DashTicketsEvolutionByPeriod";

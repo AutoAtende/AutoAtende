@@ -3,7 +3,7 @@ import AppError from "../errors/AppError";
 import Queue from "../models/Queue";
 import Tag from "../models/Tag";
 import QueueTag from "../models/QueueTag";
-import { getIO } from "../libs/socket";
+import { getIO } from "../libs/optimizedSocket";
 
 export const listQueueTags = async (req: Request, res: Response): Promise<Response> => {
   const { queueId } = req.params;

@@ -1,5 +1,5 @@
 import { Request, Response } from "express";
-import { getIO } from "../libs/socket";
+import { getIO } from "../libs/optimizedSocket";
 import CreateQueueIntegrationService from "../services/QueueIntegrationServices/CreateQueueIntegrationService";
 import DeleteQueueIntegrationService from "../services/QueueIntegrationServices/DeleteQueueIntegrationService";
 import ListQueueIntegrationService from "../services/QueueIntegrationServices/ListQueueIntegrationService";

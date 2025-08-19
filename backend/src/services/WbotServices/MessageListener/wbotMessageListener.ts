@@ -26,7 +26,7 @@ import {
 import moment from "moment";
 import formatBody from "../../../helpers/Mustache";
 import { cacheLayer } from "../../../libs/cache";
-import { getIO } from "../../../libs/socket";
+import { getIO } from "../../../libs/optimizedSocket";
 import Contact from "../../../models/Contact";
 import Message from "../../../models/Message";
 import Queue from "../../../models/Queue";

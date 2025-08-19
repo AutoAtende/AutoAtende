@@ -13,7 +13,7 @@ import EmployerPosition from "../models/EmployerPosition";
 import EmployerCustomField from "../models/EmployerCustomField";
 import Ticket from "../models/Ticket";
 import Contact from "../models/Contact";
-import { getIO } from "../libs/socket";
+import { getIO } from "../libs/optimizedSocket";
 import { logger } from "../utils/logger";
 import CreateEmployerService from "../services/EmployerService/CreateEmployerService";
 import UpdateEmployerService from "../services/EmployerService/UpdateEmployerService";

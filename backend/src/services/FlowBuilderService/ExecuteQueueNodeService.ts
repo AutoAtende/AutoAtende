@@ -6,7 +6,7 @@ import QueueNode from "../../models/QueueNode";
 import Whatsapp from "../../models/Whatsapp";
 import FlowBuilderExecution from "../../models/FlowBuilderExecution";
 import { logger } from "../../utils/logger";
-import { getIO } from "../../libs/socket";
+import { getIO } from "../../libs/optimizedSocket";
 import { verifyMessage } from "../WbotServices/MessageListener/Verifiers/VerifyMessage";
 import { getWbot } from "../../libs/wbot";
 import { SendPresenceStatus } from "../../helpers/SendPresenceStatus";

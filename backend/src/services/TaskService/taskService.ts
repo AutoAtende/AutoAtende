@@ -11,7 +11,7 @@ import User from '../../models/User';
 import TaskTimeline from '../../models/TaskTimeline';
 import ContactEmployer from '../../models/ContactEmployer';
 import TaskSubject from '../../models/TaskSubject';
-import { emitTaskUpdate } from "../../libs/socket";
+import { emitTaskUpdate } from "../../libs/optimizedSocket";
 import { logger } from '../../utils/logger';
 import TaskNotificationService from './TaskNotificationService';
 

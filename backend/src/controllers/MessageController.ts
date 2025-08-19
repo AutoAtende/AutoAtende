@@ -3,7 +3,7 @@ import AppError from "../errors/AppError";
 
 import SetTicketMessagesAsRead from "../helpers/SetTicketMessagesAsRead";
 
-import { getIO } from "../libs/socket";
+import { getIO } from "../libs/optimizedSocket";
 import Message from "../models/Message";
 import Ticket from "../models/Ticket";
 import Queue from "../models/Queue";

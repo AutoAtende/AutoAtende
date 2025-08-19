@@ -1,5 +1,5 @@
 import { Request, Response } from "express";
-import { getIO } from "../libs/socket";
+import { getIO } from "../libs/optimizedSocket";
 import Ticket from "../models/Ticket";
 import User from "../models/User";
 import UpdateTicketNameService from "../services/TicketServices/UpdateTicketNameService";

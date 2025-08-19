@@ -2,7 +2,7 @@ import { CronJob } from 'cron';
 import TaskRecurrenceService from './TaskRecurrenceService';
 import TaskTimeline from '../../models/TaskTimeline';
 import { logger } from '../../utils/logger';
-import { emitTaskUpdate } from "../../libs/socket";
+import { emitTaskUpdate } from "../../libs/optimizedSocket";
 
 class TaskRecurrenceCron {
   private static instance: TaskRecurrenceCron;

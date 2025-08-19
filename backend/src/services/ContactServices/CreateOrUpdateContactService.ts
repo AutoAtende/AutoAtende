@@ -1,4 +1,4 @@
-import { getIO } from "../../libs/socket";
+import { getIO } from "../../libs/optimizedSocket";
 import Contact from "../../models/Contact";
 import ContactEmployer from "../../models/ContactEmployer";
 import ContactCustomField from "../../models/ContactCustomField";

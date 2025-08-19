@@ -10,7 +10,7 @@ import { v4 as uuidv4 } from 'uuid';
 import PDFDocument from 'pdfkit';
 import moment from 'moment';
 import EmailService from '../EmailService';
-import { getIO, emitTaskUpdate } from '../../libs/socket';
+import { getIO, emitTaskUpdate } from '../../libs/optimizedSocket';
 
 export interface EmailAttachment {
   filename: string;

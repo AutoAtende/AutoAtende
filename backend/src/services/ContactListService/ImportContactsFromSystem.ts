@@ -1,6 +1,6 @@
 import { QueryTypes } from 'sequelize';
 import Contact from "../../models/Contact";
-import { getIO } from "../../libs/socket";
+import { getIO } from "../../libs/optimizedSocket";
 import sequelize from "../../database";
 import { logger } from "../../utils/logger";
 

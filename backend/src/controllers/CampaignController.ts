@@ -3,7 +3,7 @@ import fs from "fs";
 import { head } from "../utils/helpers";
 import path from "path";
 import * as Yup from "yup";
-import { getIO } from "../libs/socket";
+import { getIO } from "../libs/optimizedSocket";
 
 import CreateService from "../services/CampaignService/CreateService";
 import DeleteService from "../services/CampaignService/DeleteService";

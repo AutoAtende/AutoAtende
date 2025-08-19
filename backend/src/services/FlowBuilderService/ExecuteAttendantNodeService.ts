@@ -6,7 +6,7 @@ import Contact from "../../models/Contact";
 import Whatsapp from "../../models/Whatsapp";
 import AttendantNode from "../../models/AttendantNode";
 import FlowBuilderExecution from "../../models/FlowBuilderExecution";
-import { getIO } from "../../libs/socket";
+import { getIO } from "../../libs/optimizedSocket";
 import { verifyMessage } from "../WbotServices/MessageListener/Verifiers/VerifyMessage";
 import { getWbot } from "../../libs/wbot";
 import { SendPresenceStatus } from "../../helpers/SendPresenceStatus";

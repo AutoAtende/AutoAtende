@@ -1,7 +1,7 @@
 import {initWASocket} from "../../libs/wbot";
 import Whatsapp from "../../models/Whatsapp";
 import {wbotMessageListener} from "./MessageListener/wbotMessageListener";
-import {getIO} from "../../libs/socket";
+import {getIO} from "../../libs/optimizedSocket";
 import wbotMonitor from "./wbotMonitor";
 import {logger} from "../../utils/logger";
 

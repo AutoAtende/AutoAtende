@@ -7,7 +7,7 @@ import Contact from "../models/Contact";
 import ContactPosition from "../models/ContactPosition";
 import ContactEmployer from "../models/ContactEmployer";
 import EmployerPosition from "../models/EmployerPosition";
-import { getIO } from "../libs/socket";
+import { getIO } from "../libs/optimizedSocket";
 import { logger } from "../utils/logger";
 
 // Interface para o resultado da query

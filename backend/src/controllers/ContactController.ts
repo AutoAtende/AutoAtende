@@ -1,6 +1,6 @@
 import * as Yup from "yup";
 import { Request, Response } from "express";
-import { getIO } from "../libs/socket";
+import { getIO } from "../libs/optimizedSocket";
 import { Op } from "sequelize";
 import Contact from "../models/Contact";
 import BlockUnblockContactService from "../services/ContactServices/BlockUnblockContactService";

@@ -1,7 +1,7 @@
 import Whatsapp from '../../models/Whatsapp';
 import Contact from '../../models/Contact';
 import ContactCustomField from '../../models/ContactCustomField';
-import { getIO } from '../../libs/socket';
+import { getIO } from '../../libs/optimizedSocket';
 import CheckContactNumber from '../../helpers/CheckContactNumber';
 import { Transaction, QueryTypes } from 'sequelize';
 import sequelize from '../../database';

@@ -3,7 +3,7 @@ import CheckContactOpenTickets from "../../helpers/CheckContactOpenTickets";
 import GetDefaultWhatsApp from "../../helpers/GetDefaultWhatsApp";
 import FindOrCreateATicketTrakingService from "./FindOrCreateATicketTrakingService";
 import Ticket from "../../models/Ticket";
-import { getIO } from "../../libs/socket";
+import { getIO } from "../../libs/optimizedSocket";
 
 interface Request {
   contactId: number;

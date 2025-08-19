@@ -14,7 +14,7 @@ import { parseToMilliseconds, randomValue } from "../queues";
 import { isEmpty, isNil } from "../utils/helpers";
 import ShowFileService from "../services/FileServices/ShowService";
 import { getMessageOptions } from "../services/WbotServices/SendWhatsAppMedia";
-import { getIO } from "../libs/socket";
+import { getIO } from "../libs/optimizedSocket";
 import CampaignSetting from "../models/CampaignSetting";
 import { SendPresenceStatus } from "../helpers/SendPresenceStatus";
 import { getWbot, Session } from "../libs/wbot";

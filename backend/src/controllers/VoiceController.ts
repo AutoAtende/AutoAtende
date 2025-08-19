@@ -11,7 +11,7 @@ import Message from '../models/Message';
 import VoiceMessage from '../models/VoiceMessage';
 import Assistant from '../models/Assistant';
 import Queue from '../models/Queue';
-import { getIO } from '../libs/socket';
+import { getIO } from '../libs/optimizedSocket';
 import { publicFolder } from '../config/upload';
 import QueueIntegrations from '@models/QueueIntegrations';
 

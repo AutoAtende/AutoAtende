@@ -1,7 +1,7 @@
 import { proto } from "baileys";
 
 import { Session } from "../../../../../libs/wbot";
-import { getIO } from "../../../../../libs/socket";
+import { getIO } from "../../../../../libs/optimizedSocket";
 import OpenAI from "openai";
 import Assistant from "../../../../../models/Assistant";
 import Thread from "../../../../../models/Thread";

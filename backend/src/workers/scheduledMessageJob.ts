@@ -10,7 +10,7 @@ import path from "path";
 import { Op } from "sequelize";
 import Contact from "../models/Contact";
 import { randomValue } from "../queues";
-import { getIO } from "../libs/socket";
+import { getIO } from "../libs/optimizedSocket";
 import formatBody from "../helpers/Mustache";
 import { getBullConfig } from "../config/redis";
 

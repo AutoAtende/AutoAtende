@@ -2,7 +2,7 @@ import moment from "moment";
 
 import CheckContactOpenTickets from "../../helpers/CheckContactOpenTickets";
 import SetTicketMessagesAsRead from "../../helpers/SetTicketMessagesAsRead";
-import { getIO } from "../../libs/socket";
+import { getIO } from "../../libs/optimizedSocket";
 import Ticket from "../../models/Ticket";
 import Setting from "../../models/Setting";
 import Queue from "../../models/Queue";

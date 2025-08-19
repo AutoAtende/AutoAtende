@@ -3,7 +3,7 @@ import { Op } from "sequelize";
 import Task from "../../models/Task";
 import TaskUser from "../../models/TaskUser";
 import User from "../../models/User";
-import { getIO } from "../../libs/socket";
+import { getIO } from "../../libs/optimizedSocket";
 import { logger } from "../../utils/logger";
 import TaskNotificationService from "./TaskNotificationService";
 

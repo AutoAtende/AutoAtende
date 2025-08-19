@@ -7,7 +7,7 @@ import DeleteBaileysService from "../services/BaileysServices/DeleteBaileysServi
 import path from "path";
 import fs from "fs";
 import { logger } from "../utils/logger";
-import { getIO } from "../libs/socket";
+import { getIO } from "../libs/optimizedSocket";
 
 export const store = async (req: Request, res: Response): Promise<Response> => {
   const { whatsappId } = req.params;

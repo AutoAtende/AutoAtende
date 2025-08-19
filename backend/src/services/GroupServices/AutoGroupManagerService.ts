@@ -1,6 +1,6 @@
 import { logger } from "../../utils/logger";
 import { getWbot } from "../../libs/wbot";
-import { getIO } from "../../libs/socket";
+import { getIO } from "../../libs/optimizedSocket";
 import Groups from "../../models/Groups";
 import GroupSeries from "../../models/GroupSeries";
 import Whatsapp from "../../models/Whatsapp";

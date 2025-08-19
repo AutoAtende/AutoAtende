@@ -1,5 +1,5 @@
 import { WAMessage } from "baileys";
-import { getIO } from "../../../../../libs/socket";
+import { getIO } from "../../../../../libs/optimizedSocket";
 import Message from "../../../../../models/Message";
 import { logger } from "../../../../../utils/logger";
 

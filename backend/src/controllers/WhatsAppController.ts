@@ -1,5 +1,5 @@
 import { Request, Response } from "express";
-import { getIO } from "../libs/socket";
+import { getIO } from "../libs/optimizedSocket";
 import { cacheLayer } from "../libs/cache";
 import Contact from "../models/Contact";
 import { getWbot, removeWbot, restartWbot, dataMessages } from "../libs/wbot";

@@ -1,5 +1,5 @@
 import AppError from "../../errors/AppError";
-import { getIO } from "../../libs/socket";
+import { getIO } from "../../libs/optimizedSocket";
 import ShowTicketService from "../TicketServices/ShowTicketService";
 import ShowContactService from "../ContactServices/ShowContactService";
 import ShowWhatsAppService from "../WhatsappService/ShowWhatsAppService";

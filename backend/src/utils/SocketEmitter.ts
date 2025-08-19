@@ -2,7 +2,7 @@
 // 🔥 SOCKET EMITTER - VERSÃO CORRIGIDA PARA GARANTIR ENTREGA DE MENSAGENS
 // ============================================================================
 
-import { getIO } from "../libs/socket";
+import { getIO } from "../libs/optimizedSocket";
 import { logger } from "./logger";
 
 /**

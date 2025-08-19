@@ -11,7 +11,7 @@ import TaskNoteService from '../services/TaskService/TaskNoteService';
 import TaskAttachmentService from '../services/TaskService/TaskAttachmentService';
 import TaskRecurrenceService from '../services/TaskService/TaskRecurrenceService';
 import TaskExportService from '../services/TaskService/TaskExportService';
-import { getIO } from '../libs/socket';
+import { getIO } from '../libs/optimizedSocket';
 
 const TaskController = {
   createTask: async (req: Request, res: Response) => {

@@ -1,6 +1,6 @@
 import { Request, Response } from "express";
 import { Op, Sequelize, QueryTypes } from "sequelize";
-import { getIO } from "../libs/socket";
+import { getIO } from "../libs/optimizedSocket";
 import AppError from "../errors/AppError";
 import CleanupInactiveFlowsService from "../services/FlowBuilderService/CleanupInactiveFlowsService";
 import ReengagementService from "../services/FlowBuilderService/ReengagementService";

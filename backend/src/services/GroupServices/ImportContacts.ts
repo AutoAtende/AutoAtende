@@ -6,7 +6,7 @@ import { Server as SocketIO } from "socket.io";
 import CheckContactNumber from "../../helpers/CheckContactNumber";
 import { logger } from "../../utils/logger";
 import { removeFilePublicFolder } from "./RemoveGroupProfilePicService";
-import { getIO } from "../../libs/socket";
+import { getIO } from "../../libs/optimizedSocket";
 import Groups from "../../models/Groups";
 import { getWbot } from "../../libs/wbot";
 import ShowWhatsAppByCompanyIdByDefaultService from "../WhatsappService/ShowWhatsAppByCompanyIdByDefaultService";

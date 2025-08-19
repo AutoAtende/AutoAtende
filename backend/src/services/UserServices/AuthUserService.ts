@@ -6,7 +6,7 @@ import Queue from "../../models/Queue";
 import Company from "../../models/Company";
 import Setting from "../../models/Setting";
 import { SafeUser, SerializedUser } from "../../@types/User";
-import { emitAuthEvent } from "../../libs/socket"; // Importação da função emitAuthEvent
+import { emitAuthEvent } from "../../libs/optimizedSocket"; // Importação da função emitAuthEvent
 import { logger } from "../../utils/logger";
 
 interface Request {

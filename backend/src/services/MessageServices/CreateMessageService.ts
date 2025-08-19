@@ -1,4 +1,4 @@
-import { getIO } from "../../libs/socket";
+import { getIO } from "../../libs/optimizedSocket";
 import Message from "../../models/Message";
 import Contact from "../../models/Contact";
 import Ticket from "../../models/Ticket";

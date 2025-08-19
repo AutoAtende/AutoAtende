@@ -1,5 +1,5 @@
 import AppError from "../../errors/AppError";
-import { getIO } from "../../libs/socket";
+import { getIO } from "../../libs/optimizedSocket";
 import { notifyUpdate } from "../TicketServices/UpdateTicketService";
 import Contact from "../../models/Contact";
 import Whatsapp from "../../models/Whatsapp";

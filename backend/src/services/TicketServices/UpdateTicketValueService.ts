@@ -1,7 +1,7 @@
 import Ticket from "../../models/Ticket";
 import AppError from "../../errors/AppError";
 
-import { getIO } from "../../libs/socket";
+import { getIO } from "../../libs/optimizedSocket";
 import ShowTicketService from "./ShowTicketService";
 
 interface Request {

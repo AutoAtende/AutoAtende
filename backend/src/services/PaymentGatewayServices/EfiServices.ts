@@ -4,7 +4,7 @@ import EfiPay, { EfiCredentials } from "sdk-typescript-apis-efi";
 import path from "path";
 import GetSuperSettingService from "../SettingServices/GetSuperSettingService";
 import { logger } from "../../utils/logger";
-import { getIO } from "../../libs/socket";
+import { getIO } from "../../libs/optimizedSocket";
 import Invoices from "../../models/Invoices";
 import Company from "../../models/Company";
 import AppError from "../../errors/AppError";

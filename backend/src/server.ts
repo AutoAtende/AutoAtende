@@ -9,7 +9,7 @@ import { initRedis } from "./config/redis";
 import { startQueueProcess, shutdownQueues, getGeneralMonitor } from "./queues";
 import { getJwtConfig } from "./config/auth";
 import { init } from "./libs/cache";
-import { initIO } from "./libs/socket";
+import { initIO } from "./libs/optimizedSocket";
 import { logger } from "./utils/logger";
 import { StartAllWhatsAppsSessions } from "./services/WbotServices/StartAllWhatsAppsSessions";
 import Company from "./models/Company";

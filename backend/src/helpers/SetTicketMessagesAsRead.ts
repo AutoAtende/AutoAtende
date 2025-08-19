@@ -1,6 +1,6 @@
 import { proto, WASocket } from "baileys";
 import { cacheLayer } from "../libs/cache";
-import { getIO } from "../libs/socket";
+import { getIO } from "../libs/optimizedSocket";
 import Message from "../models/Message";
 import Ticket from "../models/Ticket";
 import { logger } from "../utils/logger";

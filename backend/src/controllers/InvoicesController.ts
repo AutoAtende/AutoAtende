@@ -1,7 +1,7 @@
 import * as Yup from "yup";
 import Sequelize from "../database";
 import { Request, Response } from "express";
-import { getIO } from "../libs/socket";
+import { getIO } from "../libs/optimizedSocket";
 import AppError from "../errors/AppError";
 import Invoices from "../models/Invoices";
 import InvoiceLogs from "../models/InvoiceLogs";
