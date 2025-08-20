@@ -123,7 +123,7 @@ export const store = async (req: Request, res: Response): Promise<Response> => {
     const message = await SendWhatsAppMessage({
       ticket,
       body: body.trim(),
-      quotedMsgId
+      quotedMsg: quotedMsgId ? await Message.findByPk(quotedMsgId) : undefined
     });
 
     // Update ticket status and last message
@@ -184,16 +184,13 @@ export const sendMedia = async (req: Request, res: Response): Promise<Response> 
       });
     }
 
-    const { originalname: filename, mimetype, path: mediaPath } = req.file;
     const caption = req.body.caption || '';
 
     // Send media via WhatsApp
     const message = await SendWhatsAppMedia({
       ticket,
-      mediaPath,
-      mediaType: mimetype,
-      caption,
-      fileName: filename
+      media: req.file!,
+      body: caption
     });
 
     // Update ticket
@@ -246,15 +243,11 @@ export const sendVoice = async (req: Request, res: Response): Promise<Response> 
       });
     }
 
-    const { path: mediaPath } = req.file;
-
     // Send voice message via WhatsApp
     const message = await SendWhatsAppMedia({
       ticket,
-      mediaPath,
-      mediaType: 'audio/ogg',
-      caption: '',
-      isVoice: true
+      media: req.file!,
+      body: ''
     });
 
     // Update ticket

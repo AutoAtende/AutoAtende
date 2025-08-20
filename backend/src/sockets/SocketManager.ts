@@ -89,7 +89,6 @@ class OptimizedSocketManager {
         pingTimeout: this.config.heartbeatTimeout,
         pingInterval: this.config.heartbeatInterval,
         transports: ['websocket', 'polling'],
-        compression: true,
         allowEIO3: false, // Force Socket.io v4
         
         cors: {

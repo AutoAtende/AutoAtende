@@ -1,11 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { useField } from 'formik';
-import Grid from '@mui/material/Grid';
-import {
-  MuiPickersUtilsProvider,
-  KeyboardDatePicker
-} from '@mui/x-date-pickers';
-import DateFnsUtils from '@date-io/date-fns';
+import { TextField } from '@mui/material';
 
 export default function DatePickerField(props) {
   const [field, meta, helper] = useField(props);
@@ -13,42 +8,69 @@ export default function DatePickerField(props) {
   const { setValue } = helper;
   const isError = touched && error && true;
   const { value } = field;
-  const [selectedDate, setSelectedDate] = useState(null);
+  const { label, variant = "outlined", margin = "dense", fullWidth = true, type = "date", ...otherProps } = props;
 
-  useEffect(() => {
-    if (value) {
-      const date = new Date(value);
-      setSelectedDate(date);
-    }
-  }, [value]);
-
-  function _onChange(date) {
-    if (date) {
-      setSelectedDate(date);
-      try {
-        const ISODateString = date.toISOString();
-        setValue(ISODateString);
-      } catch (error) {
-        setValue(date);
+  const formatDateForInput = (dateValue) => {
+    if (!dateValue) return '';
+    
+    try {
+      const date = new Date(dateValue);
+      if (isNaN(date.getTime())) return '';
+      
+      if (type === 'datetime-local') {
+        return date.toISOString().slice(0, 16);
+      } else if (type === 'time') {
+        return date.toTimeString().slice(0, 5);
+      } else {
+        return date.toISOString().slice(0, 10);
       }
-    } else {
-      setValue(date);
+    } catch {
+      return '';
     }
-  }
+  };
+
+  const handleChange = (event) => {
+    const inputValue = event.target.value;
+    if (!inputValue) {
+      setValue(null);
+      return;
+    }
+
+    try {
+      let dateValue;
+      if (type === 'time') {
+        // Para time, criar data com a hora de hoje
+        const today = new Date();
+        const [hours, minutes] = inputValue.split(':');
+        dateValue = new Date(today.getFullYear(), today.getMonth(), today.getDate(), hours, minutes);
+      } else {
+        dateValue = new Date(inputValue);
+      }
+      
+      if (!isNaN(dateValue.getTime())) {
+        setValue(dateValue.toISOString());
+      }
+    } catch (error) {
+      console.error('Error parsing date:', error);
+    }
+  };
 
   return (
-    <Grid container>
-      <MuiPickersUtilsProvider utils={DateFnsUtils}>
-        <KeyboardDatePicker
-          {...field}
-          {...props}
-          value={selectedDate}
-          onChange={_onChange}
-          error={isError}
-          invalidDateMessage={isError && error}
-          helperText={isError && error}
-        />
-      </MuiPickersUtilsProvider>
-    </Grid>
+    <TextField
+      {...otherProps}
+      name={field.name}
+      label={label}
+      type={type}
+      variant={variant}
+      margin={margin}
+      fullWidth={fullWidth}
+      value={formatDateForInput(value)}
+      onChange={handleChange}
+      error={isError}
+      helperText={isError && error}
+      InputLabelProps={{
+        shrink: true,
+      }}
+    />
   );
 }

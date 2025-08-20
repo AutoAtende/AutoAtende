@@ -511,7 +511,7 @@ const messages = {
         editing: "Editando Opção",
         add: "Adicionar Opção",
         optionType: "Tipo de Opção",
-        title: "Título",
+        optionTitle: "Título",
         message: "Mensagem",
         noMessage: "Sem mensagem",
         save: "Salvar",
@@ -1355,7 +1355,7 @@ const messages = {
           successMessage: "{{count}} contatos foram importados com sucesso.",
           failureMessage: "Nenhum contato foi importado. Verifique os erros e tente novamente.",
           importAnother: "Importar mais contatos",
-          import: "Importar",
+          importButton: "Importar",
           errors: {
             invalidFileType: "Tipo de arquivo inválido",
             emptyFile: "Arquivo vazio",
@@ -2175,8 +2175,6 @@ const messages = {
           close: "Fechar",
           closedAllTickets: "Deseja fechar todos os tickets?",
           newTicket: "Novo Ticket",
-          yes: "SIM",
-          no: "NÃO",
           open: "Abertos",
           resolverd: "Resolvidos",
           ticketDeleteSuccessfully: "Ticket deletado com sucesso.",
@@ -2406,7 +2404,7 @@ const messages = {
           refresh: "Atualizar",
           backup: {
             title: "Backup",
-            backup: "Fazer backup",
+            action: "Fazer backup",
             schedule: "Agendar emails"
           },
           user: {
@@ -3145,7 +3143,7 @@ const messages = {
           notMapped: "Não mapeado",
           previewData: "Pré-visualização",
           showingFirst: "Mostrando os primeiros {{count}} de {{total}} registros",
-          import: "Importar",
+          importAction: "Importar",
           importingTasks: "Importando tarefas...",
           pleaseWait: "Por favor, aguarde enquanto as tarefas são importadas",
           importComplete: "Importação concluída",
@@ -3194,7 +3192,7 @@ const messages = {
           pdfGenerated: "PDF gerado com sucesso",
           emailSent: "Email enviado com sucesso",
           paymentRegistered: "Pagamento registrado com sucesso",
-          value: "Valor",
+          chargeValue: "Valor",
           notes: "Observações",
           paid: "Pago",
           pending: "Pendente",
@@ -3213,7 +3211,7 @@ const messages = {
           totalValue: "Valor Total",
           pendingValue: "Valor Pendente",
           paidValue: "Valor Pago",
-          charges: "cobranças",
+          chargesLabel: "cobranças",
           selectFiltersAndSearch: "Selecione os filtros e clique em Pesquisar",
           noDataAvailable: "Sem dados disponíveis",
           chargesByEmployer: "Cobranças por Empresa",
@@ -6407,7 +6405,7 @@ const messages = {
         validation: {
           nameRequired: "O nome do fluxo é obrigatório",
           whatsappRequired: "É necessário selecionar um WhatsApp",
-          nameRequired: "O nome é obrigatório",
+          nodeNameRequired: "O nome é obrigatório",
           apiKeyRequired: "A chave de API é obrigatória",
           promptRequired: "O prompt é obrigatório",
           urlRequired: "A URL é obrigatória",
@@ -6769,8 +6767,6 @@ const messages = {
           location: "Localização",
           inactivity: "Inatividade",
           outputs: "Este nó tem {{count}} saídas",
-          openai: "OpenAI",
-          typebot: "Typebot",
           queue: "Setor",
           webhook: "Webhook",
           image: "Imagem",
@@ -6781,7 +6777,6 @@ const messages = {
           withVoice: "Com Voz",
           automatedFlow: "Fluxo Automatizado",
           api: "Requisição API",
-          end: "Fim",
           tag: {
             title: "Tag",
             configuration: "Configuração de Tags",
@@ -7131,7 +7126,7 @@ const messages = {
           engagementRate: "Taxa de Engajamento",
           performance: "Gráfico de Performance",
           byType: "Distribuição por Tipo",
-          info: "Análise das campanhas de mensagens"
+          analysisInfo: "Análise das campanhas de mensagens"
         }
       },
       queueHelpModal: {
@@ -7588,7 +7583,6 @@ const messages = {
         confirm: "Confirmar",
         export: "Exportar",
         print: "Imprimir",
-        add: "Adicionar",
         saving: "Salvando...",
         filter: "Filtrar",
         clear: "Limpar",
@@ -7835,12 +7829,6 @@ const messages = {
           warning: "Atenção",
           info: "Informação"
         },
-        cancel: "Cancelar",
-        save: "Salvar",
-        saving: "Salvando...",
-        delete: "Excluir",
-        edit: "Editar",
-        add: "Adicionar",
         settings: {
           success: "Configurações salvas com sucesso",
           error: "Erro ao salvar configurações",

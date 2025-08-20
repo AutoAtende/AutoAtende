@@ -448,6 +448,30 @@ export class MemoryManager {
   }
 
   /**
+   * Get memory threshold
+   */
+  getThreshold(): number {
+    return this.memoryThreshold;
+  }
+
+  /**
+   * Track connection memory usage
+   */
+  trackConnection(socketId: string, data: any): void {
+    // Add socket to tracking if not already tracked
+    if (!this.socketRooms.has(socketId)) {
+      this.socketRooms.set(socketId, new Set());
+    }
+  }
+
+  /**
+   * Remove connection tracking
+   */
+  untrackConnection(socketId: string): void {
+    this.cleanupSocket(socketId);
+  }
+
+  /**
    * Clean up all tracking data
    */
   cleanup(): void {

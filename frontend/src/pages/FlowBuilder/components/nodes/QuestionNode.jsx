@@ -135,13 +135,12 @@ const QuestionNode = ({ id, data, selected }) => {
       
       {data.variableName && (
   <Typography variant="caption" color="text.secondary" sx={{ 
-    display: 'block', 
+    display: 'flex', 
     mb: 1,
     bgcolor: alpha(theme.palette.info.light, 0.2),
     px: 1,
     py: 0.5,
     borderRadius: 0.5,
-    display: 'flex',
     alignItems: 'center',
     width: 'fit-content'
   }}>

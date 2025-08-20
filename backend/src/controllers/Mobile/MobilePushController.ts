@@ -256,7 +256,7 @@ export const sendTestNotification = async (req: Request, res: Response): Promise
     const { id: userId } = req.user!;
     const { title = "Test Notification", body = "This is a test notification from AutoAtende" } = req.body;
 
-    const success = await sendPushNotificationToUser(userId, title, body, {
+    const success = await sendPushNotificationToUser(Number(userId), title, body, {
       type: 'test',
       timestamp: new Date().toISOString()
     });

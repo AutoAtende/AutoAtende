@@ -39,9 +39,9 @@ import {
   VisibilityOff as VisibilityOffIcon,
   CheckCircle as CheckIcon
 } from '@mui/icons-material';
-import { SketchPicker } from 'react-color';
 import { useSpring, animated } from 'react-spring';
 import ImageUploader from '../ImageUploader';
+import ColorPicker from '../../../../components/ColorPicker';
 
 const AnimatedPaper = animated(Paper);
 const AnimatedBox = animated(Box);
@@ -72,23 +72,23 @@ const AppearanceTab = ({ landingPage, setLandingPage }) => {
   });
   
   // Handler para alteração da cor do texto
-  const handleTextColorChange = (color) => {
+  const handleTextColorChange = (newColor) => {
     setLandingPage(prev => ({
       ...prev,
       appearance: {
         ...prev.appearance,
-        textColor: color.hex
+        textColor: newColor
       }
     }));
   };
   
   // Handler para alteração da cor de fundo
-  const handleBgColorChange = (color) => {
+  const handleBgColorChange = (newColor) => {
     setLandingPage(prev => ({
       ...prev,
       appearance: {
         ...prev.appearance,
-        backgroundColor: color.hex
+        backgroundColor: newColor
       }
     }));
   };
@@ -305,11 +305,12 @@ const AppearanceTab = ({ landingPage, setLandingPage }) => {
               horizontal: 'left',
             }}
           >
-            <Box p={1}>
-              <SketchPicker 
-                color={landingPage.appearance.textColor} 
+            <Box p={2}>
+              <ColorPicker
+                value={landingPage.appearance.textColor}
                 onChange={handleTextColorChange}
-                disableAlpha={true}
+                label="Cor do Texto"
+                fullWidth={true}
               />
             </Box>
           </Popover>
@@ -327,11 +328,12 @@ const AppearanceTab = ({ landingPage, setLandingPage }) => {
               horizontal: 'left',
             }}
           >
-            <Box p={1}>
-              <SketchPicker 
-                color={landingPage.appearance.backgroundColor} 
+            <Box p={2}>
+              <ColorPicker
+                value={landingPage.appearance.backgroundColor}
                 onChange={handleBgColorChange}
-                disableAlpha={true}
+                label="Cor de Fundo"
+                fullWidth={true}
               />
             </Box>
           </Popover>

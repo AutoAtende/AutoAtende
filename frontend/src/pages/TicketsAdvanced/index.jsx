@@ -24,6 +24,7 @@ const useStyles = makeStyles((theme) => ({
         overflow: "auto"
     },
     logoImg: {
+        width: "75%",
         margin: "0 auto",
         content: "url(" + (theme.mode === "light" ? theme.calculatedLogoLight() : theme.calculatedLogoDark()) + ")"
     },
@@ -36,11 +37,6 @@ const useStyles = makeStyles((theme) => ({
         backgroundColor: theme.palette.boxticket,
     },
     placeholderItem: {},
-    logoImg: {
-        width: "75%",
-        margin: "0 auto",
-        content: "url(" + (theme.mode === "light" ? theme.calculatedLogoLight() : theme.calculatedLogoDark()) + ")"
-    },
 }));
 
 const TicketAdvanced = (props) => {

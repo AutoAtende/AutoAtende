@@ -228,9 +228,7 @@ const SwaggerUIComponent = () => {
           required: 'Obrigatório',
           value: 'Valor',
           response: 'Resposta',
-          responses: 'Respostas',
-          // Títulos do menu de requisições
-          requestBody: 'Corpo da Requisição'
+          responses: 'Respostas'
         }
       });
     }

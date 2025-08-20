@@ -2,7 +2,6 @@ import React, { useState, useEffect, useContext, useRef } from "react";
 import { styled } from '@mui/material/styles';
 import { AuthContext } from "../../../context/Auth/AuthContext";
 import { GlobalContext } from "../../../context/GlobalContext";
-import { TwitterPicker } from "react-color";
 import { Formik, Form, Field } from "formik";
 import * as Yup from "yup";
 import { i18n } from "../../../translate/i18n";
@@ -55,6 +54,7 @@ import useSettings from "../../../hooks/useSettings";
 import { toast } from "../../../helpers/toast";
 import { removeMask } from "../../../helpers/removeMask";
 import UserPhoneInput from "../../../components/PhoneInputs/UserPhoneInput";
+import ColorPicker from "../../../components/ColorPicker";
 
 // Styled Components
 const TabPanel = styled(Box)(({ theme }) => ({
@@ -100,16 +100,6 @@ const SwitchItem = styled(FormControlLabel)(({ theme }) => ({
   }
 }));
 
-const ColorPickerWrapper = styled(Box)(({ theme }) => ({
-  marginTop: theme.spacing(1),
-  '& .twitter-picker': {
-    width: '100% !important',
-    backgroundColor: 'transparent !important',
-    boxShadow: 'none !important',
-    border: `1px solid ${theme.palette.divider}`,
-    borderRadius: theme.shape.borderRadius,
-  }
-}));
 
 // Validation Schema
 const UserSchema = Yup.object().shape({
@@ -855,23 +845,12 @@ const UserModal = ({ open, onClose, userId }) => {
                 </FormSection>
 
                 <FormSection>
-                  <Typography variant="subtitle1" gutterBottom>
-                    {i18n.t("userModal.form.color")}
-                  </Typography>
-                  <ColorPickerWrapper>
-                    <TwitterPicker
-                      color={values.color || "#7367F0"} // Garante que sempre terá um valor válido
-                      onChange={(color) => {
-                        // Validação do valor retornado pelo color picker
-                        if (color && typeof color === 'object' && color.hex) {
-                          setFieldValue('color', color.hex);
-                        } else {
-                          setFieldValue('color', '#7367F0'); // Valor padrão
-                        }
-                      }}
-                      triangle="hide"
-                    />
-                  </ColorPickerWrapper>
+                  <ColorPicker
+                    value={values.color || "#7367F0"}
+                    onChange={(newColor) => setFieldValue('color', newColor)}
+                    label={i18n.t("userModal.form.color")}
+                    fullWidth={true}
+                  />
                   <FormHelperText>
                     {i18n.t("userModal.form.colorHelp")}
                   </FormHelperText>

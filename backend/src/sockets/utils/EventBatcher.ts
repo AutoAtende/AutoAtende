@@ -1,5 +1,5 @@
 import { logger } from '../../utils/logger';
-import { getIO } from '../SocketManager';
+import socketManager from '../SocketManager';
 
 interface BatchedEvent {
   id: string;
@@ -211,7 +211,7 @@ export class EventBatcher {
     events: BatchedEvent[]
   ): Promise<void> {
     try {
-      const io = getIO();
+      const io = socketManager.getIO();
       
       if (events.length === 1) {
         // Single event - emit directly
@@ -392,7 +392,7 @@ export class EventBatcher {
    */
   emitImmediate(room: string, eventType: string, data: any): void {
     try {
-      const io = getIO();
+      const io = socketManager.getIO();
       io.to(room).emit(eventType, data);
       
       logger.debug(`Immediate emit to room ${room}`, { eventType });

@@ -23,7 +23,6 @@ import {
   MenuItem,
   Divider
 } from "@mui/material";
-import { ChromePicker } from "react-color";
 import {
   Delete,
   Save,
@@ -42,6 +41,7 @@ import useAuth from "../../hooks/useAuth";
 import useSettings from "../../hooks/useSettings";
 import api from "../../services/api";
 import ColorModeContext from "../../layout/themeContext";
+import ColorPicker from "../../components/ColorPicker";
 
 // Importações de imagens padrão
 import faviconImage from "../../assets/images/Favicon.jpeg";
@@ -230,10 +230,7 @@ const WhitelabelPage = () => {
     setColorPickerAnchor(event.currentTarget);
   };
 
-  const handleColorChange = (color) => {
-    console.log(`🎨 Mudança de cor: ${color.hex}`);
-    setTempColorValue(color.hex);
-  };
+  // This function is now handled inline in the ColorPicker onChange prop
 
   const handleColorSave = async () => {
     if (!selectedColorKey || !tempColorValue) {
@@ -716,10 +713,14 @@ const WhitelabelPage = () => {
           transformOrigin={{ vertical: "top", horizontal: "center" }}
         >
           <Box sx={{ p: 2 }}>
-            <ChromePicker
-              color={tempColorValue}
-              onChange={handleColorChange}
-              disableAlpha
+            <ColorPicker
+              value={tempColorValue}
+              onChange={(newColor) => {
+                console.log(`🎨 Mudança de cor: ${newColor}`);
+                setTempColorValue(newColor);
+              }}
+              label="Cor Selecionada"
+              fullWidth={true}
             />
             <Stack direction="row" spacing={1} sx={{ mt: 2 }}>
               <Button 

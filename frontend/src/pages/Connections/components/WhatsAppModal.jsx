@@ -63,7 +63,7 @@ import { i18n } from "../../../translate/i18n";
 import QueueSelect from "../../../components/QueueSelect";
 import TabPanel from "../../../components/TabPanel";
 import MessageVariablesPicker from "../../../components/MessageVariablesPicker";
-import ColorPickerField from "./ColorPickerField";
+import ColorPicker from "../../../components/ColorPicker";
 import ActionButton from "./ActionButton";
 
 const useStyles = makeStyles((theme) => ({
@@ -953,7 +953,12 @@ const WhatsAppModal = ({ open, onClose, whatsAppId, onStartImportMonitoring }) =
                                             </Grid>
 
                                             <Grid item xs={12} sm={6}>
-                                                <Field name="color" component={ColorPickerField} />
+                                                <ColorPicker
+                                                    value={values.color}
+                                                    onChange={(newColor) => setFieldValue("color", newColor)}
+                                                    label={i18n.t("userModal.form.color")}
+                                                    fullWidth={true}
+                                                />
                                             </Grid>
 
                                             <Grid item xs={12}>

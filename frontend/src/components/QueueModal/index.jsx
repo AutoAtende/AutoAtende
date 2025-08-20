@@ -83,7 +83,6 @@ const QueueModal = ({ open, onClose, queueId }) => {
     idFilaPBX: null,
   };
 
-  const [colorPickerModalOpen, setColorPickerModalOpen] = useState(false);
   const [queue, setQueue] = useState(initialState);
   const [tab, setTab] = useState(0);
   const [schedulesEnabled, setSchedulesEnabled] = useState(false);
@@ -444,52 +443,14 @@ const QueueModal = ({ open, onClose, queueId }) => {
                                             margin="dense"
                                             className={classes.textField}
                                         />
-                                        <Field
-                                            as={TextField}
-                                            label={i18n.t("queueModal.form.color")}
-                                            name="color"
-                                            id="color"
-                                            onFocus={() => {
-                                                setColorPickerModalOpen(true);
-                                                greetingRef.current.focus();
-                                            }}
-                                            error={touched.color && Boolean(errors.color)}
-                                            helperText={touched.color && errors.color}
-                                            InputProps={{
-                                                startAdornment: (
-                                                    <InputAdornment position="start">
-                                                        <div
-                                                            style={{backgroundColor: values.color}}
-                                                            className={classes.colorAdorment}
-                                                        ></div>
-                                                    </InputAdornment>
-                                                ),
-                                                endAdornment: (
-                                                    <IconButton
-                                                        size="small"
-                                                        color="primary"
-                                                        onClick={() => setColorPickerModalOpen(true)}
-                                                    >
-                                                        <Colorize  style={{ color: getIconColor() }} />
-                                                    </IconButton>
-                                                ),
-                                            }}
-                                            variant="outlined"
-                                            margin="dense"
-                                            className={classes.textField}
-                                            InputLabelProps={{
-                                                shrink: true,
-                                              }}
-                                        />
                                         <ColorPicker
-                                            open={colorPickerModalOpen}
-                                            handleClose={() => setColorPickerModalOpen(false)}
-                                            onChange={(color) => {
-                                                values.color = color;
-                                                setQueue(() => {
-                                                    return {...values, color};
-                                                });
+                                            value={values.color}
+                                            onChange={(newColor) => {
+                                                setFieldValue('color', newColor);
+                                                setQueue(prev => ({...prev, color: newColor}));
                                             }}
+                                            label={i18n.t("queueModal.form.color")}
+                                            fullWidth={true}
                                         />
                                         <Field
                                             as={TextField}

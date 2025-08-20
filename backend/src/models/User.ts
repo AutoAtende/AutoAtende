@@ -38,6 +38,7 @@ interface IUser {
   notifyNewTicket: boolean;
   notifyTask: boolean;
   canRestartConnections: boolean;
+  pushTokens?: string;
   createdAt: Date;
   updatedAt: Date;
   companyId: number;
@@ -149,6 +150,9 @@ class User extends Model<User> implements IUser {
   @Default(false)
   @Column(DataType.BOOLEAN)
   canRestartConnections: boolean;
+
+  @Column(DataType.TEXT)
+  pushTokens: string;
 
   @CreatedAt
   @Column(DataType.DATE)

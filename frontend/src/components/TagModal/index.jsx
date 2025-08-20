@@ -13,11 +13,11 @@ import {
   LocalOffer as TagIcon,
   Palette as ColorIcon
 } from "@mui/icons-material";
-import { ChromePicker } from "react-color";
 import { toast } from "../../helpers/toast";
 import { i18n } from "../../translate/i18n";
 import api from "../../services/api";
 import BaseModal from "../BaseModal";
+import ColorPicker from "../ColorPicker";
 
 const TagSchema = Yup.object().shape({
   name: Yup.string()
@@ -29,7 +29,6 @@ const TagSchema = Yup.object().shape({
 });
 
 const TagModal = ({ open, onClose, tagData, onSave }) => {
-  const [colorPickerOpen, setColorPickerOpen] = useState(false);
   const [initialValues, setInitialValues] = useState({
     name: "",
     color: "#A4CCCC"
@@ -148,66 +147,17 @@ const TagModal = ({ open, onClose, tagData, onSave }) => {
                 </Grid>
 
                 <Grid item xs={12}>
-                  <Field
-                    name="color"
-                    as={TextField}
+                  <ColorPicker
+                    value={values.color}
+                    onChange={(newColor) => setFieldValue("color", newColor)}
                     label={i18n.t("tags.form.fields.color")}
-                    error={touched.color && Boolean(errors.color)}
-                    helperText={touched.color && errors.color}
-                    variant="outlined"
-                    fullWidth
-                    onClick={() => setColorPickerOpen(true)}
-                    InputProps={{
-                      startAdornment: (
-                        <InputAdornment position="start">
-                          <ColorIcon />
-                        </InputAdornment>
-                      ),
-                      endAdornment: (
-                        <InputAdornment position="end">
-                          <div
-                            style={{
-                              width: 24,
-                              height: 24,
-                              borderRadius: 4,
-                              backgroundColor: values.color,
-                              cursor: "pointer",
-                              border: "1px solid #ccc"
-                            }}
-                            onClick={() => setColorPickerOpen(true)}
-                          />
-                        </InputAdornment>
-                      )
-                    }}
+                    fullWidth={true}
                   />
-                  
-                  {colorPickerOpen && (
-                    <div
-                      style={{
-                        position: "absolute",
-                        zIndex: 2000,
-                        marginTop: 8
-                      }}
-                    >
-                      <div
-                        style={{
-                          position: "fixed",
-                          top: 0,
-                          right: 0,
-                          bottom: 0,
-                          left: 0
-                        }}
-                        onClick={() => setColorPickerOpen(false)}
-                      />
-                      <ChromePicker
-                        color={values.color}
-                        onChange={(color) => {
-                          setFieldValue("color", color.hex);
-                        }}
-                      />
-                    </div>
+                  {touched.color && Boolean(errors.color) && (
+                    <FormHelperText error>
+                      {errors.color}
+                    </FormHelperText>
                   )}
-                  
                   <FormHelperText>
                     {i18n.t("tags.form.colorHelp")}
                   </FormHelperText>

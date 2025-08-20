@@ -1,11 +1,11 @@
 import axios from 'axios';
 import axiosRetry from 'axios-retry';
 
-const BASE_URL = process.env.REACT_APP_BACKEND_URL;
+const BASE_URL = import.meta.env.VITE_REACT_APP_BACKEND_URL || import.meta.env.REACT_APP_BACKEND_URL;
 const TIMEOUT = 120000;
 const MAX_RETRIES = 3;
 
-const isProduction = process.env.NODE_ENV === 'production';
+const isProduction = import.meta.env.MODE === 'production';
 
 const createAxiosInstance = (options = {}) => {
   const instance = axios.create({
