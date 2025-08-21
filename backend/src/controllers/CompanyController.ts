@@ -1345,7 +1345,7 @@ export const getUsersSummary = async (req: Request, res: Response): Promise<Resp
 
   try {
     const total = await User.count({ where: { companyId } });
-    const active = await User.count({ where: { companyId, status: true } });
+    const active = await User.count({ where: { companyId } });
     const admin = await User.count({ where: { companyId, profile: "admin" } });
 
     return res.json({
