@@ -365,11 +365,20 @@ class ManagedSocket {
 
     // Destruir instância
     destroy() {
+        if (this._isDestroyed) return;
+        
         this._isDestroyed = true;
         this._disconnect(true);
         this._clearAllTimers();
         this._hideConnectionError();
-        console.log('[Socket] Instância destruída');
+        
+        // Liberar referências para GC
+        this.socketManager = null;
+        this.rawSocket = null;
+        this.callbacks = null;
+        this.joins = null;
+        
+        debug.log('Instância destruída');
     }
 
     // Getter para verificar se está conectado
@@ -527,13 +536,16 @@ export const initSocketManager = () => ({
 
     _createSocketConnection(token) {
         return openSocket(process.env.REACT_APP_BACKEND_URL, {
-            transports: ['websocket', 'polling'],
+            transports: ['websocket'], // Apenas websocket para melhor performance
             pingTimeout: CONFIG.PING_TIMEOUT,
             pingInterval: CONFIG.PING_INTERVAL,
             reconnection: false, // Desabilitar reconexão automática do socket.io
             timeout: CONFIG.CONNECTION_TIMEOUT,
-            forceNew: true, // Força nova conexão
-            query: { token }
+            forceNew: true,
+            query: { token },
+            // Configurações para reduzir memória
+            perMessageDeflate: false,
+            httpCompression: false
         });
     },
 
@@ -640,7 +652,31 @@ export const initSocketManager = () => ({
 
 export const socketManager = initSocketManager();
 
-// Context otimizado - COMPATÍVEL com uso anterior
+// Monitoramento de memória
+class MemoryMonitor {
+    static checkMemoryUsage() {
+        if (typeof performance !== 'undefined' && performance.memory) {
+            const memory = performance.memory;
+            const usedMB = memory.usedJSHeapSize / 1048576;
+            
+            if (usedMB > 100) {
+                debug.warn('Alto uso de memória:', usedMB.toFixed(2), 'MB');
+                this.triggerCleanup();
+            }
+        }
+    }
+
+    static triggerCleanup() {
+        // Limpar pool quando memória estiver alta
+        if (typeof global.gc === 'function') {
+            global.gc();
+        }
+    }
+}
+
+// Verificar memória a cada 30 segundos
+setInterval(() => MemoryMonitor.checkMemoryUsage(), 30000);
+
 const SocketContext = createContext(socketManager);
 
 export const SocketProvider = ({ children }) => {

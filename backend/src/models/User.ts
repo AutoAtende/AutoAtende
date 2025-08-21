@@ -122,10 +122,6 @@ class User extends Model<User> implements IUser {
   @Column(DataType.BOOLEAN)
   online: boolean;
 
-  @Default(true)
-  @Column(DataType.BOOLEAN)
-  status: boolean;
-
   @Column
   limitAttendance: number;
 
