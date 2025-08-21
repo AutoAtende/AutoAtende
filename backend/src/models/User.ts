@@ -1,4 +1,4 @@
-import { Table, Column, CreatedAt, UpdatedAt, Model, Unique, DataType, BeforeCreate, BeforeUpdate, PrimaryKey, AutoIncrement, Default, HasMany, BelongsToMany, ForeignKey, BelongsTo, HasOne } from "sequelize-typescript";
+import { Table, Column, CreatedAt, UpdatedAt, Model, DataType, BeforeCreate, BeforeUpdate, PrimaryKey, AutoIncrement, Default, HasMany, BelongsToMany, ForeignKey, BelongsTo, AllowNull } from "sequelize-typescript";
 import { hash, compare } from "bcryptjs";
 import Ticket from "./Ticket";
 import Queue from "./Queue";
@@ -122,6 +122,10 @@ class User extends Model<User> implements IUser {
   @Column(DataType.BOOLEAN)
   online: boolean;
 
+  @Default(true)
+  @Column(DataType.BOOLEAN)
+  status: boolean;
+
   @Column
   limitAttendance: number;
 
@@ -137,6 +141,9 @@ class User extends Model<User> implements IUser {
 
   @Column
   ramal: string;
+
+  @Column(DataType.TEXT)
+  refreshToken: string;
 
   @Default(false)
   @Column(DataType.BOOLEAN)

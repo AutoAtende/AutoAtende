@@ -455,7 +455,7 @@ async getActiveInviteLink(id: number, companyId: number): Promise<string | null>
             },
             {
               id: 'number',
-              type: 'number',
+              type: 'phone',
               label: 'WhatsApp',
               placeholder: 'Digite seu WhatsApp',
               required: true,

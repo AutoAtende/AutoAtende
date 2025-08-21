@@ -94,7 +94,7 @@ const UpdateService = async ({
     await schedule.update({
       body: body || schedule.body,
       sendAt: sendAt ? moment(sendAt).toDate() : schedule.sendAt,
-      sentAt,
+      sentAt: sentAt ? new Date(sentAt) : null,
       contactId: contactId || schedule.contactId,
       ticketId,
       userId: userId || schedule.userId,

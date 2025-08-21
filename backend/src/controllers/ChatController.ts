@@ -26,8 +26,8 @@ interface MessageRequest extends Request {
 interface ChatMessageWithSender extends ChatMessage {
   sender: User;
   id: number;
-  mediaUrl?: string;
-  mediaType?: string;
+  mediaUrl: string;
+  mediaType: string;
 }
 
 export const index = async (req: Request, res: Response): Promise<Response> => {

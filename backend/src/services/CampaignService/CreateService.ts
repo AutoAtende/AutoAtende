@@ -123,7 +123,7 @@ const CreateService = async (campaignData: CampaignData): Promise<Campaign> => {
       name,
       status: statusFinal,
       confirmation,
-      scheduledAt,
+      scheduledAt: scheduledAt ? new Date(scheduledAt) : new Date(),
       companyId,
       contactListId,
       whatsappId,
@@ -142,8 +142,7 @@ const CreateService = async (campaignData: CampaignData): Promise<Campaign> => {
       confirmationMessage3,
       confirmationMessage4,
       confirmationMessage5,
-      originalTagListIds,
-      campaignIdentifier
+      originalTagListIds
     });
 
     // Log da campanha criada

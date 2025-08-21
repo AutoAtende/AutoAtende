@@ -235,7 +235,7 @@ export const update = async (req: Request, res: Response): Promise<Response> => 
       await TaskTimeline.create({
         taskId: task.id,
         action: 'task_subject_updated',
-        userId,
+        userId: parseInt(userId),
         details: {
           subjectId: subject.id,
           oldName,

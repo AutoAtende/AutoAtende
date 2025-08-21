@@ -571,7 +571,7 @@ const UpdateTicketService = async ({
       });
 
       await ticketTraking.update({
-        whatsappId,
+        whatsappId: parseInt(whatsappId.toString()),
         userId: ticket.userId,
         finishedAt: moment().toDate(),
         reasonId: ticketData.reasonId || null
@@ -809,7 +809,7 @@ const UpdateTicketService = async ({
           userId,
           queueId,
           status: "pending",
-          whatsappId,
+          whatsappId: parseInt(whatsappId.toString()),
           chatbot,
           queueOptionId,
           promptId,

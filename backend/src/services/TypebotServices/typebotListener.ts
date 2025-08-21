@@ -497,7 +497,7 @@ if (formattedText.startsWith("#")) {
       }
       logger.info(`[Typebot] Processamento de mensagens concluído com sucesso`);
       await ticket.update({
-        statu: "closed"
+        status: "closed"
       })
       return true;
     } else if (body === typebotKeywordRestart) {

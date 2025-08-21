@@ -100,7 +100,6 @@ const UpdateCompanyService = async (id: number | string, data: CompanyData): Pro
 
     // Atualizar empresa com todos os campos
     await company.update({
-      id,
       name: data.name,
       phone: data.phone,
       email: data.email,

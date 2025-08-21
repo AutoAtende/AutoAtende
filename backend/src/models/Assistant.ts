@@ -145,6 +145,12 @@ class Assistant extends Model<Assistant> {
   @UpdatedAt
   updatedAt!: Date;
 
+  @AllowNull(true)
+  @Column({
+    type: DataType.INTEGER
+  })
+  queueId!: number;
+
   // Métodos auxiliares
   hasVoiceCapabilities(): boolean {
     return this.voiceConfig?.enableVoiceResponses || this.voiceConfig?.enableVoiceTranscription || false;

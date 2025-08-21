@@ -52,7 +52,6 @@ const SaveScheduleNodeService = async (data: SaveScheduleNodeRequest): Promise<S
       // Atualizar nó existente
       scheduleNode = await scheduleNode.update({
         label: data.label || scheduleNode.label,
-        horarioId: data.horarioGroupId ? null : data.horarioId, // Limpa o horarioId se um grupo for fornecido
         horarioGroupId: data.horarioGroupId
       });
     } else {
@@ -62,7 +61,6 @@ const SaveScheduleNodeService = async (data: SaveScheduleNodeRequest): Promise<S
         companyId: data.companyId,
         flowId: data.flowId,
         label: data.label || 'Verificação de Horário',
-        horarioId: data.horarioGroupId ? null : data.horarioId, // Limpa o horarioId se um grupo for fornecido
         horarioGroupId: data.horarioGroupId
       });
     }

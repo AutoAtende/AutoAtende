@@ -14,7 +14,7 @@ interface CreateWorkflowData {
   name: string;
   description?: string;
   workflowType: 'sales' | 'support' | 'onboarding' | 'custom';
-  laneSequence: string[];
+  laneSequence: number[];
   validationRules?: any;
   active?: boolean;
   companyId: number;
@@ -572,7 +572,6 @@ class KanbanWorkflowService {
       const template = await KanbanChecklistTemplate.findOne({
         where: {
           companyId: ticket.companyId,
-          workflowType,
           active: true
         },
         order: [['createdAt', 'ASC']]

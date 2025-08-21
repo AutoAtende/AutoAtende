@@ -37,11 +37,11 @@ import {
     @Column
     type: string;
   
-    @Column(DataType.DATE)
-    oldValue: Date;
+    @Column
+    oldValue: string;
   
-    @Column(DataType.DATE)
-    newValue: Date;
+    @Column
+    newValue: string;
   
     @CreatedAt
     @Column(DataType.DATE)

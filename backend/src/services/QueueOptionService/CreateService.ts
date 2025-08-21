@@ -9,7 +9,12 @@ interface QueueOptionData {
 }
 
 const CreateService = async (queueOptionData: QueueOptionData): Promise<QueueOption> => {
-  const queueOption = await QueueOption.create(queueOptionData);
+  const createData = {
+    ...queueOptionData,
+    queueId: parseInt(queueOptionData.queueId),
+    parentId: queueOptionData.parentId ? parseInt(queueOptionData.parentId) : null
+  };
+  const queueOption = await QueueOption.create(createData);
   return queueOption;
 };
 

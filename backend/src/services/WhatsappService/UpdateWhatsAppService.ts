@@ -30,7 +30,7 @@ export interface WhatsappData {
   promptId?: number;
   integrationId?: number;
   maxUseBotQueues?: number;
-  timeUseBotQueues?: string;
+  timeUseBotQueues?: number;
   expiresTicket?: number;
   expiresInactiveMessage?: string;
   timeInactiveMessage?: number;       
@@ -211,14 +211,14 @@ const UpdateWhatsAppService = async ({
     promptId: promptId ? promptId : null,
     integrationId: integrationId ? integrationId : null,
     maxUseBotQueues,
-    timeUseBotQueues,
+    timeUseBotQueues: timeUseBotQueues ? parseInt(String(timeUseBotQueues)) : whatsapp.timeUseBotQueues,
     expiresTicket,
     expiresInactiveMessage,
-    timeInactiveMessage,       
+    timeInactiveMessage: timeInactiveMessage ? parseInt(String(timeInactiveMessage)) : whatsapp.timeInactiveMessage,       
     inactiveMessage,            
     collectiveVacationMessage, 
-    collectiveVacationStart,   
-    collectiveVacationEnd,      
+    collectiveVacationStart: collectiveVacationStart ? new Date(collectiveVacationStart) : whatsapp.collectiveVacationStart,   
+    collectiveVacationEnd: collectiveVacationEnd ? new Date(collectiveVacationEnd) : whatsapp.collectiveVacationEnd,      
     color,                     
     allowGroup: normalizedAllowGroup !== undefined ? normalizedAllowGroup : whatsapp.allowGroup,
     importOldMessages,

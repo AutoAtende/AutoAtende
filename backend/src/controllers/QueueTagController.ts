@@ -143,7 +143,7 @@ export const bulkSync = async (req: Request, res: Response): Promise<Response> =
     });
 
     const queueTags = tags.map(tag => ({
-      queueId,
+      queueId: parseInt(queueId.toString()),
       tagId: tag.id,
       createdAt: new Date(),
       updatedAt: new Date()

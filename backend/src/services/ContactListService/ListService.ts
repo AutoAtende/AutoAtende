@@ -64,11 +64,12 @@ const ListService = async ({
     group: ["ContactList.id"]
   });
 
-  const hasMore = count > offset + records.length;
+  const totalCount = Array.isArray(count) ? count.length : count;
+  const hasMore = totalCount > offset + records.length;
 
   return {
     records,
-    count,
+    count: totalCount,
     hasMore
   };
 };

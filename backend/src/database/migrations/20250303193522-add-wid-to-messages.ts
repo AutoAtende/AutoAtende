@@ -65,7 +65,8 @@ module.exports = {
     const hasQuotedConstraint = indexes.some((index: any) => index.indexname === 'Messages_quotedMsgId_fkey');
     if (columnMap['quotedMsgId'] && !hasQuotedConstraint) {
       try {
-        await queryInterface.addConstraint(tableName, ['quotedMsgId'], {
+        await queryInterface.addConstraint(tableName, {
+          fields: ['quotedMsgId'],
           type: 'foreign key',
           name: 'Messages_quotedMsgId_fkey',
           references: {
@@ -121,7 +122,8 @@ module.exports = {
 
     // Restaurar constraint
     try {
-      await queryInterface.addConstraint(tableName, ['id'], {
+      await queryInterface.addConstraint(tableName, {
+        fields: ['id'],
         type: 'primary key',
         name: 'Messages_pkey'
       });
@@ -136,7 +138,8 @@ module.exports = {
     });
     
     try {
-      await queryInterface.addConstraint(tableName, ['quotedMsgId'], {
+      await queryInterface.addConstraint(tableName, {
+        fields: ['quotedMsgId'],
         type: 'foreign key',
         name: 'Messages_quotedMsgId_fkey',
         references: {

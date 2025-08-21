@@ -9,6 +9,7 @@ import {
 } from "sequelize-typescript";
 import Tag from "./Tag";
 import Ticket from "./Ticket";
+import Company from "./Company";
 
 @Table({
   tableName: 'TicketTags'
@@ -22,6 +23,10 @@ class TicketTag extends Model<TicketTag> {
   @Column
   tagId: number;
 
+  @ForeignKey(() => Company)
+  @Column
+  companyId: number;
+
   @CreatedAt
   createdAt: Date;
 
@@ -33,6 +38,9 @@ class TicketTag extends Model<TicketTag> {
 
   @BelongsTo(() => Tag)
   tag: Tag;
+
+  @BelongsTo(() => Company)
+  company: Company;
 }
 
 export default TicketTag;

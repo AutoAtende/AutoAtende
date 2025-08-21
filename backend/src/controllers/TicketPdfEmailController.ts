@@ -47,7 +47,7 @@ class TicketPdfEmailController {
         companyId,
         status: 'PENDING',
         hasAttachments: true,
-        metadata: { ticketId }
+        metadata: JSON.stringify({ ticketId })
       });
 
       try {

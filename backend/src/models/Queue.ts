@@ -63,7 +63,7 @@ class Queue extends Model<Queue> {
   @Column({
     type: DataType.JSONB
   })
-  schedules: [];
+  schedules: any[];
 
   @CreatedAt
   createdAt: Date;
@@ -124,6 +124,18 @@ class Queue extends Model<Queue> {
   @Default(false)
   @Column
   closeTicket: boolean;
+
+  @Column
+  directMessage: boolean;
+
+  @Column
+  transferDueToFast: boolean;
+
+  @Column
+  absenceMessage: string;
+
+  @Column
+  type: string;
   
 }
 

@@ -129,9 +129,8 @@ export const updateInvoice = async (req: Request, res: Response, next: NextFunct
         expiresAt.setDate(expiresAt.getDate() + 30);
         const date = expiresAt.toISOString().split("T")[0];
         if (company) {
-          await company.update({ dueDate: date });
+          await company.update({ dueDate: new Date(date) });
           const invoi = await invoices.update({
-            id: id,
             status: "paid"
           });
           await company.reload();

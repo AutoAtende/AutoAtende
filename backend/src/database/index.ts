@@ -107,8 +107,9 @@ import FormSubmission from "../models/FormSubmission";
 import LandingPage from "../models/LandingPage";
 import LandingPageMedia from "../models/LandingPageMedia";
 import DashboardCache from "../models/DashboardCache";
-import * as dbConfig from "../config/database";
-const sequelize = new Sequelize(dbConfig as any);
+import dbConfig from "../config/database";
+
+const sequelize = new Sequelize(dbConfig);
 
 const models = [
   ContactTags,

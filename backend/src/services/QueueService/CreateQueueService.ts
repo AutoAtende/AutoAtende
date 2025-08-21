@@ -92,7 +92,8 @@ const CreateQueueService = async (queueData: QueueData): Promise<Queue> => {
     throw new AppError(err.message);
   }
 
-  const queue = await Queue.create(queueData);
+  const { tags: tagIds, ...queueCreateData } = queueData;
+  const queue = await Queue.create(queueCreateData);
 
   if (tags && tags.length > 0) {
     const queueTags = tags.map(tagId => ({

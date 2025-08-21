@@ -11,6 +11,7 @@ import {
   BelongsTo
 } from "sequelize-typescript";
 import Contact from "./Contact";
+import Company from "./Company";
 
 @Table
 class ContactCustomField extends Model<ContactCustomField> {
@@ -31,6 +32,13 @@ class ContactCustomField extends Model<ContactCustomField> {
 
   @BelongsTo(() => Contact)
   contact: Contact;
+
+  @ForeignKey(() => Company)
+  @Column
+  companyId: number;
+
+  @BelongsTo(() => Company)
+  company: Company;
 
   @CreatedAt
   @Column(DataType.DATE)

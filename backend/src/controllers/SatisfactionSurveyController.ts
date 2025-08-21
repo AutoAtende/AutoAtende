@@ -166,7 +166,7 @@ export const store = async (req: Request, res: Response): Promise<Response> => {
   }
 
   const survey = await SatisfactionSurvey.create({
-    userId,
+    userId: parseInt(userId.toString()),
     companyId,
     answers
   });

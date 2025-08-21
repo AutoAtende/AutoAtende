@@ -26,7 +26,13 @@ const CreateTicketNoteService = async (
     throw new AppError(err.message);
   }
 
-  const ticketNote = await TicketNote.create(ticketNoteData);
+  const createData = {
+    ...ticketNoteData,
+    userId: parseInt(ticketNoteData.userId.toString()),
+    contactId: parseInt(ticketNoteData.contactId.toString()),
+    ticketId: parseInt(ticketNoteData.ticketId.toString())
+  };
+  const ticketNote = await TicketNote.create(createData);
 
   return ticketNote;
 };

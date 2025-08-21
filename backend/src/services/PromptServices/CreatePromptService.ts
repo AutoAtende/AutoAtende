@@ -38,8 +38,12 @@ const CreatePromptService = async (promptData: PromptData): Promise<Prompt> => {
         throw new AppError(`${JSON.stringify(err, undefined, 2)}`);
     }
 
-    let promptTable = await Prompt.create(promptData);
-    promptTable = await ShowPromptService({ promptId: promptTable.id, companyId });
+    const createData = {
+        ...promptData,
+        companyId: parseInt(promptData.companyId.toString())
+    };
+    let promptTable = await Prompt.create(createData);
+    promptTable = await ShowPromptService({ promptId: promptTable.id, companyId: createData.companyId });
 
     return promptTable;
 };

@@ -87,7 +87,7 @@ export const processInvoicePaid = async (invoice: Invoices) => {
       const formattedDueDate = moment(dueDate).format("YYYY-MM-DD");
 
       await company.update({
-        dueDate: formattedDueDate
+        dueDate: new Date(formattedDueDate)
       });
       
       await invoice.update({

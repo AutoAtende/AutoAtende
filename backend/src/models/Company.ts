@@ -48,7 +48,6 @@ class Company extends Model<Company> {
   @Column
   status: boolean;
 
-  @Column
   @Column(DataType.DATE)
   dueDate: Date;
 

@@ -16,13 +16,13 @@ class DashboardSettingsService {
     defaultDateRange: 7,
     defaultQueue: 'all',
     componentVisibility: {
-      messagesCard: true,
-      responseTimeCard: true,
-      clientsCard: true,
-      messagesByDayChart: true,
-      messagesByUserChart: true,
-      comparativeTable: true,
-      prospectionTable: true
+        messagesCard: true,
+  responseTimeCard: true,
+  clientsCard: true,
+  messagesByDayChart: true,
+  messagesByUserChart: true,
+  comparativeTable: true,
+  prospectionTable: true
     }
   };
 
@@ -83,8 +83,8 @@ class DashboardSettingsService {
       }
 
       // Atualizar configurações
-      const currentComponentVisibility = dashboardSettings.componentVisibility || {};
-      const newComponentVisibility = settings.componentVisibility || {};
+      const currentComponentVisibility: ComponentVisibility = dashboardSettings.componentVisibility;
+      const newComponentVisibility: ComponentVisibility = settings.componentVisibility;
 
       await dashboardSettings.update({
         defaultDateRange: settings.defaultDateRange !== undefined ? 

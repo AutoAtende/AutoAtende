@@ -47,7 +47,7 @@ class PasswordController {
 
       const passwordInstance = EmployerPassword.build({
         companyId,
-        createdBy: userId,
+        createdBy: parseInt(userId),
         employerId: payload.employerId || null,
         application: payload.application || '',
         url: payload.url || '',
@@ -156,7 +156,7 @@ class PasswordController {
         logger.info(`Listagem realizada com sucesso. Total: ${total}, Página: ${parsedPage}, Tamanho: ${parsedPageSize}`);
 
         const mappedPasswords = passwords.map(password => {
-          const plainPassword = password.get({ plain: true }) as PlainPassword;
+          const plainPassword = password.get({ plain: true }) as unknown as PlainPassword;
           
           return {
             ...plainPassword,

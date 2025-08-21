@@ -31,9 +31,9 @@ export const UpdateMessageRuleService = async (
   // Tratamento dos campos numéricos opcionais
   const sanitizedData = {
     ...messageRuleData,
-    userId: messageRuleData.userId === "" || messageRuleData.userId === undefined ? null : messageRuleData.userId,
-    queueId: messageRuleData.queueId === "" || messageRuleData.queueId === undefined ? null : messageRuleData.queueId,
-    whatsappId: messageRuleData.whatsappId === "" || messageRuleData.whatsappId === undefined ? null : messageRuleData.whatsappId
+    userId: messageRuleData.userId === "" || messageRuleData.userId === undefined ? null : parseInt(messageRuleData.userId.toString()),
+    queueId: messageRuleData.queueId === "" || messageRuleData.queueId === undefined ? null : parseInt(messageRuleData.queueId.toString()),
+    whatsappId: messageRuleData.whatsappId === "" || messageRuleData.whatsappId === undefined ? null : parseInt(messageRuleData.whatsappId.toString())
   };
 
   await messageRule.update(sanitizedData);

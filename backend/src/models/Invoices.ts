@@ -47,6 +47,12 @@ class Invoices extends Model<Invoices> {
   @Column
   stripePaymentIntentId: string;
 
+  @Column(DataType.TEXT)
+  payGwData: string;
+
+  @Column(DataType.DATE)
+  paymentDate: Date;
+
   @CreatedAt
   createdAt: Date;
 

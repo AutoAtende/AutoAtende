@@ -114,6 +114,9 @@ class AppointmentService {
         // Criar o agendamento
         const appointment = await Appointment.create({
             ...appointmentData,
+            scheduledAt: typeof appointmentData.scheduledAt === 'string' 
+              ? new Date(appointmentData.scheduledAt) 
+              : appointmentData.scheduledAt,
             uuid: uuid(),
             duration: service.duration,
             status: AppointmentStatus.PENDING,
@@ -394,7 +397,15 @@ class AppointmentService {
             throw new AppError("ERR_CANCELLATION_REASON_REQUIRED");
         }
 
-        await appointment.update(appointmentData);
+        const updateData = {
+            ...appointmentData,
+            scheduledAt: appointmentData.scheduledAt 
+              ? (typeof appointmentData.scheduledAt === 'string' 
+                  ? new Date(appointmentData.scheduledAt) 
+                  : appointmentData.scheduledAt)
+              : undefined
+        };
+        await appointment.update(updateData);
 
         // Se o status for alterado, enviar notificação ao cliente
         if (appointmentData.status && appointmentData.status !== appointment.status) {

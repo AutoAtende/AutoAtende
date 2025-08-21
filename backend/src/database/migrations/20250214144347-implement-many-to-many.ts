@@ -100,7 +100,8 @@ module.exports = {
     }
 
     // 6. Adicionar constraint único no nome da posição
-    await queryInterface.addConstraint("ContactPositions", ["name"], {
+    await queryInterface.addConstraint("ContactPositions", {
+      fields: ["name"],
       type: "unique",
       name: "contact_positions_name_unique"
     });

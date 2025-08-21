@@ -19,7 +19,13 @@ const UpdateService = async (data: Data): Promise<Announcement> => {
     throw new AppError("ERR_NO_ANNOUNCEMENT_FOUND", 404);
   }
 
-  await record.update(data);
+  const updateData = {
+    ...data,
+    id: parseInt(data.id.toString()),
+    priority: parseInt(data.priority),
+    status: data.status === "true" || data.status === "1"
+  };
+  await record.update(updateData);
 
   return record;
 };

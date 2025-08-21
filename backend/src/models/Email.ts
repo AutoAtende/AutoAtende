@@ -94,6 +94,10 @@ class Email extends Model<Email> {
   @Column
   hasAttachments: boolean;
 
+  @AllowNull(true)
+  @Column(DataType.TEXT)
+  metadata: string;
+
   @ForeignKey(() => Company)
   @Column
   companyId: number;

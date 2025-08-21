@@ -46,7 +46,7 @@ export const store = async (req: Request, res: Response): Promise<Response> => {
     }
 
     // Criar a nova associação ticket-tag
-    const ticketTag = await TicketTag.create({ ticketId, tagId });
+    const ticketTag = await TicketTag.create({ ticketId: parseInt(ticketId), tagId: parseInt(tagId) });
 
     // Buscar o ticket atualizado com suas tags
     const updatedTicket = await Ticket.findByPk(ticketId, {
@@ -195,7 +195,7 @@ export const update = async (req: Request, res: Response): Promise<Response> => 
     }
 
     // Adicionar a nova tag
-    await TicketTag.create({ ticketId, tagId });
+    await TicketTag.create({ ticketId: parseInt(ticketId), tagId: parseInt(tagId) });
 
     // Buscar o ticket atualizado com suas tags
     const updatedTicket = await Ticket.findByPk(ticketId, {

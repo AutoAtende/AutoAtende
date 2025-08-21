@@ -176,11 +176,16 @@ const UpdateUserService = async ({
     }
 
     // Atualização do usuário
-    await user.update({
+    const updateData = {
       ...userData,
-      whatsappId: userData.whatsappId || null,
-      number: userData.number ? userData.number.replace(/\D/g, '') : null
-    }, { transaction });
+      whatsappId: userData.whatsappId ? parseInt(userData.whatsappId.toString()) : null,
+      number: userData.number ? userData.number.replace(/\D/g, '') : null,
+      notifyNewTicket: normalizeBooleanValue(userData.notifyNewTicket),
+      notifyTask: normalizeBooleanValue(userData.notifyTask),
+      canRestartConnections: normalizeBooleanValue(userData.canRestartConnections)
+    };
+    
+    await user.update(updateData, { transaction });
 
     // Log após a atualização
     console.log('UpdateUserService - Após atualização:', {

@@ -1,6 +1,7 @@
 // ShowGroupService.ts
 import AppError from "../../errors/AppError";
 import Groups from "../../models/Groups";
+import { GroupMetadata, GroupParticipant } from "baileys";
 import { getWbot } from "../../libs/wbot";
 import GetWhatsAppConnected from "../../helpers/GetWhatsAppConnected";
 import { logger } from "../../utils/logger";
@@ -41,7 +42,7 @@ const ShowGroupService = async ({ companyId, groupId }: Request): Promise<Groups
       const groupMetadata = await wbot.groupMetadata(group.jid);
 
       // Enriquece os participantes com dados de contatos do banco
-      const participantsWithNames: ParticipantWithContact[] = await Promise.all(
+      const participantsWithNames: GroupParticipant[] = await Promise.all(
         groupMetadata.participants.map(async (p) => {
           const number = p.id.split('@')[0];
           
@@ -78,7 +79,7 @@ const ShowGroupService = async ({ companyId, groupId }: Request): Promise<Groups
       
       // Buscar participante do bot
       const botParticipant = participantsWithNames.find(p => {
-        return p.id === botJid || p.number === botNumber;
+        return p.id === botJid || p.lid === botNumber;
       });
       
       if (botParticipant && botParticipant.isAdmin) {

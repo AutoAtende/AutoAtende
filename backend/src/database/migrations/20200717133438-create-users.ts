@@ -1,7 +1,6 @@
 import { QueryInterface, DataTypes } from "sequelize";
 
-module.exports = {
-  up: (queryInterface: QueryInterface) => {
+export const up = async (queryInterface: QueryInterface) => {
     return queryInterface.createTable("Users", {
       id: {
         type: DataTypes.INTEGER,
@@ -31,9 +30,8 @@ module.exports = {
         allowNull: false
       }
     });
-  },
+};
 
-  down: (queryInterface: QueryInterface) => {
+export const down = async (queryInterface: QueryInterface) => {
     return queryInterface.dropTable("Users");
-  }
 };

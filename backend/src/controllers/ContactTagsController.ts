@@ -78,8 +78,8 @@ export const syncContactTags = async (req: Request, res: Response): Promise<Resp
       await Promise.all(
         tagIds.map(async (tagId) => {
           await ContactTags.create({
-            contactId,
-            tagId
+            contactId: parseInt(contactId),
+            tagId: parseInt(tagId)
           });
         })
       );
@@ -155,8 +155,8 @@ export const addContactTag = async (req: Request, res: Response): Promise<Respon
 
     // Adiciona a tag ao contato
     await ContactTags.create({
-      contactId,
-      tagId
+      contactId: parseInt(contactId),
+      tagId: parseInt(tagId)
     });
 
     // Recarrega o contato com as tags atualizadas

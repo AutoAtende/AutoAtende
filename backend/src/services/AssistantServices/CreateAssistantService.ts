@@ -16,13 +16,13 @@ type AssistantTool =
   | { type: "function"; function: FunctionDefinition };
 
 interface VoiceConfig {
-  enableVoiceResponses?: boolean;
-  enableVoiceTranscription?: boolean;
-  voiceId?: string;
-  speed?: number;
-  transcriptionModel?: string;
-  useStreaming?: boolean;
-  additionalSettings?: any;
+  enableVoiceResponses: boolean;
+  enableVoiceTranscription: boolean;
+  voiceId: string;
+  speed: number;
+  transcriptionModel: string;
+  useStreaming: boolean;
+  additionalSettings: any;
 }
 
 interface Request {
@@ -90,7 +90,8 @@ const CreateAssistantService = async ({
     voiceId: 'nova',
     speed: 1.0,
     transcriptionModel: 'whisper-1',
-    useStreaming: false
+    useStreaming: false,
+    additionalSettings: null
   }
 }: Request): Promise<Assistant> => {
   // Validação inicial da API key

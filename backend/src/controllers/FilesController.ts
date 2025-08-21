@@ -214,7 +214,7 @@ export const uploadMedias = async (req: Request, res: Response): Promise<Respons
           const fileName = file.originalname || `File ${Date.now()}`;
           
           fileOption = await FilesOptions.create({
-            fileId: fileListId,
+            fileId: parseInt(fileListId),
             path: file.filename,
             mediaType: currentMediaType,
             name: fileName  // Adicionando o nome do arquivo

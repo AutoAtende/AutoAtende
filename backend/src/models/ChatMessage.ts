@@ -34,17 +34,32 @@ class ChatMessage extends Model<ChatMessage> {
   @Column({ defaultValue: "text" })
   messageType: string; // text, image, video, audio
 
+  @Column({ defaultValue: "text" })
+  type: string;
+
   @Column({ defaultValue: "" })
   mediaPath: string;
 
   @Column({ defaultValue: "" })
+  mediaUrl: string;
+
+  @Column({ defaultValue: "" })
+  mediaType: string;
+
+  @Column({ defaultValue: "" })
   mediaName: string;
+
+  @Column({ defaultValue: false })
+  read: boolean;
 
   @Column({ defaultValue: 0 })
   mediaDuration: number; // para áudios e vídeos
 
   @Column({ defaultValue: null })
   mediaSize: number;
+
+  @Column({ defaultValue: null })
+  url: string;
 
   @CreatedAt
   @Column(DataType.DATE)

@@ -86,6 +86,10 @@ class QueueIntegrations extends Model<QueueIntegrations> {
 
     @Column(DataType.TEXT)
     generatedViaParameters: string;
+
+    @Default(true)
+    @Column(DataType.BOOLEAN)
+    active: boolean;
 }
 
 export default QueueIntegrations;

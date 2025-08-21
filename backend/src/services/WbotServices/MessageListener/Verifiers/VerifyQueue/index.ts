@@ -805,7 +805,7 @@ export const verifyQueue = async (
       if (
         ticketTraking.chatbotAt !== null &&
         Agora < dataLimite &&
-        timeUseBotQueues !== "0" &&
+        timeUseBotQueues.toString() !== "0" &&
         ticket.amountUsedBotQueues !== 0
       ) {
         return;

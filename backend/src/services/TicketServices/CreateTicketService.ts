@@ -107,11 +107,11 @@ const CreateTicketService = async ({
     });
 
   const contact = await Contact.findByPk(ticket.contact.id)
-  await contact.update({ whatsappId })
+  await contact.update({ whatsappId: parseInt(whatsappId.toString()) })
   await contact.reload()
 
   await ticket.update(
-    { companyId, queueId, userId, whatsappId, status: "open" },
+    { companyId, queueId, userId, whatsappId: parseInt(whatsappId.toString()), status: "open" },
   );
   await ticket.reload()
 

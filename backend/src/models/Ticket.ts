@@ -196,6 +196,13 @@ class Ticket extends Model<Ticket> {
   @Column(DataType.TEXT)
   iNotes: string;
 
+  @Default(false)
+  @Column
+  isBot: boolean;
+
+  @Column(DataType.TEXT)
+  title: string;
+
 }
 
 export default Ticket;

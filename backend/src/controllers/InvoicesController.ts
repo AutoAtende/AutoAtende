@@ -167,16 +167,18 @@ export const updateDueDate = async (req: Request, res: Response): Promise<Respon
     const formattedDueDate = moment(dueDate).format('DD-MM-YYYY');
     
     await invoice.update({
-      dueDate: formattedDueDate,
-      updatedAt: moment().format('DD-MM-YYYY HH:mm:ss')
+      dueDate: new Date(dueDate),
+      updatedAt: new Date()
     });
 
     await InvoiceLogs.create({
-      invoiceId: id,
-      userId,
+      invoiceId: parseInt(id),
+      userId: parseInt(userId.toString()),
       type: 'DUE_DATE_UPDATE',
       oldValue: oldDueDate ? moment(oldDueDate).format('DD-MM-YYYY') : null,
-      newValue: formattedDueDate
+      newValue: formattedDueDate,
+      createdAt: new Date(),
+      updatedAt: new Date()
     });
 
     const updatedInvoice = await invoice.reload();
@@ -284,7 +286,7 @@ export const sendWhatsApp = async (
 
     // Encontrar conexão WhatsApp padrão da empresa
     const defaultWhatsapp = await Whatsapp.findOne({
-      where: { companyId: invoice.companyId, default: true }
+      where: { companyId: invoice.companyId, isDefault: true }
     });
 
     if (!defaultWhatsapp) {

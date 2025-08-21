@@ -22,7 +22,11 @@ const CreateService = async (data: Data): Promise<ContactList> => {
     throw new AppError(err.message);
   }
 
-  const record = await ContactList.create(data);
+  const createData = {
+    ...data,
+    companyId: parseInt(data.companyId.toString())
+  };
+  const record = await ContactList.create(createData);
 
   return record;
 };

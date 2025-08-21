@@ -149,8 +149,8 @@ class Whatsapp extends Model<Whatsapp> {
   @Column(DataType.INTEGER)
   maxUseBotQueues: number;
 
-  @Column(DataType.TEXT)
-  timeUseBotQueues: string;
+  @Column(DataType.INTEGER)
+  timeUseBotQueues: number;
 
   @Column(DataType.INTEGER)
   expiresTicket: number;
@@ -158,8 +158,8 @@ class Whatsapp extends Model<Whatsapp> {
   @Column(DataType.TEXT)
   expiresInactiveMessage: string;
 
-  @Column(DataType.TEXT)
-  timeInactiveMessage: string;
+  @Column(DataType.INTEGER)
+  timeInactiveMessage: number;
   
   @Column(DataType.TEXT)
   inactiveMessage: string;
