@@ -57,10 +57,6 @@ class Groups extends Model<Groups> {
   @Column(DataType.JSONB)
   participantsJson: GroupParticipant[];
   
-  // ✅ Campo participants como string para compatibilidade
-  @Column(DataType.TEXT)
-  participants: string;
-  
   // ✅ CORRIGIDO: Tipo JSONB simples com validação por hooks
   @Default('[]')
   @Column(DataType.JSONB)
