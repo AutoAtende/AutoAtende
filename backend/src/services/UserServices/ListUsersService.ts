@@ -49,7 +49,7 @@ const ListUsersService = async ({
     ];
   }
 
-  const limit = 9999;
+  const limit = 50;
   const offset = limit * (Number(pageNumber) - 1);
 
   const { count, rows: users } = await User.findAndCountAll({
