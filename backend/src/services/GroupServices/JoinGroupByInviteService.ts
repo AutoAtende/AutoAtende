@@ -61,7 +61,6 @@ const JoinGroupByInviteService = async ({
         jid: groupId,
         subject: groupMetadata.subject,
         description: groupMetadata.desc,
-        participants: JSON.stringify(groupMetadata.participants),
         participantsJson: groupMetadata.participants,
         adminParticipants,
         inviteLink,
@@ -72,7 +71,6 @@ const JoinGroupByInviteService = async ({
       await group.update({
         subject: groupMetadata.subject,
         description: groupMetadata.desc,
-        participants: JSON.stringify(groupMetadata.participants),
         participantsJson: groupMetadata.participants,
         adminParticipants,
         inviteLink

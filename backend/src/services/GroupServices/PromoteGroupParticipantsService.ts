@@ -125,7 +125,6 @@ const PromoteGroupParticipantsService = async ({
       .map(p => p.id);
     
     await group.update({
-      participants: JSON.stringify(updatedGroupMetadata.participants),
       participantsJson: enrichedParticipants,
       adminParticipants,
       lastSync: new Date()

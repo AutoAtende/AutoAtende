@@ -185,7 +185,6 @@ class AutoGroupManagerService {
         jid: groupResult.id,
         subject: groupName,
         description: groupSeries.description,
-        participants: JSON.stringify(groupMetadata.participants),
         participantsJson: enrichedParticipants,
         adminParticipants,
         inviteLink,
@@ -355,7 +354,6 @@ class AutoGroupManagerService {
       // Atualizar grupo
       await group.update({
         subject: groupMetadata.subject,
-        participants: JSON.stringify(groupMetadata.participants),
         participantsJson: groupMetadata.participants,
         adminParticipants,
         lastSync: new Date()
