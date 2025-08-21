@@ -34,9 +34,6 @@ class TicketTag extends Model<TicketTag> {
 
   @BelongsTo(() => Tag)
   tag: Tag;
-
-  @BelongsTo(() => Company)
-  company: Company;
 }
 
 export default TicketTag;
