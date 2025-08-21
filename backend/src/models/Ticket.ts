@@ -199,10 +199,6 @@ class Ticket extends Model<Ticket> {
   @Default(false)
   @Column(DataType.VIRTUAL)
   isBot: boolean;
-
-  @Column(DataType.TEXT)
-  title: string;
-
 }
 
 export default Ticket;
