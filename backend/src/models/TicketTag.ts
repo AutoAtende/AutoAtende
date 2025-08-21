@@ -23,10 +23,6 @@ class TicketTag extends Model<TicketTag> {
   @Column
   tagId: number;
 
-  @ForeignKey(() => Company)
-  @Column
-  companyId: number;
-
   @CreatedAt
   createdAt: Date;
 
