@@ -197,7 +197,7 @@ class Ticket extends Model<Ticket> {
   iNotes: string;
 
   @Default(false)
-  @Column
+  @Column(DataType.VIRTUAL)
   isBot: boolean;
 
   @Column(DataType.TEXT)
