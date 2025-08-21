@@ -198,8 +198,7 @@ const ListTicketsServiceKanban = async ({
     // Optimized: Single query to get all ticket tags for all requested tags
     const ticketTags = await TicketTag.findAll({
       where: { 
-        tagId: { [Op.in]: tags },
-        companyId
+        tagId: { [Op.in]: tags }
       },
       attributes: ['ticketId', 'tagId']
     });
