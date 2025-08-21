@@ -138,9 +138,6 @@ class User extends Model<User> implements IUser {
   @Column
   ramal: string;
 
-  @Column(DataType.TEXT)
-  refreshToken: string;
-
   @Default(false)
   @Column(DataType.BOOLEAN)
   notifyNewTicket: boolean;
