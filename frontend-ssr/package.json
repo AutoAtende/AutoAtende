@@ -1,0 +1,53 @@
+{
+  "name": "fonte-frontend-ssr",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "type-check": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@emotion/cache": "^11.13.1",
+    "@emotion/react": "^11.13.5",
+    "@emotion/styled": "^11.13.5",
+    "@headlessui/react": "^2.2.7",
+    "@heroicons/react": "^2.2.0",
+    "@hookform/resolvers": "^5.2.1",
+    "@mui/icons-material": "^6.3.0",
+    "@mui/material": "^6.3.0",
+    "@mui/system": "^6.3.0",
+    "@react-spring/web": "^10.0.1",
+    "@types/node": "^22.9.0",
+    "@types/react": "^19.1.10",
+    "@types/react-dom": "^19.1.7",
+    "axios": "^1.11.0",
+    "clsx": "^2.1.1",
+    "date-fns": "^4.1.0",
+    "formik": "^2.4.6",
+    "next": "^15.5.0",
+    "notistack": "^3.0.2",
+    "react": "^19.1.1",
+    "react-dom": "^19.1.1",
+    "react-hook-form": "^7.62.0",
+    "react-router-dom": "^6.29.0",
+    "socket.io-client": "^4.8.1",
+    "swr": "^2.3.6",
+    "tailwindcss": "^4.1.12",
+    "typescript": "^5.9.2",
+    "yup": "^1.7.0",
+    "zustand": "^5.0.8"
+  },
+  "devDependencies": {
+    "@tailwindcss/forms": "^0.5.9",
+    "@tailwindcss/typography": "^0.5.15",
+    "@types/yup": "^0.32.0",
+    "autoprefixer": "^10.4.20",
+    "eslint": "^9.33.0",
+    "eslint-config-next": "^15.0.3",
+    "postcss": "^8.5.6",
+    "typescript": "^5.6.3"
+  }
+}
