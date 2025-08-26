@@ -37,7 +37,7 @@ import {
 import { toast } from "../../../helpers/toast";
 import api from "../../../services/api";
 import { i18n } from "../../../translate/i18n";
-import ContactPhoneInput from '../../../components/PhoneInputs/ContactPhoneInput';
+import ContactPhoneInput from './ContactPhoneInput';
 import ContactProfilePicture from './ContactProfilePicture';
 import ContactTagsManager from './ContactTagsManager';
 
@@ -155,10 +155,15 @@ const ContactModal = ({ open, onClose, contactId, onSave }) => {
                 
                 // Configurar valores iniciais
                 const newInitialValues = {
-                    name: contactData.name || "",
-                    number: contactData.number || "",
-                    email: contactData.email || "",
-                    extraInfo: Array.isArray(contactData.extraInfo) ? contactData.extraInfo : []
+                    name: String(contactData.name || ""),
+                    number: String(contactData.number || ""),
+                    email: String(contactData.email || ""),
+                    extraInfo: Array.isArray(contactData.extraInfo) 
+                        ? contactData.extraInfo.map(info => ({
+                            name: String(info?.name || ""),
+                            value: String(info?.value || "")
+                        }))
+                        : []
                 };
                 
                 console.log('Configurando valores iniciais:', newInitialValues);
@@ -463,12 +468,13 @@ const ContactModal = ({ open, onClose, contactId, onSave }) => {
                                                 {({ field, meta }) => (
                                                     <TextField
                                                         {...field}
+                                                        value={String(field.value || "")}
                                                         label="Nome Completo"
                                                         variant="outlined"
                                                         fullWidth
                                                         required
                                                         error={meta.touched && Boolean(meta.error)}
-                                                        helperText={meta.touched && meta.error}
+                                                        helperText={meta.touched && meta.error ? String(meta.error) : ""}
                                                         disabled={isSaving}
                                                         InputProps={{
                                                             startAdornment: (
@@ -499,10 +505,10 @@ const ContactModal = ({ open, onClose, contactId, onSave }) => {
                                             <Box>
                                                 <ContactPhoneInput
                                                     ref={phoneInputRef}
-                                                    value={values.number}
+                                                    value={String(values.number || "")}
                                                     onChange={(phone) => {
                                                         console.log('Phone mudou:', phone);
-                                                        setFieldValue('number', phone);
+                                                        setFieldValue('number', String(phone || ""));
                                                         
                                                         // Validação em tempo real
                                                         setTimeout(() => {
@@ -521,7 +527,7 @@ const ContactModal = ({ open, onClose, contactId, onSave }) => {
                                                         }, 100);
                                                     }}
                                                     error={touched.number && Boolean(errors.number)}
-                                                    helperText={touched.number && errors.number}
+                                                    helperText={touched.number && errors.number ? String(errors.number) : ""}
                                                     label="Número de Telefone"
                                                     required
                                                     disabled={isSaving}
@@ -533,12 +539,13 @@ const ContactModal = ({ open, onClose, contactId, onSave }) => {
                                                 {({ field, meta }) => (
                                                     <TextField
                                                         {...field}
+                                                        value={String(field.value || "")}
                                                         label="Email (Opcional)"
                                                         variant="outlined"
                                                         fullWidth
                                                         type="email"
                                                         error={meta.touched && Boolean(meta.error)}
-                                                        helperText={meta.touched && meta.error || "Digite um email válido"}
+                                                        helperText={meta.touched && meta.error ? String(meta.error) : "Digite um email válido"}
                                                         placeholder="exemplo@email.com"
                                                         disabled={isSaving}
                                                         InputProps={{
@@ -628,9 +635,12 @@ const ContactModal = ({ open, onClose, contactId, onSave }) => {
 
                                                 <Stack spacing={2}>
                                                     <Autocomplete
-                                                        options={employers}
-                                                        getOptionLabel={(option) => option?.name || ''}
-                                                        value={selectedEmployer}
+                                                        options={employers || []}
+                                                        getOptionLabel={(option) => {
+                                                            if (!option || typeof option !== 'object') return '';
+                                                            return String(option.name || '');
+                                                        }}
+                                                        value={selectedEmployer || null}
                                                         onChange={(event, newValue) => {
                                                             console.log('Employer selecionado:', newValue);
                                                             setSelectedEmployer(newValue);
@@ -657,13 +667,20 @@ const ContactModal = ({ open, onClose, contactId, onSave }) => {
                                                                 }}
                                                             />
                                                         )}
-                                                        isOptionEqualToValue={(option, value) => option?.id === value?.id}
+                                                        isOptionEqualToValue={(option, value) => {
+                                                            if (!option && !value) return true;
+                                                            if (!option || !value) return false;
+                                                            return option.id === value.id;
+                                                        }}
                                                     />
 
                                                     <Autocomplete
-                                                        options={positions}
-                                                        getOptionLabel={(option) => option?.name || ''}
-                                                        value={selectedPosition}
+                                                        options={positions || []}
+                                                        getOptionLabel={(option) => {
+                                                            if (!option || typeof option !== 'object') return '';
+                                                            return String(option.name || '');
+                                                        }}
+                                                        value={selectedPosition || null}
                                                         onChange={(event, newValue) => {
                                                             console.log('Position selecionada:', newValue);
                                                             setSelectedPosition(newValue);
@@ -672,8 +689,9 @@ const ContactModal = ({ open, onClose, contactId, onSave }) => {
                                                         disabled={!selectedEmployer || isSaving}
                                                         freeSolo
                                                         onInputChange={(event, newValue) => {
+                                                            const inputValue = String(newValue || '');
                                                             if (!selectedPosition) {
-                                                                setNewPositionName(newValue);
+                                                                setNewPositionName(inputValue);
                                                             }
                                                         }}
                                                         renderInput={(params) => (
@@ -697,7 +715,11 @@ const ContactModal = ({ open, onClose, contactId, onSave }) => {
                                                                 }}
                                                             />
                                                         )}
-                                                        isOptionEqualToValue={(option, value) => option?.id === value?.id}
+                                                        isOptionEqualToValue={(option, value) => {
+                                                            if (!option && !value) return true;
+                                                            if (!option || !value) return false;
+                                                            return option.id === value.id;
+                                                        }}
                                                     />
                                                 </Stack>
                                             </Box>
@@ -765,11 +787,12 @@ const ContactModal = ({ open, onClose, contactId, onSave }) => {
                                                                             {({ field, meta }) => (
                                                                                 <TextField
                                                                                     {...field}
+                                                                                    value={String(field.value || "")}
                                                                                     label="Nome do Campo"
                                                                                     variant="outlined"
                                                                                     fullWidth
                                                                                     error={meta.touched && Boolean(meta.error)}
-                                                                                    helperText={meta.touched && meta.error}
+                                                                                    helperText={meta.touched && meta.error ? String(meta.error) : ""}
                                                                                     disabled={isSaving}
                                                                                     InputProps={{
                                                                                         startAdornment: (
@@ -786,11 +809,12 @@ const ContactModal = ({ open, onClose, contactId, onSave }) => {
                                                                             {({ field, meta }) => (
                                                                                 <TextField
                                                                                     {...field}
+                                                                                    value={String(field.value || "")}
                                                                                     label="Valor"
                                                                                     variant="outlined"
                                                                                     fullWidth
                                                                                     error={meta.touched && Boolean(meta.error)}
-                                                                                    helperText={meta.touched && meta.error}
+                                                                                    helperText={meta.touched && meta.error ? String(meta.error) : ""}
                                                                                     disabled={isSaving}
                                                                                 />
                                                                             )}
