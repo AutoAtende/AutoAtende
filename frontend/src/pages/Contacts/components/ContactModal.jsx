@@ -37,7 +37,7 @@ import {
 import { toast } from "../../../helpers/toast";
 import api from "../../../services/api";
 import { i18n } from "../../../translate/i18n";
-import ContactPhoneInput from './ContactPhoneInput';
+import ContactPhoneInput from '../../../components/PhoneInputs/ContactPhoneInput';
 import ContactProfilePicture from './ContactProfilePicture';
 import ContactTagsManager from './ContactTagsManager';
 
