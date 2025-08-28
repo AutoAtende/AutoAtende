@@ -822,7 +822,7 @@ export const handleMessage = async (
         include: [
           {
             model: TicketTraking,
-            as: "ticketTrakings",
+            as: "tracking",
             required: false
           }
         ]
